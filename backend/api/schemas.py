@@ -88,6 +88,7 @@ class MatchEvent(BaseModel):
     
     # Natural language live play-by-play commentary
     commentary: Optional[str] = None
+    translations: Dict[str, str] = Field(default_factory=dict) # lang_code -> commentary text
 
 class ControlChaosState(BaseModel):
     home_control_pct: float # 0 to 100
@@ -107,7 +108,8 @@ class MatchInsight(BaseModel):
     language: SupportedLanguage = SupportedLanguage.EN
     significance_score: int = Field(..., ge=1, le=10) # 1 to 10
     highlight_player_id: Optional[str] = None
-    translated_versions: Dict[str, str] = Field(default_factory=dict) # lang_code -> headline/text
+    translated_versions: Dict[str, str] = Field(default_factory=dict) # lang_code -> headline
+    translations: Dict[str, Dict[str, str]] = Field(default_factory=dict) # lang_code -> {headline, why_it_matters, tactical_explanation}
 
 class MatchRecap(BaseModel):
     match_id: str

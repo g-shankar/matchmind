@@ -8,6 +8,7 @@ from api.schemas import (
 )
 from simulation.teams_data import TEAMS_DATA
 from simulation.auto_eventer import AutoEventVisionPipeline
+from ai.translator import AzureMultilingualTranslator
 from analytics.metrics_engine import (
     calculate_pass_difficulty, check_line_breaking_pass,
     evaluate_speed_milestones, get_xt_value
@@ -31,6 +32,7 @@ class SyntheticMatchSimulator:
         self.home_score = 0
         self.away_score = 0
         self.vision_pipeline = AutoEventVisionPipeline()
+        self.translator = AzureMultilingualTranslator()
         self.sequence_pass_count = 0
 
     def reset(self):
@@ -261,6 +263,20 @@ class SyntheticMatchSimulator:
         else:
             commentary = f"Turnover in the {pitch_zone.lower()} as {primary_player.name} loses control under defensive press."
 
+        # Category for translations
+        cat = (
+            "goal" if event_type == EventType.GOAL else
+            "shot" if event_type == EventType.SHOT else
+            "line_break" if is_line_breaking else
+            "tackle" if event_type in [EventType.TACKLE, EventType.INTERCEPTION] else
+            "routine"
+        )
+        commentary_translations = {}
+        for lang in ["fr", "es", "ar", "ja"]:
+            commentary_translations[lang] = self.translator.get_commentary_translation(
+                cat, primary_player.name, active_team_data["name"], telemetry.speed_kmh, telemetry.distance_meters, lang
+            )
+
         return MatchEvent(
             event_id=str(uuid.uuid4())[:8],
             match_id=self.match_id,
@@ -288,5 +304,6 @@ class SyntheticMatchSimulator:
             speed_milestone_triggered=bool(speed_milestone_desc),
             speed_milestone_desc=speed_milestone_desc,
             auto_detection=auto_detection,
-            commentary=commentary
+            commentary=commentary,
+            translations=commentary_translations
         )

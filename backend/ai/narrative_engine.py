@@ -51,16 +51,22 @@ class MatchNarrativeEngine:
             persona=active_persona
         )
 
-        # Generate multi-language translations concurrently
-        translated_versions: Dict[str, str] = {}
-        translation_tasks = [
-            self.translator.translate_text(insight_dict["headline"], lang)
-            for lang in languages
-        ]
-        results = await asyncio.gather(*translation_tasks, return_exceptions=True)
-        for lang, res in zip(languages, results):
-            if isinstance(res, str):
-                translated_versions[lang] = res
+        # Category for authentic localized translations
+        cat = (
+            "goal" if event.event_type == EventType.GOAL else
+            "shot" if event.event_type == EventType.SHOT else
+            "line_break" if event.is_line_breaking else
+            "tackle" if event.event_type in [EventType.TACKLE, EventType.INTERCEPTION] else
+            "routine"
+        )
+        full_translations = {}
+        translated_headlines = {}
+        for lang in languages:
+            bundle = self.translator.get_bundle_translation(
+                cat, event.player.name, event.team, event.telemetry.speed_kmh, event.telemetry.distance_meters, int(event.context.pressure_intensity * 100), lang
+            )
+            full_translations[lang] = bundle
+            translated_headlines[lang] = bundle.get("headline", insight_dict["headline"])
 
         insight = MatchInsight(
             insight_id=str(uuid.uuid4())[:8],
@@ -73,7 +79,8 @@ class MatchNarrativeEngine:
             language=SupportedLanguage.EN,
             significance_score=insight_dict.get("significance_score", 7),
             highlight_player_id=event.player.id,
-            translated_versions=translated_versions
+            translated_versions=translated_headlines,
+            translations=full_translations
         )
 
         self.cached_insights.append(insight)

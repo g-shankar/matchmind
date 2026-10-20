@@ -74,6 +74,7 @@ export interface MatchEvent {
   speed_milestone_desc?: string;
   auto_detection?: AutoEventDetection;
   commentary?: string;
+  translations?: Record<string, string>;
 }
 
 export interface ControlChaosState {
@@ -96,6 +97,7 @@ export interface MatchInsight {
   significance_score: number;
   highlight_player_id?: string;
   translated_versions: Record<string, string>;
+  translations?: Record<string, { headline: string; why_it_matters: string; tactical_explanation: string }>;
 }
 
 export interface MatchRecap {
