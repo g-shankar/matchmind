@@ -89,6 +89,7 @@ export interface MatchInsight {
   insight_id: string;
   event_id: string;
   match_clock: string;
+  timestamp_seconds?: number;
   headline: string;
   why_it_matters: string;
   tactical_explanation: string;

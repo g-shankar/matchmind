@@ -72,6 +72,7 @@ class MatchNarrativeEngine:
             insight_id=str(uuid.uuid4())[:8],
             event_id=event.event_id,
             match_clock=event.match_clock,
+            timestamp_seconds=event.timestamp_seconds,
             headline=insight_dict["headline"],
             why_it_matters=insight_dict["why_it_matters"],
             tactical_explanation=insight_dict["tactical_explanation"],

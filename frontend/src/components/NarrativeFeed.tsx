@@ -109,6 +109,17 @@ interface StackItem {
   insight?: MatchInsight;
 }
 
+function parseClockToSeconds(clock: string): number {
+  if (!clock) return 0;
+  const parts = clock.split(':');
+  if (parts.length === 2) {
+    const mins = parseInt(parts[0], 10) || 0;
+    const secs = parseInt(parts[1], 10) || 0;
+    return mins * 60 + secs;
+  }
+  return 0;
+}
+
 export const NarrativeFeed: React.FC<NarrativeFeedProps> = ({
   insights,
   recentEvents,
@@ -119,35 +130,35 @@ export const NarrativeFeed: React.FC<NarrativeFeedProps> = ({
   const t = UI_STRINGS[currentLanguage] || UI_STRINGS.en;
 
   // Build a true Stack: Newest Items ALWAYS at the Top (LIFO stack ordering)
+  // e.g. 16:31 at the bottom, above it 16:38, above it 16:40 at the top!
   const stackItems = useMemo<StackItem[]>(() => {
     const items: StackItem[] = [];
 
     // Add commentary events
     recentEvents.forEach((ev) => {
+      const ts = ev.timestamp_seconds || parseClockToSeconds(ev.match_clock);
       items.push({
         id: `ev-${ev.event_id}`,
         type: 'commentary',
         clock: ev.match_clock,
-        timestamp: ev.timestamp_seconds,
+        timestamp: ts,
         event: ev,
       });
     });
 
-    // Add AI insights with slight timestamp advantage (+0.001) so an insight for a moment sits ABOVE its commentary
+    // Add AI insights with slight timestamp advantage (+0.1) so an insight for a moment sits ABOVE its commentary
     insights.forEach((ins) => {
-      // Find matching event timestamp or estimate from clock
-      const parentEvent = recentEvents.find((e) => e.event_id === ins.event_id);
-      const baseTs = parentEvent ? parentEvent.timestamp_seconds : 0;
+      const ts = (ins.timestamp_seconds || parseClockToSeconds(ins.match_clock)) + 0.1;
       items.push({
         id: `ins-${ins.insight_id}`,
         type: 'insight',
         clock: ins.match_clock,
-        timestamp: baseTs + 0.001,
+        timestamp: ts,
         insight: ins,
       });
     });
 
-    // Sort strictly descending by timestamp: Newest (latest) at the very top!
+    // Sort strictly descending by timestamp: Newest (highest clock e.g. 16:40) at the very top!
     items.sort((a, b) => b.timestamp - a.timestamp);
 
     return items;

@@ -101,6 +101,7 @@ class MatchInsight(BaseModel):
     insight_id: str
     event_id: str
     match_clock: str
+    timestamp_seconds: float = 0.0
     headline: str
     why_it_matters: str
     tactical_explanation: str
