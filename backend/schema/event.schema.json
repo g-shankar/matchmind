@@ -1,0 +1,451 @@
+{
+  "$defs": {
+    "BodyPart": {
+      "enum": [
+        "right_foot",
+        "left_foot",
+        "head"
+      ],
+      "title": "BodyPart",
+      "type": "string"
+    },
+    "EventType": {
+      "enum": [
+        "match_start",
+        "period_start",
+        "pass",
+        "carry",
+        "dribble",
+        "shot",
+        "run",
+        "interception",
+        "tackle",
+        "clearance",
+        "recovery",
+        "foul",
+        "card",
+        "milestone",
+        "period_end",
+        "match_end"
+      ],
+      "title": "EventType",
+      "type": "string"
+    },
+    "FramePlayer": {
+      "description": "One player's location inside a shot freeze frame or a tracking frame.",
+      "properties": {
+        "player_id": {
+          "title": "Player Id",
+          "type": "string"
+        },
+        "team": {
+          "title": "Team",
+          "type": "string"
+        },
+        "x": {
+          "maximum": 105.0,
+          "minimum": 0,
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "maximum": 68.0,
+          "minimum": 0,
+          "title": "Y",
+          "type": "number"
+        },
+        "teammate": {
+          "description": "True if on the same team as the event's actor.",
+          "title": "Teammate",
+          "type": "boolean"
+        },
+        "keeper": {
+          "default": false,
+          "title": "Keeper",
+          "type": "boolean"
+        },
+        "actor": {
+          "default": false,
+          "title": "Actor",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "player_id",
+        "team",
+        "x",
+        "y",
+        "teammate"
+      ],
+      "title": "FramePlayer",
+      "type": "object"
+    },
+    "LineupPlayer": {
+      "properties": {
+        "player_id": {
+          "title": "Player Id",
+          "type": "string"
+        },
+        "team": {
+          "title": "Team",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "number": {
+          "title": "Number",
+          "type": "integer"
+        },
+        "position": {
+          "title": "Position",
+          "type": "string"
+        }
+      },
+      "required": [
+        "player_id",
+        "team",
+        "name",
+        "number",
+        "position"
+      ],
+      "title": "LineupPlayer",
+      "type": "object"
+    },
+    "Outcome": {
+      "enum": [
+        "complete",
+        "incomplete",
+        "out",
+        "won",
+        "goal",
+        "saved",
+        "blocked",
+        "off_target",
+        "found",
+        "not_found"
+      ],
+      "title": "Outcome",
+      "type": "string"
+    },
+    "Point": {
+      "properties": {
+        "x": {
+          "maximum": 105.0,
+          "minimum": 0,
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "maximum": 68.0,
+          "minimum": 0,
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Point",
+      "type": "object"
+    },
+    "TrackingFrame": {
+      "description": "Positions at one instant inside a run window (every 0.5 s).",
+      "properties": {
+        "t_offset_s": {
+          "minimum": 0,
+          "title": "T Offset S",
+          "type": "number"
+        },
+        "ball": {
+          "$ref": "#/$defs/Point"
+        },
+        "players": {
+          "items": {
+            "$ref": "#/$defs/FramePlayer"
+          },
+          "title": "Players",
+          "type": "array"
+        }
+      },
+      "required": [
+        "t_offset_s",
+        "ball",
+        "players"
+      ],
+      "title": "TrackingFrame",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "A single match event. One JSON object per line in the JSONL stream.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "event_id": {
+      "title": "Event Id",
+      "type": "string"
+    },
+    "match_id": {
+      "title": "Match Id",
+      "type": "string"
+    },
+    "seq": {
+      "description": "Strictly increasing order within a match.",
+      "minimum": 0,
+      "title": "Seq",
+      "type": "integer"
+    },
+    "ts": {
+      "description": "Wall-clock time the event happened (UTC).",
+      "format": "date-time",
+      "title": "Ts",
+      "type": "string"
+    },
+    "period": {
+      "maximum": 2,
+      "minimum": 1,
+      "title": "Period",
+      "type": "integer"
+    },
+    "clock_s": {
+      "description": "Match clock in seconds; period 2 starts at 2700.",
+      "minimum": 0,
+      "title": "Clock S",
+      "type": "number"
+    },
+    "match_clock": {
+      "description": "Broadcast clock, e.g. '67:20' or '90+2:15'.",
+      "title": "Match Clock",
+      "type": "string"
+    },
+    "type": {
+      "$ref": "#/$defs/EventType"
+    },
+    "team": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Team"
+    },
+    "player_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Player Id"
+    },
+    "receiver_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Intended receiver of a pass (set even if incomplete).",
+      "title": "Receiver Id"
+    },
+    "possession_id": {
+      "anyOf": [
+        {
+          "type": "integer"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Possession Id"
+    },
+    "start": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Point"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "end": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Point"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "outcome": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Outcome"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "ball_speed_mps": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Ball Speed Mps"
+    },
+    "player_speed_mps": {
+      "anyOf": [
+        {
+          "minimum": 0,
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Player Speed Mps"
+    },
+    "under_pressure": {
+      "default": false,
+      "title": "Under Pressure",
+      "type": "boolean"
+    },
+    "pressure_players": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Pressure Players",
+      "type": "array"
+    },
+    "body_part": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/BodyPart"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "freeze_frame": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/FramePlayer"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Shots only: everyone in or around the box (final 35 m) at the moment of the shot.",
+      "title": "Freeze Frame"
+    },
+    "tracking": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/TrackingFrame"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Runs only: runner, ball carrier, back line and keeper every 0.5 s for 3 s.",
+      "title": "Tracking"
+    },
+    "lineups": {
+      "anyOf": [
+        {
+          "items": {
+            "$ref": "#/$defs/LineupPlayer"
+          },
+          "type": "array"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "match_start only.",
+      "title": "Lineups"
+    },
+    "details": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          }
+        ]
+      },
+      "title": "Details",
+      "type": "object"
+    },
+    "labels": {
+      "description": "Ground-truth labels for evaluation (scripted beats, pressure spells). Consumers must strip these before anything reaches an agent.",
+      "items": {
+        "type": "string"
+      },
+      "title": "Labels",
+      "type": "array"
+    }
+  },
+  "required": [
+    "event_id",
+    "match_id",
+    "seq",
+    "ts",
+    "period",
+    "clock_s",
+    "match_clock",
+    "type"
+  ],
+  "title": "Event",
+  "type": "object"
+}

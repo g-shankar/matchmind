@@ -1,0 +1,23 @@
+# The demo match used in the hackathon video.
+# Northbridge go 2-0 up, lose a centre-back to a red card, then Harbour City
+# take over during a 15-minute pressure spell and win it 3-2 in stoppage time.
+# Both "Should he have passed?" triggers appear: a missed square ball (34',
+# 78') and a run in behind that is never found (61:12).
+match_id: MM-DEMO-001
+home: NBR
+away: HCY
+kickoff: "2026-10-24T15:00:00Z"
+stoppage_minutes: [2, 5]
+random_goals: false
+beats:
+  - {type: goal, at: "23:10", team: NBR, player: NBR-9, assist: NBR-7}
+  - {type: missed_option, at: "34:05", team: NBR, player: NBR-11, open_player: NBR-9, outcome: saved}
+  - {type: goal, at: "41:30", team: NBR, player: NBR-10, assist: NBR-9}
+  - {type: red_card, at: "52:40", team: NBR, player: NBR-4}
+  - {type: pressure_spell, at: "60:00", until: "75:00", team: HCY, intensity: 0.6}
+  - {type: run_not_found, at: "61:12", team: HCY, player: HCY-9, carrier: HCY-10}
+  - {type: goal, at: "67:20", team: HCY, player: HCY-10, assist: HCY-11}
+  - {type: milestone, at: "70:00", team: HCY, player: HCY-10, label: "100th club appearance"}
+  - {type: missed_option, at: "78:45", team: HCY, player: HCY-7, open_player: HCY-9, outcome: blocked}
+  - {type: goal, at: "84:10", team: HCY, player: HCY-9, assist: HCY-7}
+  - {type: goal, at: "90+2:15", team: HCY, player: HCY-11, assist: HCY-10}
