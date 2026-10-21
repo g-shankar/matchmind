@@ -15,20 +15,27 @@ Things only the owners can do. Everything else the team handles.
      "subject": "repo:g-shankar/matchmind:environment:production",
      "audiences": ["api://AzureADTokenExchange"]}'
    az group create -n rg-pitchpulse -l <region>
-   az role assignment create --assignee <appId> --role Owner \
-     --scope /subscriptions/<subId>/resourceGroups/rg-pitchpulse
+   RG=/subscriptions/<subId>/resourceGroups/rg-pitchpulse
+   az role assignment create --assignee <appId> --role Contributor --scope $RG
+   # May grant only the five roles the template uses, nothing else.
+   ROLES="7f951dda-4ed3-4680-a7ca-43fe172d538d, 5e0bd9bd-7b93-4f28-af87-19fc36ad61bd, a97b65f3-24c7-4388-baec-2e87135dc908, 2b629674-e913-4c01-ae53-ef4638d8f975, a638d3c7-ab3a-418d-83e6-5f17a39d4fde"
+   az role assignment create --assignee <appId> \
+     --role "Role Based Access Control Administrator" --scope $RG \
+     --condition-version 2.0 --condition "((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {$ROLES})) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {$ROLES}))"
    ```
-   Owner on the resource group (not the subscription) is needed because the
-   template creates role assignments for the app's managed identity.
+   The deploy identity can manage resources in this one resource group and
+   hand out only the five roles the app and simulator need.
 3. **GitHub settings**: Settings -> Environments -> new environment
-   `production`, add yourself as required reviewer. Settings -> Secrets and
+   `production`, add yourself as required reviewer and set deployment
+   branches to `main` only. Settings -> Secrets and
    variables -> Actions -> **Variables** (not secrets, none of these are
    secret): `AZURE_CLIENT_ID` (appId), `AZURE_TENANT_ID`,
    `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, `AZURE_LOCATION`.
 4. **Approve the first deploy**: run Actions -> deploy -> `what-if`, review,
    then `deploy` (see `deployment/README.md`).
-5. **Approve Azure AI spend** before `aiEnabled=true` (Azure OpenAI and
-   Translator are paid).
+5. **Approve Azure AI spend**, then set repo variables `DEPLOY_OPENAI=true`
+   and `MATCHMIND_AI_ENABLED=true` (and `DEPLOY_TRANSLATOR=true` for
+   Translator) and redeploy. Unset means off.
 6. **GitHub**: turn on secret scanning and push protection
    (Settings -> Code security). Review and merge the engine branch.
 7. **Hackathon registration**: make sure both builders are listed as team

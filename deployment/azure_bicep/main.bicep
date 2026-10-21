@@ -1,12 +1,13 @@
 // PitchPulse on Azure: one resource group, no keys anywhere.
 //
-// Everything authenticates with Microsoft Entra ID through one user-assigned
-// managed identity: Azure OpenAI, Translator and Event Hubs have local (key)
+// Everything authenticates with Microsoft Entra ID through user-assigned
+// managed identities (one for the web app, one for the simulator job, each
+// with only the roles it needs): Azure OpenAI, Translator and Event Hubs have local (key)
 // auth switched off, the registry has its admin user switched off, and this
 // template outputs names and endpoints only.
 //
 // Deploy in two passes (the deploy workflow does this):
-//   1. deployApps=false  -> identity, registry, logs, Event Hubs, AI services
+//   1. deployApps=false  -> identities, registry, logs, Event Hubs, AI services
 //   2. push the image, then deployApps=true with containerImage set
 
 targetScope = 'resourceGroup'
@@ -25,8 +26,8 @@ param deployApps bool = false
 @description('Full image reference, e.g. <registry>.azurecr.io/pitchpulse:<sha>.')
 param containerImage string = ''
 
-@description('Create Azure OpenAI. Paid: billed per token only when the crew runs with AI on.')
-param deployOpenAi bool = true
+@description('Create Azure OpenAI. Paid per token; off until the owner approves AI spend.')
+param deployOpenAi bool = false
 
 @description('Create Azure AI Translator. Paid per character; off by default.')
 param deployTranslator bool = false
@@ -47,7 +48,8 @@ param extraAllowedOrigins string = ''
 
 var suffix = uniqueString(resourceGroup().id)
 var names = {
-  identity: 'id-${namePrefix}'
+  appIdentity: 'id-${namePrefix}-app'
+  simulatorIdentity: 'id-${namePrefix}-sim'
   logs: 'log-${namePrefix}-${suffix}'
   registry: take('cr${namePrefix}${suffix}', 50)
   eventHubs: 'evh-${namePrefix}-${suffix}'
@@ -70,8 +72,15 @@ var roles = {
 
 // ---------------------------------------------------------------- identity --
 
-resource identity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: names.identity
+// Web app: pulls images, reads the event stream, calls the AI services.
+resource appIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: names.appIdentity
+  location: location
+}
+
+// Simulator job: pulls images and sends to the event stream, nothing else.
+resource simulatorIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: names.simulatorIdentity
   location: location
 }
 
@@ -97,11 +106,21 @@ resource registry 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   }
 }
 
-resource registryPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource appRegistryPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: registry
-  name: guid(registry.id, identity.id, roles.acrPull)
+  name: guid(registry.id, appIdentity.id, roles.acrPull)
   properties: {
-    principalId: identity.properties.principalId
+    principalId: appIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.acrPull)
+  }
+}
+
+resource simulatorRegistryPull 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: registry
+  name: guid(registry.id, simulatorIdentity.id, roles.acrPull)
+  properties: {
+    principalId: simulatorIdentity.properties.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.acrPull)
   }
@@ -134,9 +153,9 @@ resource matchEvents 'Microsoft.EventHub/namespaces/eventhubs@2024-01-01' = {
 
 resource eventHubsSender 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: matchEvents
-  name: guid(matchEvents.id, identity.id, roles.eventHubsDataSender)
+  name: guid(matchEvents.id, simulatorIdentity.id, roles.eventHubsDataSender)
   properties: {
-    principalId: identity.properties.principalId
+    principalId: simulatorIdentity.properties.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.eventHubsDataSender)
   }
@@ -144,9 +163,9 @@ resource eventHubsSender 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
 
 resource eventHubsReceiver 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   scope: matchEvents
-  name: guid(matchEvents.id, identity.id, roles.eventHubsDataReceiver)
+  name: guid(matchEvents.id, appIdentity.id, roles.eventHubsDataReceiver)
   properties: {
-    principalId: identity.properties.principalId
+    principalId: appIdentity.properties.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.eventHubsDataReceiver)
   }
@@ -184,9 +203,9 @@ resource openAiDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024
 
 resource openAiUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployOpenAi) {
   scope: openAi
-  name: guid(resourceId('Microsoft.CognitiveServices/accounts', names.openAi), identity.id, roles.cognitiveServicesOpenAiUser)
+  name: guid(resourceId('Microsoft.CognitiveServices/accounts', names.openAi), appIdentity.id, roles.cognitiveServicesOpenAiUser)
   properties: {
-    principalId: identity.properties.principalId
+    principalId: appIdentity.properties.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.cognitiveServicesOpenAiUser)
   }
@@ -209,9 +228,9 @@ resource translator 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (depl
 
 resource translatorUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployTranslator) {
   scope: translator
-  name: guid(resourceId('Microsoft.CognitiveServices/accounts', names.translator), identity.id, roles.cognitiveServicesUser)
+  name: guid(resourceId('Microsoft.CognitiveServices/accounts', names.translator), appIdentity.id, roles.cognitiveServicesUser)
   properties: {
-    principalId: identity.properties.principalId
+    principalId: appIdentity.properties.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.cognitiveServicesUser)
   }
@@ -252,10 +271,13 @@ resource environmentLogs 'Microsoft.Insights/diagnosticSettings@2021-05-01-previ
 var appFqdn = '${names.app}.${environment.properties.defaultDomain}'
 var allowedOrigins = empty(extraAllowedOrigins) ? 'https://${appFqdn}' : 'https://${appFqdn},${extraAllowedOrigins}'
 
-var sharedEnv = [
-  { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }
+var eventHubEnv = [
   { name: 'EVENTHUB_FULLY_QUALIFIED_NAMESPACE', value: '${eventHubs.name}.servicebus.windows.net' }
   { name: 'EVENTHUB_NAME', value: eventHubName }
+]
+
+var appEnv = [
+  { name: 'AZURE_CLIENT_ID', value: appIdentity.properties.clientId }
   { name: 'MATCHMIND_AI_ENABLED', value: string(aiEnabled) }
   { name: 'AZURE_OPENAI_ENDPOINT', value: deployOpenAi ? openAi!.properties.endpoint : '' }
   { name: 'AZURE_OPENAI_DEPLOYMENT', value: openAiModelName }
@@ -265,12 +287,6 @@ var sharedEnv = [
   { name: 'AZURE_TRANSLATOR_REGION', value: location }
 ]
 
-var registryAuth = [
-  {
-    server: registry.properties.loginServer
-    identity: identity.id
-  }
-]
 
 // The API, WebSocket and built frontend run as one app. The match session is
 // held in memory, so it stays at exactly one replica.
@@ -279,15 +295,15 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
   location: location
   identity: {
     type: 'UserAssigned'
-    userAssignedIdentities: { '${identity.id}': {} }
+    userAssignedIdentities: { '${appIdentity.id}': {} }
   }
-  dependsOn: [registryPull]
+  dependsOn: [appRegistryPull]
   properties: {
     environmentId: environment.id
     workloadProfileName: 'Consumption'
     configuration: {
       activeRevisionsMode: 'Single'
-      registries: registryAuth
+      registries: [{ server: registry.properties.loginServer, identity: appIdentity.id }]
       ingress: {
         external: true
         targetPort: 8000
@@ -304,7 +320,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
             cpu: json('0.5')
             memory: '1Gi'
           }
-          env: concat(sharedEnv, [{ name: 'MATCHMIND_ALLOWED_ORIGINS', value: allowedOrigins }])
+          env: concat(appEnv, eventHubEnv, [{ name: 'MATCHMIND_ALLOWED_ORIGINS', value: allowedOrigins }])
           probes: [
             {
               type: 'Liveness'
@@ -334,9 +350,9 @@ resource simulatorJob 'Microsoft.App/jobs@2024-03-01' = if (deployApps) {
   location: location
   identity: {
     type: 'UserAssigned'
-    userAssignedIdentities: { '${identity.id}': {} }
+    userAssignedIdentities: { '${simulatorIdentity.id}': {} }
   }
-  dependsOn: [registryPull, eventHubsSender]
+  dependsOn: [simulatorRegistryPull, eventHubsSender]
   properties: {
     environmentId: environment.id
     workloadProfileName: 'Consumption'
@@ -348,7 +364,7 @@ resource simulatorJob 'Microsoft.App/jobs@2024-03-01' = if (deployApps) {
         parallelism: 1
         replicaCompletionCount: 1
       }
-      registries: registryAuth
+      registries: [{ server: registry.properties.loginServer, identity: simulatorIdentity.id }]
     }
     template: {
       containers: [
@@ -361,7 +377,7 @@ resource simulatorJob 'Microsoft.App/jobs@2024-03-01' = if (deployApps) {
             cpu: json('0.25')
             memory: '0.5Gi'
           }
-          env: sharedEnv
+          env: concat([{ name: 'AZURE_CLIENT_ID', value: simulatorIdentity.properties.clientId }], eventHubEnv)
         }
       ]
     }
@@ -373,7 +389,7 @@ resource simulatorJob 'Microsoft.App/jobs@2024-03-01' = if (deployApps) {
 
 output registryName string = registry.name
 output registryLoginServer string = registry.properties.loginServer
-output identityClientId string = identity.properties.clientId
+output appIdentityClientId string = appIdentity.properties.clientId
 output eventHubsNamespace string = '${eventHubs.name}.servicebus.windows.net'
 output eventHubName string = eventHubName
 output openAiEndpoint string = deployOpenAi ? openAi!.properties.endpoint : ''

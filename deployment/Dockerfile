@@ -23,4 +23,4 @@ COPY --from=frontend /src/frontend/dist ./static
 
 USER 10001
 EXPOSE 8000
-CMD ["uvicorn", "matchmind.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+CMD ["uvicorn", "matchmind.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
