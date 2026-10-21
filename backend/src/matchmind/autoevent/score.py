@@ -45,7 +45,9 @@ class AutoEventingReport(BaseModel):
     shots: KindScore
     clearances: KindScore
     receiver_accuracy: float | None = Field(description="Matched complete passes with the right receiver.")
-    speed_mae_kmh: float = Field(description="Kick speed error over matched passes and shots, km/h.")
+    speed_mae_kmh: float | None = Field(
+        description="Kick speed error over matched passes and shots, km/h; None when nothing matched."
+    )
     shot_speed_mae_kmh: float | None
 
 
@@ -74,10 +76,11 @@ def match_events(truth: list[Event], found: list[DetectedEvent]) -> list[Match]:
             if d.period == e.period and d.player_id == e.player_id:
                 gap = abs(d.clock_s - e.clock_s)
                 if gap <= MATCH_WINDOW_S:
-                    pairs.append((gap, ti, fi))
+                    # Same-kind pairs go first, so a pass and a shot close together keep their own kind.
+                    pairs.append((d.kind != _TRUTH_KIND[e.type], gap, ti, fi))
     pairs.sort()
     used_t, used_f, out = set(), set(), []
-    for _, ti, fi in pairs:
+    for _, _, ti, fi in pairs:
         if ti in used_t or fi in used_f:
             continue
         used_t.add(ti)
@@ -116,6 +119,8 @@ def _kind_score(kind: str, truth: list[Event], found: list[DetectedEvent], match
 
 
 def score(truth: list[Event], found: list[DetectedEvent], *, hz: float, frames: int) -> AutoEventingReport:
+    if not truth:
+        raise ValueError("There are no true events to score against.")
     matches = match_events(truth, found)
     passes = _kind_score("pass", truth, found, matches)
     shots = _kind_score("shot", truth, found, matches)
@@ -142,7 +147,7 @@ def score(truth: list[Event], found: list[DetectedEvent], *, hz: float, frames: 
             if complete
             else None
         ),
-        speed_mae_kmh=round(MPS_TO_KMH * sum(kick_errors) / len(kick_errors), 2) if kick_errors else 0.0,
+        speed_mae_kmh=round(MPS_TO_KMH * sum(kick_errors) / len(kick_errors), 2) if kick_errors else None,
         shot_speed_mae_kmh=round(MPS_TO_KMH * shots.speed_mae_mps, 2)
         if shots.speed_mae_mps is not None
         else None,
@@ -159,6 +164,9 @@ def report(events: list[Event], *, hz: float = DEFAULT_HZ, seed: int | None = No
 def evaluate(events: list[Event], *, hz: float = DEFAULT_HZ, seed: int | None = None) -> AutoEventingStatus:
     """Headline numbers for the API. Pure: same events in, same numbers out."""
     r = report(events, hz=hz, seed=seed)
+    if r.speed_mae_kmh is None:
+        # Never report a perfect error when nothing was checked.
+        raise ValueError("No passes or shots were matched, so there is nothing to report.")
     return AutoEventingStatus(
         passes_detected_pct=round(100 * r.passes.recall, 1),
         speed_mae_kmh=r.speed_mae_kmh,
