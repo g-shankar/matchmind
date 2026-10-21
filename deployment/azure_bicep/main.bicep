@@ -322,6 +322,18 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
           }
           env: concat(appEnv, eventHubEnv, [{ name: 'MATCHMIND_ALLOWED_ORIGINS', value: allowedOrigins }])
           probes: [
+            // Startup runs the crew over the whole demo match (about 20 s),
+            // so allow up to 2 minutes before liveness takes over.
+            {
+              type: 'Startup'
+              httpGet: {
+                path: '/api/health'
+                port: 8000
+              }
+              initialDelaySeconds: 10
+              periodSeconds: 5
+              failureThreshold: 24
+            }
             {
               type: 'Liveness'
               httpGet: {

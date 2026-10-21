@@ -93,7 +93,7 @@ jobs:
           # Refuse to ship an image that does not start and serve the app.
           docker run -d --name smoke -p 8000:8000 "$image"
           ok=false
-          for _ in $(seq 1 30); do
+          for _ in $(seq 1 90); do
             if curl -fsS http://localhost:8000/api/health; then ok=true; break; fi
             sleep 1
           done

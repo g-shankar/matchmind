@@ -98,4 +98,13 @@ jobs:
           test "$(docker run --rm pitchpulse:ci id -u)" = "10001"
           docker run --rm pitchpulse:ci matchmind-sim --help
           docker run --rm pitchpulse:ci test -f static/index.html
-          docker run --rm pitchpulse:ci python -c "import matchmind.api.app"
+      - name: Web app starts and serves the API and frontend
+        run: |
+          docker run -d --name web -p 8000:8000 pitchpulse:ci
+          for _ in $(seq 1 90); do curl -fsS http://localhost:8000/api/health && break; sleep 1; done
+          curl -fsS http://localhost:8000/api/health
+          curl -fsS http://localhost:8000/api/match/snapshot > /dev/null
+          curl -fsS http://localhost:8000/ | grep -q 'id="root"'
+      - name: Web app logs
+        if: always()
+        run: docker logs web || true
