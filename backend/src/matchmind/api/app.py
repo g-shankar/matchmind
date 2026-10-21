@@ -28,6 +28,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from matchmind.crew.contracts import FocusMetric, Language, Persona, ViewerProfile
+from matchmind.crew.producer import ViewerState
 
 from . import view
 from .session import MatchSession, SessionError, Tick, build_session
@@ -145,6 +146,7 @@ class Connection:
     def __init__(self, ws: WebSocket, clock: Callable[[], float]) -> None:
         self.ws = ws
         self.profile = ViewerProfile()
+        self.view_state = ViewerState()  # what the producer remembers for this viewer
         self.queue: asyncio.Queue[str | None] = asyncio.Queue(maxsize=SEND_QUEUE_LIMIT)
         self.limiter = RateLimiter(clock=clock)
         self.closed = False
@@ -210,6 +212,8 @@ class Hub:
     async def send_snapshots(self, conns: list[Connection]) -> None:
         conns = [c for c in conns if not c.closed]
         profiles = [c.profile.model_copy() for c in conns]
+        for conn in conns:
+            conn.view_state = ViewerState()
         messages = await self.run(self._snapshot_messages, conns, profiles)
         for conn, msg in zip(conns, messages, strict=True):
             conn.send(msg)
@@ -225,7 +229,7 @@ class Hub:
         for tick in ticks:
             shared = view.tick_shared(tick)
             for i, profile in enumerate(profiles):
-                cards = session.cards_for(tick.bundles, profile, with_alerts=True)
+                cards = session.cards_for(tick.bundles, profile, conns[i].view_state, tick)
                 data = dict(shared, cards=[view.card_payload(c) for c in cards])
                 out[i].append(view.message("MATCH_TICK", data))
             if tick.is_last:
@@ -531,6 +535,7 @@ def create_app(
             if key in changes and changes[key] is None:
                 changes.pop(key)  # these always have a value
         conn.profile = conn.profile.model_copy(update=changes)
+        conn.view_state = ViewerState()
         conn.send(view.message("PROFILE_CHANGED", conn.profile.model_dump()))
         conn.send(view.message("PERSONA_CHANGED", {"persona": conn.profile.persona}))
 

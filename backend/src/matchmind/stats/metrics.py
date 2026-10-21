@@ -21,7 +21,7 @@ LANE_RADIUS_M = 2.0  # an opponent this close to the passing lane is "in the lan
 # Broadcast thresholds used by the Spotter for speed and distance tags.
 SPEED_BURST_KMH = 30.0  # player sprint worth a pitch tag
 ROCKET_SHOT_KMH = 100.0  # shot speed worth a pitch tag
-DISTANCE_MILESTONES_KM = (5.0, 8.0, 10.0)
+DISTANCE_MILESTONES_KM = (2.0, 3.0)  # distance_km is a lower-bound estimate (docs/METRICS.md)
 
 
 def to_attacking(p: Pos, team: str, home_id: str) -> Pos:

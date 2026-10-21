@@ -17,16 +17,15 @@ from dataclasses import dataclass, field
 from matchmind.crew.contracts import FactValue, Moment, MomentKind
 from matchmind.schema import Event, EventType, Outcome
 from matchmind.simulator.teams import Team
-from matchmind.stats.metrics import ROCKET_SHOT_KMH, SPEED_BURST_KMH
+from matchmind.stats.metrics import DISTANCE_MILESTONES_KM, ROCKET_SHOT_KMH, SPEED_BURST_KMH
 from matchmind.stats.models import EventMetrics, MatchStateSnapshot, PlayerStats
 
 # Distance is a lower-bound estimate from the event stream (roughly 0.2-3.8 km
 # per player over a match), so milestones sit low and the text says "estimated".
-DISTANCE_MILESTONES_KM: tuple[float, ...] = (1.0, 2.0, 3.0)
 BIG_CHANCE_XG = 0.3
-HARD_PASS_DIFFICULTY = 75
+HARD_PASS_DIFFICULTY = 60
 HARD_PASS_GAP_S = 90.0
-SPEED_BURST_GAP_S = 600.0
+SPEED_BURST_GAP_S = 1200.0
 MOMENTUM_WINDOW_S = 300.0
 MOMENTUM_MIN_CHANGE = 40.0
 MOMENTUM_MIN_SD = 1.5

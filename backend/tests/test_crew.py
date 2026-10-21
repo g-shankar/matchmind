@@ -368,7 +368,7 @@ def test_spotter_rate_limits_speed_bursts_and_fires_pressure_once():
     fast = EventMetrics(event_id="x", player_speed_kmh=31.0)
     hits = [
         sp.spot(ev(i, EventType.CARRY, t, team="NBR", player_id="NBR-9"), fast, snap(t), pl)
-        for i, t in enumerate([100.0, 300.0, 750.0])
+        for i, t in enumerate([100.0, 300.0, 1350.0])
     ]
     assert [len([m for m in h if m.kind == MomentKind.SPEED_BURST]) for h in hits] == [1, 0, 1]
 
@@ -387,13 +387,13 @@ def test_spotter_rate_limits_speed_bursts_and_fires_pressure_once():
 def test_distance_milestones_fire_once_each():
     sp = Spotter(TEAMS)
     seen = []
-    for i, km in enumerate([0.5, 1.2, 1.3, 3.4]):
+    for i, km in enumerate([0.5, 2.2, 2.3, 3.4]):
         pl = {"NBR-9": PlayerStats(player_id="NBR-9", team="NBR", distance_km=km)}
         seen += [
             m.facts["milestone_km"]
             for m in sp.spot(ev(i, EventType.PASS), EventMetrics(event_id="z"), snap(), pl)
         ]
-    assert seen == [1, 3]
+    assert seen == [2, 3]
 
 
 # ------------------------------------------------------------ fact-checker

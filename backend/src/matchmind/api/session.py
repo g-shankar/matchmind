@@ -33,6 +33,7 @@ from matchmind.crew.contracts import (
     Recap,
     ViewerProfile,
 )
+from matchmind.crew.producer import ViewerState
 from matchmind.schema import Event, EventType
 from matchmind.simulator.publisher import read_jsonl
 from matchmind.simulator.teams import Team, get_team
@@ -85,6 +86,18 @@ class CrewLike(Protocol):
         players: Mapping[str, PlayerStats],
     ) -> list[MomentBundle]: ...
     def render(self, bundle: MomentBundle, profile: ViewerProfile) -> OverlayCard | None: ...
+    def cards_for(
+        self, bundles: list[MomentBundle], profile: ViewerProfile, state: ViewerState
+    ) -> list[OverlayCard]: ...
+    def metric_alerts(
+        self,
+        event: Event,
+        metrics: EventMetrics,
+        snapshot: MatchStateSnapshot,
+        players: Mapping[str, PlayerStats],
+        profile: ViewerProfile,
+        state: ViewerState,
+    ) -> list[OverlayCard]: ...
     def recap(
         self, snapshot: MatchStateSnapshot, players: Mapping[str, PlayerStats], profile: ViewerProfile
     ) -> Recap: ...
@@ -360,14 +373,21 @@ class MatchSession:
     # --- cards: the one place a profile turns moments into overlays ---------------------------
 
     def cards_for(
-        self, bundles: list[MomentBundle], profile: ViewerProfile, with_alerts: bool = False
+        self,
+        bundles: list[MomentBundle],
+        profile: ViewerProfile,
+        state: ViewerState | None = None,
+        tick: Tick | None = None,
     ) -> list[OverlayCard]:
-        """Cards for one viewer, highest priority first. Adapt here when the crew grows."""
-        cards = [c for b in bundles if (c := self.crew.render(b, profile)) is not None]
-        alerts = getattr(self.crew, "metric_alerts", None)
-        if with_alerts and callable(alerts) and profile.focus_metric is not None:
-            # Optional crew hook for focus-metric alerts; signature agreed in docs/API-CONTRACT.md.
-            cards.extend(alerts(self.snapshot, self._live.stats.players(), profile) or [])
+        """Cards for one viewer, highest priority first: the crew's producer picks
+        and times them; focus-metric alerts are added when a tick is given."""
+        state = state if state is not None else ViewerState()
+        cards = list(self.crew.cards_for(bundles, profile, state))
+        if tick is not None and profile.focus_metric is not None:
+            players = self._live.stats.players()
+            cards.extend(
+                self.crew.metric_alerts(tick.event, tick.metrics, tick.snapshot, players, profile, state)
+            )
         cards.sort(key=lambda c: (-c.priority, c.show_at_s))
         return cards
 
