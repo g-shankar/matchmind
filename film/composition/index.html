@@ -45,7 +45,7 @@
       #caps { position: absolute; left: 0; right: 0; bottom: 104px; height: 70px; }
       .cap { position: absolute; left: 50%; bottom: 0; width: 1500px; margin-left: -750px; text-align: center; opacity: 0; }
       .cap span { display: inline-block; background: rgba(11, 20, 16, 0.86); padding: 10px 26px; border-radius: 14px;
-                  font-size: 34px; font-weight: 600; line-height: 1.3; }
+                  font-size: 34px; font-weight: 600; line-height: 1.3; text-wrap: balance; max-width: 1300px; }
 
       /* 1 title */
       #s1 .word { position: absolute; left: 0; right: 0; top: 330px; text-align: center; }
@@ -53,7 +53,7 @@
       #s1 .dot { display: inline-block; width: 44px; height: 44px; border-radius: 50%; background: var(--red); margin-left: 10px; }
       #s1 .by { margin-top: 6px; font-size: 40px; }
       #s1 .tag { position: absolute; left: 0; right: 0; top: 660px; text-align: center; font-size: 60px; font-weight: 600; }
-      #s1 .tag2 { position: absolute; left: 0; right: 0; top: 750px; text-align: center; font-size: 44px; opacity: 0; }
+      #s1 .tag2 { position: absolute; left: 0; right: 0; top: 750px; text-align: center; font-size: 44px; }
       .bug { position: absolute; display: flex; align-items: center; gap: 0; border-radius: 14px; overflow: hidden;
              font-weight: 800; font-size: 34px; }
       .bug div { padding: 12px 20px; }
@@ -64,13 +64,13 @@
 
       /* 2 pipeline */
       #s2 .head { position: absolute; left: 140px; top: 120px; width: 1640px; }
-      #s2 .rail { position: absolute; left: 140px; top: 700px; width: 1640px; height: 4px; background: rgba(238, 243, 239, 0.18); }
-      #s2 .stage { position: absolute; top: 400px; width: 304px; height: 240px; padding: 28px; }
+      #s2 .rail { position: absolute; left: 140px; top: 620px; width: 1640px; height: 4px; background: rgba(238, 243, 239, 0.18); }
+      #s2 .stage { position: absolute; top: 330px; width: 304px; height: 240px; padding: 28px; }
       #s2 .stage .n { font-size: 26px; font-weight: 600; }
       #s2 .stage .t { margin-top: 14px; font-size: 38px; font-weight: 800; line-height: 1.12; }
       #s2 .glow { position: absolute; inset: -2px; border-radius: 28px; border: 4px solid var(--red); opacity: 0; }
-      #s2 .ev { position: absolute; top: 692px; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); opacity: 0; }
-      #s2 .count { position: absolute; left: 140px; top: 740px; font-size: 40px; }
+      #s2 .ev { position: absolute; top: 612px; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); opacity: 0; }
+      #s2 .count { position: absolute; left: 140px; top: 650px; font-size: 40px; }
       #s2 .count b { display: block; font-family: "JetBrains Mono", monospace; font-weight: 500; font-size: 110px; color: var(--ink); }
 
       /* 3 crew */
@@ -111,6 +111,9 @@
       #s5 .src { margin-top: 26px; font-size: 24px; opacity: 0; }
       #s5 .story { margin-top: 40px; font-size: 54px; font-weight: 800; line-height: 1.2; letter-spacing: -0.01em; opacity: 0; }
 
+      .hl { font-weight: 800; }
+      .bd { margin-top: 18px; font-weight: 400; color: rgba(238, 243, 239, 0.86); }
+      #s6 .say[dir="rtl"] .bd { font-weight: 400; }
       /* 6 languages */
       #s6 .tabs { position: absolute; left: 0; right: 0; top: 150px; text-align: center; }
       #s6 .tab { margin: 0 10px; background: var(--panel); border: 2px solid rgba(238, 243, 239, 0.15); }
@@ -120,7 +123,7 @@
 
       /* 7 overlay */
       #s7 .feed { position: absolute; inset: 0; }
-      #s7 .l3 { position: absolute; left: 140px; top: 690px; width: 1640px; height: 150px; display: flex; border-radius: 20px; overflow: hidden; opacity: 0; }
+      #s7 .l3 { position: absolute; left: 140px; top: 800px; width: 1640px; height: 130px; display: flex; border-radius: 20px; overflow: hidden; opacity: 0; }
       #s7 .l3 .a { background: var(--red); color: var(--bg); padding: 0 40px; display: flex; align-items: center; font-size: 38px; font-weight: 800; width: 560px; flex: none; }
       #s7 .l3 .b { background: rgba(11, 20, 16, 0.94); flex: 1; padding: 0 40px; display: flex; align-items: center; font-size: 38px; font-weight: 600; }
       #s7 .focus { position: absolute; left: 140px; top: 200px; width: 570px; padding: 40px; opacity: 0; }
@@ -132,7 +135,7 @@
       #s8 .tile { flex: 1; height: 300px; padding: 44px; opacity: 0; }
       #s8 .tile .t { font-size: 54px; font-weight: 800; line-height: 1.15; }
       #s8 .tile .d { margin-top: 18px; font-size: 34px; }
-      #s8 .q { position: absolute; left: 140px; top: 700px; font-size: 40px; opacity: 0; }
+      #s8 .q { position: absolute; left: 140px; top: 700px; font-size: 44px; font-weight: 600; opacity: 0; }
       #s8 .end { position: absolute; left: 0; right: 0; top: 330px; text-align: center; opacity: 0; }
       #s8 .end .mark { font-size: 150px; font-weight: 800; letter-spacing: -0.045em; }
       #s8 .end .url { margin-top: 20px; font-size: 48px; font-family: "JetBrains Mono", monospace; font-weight: 500; }
@@ -146,7 +149,7 @@
         <!-- 1 title -->
         <div id="s1" class="scene"><div class="cam" id="c1">
           <svg class="lines" id="s1lines" width="1920" height="1080" viewBox="0 0 1920 1080"></svg>
-          <div class="bug" id="s1bug" style="left: 80px; top: 70px;"></div>
+          
           <div class="word">
             <div class="mark">PitchPulse<span class="dot" id="s1dot"></span></div>
             <div class="by muted">powered by the Matchmind engine</div>
@@ -170,7 +173,7 @@
         <!-- 3 crew -->
         <div id="s3" class="scene"><div class="cam" id="c3">
           <div class="head">
-            <div class="kicker muted">The AI studio crew</div>
+            <div class="kicker muted" id="s3k"></div>
             <div class="h1" style="margin-top: 18px;">Five agents. One job each.</div>
           </div>
           <div id="s3agents"></div>
@@ -196,7 +199,7 @@
             <div class="stat panel" id="s4st2"><div class="k muted" id="s4k2"></div><div class="v"><span id="s4v2">0</span>%</div></div>
             <div class="stat panel" id="s4st3"><div class="k muted" id="s4k3"></div><div class="v"><span id="s4v3">0</span>%</div></div>
           </div>
-          <div class="verdict" id="s4verdict"><span id="s4x" style="color: var(--red);"></span> the value. He should have passed.</div>
+          <div class="verdict" id="s4verdict"><span id="s4x" style="color: var(--red);"></span><span id="s4vt"></span></div>
         </div></div>
 
         <!-- 5 analyst vs fan -->
@@ -226,7 +229,7 @@
 
         <!-- 7 overlay + player focus -->
         <div id="s7" class="scene"><div class="cam" id="c7">
-          <svg class="feed" id="s7pitch" width="1920" height="820" style="top: 130px;"></svg>
+          <svg class="feed" id="s7pitch" width="1920" height="640" style="top: 130px;"></svg>
           <div class="bug" id="s7bug" style="left: 80px; top: 40px;"></div>
           <div class="l3" id="s7l3"><div class="a">Should he have passed?</div><div class="b" id="s7l3b"></div></div>
           <div class="focus panel" id="s7focus">
@@ -239,13 +242,13 @@
 
         <!-- 8 azure + end -->
         <div id="s8" class="scene"><div class="cam" id="c8">
-          <div id="s8h" style="position: absolute; left: 140px; top: 100px;"><div class="h1">Built on Azure</div></div>
+          <div id="s8h" style="position: absolute; left: 140px; top: 100px;"><div class="h1" id="s8ht"></div></div>
           <div class="tiles">
             <div class="tile panel" id="s8a"><div class="t">Container Apps</div><div class="d muted" id="s8ad"></div></div>
             <div class="tile panel" id="s8b"><div class="t">Event Hubs</div><div class="d muted" id="s8bd"></div></div>
             <div class="tile panel" id="s8c"><div class="t">Azure OpenAI</div><div class="d muted" id="s8cd"></div></div>
           </div>
-          <div class="q muted" id="s8q"></div>
+          <div class="q" id="s8q"></div>
           <div class="end" id="s8end">
             <div class="mark">PitchPulse<span class="dot" style="display: inline-block; width: 38px; height: 38px; border-radius: 50%; background: var(--red); margin-left: 10px;"></span></div>
             <div class="url">github.com/g-shankar/matchmind</div>
@@ -330,14 +333,14 @@
       }
 
       // ---------- build the DOM from facts ----------
-      bug("s1bug", "0-0", "00:00");
+      
       {
         const s = $("s1lines");
         for (let i = 0; i < 14; i++) el("line", { x1: i * 160, y1: 0, x2: i * 160 - 300, y2: 1080, stroke: "#3d5a48", "stroke-width": 2 }, s);
       }
 
-      $("s2k").textContent = `${v("match.id")} · ${teams.NBR.name} v ${teams.HCY.name} · no real clubs or players`;
-      const STAGES = ["Ingest", "Stats engine", "AI studio crew", "Broadcast overlays", "A view for every viewer"];
+      $("s2k").textContent = F["copy.kicker.match"].text;
+      const STAGES = F["copy.stages"].text.split(" | ");
       STAGES.forEach((t, i) => {
         const d = html("div", "stage panel", null, $("s2stages"));
         d.id = "s2s" + i;
@@ -369,6 +372,7 @@
       });
       const fcv = v("crew.factcheck");
       $("s3good").textContent = fcv.replacement;
+      $("s3k").textContent = F["copy.kicker.crew"].text;
       $("s3who").textContent = surname(bo.shooter);
       $("s3why").textContent = F["crew.factcheck"].text;
       $("s3fbt").textContent = F["crew.fallback"].text;
@@ -399,9 +403,13 @@
                                     fill: "#eef3ef" }, p4);
       shooterT.textContent = surname(bo.shooter);
       $("s4k1").textContent = `${surname(bo.shooter)}'s shot, ${bo.shooter_distance_to_goal_m} m: chance (${bo.outcome})`;
-      $("s4k2").textContent = `Square ball to ${surname(bo.teammate)}, ${bo.pass_distance_m} m: arrives`;
+      $("s4k2").textContent = F["copy.square"].text;
       $("s4k3").textContent = `${surname(bo.teammate)}'s chance after the pass`;
-      $("s4x").textContent = bo.times_better.toFixed(1) + "×";
+      {
+        const [x, ...rest] = F["copy.verdict"].text.split(" ");
+        $("s4x").textContent = x + " ";
+        $("s4vt").textContent = rest.join(" ");
+      }
 
       // scene 5
       const rows = [
@@ -419,11 +427,13 @@
         html("b", null, val, r);
       });
       $("s5src").textContent = `event ${bo.event_id} · produced_by ${v("crew.analyst").produced_by}`;
-      $("s5story").textContent = F["crew.fan.en"].text;
-
-      $("s6l0").textContent = F["crew.fan.en"].text;
-      $("s6l1").textContent = F["crew.fan.es"].text;
-      $("s6l2").textContent = F["crew.fan.ar"].text;
+      const card = (el, f) => {
+        el.innerHTML = "";
+        html("div", "hl", f.value.headline, el);
+        html("div", "bd", f.value.body, el);
+      };
+      card($("s5story"), F["crew.fan.en"]);
+      ["en", "es", "ar"].forEach((l, i) => card($("s6l" + i), F["crew.fan." + l]));
 
       // scene 7: full pitch feed at the same moment
       const p7 = $("s7pitch");
@@ -432,7 +442,7 @@
       const fp = players(p7, ff, 1.3);
       const focusRing = el("circle", { cx: mate.x, cy: mate.y, r: 3, fill: "none", stroke: "#ff5c5c", "stroke-width": 0.45, opacity: 0 }, p7);
       bug("s7bug", v("score.at.spha"), bo.clock);
-      $("s7l3b").textContent = `Square ball to ${surname(bo.teammate)} was worth ${bo.times_better.toFixed(1)}× the shot`;
+      $("s7l3b").textContent = F["copy.lowerthird"].text;
       const pf = v("player.focus");
       $("s7nm").textContent = pf.name;
       $("s7l1").textContent = `#${pf.number} · ${pf.position} · ${teams.NBR.name}`;
@@ -444,8 +454,9 @@
       $("s8bd").textContent = az[1];
       $("s8cd").textContent = az[2];
       $("s2h").textContent = F["copy.pipeline"].text;
+      $("s8ht").textContent = F["copy.azure"].text;
       const fin = v("match.final");
-      $("s8fine").textContent = `Demo match: ${teams.NBR.name} ${fin.NBR}–${fin.HCY} ${teams.HCY.name}. Fully synthetic.`;
+      $("s8fine").textContent = F["copy.endline"].text;
 
       // captions, one element per voice line
       for (const l of T.lines.filter((l) => l.caption)) {
@@ -465,7 +476,7 @@
         const id = "#s" + s.n;
         if (s.n > 1) tl.set(id, { opacity: 1 }, s.start);
         tl.set(id, { opacity: 0 }, s.start + s.duration);
-        tl.fromTo("#c" + s.n, { scale: 1 }, { scale: 1.025, duration: s.duration, ease: "none" }, s.start);
+        tl.fromTo("#c" + s.n, { scale: 1 }, { scale: 1.05, duration: s.duration, ease: "none" }, s.start);
       });
       for (const l of T.lines.filter((l) => l.caption)) {
         tl.set("#cap-" + l.id, { opacity: 1 }, l.speech[0]);
@@ -475,7 +486,7 @@
       // 1 title (frame 0 is the finished card)
       tl.fromTo("#s1lines", { x: 0 }, { x: 160, duration: S(1).duration, ease: "none" }, 0);
       tl.fromTo("#s1dot", { scale: 1 }, { scale: 1.35, duration: 0.25, yoyo: true, repeat: 1, ease: "power2.out" }, cue("s1a.crew"));
-      rise("#s1tag2", T.lines.find((l) => l.id === "s1b").speech[0]);
+      tl.fromTo("#s1tag2", { color: "rgba(238, 243, 239, 0.72)" }, { color: "#eef3ef", duration: 0.4 }, T.lines.find((l) => l.id === "s1b").speech[0]);
 
       // 2 pipeline
       const s2 = S(2);

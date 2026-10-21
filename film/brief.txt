@@ -28,3 +28,6 @@ Decision log
   exists. They are marked "draft": true in facts.json and the final check refuses a render that shows a draft.
 - 2026-10-21 Frame 0 is the finished title card (thumbnail), product name on screen from frame 0.
 - 2026-10-21 Pitch scenes are rebuilt in SVG from freeze-frame coordinates, never screenshots.
+- 2026-10-21 Azure scene says "Built for Azure" (not "on"): nothing is deployed yet and Azure OpenAI is
+  off by default (paid). Wording from the Azure deployment thread (PR #2). If the app is deployed and AI
+  spend approved before the final render, switch copy.azure back to "Built on Azure" in facts.py and vo.json.

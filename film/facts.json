@@ -517,17 +517,6 @@
    "source": "crew API: GET /api/crew/status"
   },
   {
-   "id": "azure.stack",
-   "text": "Container Apps runs the engine and crew API; Event Hubs carries the live event stream; Azure OpenAI is reached with managed identity, no keys.",
-   "value": [
-    "Runs the engine and crew API",
-    "Carries the live event stream",
-    "Managed identity, no keys"
-   ],
-   "source": "crew draft (replace with crew API output)",
-   "draft": true
-  },
-  {
    "id": "player.focus",
    "text": "Adam Kerrigan, #9, ST, Northbridge FC: scored at 23:20, free in the middle at 34:16.",
    "value": {
@@ -543,6 +532,16 @@
    "text": "Score at 34:16: 1-0.",
    "value": "1-0",
    "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/data/matches/MM-DEMO-001.jsonl#L490"
+  },
+  {
+   "id": "azure.stack",
+   "text": "Container Apps deploys the engine and crew API; the match streams into Event Hubs; the crew is built for Azure OpenAI with managed identity, no keys.",
+   "value": [
+    "Deploys the engine and crew API",
+    "The match streams into Event Hubs",
+    "Built for managed identity, no keys"
+   ],
+   "source": "https://github.com/g-shankar/matchmind/pull/2 (deployment/azure_bicep/main.bicep)"
   },
   {
    "id": "repo.quality",
@@ -632,9 +631,123 @@
   },
   {
    "id": "copy.azure",
-   "text": "Built on Azure",
+   "text": "Built for Azure",
    "value": null,
    "source": "film copy (storyboard.md)"
+  },
+  {
+   "id": "copy.kicker.match",
+   "text": "MM-DEMO-001 · Northbridge FC v Harbour City · no real clubs or players",
+   "value": null,
+   "source": "film copy built from engine facts (facts.py)"
+  },
+  {
+   "id": "copy.kicker.crew",
+   "text": "The AI studio crew",
+   "value": null,
+   "source": "film copy built from engine facts (facts.py)"
+  },
+  {
+   "id": "copy.stages",
+   "text": "Ingest | Stats engine | AI studio crew | Broadcast overlays | A view for every viewer",
+   "value": null,
+   "source": "film copy built from engine facts (facts.py)"
+  },
+  {
+   "id": "copy.square",
+   "text": "Square ball to Kerrigan, 16.4 m: arrives",
+   "value": null,
+   "source": "film copy built from engine facts (facts.py)"
+  },
+  {
+   "id": "copy.verdict",
+   "text": "4.0× the value. He should have passed.",
+   "value": null,
+   "source": "film copy built from engine facts (facts.py)"
+  },
+  {
+   "id": "copy.lowerthird",
+   "text": "Square ball to Kerrigan was worth 4.0× the shot.",
+   "value": null,
+   "source": "film copy built from engine facts (facts.py)"
+  },
+  {
+   "id": "copy.endline",
+   "text": "Demo match: Northbridge FC 2–3 Harbour City. Fully synthetic.",
+   "value": null,
+   "source": "film copy built from engine facts (facts.py)"
+  },
+  {
+   "id": "copy.vo.s2a",
+   "text": "PitchPulse streams a fully synthetic match through five stages.",
+   "value": null,
+   "source": "voiceover script (vo.json)"
+  },
+  {
+   "id": "copy.vo.s2b",
+   "text": "Ingest. A deterministic stats engine. An AI studio crew. Broadcast overlays. And a view for every viewer.",
+   "value": null,
+   "source": "voiceover script (vo.json)"
+  },
+  {
+   "id": "copy.vo.s3a",
+   "text": "The crew is five agents, each with one job.",
+   "value": null,
+   "source": "voiceover script (vo.json)"
+  },
+  {
+   "id": "copy.vo.s3b",
+   "text": "The Spotter finds the moment. The Analyst pulls the evidence. The Commentator writes it. The Producer decides what goes on air.",
+   "value": null,
+   "source": "voiceover script (vo.json)"
+  },
+  {
+   "id": "copy.vo.s3c",
+   "text": "And the Fact-checker blocks any number the stats engine can't prove.",
+   "value": null,
+   "source": "voiceover script (vo.json)"
+  },
+  {
+   "id": "copy.vo.s3d",
+   "text": "If a model fails, the crew falls back to templates, and says so on screen.",
+   "value": null,
+   "source": "voiceover script (vo.json)"
+  },
+  {
+   "id": "copy.vo.s4a",
+   "text": "34:16. Asante shoots from 15.4 m. A 5% chance, and it's saved.",
+   "value": null,
+   "source": "voiceover script (vo.json)"
+  },
+  {
+   "id": "copy.vo.s4b",
+   "text": "But the engine saw Kerrigan, free in the middle.",
+   "value": null,
+   "source": "voiceover script (vo.json)"
+  },
+  {
+   "id": "copy.vo.s4c",
+   "text": "That pass arrives 83% of the time, into a 24% chance.",
+   "value": null,
+   "source": "voiceover script (vo.json)"
+  },
+  {
+   "id": "copy.vo.s5a",
+   "text": "Same moment, two audiences. The analyst gets the evidence trail. The fan gets the story.",
+   "value": null,
+   "source": "voiceover script (vo.json)"
+  },
+  {
+   "id": "copy.vo.s6a",
+   "text": "In English, Spanish, or Arabic.",
+   "value": null,
+   "source": "voiceover script (vo.json)"
+  },
+  {
+   "id": "copy.vo.s6b",
+   "text": "El pase valía 4 veces más que el tiro.",
+   "value": null,
+   "source": "voiceover script (vo.json)"
   }
  ]
 }

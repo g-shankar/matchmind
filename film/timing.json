@@ -476,7 +476,7 @@
     94.741
    ],
    "text": "Drop it straight onto the broadcast.",
-   "caption": "Drop it straight onto the broadcast."
+   "caption": null
   },
   {
    "id": "s7b",
@@ -488,7 +488,7 @@
     99.047
    ],
    "text": "Or follow one player, all match.",
-   "caption": "Or follow one player, all match."
+   "caption": null
   },
   {
    "id": "s8a",
@@ -496,10 +496,10 @@
    "start": 102.6,
    "end": 108.445,
    "speech": [
-    102.636,
+    102.644,
     108.349
    ],
-   "text": "Built on Azure: Container Apps, Event Hubs and Azure OpenAI. Every number checked.",
+   "text": "Built for Azure: Container Apps, Event Hubs and Azure OpenAI. Every number checked.",
    "caption": null
   },
   {
@@ -547,11 +547,11 @@
   "s6a.arabic": 80.204,
   "s7a.broadcast": 94.153,
   "s7b.follow-one-player": 97.07,
-  "s8a.azure": 103.263,
-  "s8a.container-apps": 103.75,
-  "s8a.event-hubs": 104.865,
-  "s8a.azure-openai": 105.911,
-  "s8a.every-number": 106.886,
+  "s8a.azure": 103.331,
+  "s8a.container-apps": 103.812,
+  "s8a.event-hubs": 104.912,
+  "s8a.azure-openai": 105.943,
+  "s8a.every-number": 106.905,
   "s8b.pitchpulse": 109.286
  },
  "cues": {

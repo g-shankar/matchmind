@@ -17,3 +17,10 @@ Round 1 review (fresh reviewer, 560 frames): "another pass". Fixed:
 - Crew lines now real crew output from the API (template mode, produced_by: template);
   fact-checker line is a real matchmind.crew.fact_checker.check() result.
 - Duration 114.0 s (under 120 s). Remaining draft: azure.stack (waits for the Azure deployment).
+
+Round 2 review: "another pass" (a-i from round 1 mostly fixed). Fixed now:
+- Pipeline counter moved above the caption band; broadcast lower third moved under the feed (no longer hides the shot).
+- Every caption, label, verdict and end line is now a copy.* entry in facts.json (built from engine values where it has numbers).
+- Azure scene reworded to what is true before deploy ("Built for Azure"; Event Hubs: the match streams in; OpenAI: built for managed identity). No drafts left.
+- Fan cards set headline apart from body; captions balanced; camera drift doubled so holds keep moving;
+  title tagline complete from frame 0; repo-quality line raised to full contrast.

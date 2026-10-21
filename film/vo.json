@@ -151,7 +151,8 @@
    "text": "Drop it straight onto the broadcast.",
    "cues": [
     "broadcast"
-   ]
+   ],
+   "caption": false
   },
   {
    "id": "s7b",
@@ -160,12 +161,13 @@
    "gap_before": 2.0,
    "cues": [
     "follow one player"
-   ]
+   ],
+   "caption": false
   },
   {
    "id": "s8a",
    "scene": 8,
-   "text": "Built on Azure: Container Apps, Event Hubs and Azure OpenAI. Every number checked.",
+   "text": "Built for Azure: Container Apps, Event Hubs and Azure OpenAI. Every number checked.",
    "cues": [
     "Azure",
     "Container Apps",

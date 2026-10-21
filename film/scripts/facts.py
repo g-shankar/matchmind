@@ -132,9 +132,7 @@ def drafts(add, bo: dict) -> None:
     add("crew.factcheck", f"Blocked: \"a 40% chance\" is not in the moment's facts. Replaced with {p(bo['alt_chance_quality'])}.",
         {"blocked": "40%", "replacement": p(bo["alt_chance_quality"])})
     add("crew.fallback", "Model unavailable: Commentator switched to template mode.")
-    add("azure.stack", "Container Apps runs the engine and crew API; Event Hubs carries the live event stream; "
-        "Azure OpenAI is reached with managed identity, no keys.",
-        ["Runs the engine and crew API", "Carries the live event stream", "Managed identity, no keys"])
+
 
 
 API = os.environ.get("MATCHMIND_API", "http://127.0.0.1:8000")
@@ -241,6 +239,11 @@ def main() -> None:
     before = [g for g in timeline if g["clock"] < bo["clock"] and "+" not in g["clock"]]
     add("score.at.spha", f"Score at {bo['clock']}: {before[-1]['score'] if before else '0-0'}.",
         before[-1]["score"] if before else "0-0", line=before[-1]["line"] if before else None)
+    # Infrastructure as code (PR #2); wording stays true before the first deploy.
+    add("azure.stack", "Container Apps deploys the engine and crew API; the match streams into Event Hubs; "
+        "the crew is built for Azure OpenAI with managed identity, no keys.",
+        ["Deploys the engine and crew API", "The match streams into Event Hubs", "Built for managed identity, no keys"],
+        path=None, src=f"{REPO}/pull/2 (deployment/azure_bicep/main.bicep)")
     add("repo.quality", "Tests, CI and secret scanning on every push.", None, path=".github/workflows/ci.yml")
     facts.append({"id": "crew.roles", "source": link(b, "backend/src/matchmind/crew/__init__.py"),
                   "text": "Spotter finds the moment; Analyst pulls the evidence; Commentator writes it; "
@@ -259,8 +262,27 @@ def main() -> None:
                       ("copy.spha", "Should he have passed?"),
                       ("copy.split", "Same moment, two audiences. The analyst gets the evidence trail. The fan gets the story."),
                       ("copy.overlay", "Drop it straight onto the broadcast. Or follow one player, all match."),
-                      ("copy.azure", "Built on Azure")]:
+                      ("copy.azure", "Built for Azure")]:
         facts.append({"id": cid, "text": text, "value": None, "source": "film copy (storyboard.md)"})
+    # On-screen labels built from engine values, and every voiceover caption.
+    mt, x = bo["teammate"].split()[-1], f"{bo['times_better']:.1f}"
+    home_, away_ = TEAMS["NBR"], TEAMS["HCY"]
+    fin = next(f["value"] for f in facts if f["id"] == "match.final")
+    for cid, text in [
+        ("copy.kicker.match", f"{start['match_id']} · {home_.name} v {away_.name} · no real clubs or players"),
+        ("copy.kicker.crew", "The AI studio crew"),
+        ("copy.stages", "Ingest | Stats engine | AI studio crew | Broadcast overlays | A view for every viewer"),
+        ("copy.square", f"Square ball to {mt}, {bo['pass_distance_m']} m: arrives"),
+        ("copy.verdict", f"{x}× the value. He should have passed."),
+        ("copy.lowerthird", f"Square ball to {mt} was worth {x}× the shot."),
+        ("copy.endline", f"Demo match: {home_.name} {fin['NBR']}–{fin['HCY']} {away_.name}. Fully synthetic."),
+    ]:
+        facts.append({"id": cid, "text": text, "value": None, "source": "film copy built from engine facts (facts.py)"})
+    for line in json.loads((FILM / "vo.json").read_text())["lines"]:
+        cap = line.get("caption", True)
+        if cap is not False:
+            facts.append({"id": f"copy.vo.{line['id']}", "text": line["text"] if cap is True else cap,
+                          "value": None, "source": "voiceover script (vo.json)"})
 
     out = FILM / "facts.json"
     out.write_text(json.dumps({"branch": b, "facts": facts}, indent=1, ensure_ascii=False) + "\n")
