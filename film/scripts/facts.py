@@ -44,7 +44,38 @@ def surname(pid: str) -> str:
 
 
 def better_option(shot: dict) -> dict:
-    """Shot taken vs the square ball, from the engine's deterministic metrics."""
+    """Shot taken vs the square ball. Uses the engine's own trigger
+    (matchmind.stats.better_option) when present, else the same metrics here."""
+    try:
+        from matchmind.schema import Event
+        from matchmind.stats.better_option import analyse_shot
+    except ImportError:
+        return _better_option_local(shot)
+    bo = analyse_shot(Event.model_validate(shot), HOME)
+    if bo is None:
+        raise SystemExit(f"engine does not flag {shot['event_id']} as a better-option moment")
+    att = lambda xy: metrics.to_attacking((xy.x, xy.y), shot["team"], HOME)
+    return {
+        "shooter_id": bo.shooter_id,
+        "teammate_id": bo.teammate_id,
+        "shot_chance_quality": bo.shot_chance_quality,
+        "alt_chance_quality": bo.alt_chance_quality,
+        "pass_success": bo.pass_success,
+        "alt_value": bo.alt_value,
+        "times_better": bo.times_better,
+        "pass_distance_m": bo.pass_distance_m,
+        "nearest_marker_m": bo.nearest_marker_m,
+        "shooter_distance_to_goal_m": round(pitch.distance_to_goal(att(bo.shooter_pos)), 1),
+        "mate_distance_to_goal_m": round(pitch.distance_to_goal(att(bo.teammate_pos)), 1),
+        "shot_speed_kmh": metrics.kmh(shot.get("ball_speed_mps")),
+        "freeze_frame": shot["freeze_frame"],
+        "shot_end": shot["end"],
+        "computed_by": "matchmind.stats.better_option.analyse_shot",
+    }
+
+
+def _better_option_local(shot: dict) -> dict:
+    """Fallback for engine checkouts without the better-option module."""
     ff = shot["freeze_frame"]
     open_id = next(l.split(":")[1] for l in shot["labels"] if l.startswith("better_option:"))
     def att(p):  # the shooting team's attacking frame (towards x = 105)

@@ -1,0 +1,9 @@
+PitchPulse demo film: self-check ledger
+=======================================
+
+Round 0 (first full draft, 2026-10-21, 30 fps draft quality)
+- Duration 112.0 s (brief: under 120 s). 1920x1080, 30 fps, H.264 yuv420p, AAC 48 kHz, +faststart.
+- Loudness -14.0 LUFS integrated, true peak -1.3 dBTP (targets -14 LUFS, <= -1 dBTP).
+- Facts: "should he have passed" numbers now come from matchmind.stats.better_option.analyse_shot
+  (feat/core-engine); same values as the earlier local computation (5%, 83%, 24%, 4.0x).
+- Open: crew lines are drafts (check_facts.py refuses a final render until they are replaced).
