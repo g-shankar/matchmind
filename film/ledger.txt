@@ -30,3 +30,11 @@ stat cards fade in final values (no count-up through unbacked numbers like 40%);
 fact-checked replacement; fact-check card arrives with the crew list; UI labels added as copy.ui;
 overlay scene gets the copy.overlay kicker; text-wrap: pretty against orphans; focus card smaller.
 Next: restyle to the app's new fonts and colours (frontend thread), then final 60 fps render.
+
+Round 4 review (first 60 fps final, restyled): "another pass", 2 major. Fixed:
+- Language cards rebalanced to 6 s each (film 118 s, under 120 s).
+- Verdict line moved clear of the stat cards and balanced over two lines.
+- "40%" quote shows in chalk until the fact-checker speaks, then turns red and is struck.
+- Crew list spaced below the headline; pitch opens with markers settling and a slow slide;
+  overlapping markers nudged apart on screen (display only, actors never move); broadcast pitch clears the focus card.
+- Mastering ceiling lowered to -2 dBTP (was landing at -1.0).

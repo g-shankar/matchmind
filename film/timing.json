@@ -3,7 +3,7 @@
  "bpm": 120,
  "beat": 0.5,
  "bar": 2.0,
- "duration": 116.0,
+ "duration": 118.0,
  "beats": [
   0.0,
   0.5,
@@ -237,7 +237,11 @@
   114.5,
   115.0,
   115.5,
-  116.0
+  116.0,
+  116.5,
+  117.0,
+  117.5,
+  118.0
  ],
  "scenes": [
   {
@@ -274,18 +278,18 @@
    "n": 6,
    "name": "languages",
    "start": 78.0,
-   "duration": 16.0
+   "duration": 18.0
   },
   {
    "n": 7,
    "name": "overlay",
-   "start": 94.0,
+   "start": 96.0,
    "duration": 10.0
   },
   {
    "n": 8,
    "name": "azure",
-   "start": 104.0,
+   "start": 106.0,
    "duration": 12.0
   }
  ],
@@ -473,11 +477,11 @@
   {
    "id": "s7a",
    "scene": 7,
-   "start": 94.6,
-   "end": 96.84,
+   "start": 96.6,
+   "end": 98.84,
    "speech": [
-    94.624,
-    96.741
+    96.624,
+    98.741
    ],
    "text": "Drop it straight onto the broadcast.",
    "caption": null
@@ -485,11 +489,11 @@
   {
    "id": "s7b",
    "scene": 7,
-   "start": 98.84,
-   "end": 101.144,
+   "start": 100.84,
+   "end": 103.144,
    "speech": [
-    98.866,
-    101.047
+    100.866,
+    103.047
    ],
    "text": "Or follow one player, all match.",
    "caption": null
@@ -497,11 +501,11 @@
   {
    "id": "s8a",
    "scene": 8,
-   "start": 104.6,
-   "end": 110.445,
+   "start": 106.6,
+   "end": 112.445,
    "speech": [
-    104.644,
-    110.349
+    106.644,
+    112.349
    ],
    "text": "Built for Azure: Container Apps, Event Hubs and Azure OpenAI. Every number checked.",
    "caption": null
@@ -509,11 +513,11 @@
   {
    "id": "s8b",
    "scene": 8,
-   "start": 111.245,
-   "end": 112.227,
+   "start": 113.245,
+   "end": 114.227,
    "speech": [
-    111.286,
-    112.135
+    113.286,
+    114.135
    ],
    "text": "PitchPulse.",
    "caption": null
@@ -549,14 +553,14 @@
   "s6a.english": 78.734,
   "s6a.spanish": 79.364,
   "s6a.arabic": 80.204,
-  "s7a.broadcast": 96.153,
-  "s7b.follow-one-player": 99.07,
-  "s8a.azure": 105.331,
-  "s8a.container-apps": 105.812,
-  "s8a.event-hubs": 106.912,
-  "s8a.azure-openai": 107.943,
-  "s8a.every-number": 108.905,
-  "s8b.pitchpulse": 111.286
+  "s7a.broadcast": 98.153,
+  "s7b.follow-one-player": 101.07,
+  "s8a.azure": 107.331,
+  "s8a.container-apps": 107.812,
+  "s8a.event-hubs": 108.912,
+  "s8a.azure-openai": 109.943,
+  "s8a.every-number": 110.905,
+  "s8b.pitchpulse": 113.286
  },
  "cues": {
   "s1a.crew": 2.0,
@@ -588,14 +592,14 @@
   "s6a.english": 78.5,
   "s6a.spanish": 79.5,
   "s6a.arabic": 80.0,
-  "s7a.broadcast": 96.0,
-  "s7b.follow-one-player": 99.0,
-  "s8a.azure": 105.5,
-  "s8a.container-apps": 106.0,
-  "s8a.event-hubs": 107.0,
-  "s8a.azure-openai": 108.0,
-  "s8a.every-number": 109.0,
-  "s8b.pitchpulse": 111.5
+  "s7a.broadcast": 98.0,
+  "s7b.follow-one-player": 101.0,
+  "s8a.azure": 107.5,
+  "s8a.container-apps": 108.0,
+  "s8a.event-hubs": 109.0,
+  "s8a.azure-openai": 110.0,
+  "s8a.every-number": 111.0,
+  "s8b.pitchpulse": 113.5
  },
  "sfx": [
   {
@@ -699,27 +703,27 @@
    "kind": "click"
   },
   {
-   "t": 94.0,
-   "kind": "swish"
-  },
-  {
-   "t": 104.0,
+   "t": 96.0,
    "kind": "swish"
   },
   {
    "t": 106.0,
-   "kind": "click"
-  },
-  {
-   "t": 107.0,
-   "kind": "click"
+   "kind": "swish"
   },
   {
    "t": 108.0,
    "kind": "click"
   },
   {
-   "t": 111.5,
+   "t": 109.0,
+   "kind": "click"
+  },
+  {
+   "t": 110.0,
+   "kind": "click"
+  },
+  {
+   "t": 113.5,
    "kind": "hit"
   }
  ]

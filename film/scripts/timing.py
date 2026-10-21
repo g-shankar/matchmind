@@ -21,7 +21,7 @@ BEAT = 60 / BPM
 BAR = 4 * BEAT
 FPS = 30
 LEAD = {1: 0.5, 2: 0.5, 3: 0.5, 4: 1.0, 5: 0.8, 6: 0.5, 7: 0.6, 8: 0.6}
-TAIL = {1: 0.8, 2: 0.6, 3: 0.6, 4: 1.6, 5: 3.0, 6: 7.0, 7: 1.2, 8: 2.8}
+TAIL = {1: 0.8, 2: 0.6, 3: 0.6, 4: 1.6, 5: 1.4, 6: 9.0, 7: 1.2, 8: 2.8}
 SCENES = {1: "title", 2: "pipeline", 3: "crew", 4: "should-he-have-passed", 5: "split", 6: "languages",
           7: "overlay", 8: "azure"}
 

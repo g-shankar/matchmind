@@ -10,8 +10,8 @@ a=out/audio
 
 norm() {  # two-pass loudnorm: $1 in, $2 out
   local m
-  m=$(ffmpeg -hide_banner -nostats -i "$1" -af loudnorm=I=-14:TP=-1.5:LRA=11:print_format=json -f null - 2>&1 | sed -n '/^{/,/^}/p')
-  ffmpeg -y -hide_banner -loglevel error -i "$1" -af "loudnorm=I=-14:TP=-1.5:LRA=11:linear=true:\
+  m=$(ffmpeg -hide_banner -nostats -i "$1" -af loudnorm=I=-14:TP=-2:LRA=11:print_format=json -f null - 2>&1 | sed -n '/^{/,/^}/p')
+  ffmpeg -y -hide_banner -loglevel error -i "$1" -af "loudnorm=I=-14:TP=-2:LRA=11:linear=true:\
 measured_I=$(jq -r .input_i <<<"$m"):measured_TP=$(jq -r .input_tp <<<"$m"):\
 measured_LRA=$(jq -r .input_lra <<<"$m"):measured_thresh=$(jq -r .input_thresh <<<"$m"):\
 offset=$(jq -r .target_offset <<<"$m")" -ar 48000 "$2"
