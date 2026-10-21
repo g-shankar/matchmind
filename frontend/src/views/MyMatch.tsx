@@ -92,7 +92,7 @@ const ClubButton: React.FC<{ team: TeamInfo; on: boolean; onPick: () => void }> 
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate font-display text-base font-bold text-white">{team.name}</span>
-          <span className="block text-[11px] text-pp-mute">{t('fan.my.formation', { formation: team.formation })}</span>
+          <span className="block text-[11px] text-pp-mute">{t('fan.my.formation', { formation: `\u2066${team.formation}\u2069` })}</span>
         </span>
         {on && <Heart className="h-5 w-5 shrink-0" style={{ color: team.primary_color, fill: team.primary_color }} aria-hidden />}
       </span>
