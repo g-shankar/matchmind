@@ -204,3 +204,6 @@ Every linked acceptance criterion has evidence; format/lint, typecheck, unit, in
 ## Lessons (add one line whenever a mistake or review finding could repeat)
 - Never present a simulated capability (e.g. a vision model that does not exist) as live; label it or remove it.
 - Never commit real player or club names, even as "synthetic profiles".
+- Never trust the Host header for origin checks; only listed origins.
+- Pass `TemplateLLM()` explicitly wherever paid model calls are not allowed; `llm=None` follows the AI switch.
+- When the roster in `teams.py` changes, regenerate `backend/data/matches` or the dataset check fails.

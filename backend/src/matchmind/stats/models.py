@@ -3,7 +3,7 @@ comes from one of these models."""
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 class XY(BaseModel):
@@ -26,6 +26,7 @@ class EventMetrics(BaseModel):
     chance_quality: float | None = Field(default=None, ge=0, le=1)
     distance_to_goal_m: float | None = None
     pitch_zone: str | None = None
+    xt_delta: float | None = None
     better_option: BetterOption | None = None
     unfound_run: UnfoundRun | None = None
 
@@ -119,7 +120,9 @@ class PlayerStats(BaseModel):
     top_speed_kmh: float = 0.0
     sprints: int = 0
     carry_distance_m: float = 0.0
+    distance_km: float = 0.0
 
+    @computed_field  # serialised too: the API contract lists pass_accuracy
     @property
     def pass_accuracy(self) -> float:
         return round(100 * self.passes_completed / self.passes, 1) if self.passes else 0.0
