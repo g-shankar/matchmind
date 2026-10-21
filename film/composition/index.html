@@ -86,7 +86,7 @@
       #s3 .fc .row { font-size: 40px; }
       #s3 .fc .bad { position: relative; color: var(--red); font-weight: 800; }
       #s3 .fc .strike { position: absolute; left: -6px; right: -6px; top: 26px; height: 6px; background: var(--red); }
-      #s3 .fc .good { font-weight: 800; opacity: 0; }
+      #s3 .fc .good { font-weight: 800; display: none; }
       #s3 .fc .why { margin-top: 26px; font-size: 32px; line-height: 1.35; }
       #s3 .fb { position: absolute; left: 1020px; top: 630px; width: 760px; height: 236px; padding: 32px 40px; opacity: 0; }
       #s3 .fb .badge { background: var(--orange); color: var(--bg); }
@@ -112,6 +112,7 @@
       #s5 .story { margin-top: 40px; font-size: 54px; font-weight: 800; line-height: 1.2; letter-spacing: -0.01em; opacity: 0; }
 
       .hl { font-weight: 800; }
+      .bd, .jb, .ln, .story, .say, .txt, .why { text-wrap: pretty; }
       .bd { margin-top: 18px; font-weight: 400; color: rgba(238, 243, 239, 0.86); }
       #s6 .say[dir="rtl"] .bd { font-weight: 400; }
       /* 6 languages */
@@ -126,7 +127,7 @@
       #s7 .l3 { position: absolute; left: 140px; top: 800px; width: 1640px; height: 130px; display: flex; border-radius: 20px; overflow: hidden; opacity: 0; }
       #s7 .l3 .a { background: var(--red); color: var(--bg); padding: 0 40px; display: flex; align-items: center; font-size: 38px; font-weight: 800; width: 560px; flex: none; }
       #s7 .l3 .b { background: rgba(11, 20, 16, 0.94); flex: 1; padding: 0 40px; display: flex; align-items: center; font-size: 38px; font-weight: 600; }
-      #s7 .focus { position: absolute; left: 140px; top: 200px; width: 570px; padding: 40px; opacity: 0; }
+      #s7 .focus { position: absolute; left: 60px; top: 190px; width: 500px; padding: 34px; opacity: 0; }
       #s7 .focus .nm { font-size: 52px; font-weight: 800; }
       #s7 .focus .ln { margin-top: 12px; font-size: 32px; }
 
@@ -143,8 +144,8 @@
     </style>
   </head>
   <body>
-    <div id="root" data-composition-id="main" data-start="0" data-duration="114" data-width="1920" data-height="1080">
-      <div id="stage" class="clip" data-start="0" data-duration="114" data-track-index="0">
+    <div id="root" data-composition-id="main" data-start="0" data-duration="116" data-width="1920" data-height="1080">
+      <div id="stage" class="clip" data-start="0" data-duration="116" data-track-index="0">
 
         <!-- 1 title -->
         <div id="s1" class="scene"><div class="cam" id="c1">
@@ -231,6 +232,7 @@
         <div id="s7" class="scene"><div class="cam" id="c7">
           <svg class="feed" id="s7pitch" width="1920" height="640" style="top: 130px;"></svg>
           <div class="bug" id="s7bug" style="left: 80px; top: 40px;"></div>
+          <div class="kicker muted" id="s7k" style="position: absolute; right: 80px; top: 58px; font-size: 26px; text-align: right;"></div>
           <div class="l3" id="s7l3"><div class="a">Should he have passed?</div><div class="b" id="s7l3b"></div></div>
           <div class="focus panel" id="s7focus">
             <span class="pill" style="background: var(--ink); color: var(--bg);">Player focus</span>
@@ -455,6 +457,7 @@
       $("s8cd").textContent = az[2];
       $("s2h").textContent = F["copy.pipeline"].text;
       $("s8ht").textContent = F["copy.azure"].text;
+      $("s7k").textContent = F["copy.overlay"].text;
       const fin = v("match.final");
       $("s8fine").textContent = F["copy.endline"].text;
 
@@ -515,10 +518,11 @@
         tl.fromTo("#s3c" + i, { opacity: 0, x: -24 }, { opacity: 1, x: 0, duration: 0.4, ease: "power3.out" }, cue(k));
         if (i < 4) tl.to("#s3o" + i, { opacity: 0, duration: 0.3 }, cue(agentCues[i + 1]));
       });
-      rise("#s3fc", cue("s3c.fact-checker"));
+      rise("#s3fc", s3.start + 1.0);
       tl.fromTo("#s3strike", { scaleX: 0 }, { scaleX: 1, duration: 0.3, ease: "power2.out", transformOrigin: "left center" }, cue("s3c.blocks"));
       tl.to("#s3bad", { opacity: 0.45, duration: 0.3 }, cue("s3c.blocks") + 0.3);
-      tl.fromTo("#s3good", { opacity: 0, y: -16 }, { ...IN }, cue("s3c.blocks") + 0.5);
+      tl.set("#s3good", { display: "inline" }, cue("s3c.blocks") + 0.5);
+      tl.fromTo("#s3good", { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power3.out" }, cue("s3c.blocks") + 0.5);
       rise("#s3fb", cue("s3d.templates"));
       tl.to("#s3o4", { opacity: 0, duration: 0.3 }, cue("s3d.templates"));
       tl.fromTo("#s3o2", { opacity: 0 }, { opacity: 1, duration: 0.25 }, cue("s3d.templates"));
@@ -530,7 +534,7 @@
       tl.to(shotLine, { attr: { "stroke-dashoffset": 0 }, duration: 0.5, ease: "power2.out" }, tShoot);
       tl.fromTo(ball, { attr: { cx: shooter.x, cy: shooter.y } }, { attr: { cx: bo.shot_end.x, cy: bo.shot_end.y }, duration: 0.5, ease: "power1.in" }, tShoot);
       rise("#s4st1", cue("s4a.five-per-cent"));
-      tl.fromTo("#s4v1", { innerText: 0 }, { innerText: pct(bo.shot_chance_quality), snap: { innerText: 1 }, duration: 0.6 }, cue("s4a.five-per-cent"));
+      $("s4v1").textContent = pct(bo.shot_chance_quality);
       tl.fromTo(savedT, { opacity: 0 }, { opacity: 1, duration: 0.2 }, tSaved);
       // rewind: the ball goes back, the shot line fades
       const tRew = T.lines.find((l) => l.id === "s4a").end + 0.2;
@@ -546,9 +550,9 @@
       tl.fromTo(passLine, { opacity: 0 }, { opacity: 1, duration: 0.3 }, t83 - 0.4);
       tl.to(ball, { attr: { cx: mate.x, cy: mate.y }, duration: 0.7, ease: "power2.inOut" }, t83 - 0.4);
       rise("#s4st2", t83);
-      tl.fromTo("#s4v2", { innerText: 0 }, { innerText: pct(bo.pass_success), snap: { innerText: 1 }, duration: 0.6 }, t83);
+      $("s4v2").textContent = pct(bo.pass_success);
       rise("#s4st3", t24);
-      tl.fromTo("#s4v3", { innerText: 0 }, { innerText: pct(bo.alt_chance_quality), snap: { innerText: 1 }, duration: 0.6 }, t24);
+      $("s4v3").textContent = pct(bo.alt_chance_quality);
       tl.fromTo("#s4verdict", { opacity: 0, scale: 0.9 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)", transformOrigin: "left center" }, cue("s4d.four-times"));
 
       // 5 split
@@ -565,7 +569,7 @@
       const s6end = s6.start + s6.duration;
       // English, then Spanish over the Spanish line, then Arabic holds to the end
       const sp = T.lines.find((l) => l.id === "s6b");
-      const langAt = [s6.start + 0.1, sp.start - 0.2, sp.end + 2.6];
+      const langAt = [s6.start + 0.1, sp.start - 0.2, sp.end + 0.8];
       langAt.forEach((t, i) => {
         rise("#s6l" + i, t, 20);
         tl.fromTo("#s6t" + i, { backgroundColor: "#14241c", color: "#eef3ef" }, { backgroundColor: "#eef3ef", color: "#0b1410", duration: 0.2 }, t);

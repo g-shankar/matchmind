@@ -275,6 +275,8 @@ def main() -> None:
         ("copy.square", f"Square ball to {mt}, {bo['pass_distance_m']} m: arrives"),
         ("copy.verdict", f"{x}× the value. He should have passed."),
         ("copy.lowerthird", f"Square ball to {mt} was worth {x}× the shot."),
+        ("copy.ui", "Replay | Player focus | Fallback | events streamed | Nearest marker | Value: pass vs shot | "
+                    f"Verdict | {mt}'s chance after the pass | {mt} · free | English | Español | العربية | Analyst | Fan"),
         ("copy.endline", f"Demo match: {home_.name} {fin['NBR']}–{fin['HCY']} {away_.name}. Fully synthetic."),
     ]:
         facts.append({"id": cid, "text": text, "value": None, "source": "film copy built from engine facts (facts.py)"})

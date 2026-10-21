@@ -24,3 +24,9 @@ Round 2 review: "another pass" (a-i from round 1 mostly fixed). Fixed now:
 - Azure scene reworded to what is true before deploy ("Built for Azure"; Event Hubs: the match streams in; OpenAI: built for managed identity). No drafts left.
 - Fan cards set headline apart from body; captions balanced; camera drift doubled so holds keep moving;
   title tagline complete from frame 0; repo-quality line raised to full contrast.
+
+Round 3 review: "another pass" (one major: Arabic card 3.2 s). Fixed: Arabic held ~6.5 s (film now 116 s);
+stat cards fade in final values (no count-up through unbacked numbers like 40%); no gap before the
+fact-checked replacement; fact-check card arrives with the crew list; UI labels added as copy.ui;
+overlay scene gets the copy.overlay kicker; text-wrap: pretty against orphans; focus card smaller.
+Next: restyle to the app's new fonts and colours (frontend thread), then final 60 fps render.

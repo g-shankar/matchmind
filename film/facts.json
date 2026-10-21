@@ -672,6 +672,12 @@
    "source": "film copy built from engine facts (facts.py)"
   },
   {
+   "id": "copy.ui",
+   "text": "Replay | Player focus | Fallback | events streamed | Nearest marker | Value: pass vs shot | Verdict | Kerrigan's chance after the pass | Kerrigan · free | English | Español | العربية | Analyst | Fan",
+   "value": null,
+   "source": "film copy built from engine facts (facts.py)"
+  },
+  {
    "id": "copy.endline",
    "text": "Demo match: Northbridge FC 2–3 Harbour City. Fully synthetic.",
    "value": null,
@@ -697,7 +703,7 @@
   },
   {
    "id": "copy.vo.s3b",
-   "text": "The Spotter finds the moment. The Analyst pulls the evidence. The Commentator writes it. The Producer decides what goes on air.",
+   "text": "The Spotter finds the moment. The Analyst pulls the evidence. The Commentator writes it. The Producer decides what goes on air.",
    "value": null,
    "source": "voiceover script (vo.json)"
   },
