@@ -87,6 +87,14 @@ class Narrative(BaseModel):
     fallback_reason: str | None = None
 
 
+class MomentBundle(BaseModel):
+    """A spotted moment with its fact-checked explanation, before it is voiced."""
+
+    moment: Moment
+    explanation: Explanation
+    replay: dict | None = None
+
+
 class FactCheck(BaseModel):
     ok: bool
     reasons: list[str] = Field(default_factory=list)

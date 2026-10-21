@@ -26,6 +26,7 @@ class EventMetrics(BaseModel):
     chance_quality: float | None = Field(default=None, ge=0, le=1)
     distance_to_goal_m: float | None = None
     pitch_zone: str | None = None
+    xt_delta: float | None = None
     better_option: BetterOption | None = None
     unfound_run: UnfoundRun | None = None
 
@@ -119,6 +120,7 @@ class PlayerStats(BaseModel):
     top_speed_kmh: float = 0.0
     sprints: int = 0
     carry_distance_m: float = 0.0
+    distance_km: float = 0.0
 
     @property
     def pass_accuracy(self) -> float:
