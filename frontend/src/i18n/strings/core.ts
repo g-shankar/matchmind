@@ -90,6 +90,8 @@ const core: StringTable = {
     'produced.template': 'Template',
     'evidence.title': 'Evidence',
     'evidence.source': 'Source event {id}',
+    'auto.label': 'Detected from synthetic tracking, not video',
+    'auto.summary': '{pct}% of passes found · ±{mae} km/h',
   },
   es: {
     'app.tagline': 'Tu equipo de estudio con IA para inteligencia de partidos sintéticos',
@@ -179,6 +181,8 @@ const core: StringTable = {
     'produced.template': 'Plantilla',
     'evidence.title': 'Pruebas',
     'evidence.source': 'Evento de origen {id}',
+    'auto.label': 'Detectado a partir de tracking sintético, no de vídeo',
+    'auto.summary': '{pct}% de pases detectados · ±{mae} km/h',
   },
   ar: {
     'app.tagline': 'طاقم الاستوديو الذكي لتحليل المباريات الاصطناعية',
@@ -268,6 +272,8 @@ const core: StringTable = {
     'produced.template': 'قالب',
     'evidence.title': 'الأدلة',
     'evidence.source': 'الحدث المصدر {id}',
+    'auto.label': 'مُكتشف من بيانات تتبّع اصطناعية، لا من الفيديو',
+    'auto.summary': 'رُصد {pct}% من التمريرات · ±{mae} كم/س',
   },
 };
 

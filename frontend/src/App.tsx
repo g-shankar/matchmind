@@ -37,7 +37,7 @@ export const App: React.FC = () => {
 };
 
 const Shell: React.FC<ViewProps> = ({ match, actions }) => {
-  const { t, dir } = useI18n();
+  const { t, dir, num } = useI18n();
   const [view, setView] = useState<ViewMode>(viewFromHash);
   const [replay, setReplay] = useState<OverlayCard | null>(null);
   const [recapOpen, setRecapOpen] = useState(false);
@@ -85,6 +85,17 @@ const Shell: React.FC<ViewProps> = ({ match, actions }) => {
             {match.crew && (
               <Badge tone={match.crew.mode === 'ai' ? 'signal' : 'mute'} title={match.crew.mode === 'template' ? t('crew.templateHint') : undefined}>
                 {t(match.crew.mode === 'ai' ? 'crew.ai' : 'crew.template')}
+              </Badge>
+            )}
+            {match.autoEventing && (
+              <Badge tone="signal" className="hidden md:inline-flex" title={t('auto.label')}>
+                {t('auto.label')} ·{' '}
+                <span className="ltr-nums">
+                  {t('auto.summary', {
+                    pct: num(match.autoEventing.passes_detected_pct, 1),
+                    mae: num(match.autoEventing.speed_mae_kmh, 1),
+                  })}
+                </span>
               </Badge>
             )}
           </div>
