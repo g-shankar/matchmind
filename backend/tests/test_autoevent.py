@@ -115,6 +115,22 @@ def test_same_events_and_seed_give_the_same_feed(demo_events):
     assert [f.ball for f in a.frames] != [f.ball for f in c.frames]
 
 
+def test_feed_carries_only_what_a_tracking_provider_delivers():
+    """Guards the detector against event data leaking in through the feed."""
+    from matchmind.autoevent.tracking import Frame, TrackingFeed
+
+    assert set(Frame.__slots__) == {"period", "clock_s", "alive", "ball", "xy"}
+    assert set(TrackingFeed.__slots__) == {
+        "match_id",
+        "hz",
+        "player_ids",
+        "player_teams",
+        "attacks_right",
+        "frames",
+        "source",
+    }
+
+
 def test_rejects_a_stream_without_lineups(demo_events):
     with pytest.raises(ValueError, match="match_start"):
         render_tracking(demo_events[1:])
@@ -214,6 +230,28 @@ def test_precision_and_recall_arithmetic(demo_events):
     assert r.speed_mae_kmh == 0.0
 
 
+def test_scoring_nothing_is_refused_not_reported_as_perfect(demo_events):
+    with pytest.raises(ValueError):
+        score([], [], hz=25, frames=0)
+    r = score(demo_events[:5], [], hz=25, frames=0)
+    assert r.speed_mae_kmh is None
+
+
+def test_a_pass_and_shot_close_together_keep_their_kinds(demo_events):
+    passes = [e for e in demo_events if e.type == EventType.PASS]
+    p = passes[10]
+    shot = p.model_copy(update={"type": EventType.SHOT, "clock_s": p.clock_s + 0.3, "event_id": "x"})
+    found = [
+        _found("shot", p.player_id, shot.clock_s - 0.25, p.period),
+        _found("pass", p.player_id, p.clock_s, p.period),
+    ]
+    matches = match_events([p, shot], found)
+    assert {(m.truth.type, m.found.kind) for m in matches} == {
+        (EventType.PASS, "pass"),
+        (EventType.SHOT, "shot"),
+    }
+
+
 def test_evaluate_matches_the_api_contract(demo_events):
     status = evaluate(short_match(demo_events, 600))
     data = status.model_dump()
@@ -241,3 +279,6 @@ def test_cli_score_frames_and_svg(demo_events, tmp_path, capsys):
     cli_main(["svg", str(path), "--at", "02:00", "--seconds", "20", "--out", str(tmp_path / "a.svg")])
     svg = (tmp_path / "a.svg").read_text()
     assert svg.startswith("<svg") and LABEL in svg
+
+    with pytest.raises(SystemExit):
+        cli_main(["score", str(path), "--hz", "0"])

@@ -60,6 +60,10 @@ What it gets wrong, and why:
   speed with no height, spin or bounce, and players move by simple rules. Real
   tracking is messier, so these numbers are an upper bound for this method,
   not a claim about real footage.
+- Ball control is close to perfect by construction: the holder stands 0.35 m
+  from the ball and a receiver arrives exactly where the pass ends. So the 99%
+  pass and receiver figures mostly test the kick and classification rules, not
+  how well the detector finds who has the ball in a crowd.
 - The detector is rule-based and its thresholds are documented constants, so
   every decision can be traced. It is not a trained model.
 - In the product it must always carry the label "Detected from synthetic

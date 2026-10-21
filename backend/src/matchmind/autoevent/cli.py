@@ -17,6 +17,13 @@ from .svg import render_svg
 from .tracking import DEFAULT_HZ, render_tracking
 
 
+def _positive(text: str) -> float:
+    value = float(text)
+    if not value > 0:
+        raise argparse.ArgumentTypeError("must be a positive number")
+    return value
+
+
 def _pct(x: float) -> str:
     return f"{100 * x:5.1f}%"
 
@@ -25,7 +32,7 @@ def _row(r: AutoEventingReport) -> str:
     return (
         f"{r.match_id:<12} passes P {_pct(r.passes.precision)} R {_pct(r.passes.recall)}"
         f" | shots {r.shots.matched}/{r.shots.truth} P {_pct(r.shots.precision)} R {_pct(r.shots.recall)}"
-        f" | receiver {_pct(r.receiver_accuracy or 0)} | kick speed error {r.speed_mae_kmh:.1f} km/h"
+        f" | receiver {_pct(r.receiver_accuracy or 0)} | kick speed error {r.speed_mae_kmh or 0:.1f} km/h"
     )
 
 
@@ -87,7 +94,7 @@ def cmd_svg(args: argparse.Namespace) -> None:
         subtitle=(
             f"Whole match: passes found {_pct(r.passes.recall).strip()}"
             f" (precision {_pct(r.passes.precision).strip()}),"
-            f" shots {r.shots.matched}/{r.shots.truth}, kick speed error {r.speed_mae_kmh:.1f} km/h"
+            f" shots {r.shots.matched}/{r.shots.truth}, kick speed error {r.speed_mae_kmh or 0:.1f} km/h"
         ),
     )
     out = Path(args.out)
@@ -104,22 +111,22 @@ def build_parser() -> argparse.ArgumentParser:
 
     s = sub.add_parser("score", help="detect events from tracking and score them against the simulator")
     s.add_argument("matches", nargs="+", help="match JSONL files")
-    s.add_argument("--hz", type=float, default=DEFAULT_HZ)
+    s.add_argument("--hz", type=_positive, default=DEFAULT_HZ)
     s.add_argument("--json", help="also write the full reports to this file")
     s.set_defaults(func=cmd_score)
 
     f = sub.add_parser("frames", help="write the synthetic tracking feed (JSONL, .gz to compress)")
     f.add_argument("match")
     f.add_argument("--out", default="data/local/tracking.jsonl.gz")
-    f.add_argument("--hz", type=float, default=DEFAULT_HZ)
+    f.add_argument("--hz", type=_positive, default=DEFAULT_HZ)
     f.set_defaults(func=cmd_frames)
 
     v = sub.add_parser("svg", help="draw true against detected events for a passage of play")
     v.add_argument("match")
     v.add_argument("--at", default="33:40", help="match clock, e.g. 33:40 or 90+2:15")
-    v.add_argument("--seconds", type=float, default=25.0)
+    v.add_argument("--seconds", type=_positive, default=25.0)
     v.add_argument("--out", default="data/local/autoevent.svg")
-    v.add_argument("--hz", type=float, default=DEFAULT_HZ)
+    v.add_argument("--hz", type=_positive, default=DEFAULT_HZ)
     v.set_defaults(func=cmd_svg)
     return parser
 
