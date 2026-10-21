@@ -1378,6 +1378,92 @@ def render(key: str, base: dict[str, Any], per_lang: dict[str, dict[str, Any]]) 
     return out
 
 
+# Evidence label translations (es, ar). Names stay as they are; labels carry no numbers.
+LABELS_FIXED: dict[str, tuple[str, str]] = {
+    "Chance quality": ("Calidad de la ocasión", "جودة الفرصة"),
+    "Distance to goal": ("Distancia a la portería", "المسافة إلى المرمى"),
+    "Scorer": ("Goleador", "المسجّل"),
+    "Assist": ("Asistente", "صاحب التمريرة الحاسمة"),
+    "Card": ("Tarjeta", "البطاقة"),
+    "Player": ("Jugador", "اللاعب"),
+    "Milestone": ("Hito", "الإنجاز"),
+    "Defenders in shooting cone": ("Defensores en el ángulo de tiro", "المدافعون في مخروط التسديد"),
+    "Outcome": ("Resultado", "النتيجة"),
+    "Shot chance quality": ("Calidad de la ocasión del tiro", "جودة فرصة التسديدة"),
+    "Pass option value (pass success x chance quality)": (
+        "Valor del pase (probabilidad de éxito por calidad de la ocasión)",
+        "قيمة خيار التمرير (احتمال النجاح مضروبًا في جودة الفرصة)",
+    ),
+    "Teammate chance quality": ("Calidad de la ocasión del compañero", "جودة فرصة الزميل"),
+    "Pass success probability": ("Probabilidad de éxito del pase", "احتمال نجاح التمريرة"),
+    "Times better": ("Veces mejor", "عدد مرات الأفضلية"),
+    "Pass distance": ("Distancia del pase", "مسافة التمريرة"),
+    "Nearest marker to teammate": ("Marcador más cercano al compañero", "أقرب مراقب إلى الزميل"),
+    "Shooter": ("Rematador", "المسدِّد"),
+    "Free teammate": ("Compañero libre", "الزميل الحر"),
+    "Pass on at": ("Pase posible a los", "التمريرة متاحة بعد"),
+    "Pass on clock": ("Minuto del pase posible", "توقيت التمريرة المتاحة"),
+    "Clear of the back line": ("Ventaja sobre la última línea", "التقدم خلف خط الدفاع"),
+    "Projected chance quality": ("Calidad de ocasión prevista", "جودة الفرصة المتوقعة"),
+    "One on one": ("Mano a mano", "مواجهة مباشرة مع الحارس"),
+    "Runner": ("Jugador del desmarque", "صاحب الانطلاقة"),
+    "Ball carrier": ("Poseedor del balón", "حامل الكرة"),
+    "Pressure spell threshold": ("Umbral de racha de presión", "عتبة فترة الضغط"),
+    "Spell length": ("Duración de la racha", "مدة فترة الضغط"),
+    "Momentum change (5 min)": ("Cambio de impulso (últimos cinco minutos)", "تغير الزخم (آخر خمس دقائق)"),
+    "Ball speed": ("Velocidad del balón", "سرعة الكرة"),
+    "Player speed": ("Velocidad del jugador", "سرعة اللاعب"),
+    "Speed burst threshold": ("Umbral de arrancada", "عتبة الانطلاقة السريعة"),
+    "Pass difficulty": ("Dificultad del pase", "صعوبة التمريرة"),
+    "End zone": ("Zona de destino", "منطقة الوصول"),
+    "Receiver": ("Receptor", "المستلم"),
+}
+LABELS_NAMED: list[tuple[re.Pattern[str], str, str]] = [
+    (re.compile(r"^(?P<n>.+) xG \(match\)$"), "{n}: xG en el partido", "{n}: xG في المباراة"),
+    (re.compile(r"^(?P<n>.+) xA \(match\)$"), "{n}: xA en el partido", "{n}: xA في المباراة"),
+    (re.compile(r"^(?P<n>.+) shots \(match\)$"), "{n}: tiros en el partido", "{n}: التسديدات في المباراة"),
+    (
+        re.compile(r"^(?P<n>.+) key passes \(match\)$"),
+        "{n}: pases clave en el partido",
+        "{n}: التمريرات المفتاحية في المباراة",
+    ),
+    (re.compile(r"^(?P<n>.+) goals$"), "Goles de {n}", "أهداف {n}"),
+    (
+        re.compile(r"^(?P<n>.+) players on the pitch$"),
+        "Jugadores de {n} en el campo",
+        "لاعبو {n} على أرض الملعب",
+    ),
+    (
+        re.compile(r"^(?P<n>.+) shots \(last 5 min\)$"),
+        "Tiros de {n} (últimos cinco minutos)",
+        "تسديدات {n} (آخر خمس دقائق)",
+    ),
+    (
+        re.compile(r"^(?P<n>.+) xG \(last 5 min\)$"),
+        "xG de {n} (últimos cinco minutos)",
+        "xG لـ{n} (آخر خمس دقائق)",
+    ),
+    (
+        re.compile(r"^(?P<n>.+) final-third passes \(last 5 min\)$"),
+        "Pases de {n} en el último tercio (últimos cinco minutos)",
+        "تمريرات {n} في الثلث الأخير (آخر خمس دقائق)",
+    ),
+    (re.compile(r"^Momentum in favour of (?P<n>.+)$"), "Impulso a favor de {n}", "الزخم لصالح {n}"),
+    (re.compile(r"^(?P<n>.+) pressure index$"), "Índice de presión de {n}", "مؤشر ضغط {n}"),
+]
+
+
+def translate_label(label: str) -> dict[str, str]:
+    if label in LABELS_FIXED:
+        es, ar = LABELS_FIXED[label]
+        return {"es": es, "ar": ar}
+    for pattern, es, ar in LABELS_NAMED:
+        m = pattern.match(label)
+        if m:
+            return {"es": es.format(n=m["n"]), "ar": ar.format(n=m["n"])}
+    raise KeyError(f"no translation for evidence label {label!r}")
+
+
 def ev_item(label: str, value: Any, unit: str | None, src: str | None) -> dict[str, Any]:
     return {"label": label, "value": value, "unit": unit, "source_event_id": src}
 
@@ -1465,6 +1551,9 @@ class Spotter:
                 "team": team,
                 "player_ids": player_ids,
                 "evidence": evidence,
+                "evidence_labels": {
+                    lang: [translate_label(e["label"])[lang] for e in evidence] for lang in ("es", "ar")
+                },
                 "tactical_tag": TACTICAL_TAG[key],
                 "replay": replay,
                 "texts": render(key, base, per),
@@ -2218,6 +2307,13 @@ def self_check(fixture: dict, raw_events: list[dict]) -> list[str]:
     problems: list[str] = []
     for m in fixture["moments"]:
         values = [e["value"] for e in m["evidence"]]
+        for lang in ("es", "ar"):
+            labels = m["evidence_labels"][lang]
+            if len(labels) != len(m["evidence"]):
+                problems.append(f"{m['moment_id']}: evidence_labels[{lang}] length does not match evidence")
+            names = " ".join(str(e["label"]) for e in m["evidence"])
+            if any(re.search(r"\d", lab) and not re.search(r"\d", names) for lab in labels):
+                problems.append(f"{m['moment_id']}: number in a translated evidence label")
         for persona, langs in m["texts"].items():
             for lang, tx in langs.items():
                 where = f"{m['moment_id']} {persona}/{lang}"

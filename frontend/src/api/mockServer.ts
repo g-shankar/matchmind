@@ -57,6 +57,8 @@ export interface FixtureMoment {
   team: string | null;
   player_ids: string[];
   evidence: Evidence[];
+  /** Evidence labels in other languages, same order as `evidence`. */
+  evidence_labels?: Partial<Record<Language, string[]>>;
   tactical_tag: string;
   replay: Replay | null;
   texts: Partial<Record<PersonaType, Partial<Record<Language, MomentText>>>>;
@@ -104,6 +106,12 @@ export function pickText(m: FixtureMoment, persona: PersonaType, language: Langu
   return { text: byLang.en ?? { headline: m.kind, body: '', why: '' }, language: 'en' };
 }
 
+function localEvidence(m: FixtureMoment, language: Language): Evidence[] {
+  const labels = m.evidence_labels?.[language];
+  if (!labels || labels.length !== m.evidence.length) return m.evidence;
+  return m.evidence.map((e, i) => ({ ...e, label: labels[i] }));
+}
+
 export function cardForMoment(m: FixtureMoment, profile: ViewerProfile): OverlayCard | null {
   const focus = profile.focus_player_id;
   const involvesFocus = !!focus && m.player_ids.includes(focus);
@@ -126,7 +134,7 @@ export function cardForMoment(m: FixtureMoment, profile: ViewerProfile): Overlay
     body: text.body,
     why: text.why,
     tactical_tag: m.tactical_tag,
-    evidence: m.evidence,
+    evidence: localEvidence(m, language),
     player_ids: m.player_ids,
     team: m.team,
     favourite_side,
