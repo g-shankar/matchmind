@@ -62,7 +62,7 @@ PITCH_TAG_GAP_S = 20.0
 # Better option / unfound run
 BETTER_MARGIN = 0.10
 BETTER_RATIO = 1.8
-MIN_MARKER_M = 6.0  # a teammate counts as free only with no opponent within 6 m
+MIN_MARKER_M = 7.0  # same "unmarked" rule as the stats engine
 RUN_ONSIDE_TOL_M = 0.3
 RUN_BEYOND_M = 1.5
 RUN_LOOKAHEAD_S = 1.0
