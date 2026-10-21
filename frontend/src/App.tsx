@@ -1,439 +1,282 @@
-import React, { useEffect, useState, useRef } from 'react';
-import {
-  MatchEvent,
-  MatchInsight,
-  ControlChaosState,
-  PersonaType,
-  SupportedLanguage,
-  MatchRecap,
-} from './types';
+import React, { useEffect, useState } from 'react';
+import { FileText, Pause, Play, RotateCcw, X } from 'lucide-react';
+import type { Language, OverlayCard, PersonaType, SpeedMultiplier } from './api/contract';
+import { I18nProvider, UI_LANGUAGES, useI18n } from './i18n';
+import { useMatch } from './state/useMatch';
+import { activeCards } from './state/matchStore';
+import type { ViewProps } from './views/types';
+import { Badge, Logo, Segmented, cx } from './components/ui';
 import { Pitch2D } from './components/Pitch2D';
+import { ReplayCard } from './components/ReplayCard';
 import { ControlChaosGauge } from './components/ControlChaosGauge';
 import { NarrativeFeed } from './components/NarrativeFeed';
+import { MomentsList } from './components/MomentsList';
 import { BroadcastOverlay } from './components/BroadcastOverlay';
-import { PlayerSpotlight } from './components/PlayerSpotlight';
 import { RecapModal } from './components/RecapModal';
-import {
-  Radio,
-  Play,
-  Pause,
-  RotateCcw,
-  FastForward,
-  Sparkles,
-  Tv,
-  Layers,
-  Users,
-  Compass,
-  FileText,
-  Activity,
-} from 'lucide-react';
+import { SplitView } from './views/SplitView';
+import { PlayerFocus } from './views/PlayerFocus';
+import { MyMatch } from './views/MyMatch';
+
+type ViewMode = 'studio' | 'overlay' | 'split' | 'follow' | 'fan';
+const VIEWS: ViewMode[] = ['studio', 'overlay', 'split', 'follow', 'fan'];
+const PERSONAS: PersonaType[] = ['casual', 'tactical', 'fantasy'];
+const SPEEDS: SpeedMultiplier[] = [1, 10, 60];
+
+const viewFromHash = (): ViewMode => {
+  const v = window.location.hash.replace('#', '') as ViewMode;
+  return VIEWS.includes(v) ? v : 'studio';
+};
 
 export const App: React.FC = () => {
-  // Navigation View
-  const [viewMode, setViewMode] = useState<'studio' | 'overlay' | 'fan'>('studio');
+  const { state, actions } = useMatch();
+  return (
+    <I18nProvider lang={state.profile.language}>
+      <Shell match={state} actions={actions} />
+    </I18nProvider>
+  );
+};
 
-  // Match State
-  const [clock, setClock] = useState<string>('00:00');
-  const [period, setPeriod] = useState<number>(1);
-  const [homeScore, setHomeScore] = useState<number>(0);
-  const [awayScore, setAwayScore] = useState<number>(0);
-  const [currentEvent, setCurrentEvent] = useState<MatchEvent | null>(null);
-  const [recentEvents, setRecentEvents] = useState<MatchEvent[]>([]);
-  const [controlState, setControlState] = useState<ControlChaosState | null>(null);
-  const [insights, setInsights] = useState<MatchInsight[]>([]);
-  const [teamsData, setTeamsData] = useState<any>(null);
+const Shell: React.FC<ViewProps> = ({ match, actions }) => {
+  const { t, dir, num } = useI18n();
+  const [view, setView] = useState<ViewMode>(viewFromHash);
+  const [replay, setReplay] = useState<OverlayCard | null>(null);
+  const [recapOpen, setRecapOpen] = useState(false);
+  const [recapLoading, setRecapLoading] = useState(false);
 
-  // Playback & Controls
-  const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [speedMultiplier, setSpeedMultiplier] = useState<number>(1.0);
-  const [activePersona, setActivePersona] = useState<PersonaType>('casual');
-  const [activeLanguage, setActiveLanguage] = useState<SupportedLanguage>('en');
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string>('MCI_09');
-
-  // Recap Modal
-  const [recapModalOpen, setRecapModalOpen] = useState<boolean>(false);
-  const [recapData, setRecapData] = useState<MatchRecap | null>(null);
-  const [isRecapLoading, setIsRecapLoading] = useState<boolean>(false);
-
-  const socketRef = useRef<WebSocket | null>(null);
-
-  // WebSocket Connection Lifecycle
   useEffect(() => {
-    const wsUrl = `ws://${window.location.hostname}:8000/ws/match`;
-    let ws: WebSocket;
-
-    const connect = () => {
-      ws = new WebSocket(wsUrl);
-      socketRef.current = ws;
-
-      ws.onopen = () => {
-        setIsConnected(true);
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const payload = JSON.parse(event.data);
-          if (payload.type === 'INITIAL_SNAPSHOT') {
-            const d = payload.data;
-            setClock(d.clock);
-            setPeriod(d.period);
-            setHomeScore(d.home_score);
-            setAwayScore(d.away_score);
-            setControlState(d.control_chaos);
-            setTeamsData(d.teams);
-            setActivePersona(d.active_persona);
-            setSelectedPlayerId(d.active_spotlight_player_id || 'MCI_09');
-            if (d.recent_insights) {
-              setInsights(d.recent_insights);
-            }
-          } else if (payload.type === 'MATCH_TICK') {
-            const d = payload.data;
-            setClock(d.clock);
-            setPeriod(d.period);
-            setHomeScore(d.score.home);
-            setAwayScore(d.score.away);
-            setControlState(d.control_chaos);
-            if (d.event) {
-              setCurrentEvent(d.event);
-              setRecentEvents((prev) => [...prev.slice(-30), d.event]);
-            }
-            if (d.insight) {
-              setInsights((prev) => [...prev, d.insight]);
-            }
-          } else if (payload.type === 'MATCH_RESET') {
-            setClock('00:00');
-            setPeriod(1);
-            setHomeScore(0);
-            setAwayScore(0);
-            setCurrentEvent(null);
-            setRecentEvents([]);
-            setInsights([]);
-          } else if (payload.type === 'PLAYBACK_CONTROL') {
-            setIsPlaying(payload.is_running);
-            if (payload.speed_multiplier) setSpeedMultiplier(payload.speed_multiplier);
-          } else if (payload.type === 'PERSONA_CHANGED') {
-            setActivePersona(payload.persona);
-          }
-        } catch (err) {
-          console.error('Error parsing WebSocket message:', err);
-        }
-      };
-
-      ws.onclose = () => {
-        setIsConnected(false);
-        setTimeout(connect, 2000);
-      };
-
-      ws.onerror = () => {
-        ws.close();
-      };
-    };
-
-    connect();
-
-    return () => {
-      if (ws) ws.close();
-    };
+    const onHash = () => setView(viewFromHash());
+    window.addEventListener('hashchange', onHash);
+    return () => window.removeEventListener('hashchange', onHash);
   }, []);
 
-  // Control Actions
-  const handleTogglePlay = () => {
-    if (socketRef.current && isConnected) {
-      socketRef.current.send(JSON.stringify({ action: 'toggle_pause' }));
-    }
+  useEffect(() => {
+    if (match.recap) setRecapOpen(true);
+  }, [match.recap]);
+
+  const goTo = (v: ViewMode) => {
+    window.location.hash = v;
+    setView(v);
   };
 
-  const handleSpeedChange = (mult: number) => {
-    setSpeedMultiplier(mult);
-    if (socketRef.current && isConnected) {
-      socketRef.current.send(
-        JSON.stringify({ action: 'set_speed', speed_multiplier: mult })
-      );
-    }
+  // A replay opened on one screen does not follow the viewer to the next.
+  useEffect(() => setReplay(null), [view]);
+
+  const openRecap = async () => {
+    setRecapOpen(true);
+    setRecapLoading(true);
+    await actions.loadRecap();
+    setRecapLoading(false);
   };
 
-  const handleReset = () => {
-    if (socketRef.current && isConnected) {
-      socketRef.current.send(JSON.stringify({ action: 'reset' }));
-    }
-  };
-
-  const handlePersonaChange = (persona: PersonaType) => {
-    setActivePersona(persona);
-    if (socketRef.current && isConnected) {
-      socketRef.current.send(
-        JSON.stringify({ action: 'set_persona', persona })
-      );
-    }
-  };
-
-  const handleTriggerRecap = async () => {
-    setRecapModalOpen(true);
-    setIsRecapLoading(true);
-    try {
-      const res = await fetch(`http://${window.location.hostname}:8000/api/match/recap?persona=${activePersona}`);
-      const data = await res.json();
-      setRecapData(data);
-    } catch (err) {
-      console.error('Failed to fetch recap:', err);
-    } finally {
-      setIsRecapLoading(false);
-    }
-  };
+  const { profile, playback, teams } = match;
+  const clockS = playback.clock_s;
+  const liveReplay = activeCards(match.cards, clockS, 'full_screen').find((c) => c.replay);
 
   return (
-    <div className="min-h-screen bg-[#07090e] text-slate-100 flex flex-col font-sans">
-      {/* GLOBAL NAVBAR */}
-      <header className="bg-[#0b0e17] border-b border-slate-800/80 sticky top-0 z-40 px-6 py-3">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
-          {/* Logo & Live Status */}
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#38003c] to-emerald-500 flex items-center justify-center font-bold text-white shadow-lg shadow-emerald-500/20">
-              ⚽
-            </div>
+    <div dir={dir} className="flex min-h-screen flex-col bg-pp-night text-slate-100">
+      <header className="sticky top-0 z-40 border-b-2 border-pp-pulse bg-pp-night/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <Logo />
             <div>
-              <div className="flex items-center space-x-2">
-                <h1 className="font-display font-extrabold text-xl text-white tracking-wide">
-                  PITCHPULSE <span className="text-emerald-400">AI</span>
-                </h1>
-                <span className="text-[10px] bg-slate-800 text-slate-300 font-mono px-2 py-0.5 rounded border border-slate-700">
-                  PL STUDIO
+              <h1 className="font-display text-2xl font-extrabold uppercase italic leading-none tracking-broadcast text-pp-chalk">
+                Pitch<span className="text-pp-pulse">Pulse</span>
+              </h1>
+              <p className="hidden text-[11px] text-pp-mute sm:block">{t('app.tagline')}</p>
+            </div>
+            <ConnectionBadge status={match.status} />
+            {match.crew && (
+              <Badge tone={match.crew.mode === 'ai' ? 'signal' : 'mute'} title={match.crew.mode === 'template' ? t('crew.templateHint') : undefined}>
+                {t(match.crew.mode === 'ai' ? 'crew.ai' : 'crew.template')}
+              </Badge>
+            )}
+            {match.autoEventing && (
+              <Badge tone="signal" className="hidden md:inline-flex" title={t('auto.label')}>
+                {t('auto.label')} ·{' '}
+                <span className="ltr-nums">
+                  {t('auto.summary', {
+                    pct: num(match.autoEventing.passes_detected_pct, 1),
+                    mae: num(match.autoEventing.speed_mae_kmh, 1),
+                  })}
                 </span>
-              </div>
-              <p className="text-[11px] text-slate-400">
-                Synthetic Match Insights & Explainable Narrative Engine
-              </p>
-            </div>
+              </Badge>
+            )}
+          </div>
 
-            {/* Connection Indicator */}
-            <div className="ml-4 pl-4 border-l border-slate-800 flex items-center space-x-1.5 text-xs font-mono">
-              <span
-                className={`w-2 h-2 rounded-full ${
-                  isConnected ? 'bg-emerald-400 animate-ping' : 'bg-rose-500'
-                }`}
+          <nav aria-label="Views" className="flex max-w-full items-stretch overflow-x-auto border border-pp-line bg-pp-deep">
+            {VIEWS.map((v) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => goTo(v)}
+                aria-current={view === v ? 'page' : undefined}
+                className={cx(
+                  'min-h-[36px] whitespace-nowrap border-b-2 px-3 font-display text-sm font-bold uppercase tracking-broadcast transition',
+                  view === v ? 'border-pp-pulse bg-pp-pulse text-white' : 'border-transparent text-pp-mute hover:text-pp-chalk',
+                )}
+              >
+                {t(`view.${v}`)}
+              </button>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={actions.togglePause}
+              disabled={playback.ended}
+              aria-label={playback.is_running ? t('play.pause') : t('play.play')}
+              title={playback.is_running ? t('play.pause') : t('play.play')}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-pp-line bg-pp-panel text-white hover:border-pp-pulse disabled:opacity-40"
+            >
+              {playback.is_running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            </button>
+            <Segmented
+              label={t('play.speed')}
+              value={playback.speed_multiplier}
+              onChange={(s) => actions.setSpeed(s)}
+              options={SPEEDS.map((s) => ({ value: s, label: <span className="ltr-nums">{s}x</span> }))}
+            />
+            <button
+              type="button"
+              onClick={actions.reset}
+              aria-label={t('play.reset')}
+              title={t('play.reset')}
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-pp-line bg-pp-panel text-pp-mute hover:text-white"
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={openRecap}
+              className="flex h-9 items-center gap-1.5 bg-pp-signal px-3 font-display text-sm font-extrabold uppercase italic tracking-broadcast text-pp-night hover:bg-pp-chalk"
+            >
+              <FileText className="h-4 w-4" />
+              {t('play.recap')}
+            </button>
+          </div>
+        </div>
+
+        <div className="border-t border-pp-line/50 bg-pp-night/60">
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-2">
+            <div className="flex items-center gap-2 text-xs text-pp-mute">
+              <span className="font-semibold">{t('persona.label')}</span>
+              <Segmented
+                label={t('persona.label')}
+                value={profile.persona === 'player_spotlight' ? 'casual' : profile.persona}
+                onChange={(persona) => actions.setView({ persona })}
+                options={PERSONAS.map((p) => ({ value: p, label: t(`persona.${p}`) }))}
               />
-              <span className={isConnected ? 'text-emerald-400 font-bold' : 'text-rose-400'}>
-                {isConnected ? 'LIVE FEED' : 'RECONNECTING...'}
-              </span>
             </div>
-          </div>
-
-          {/* VIEW MODE SWITCHER (Studio, Overlay, Fan) */}
-          <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
-            <button
-              onClick={() => setViewMode('studio')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                viewMode === 'studio'
-                  ? 'bg-emerald-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Tv className="w-3.5 h-3.5" />
-              <span>Studio Director</span>
-            </button>
-            <button
-              onClick={() => setViewMode('overlay')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                viewMode === 'overlay'
-                  ? 'bg-purple-700 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Layers className="w-3.5 h-3.5" />
-              <span>Broadcast Overlay</span>
-            </button>
-            <button
-              onClick={() => setViewMode('fan')}
-              className={`flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                viewMode === 'fan'
-                  ? 'bg-sky-600 text-white shadow'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Users className="w-3.5 h-3.5" />
-              <span>Fan Personalizer</span>
-            </button>
-          </div>
-
-          {/* PLAYBACK CONTROLS & RECAP BUTTON */}
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleTogglePlay}
-              className={`p-2 rounded-lg text-xs font-bold flex items-center space-x-1.5 transition ${
-                isPlaying
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-              }`}
-              title={isPlaying ? 'Pause Simulation' : 'Resume Simulation'}
-            >
-              {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-            </button>
-
-            {/* Speed Multiplier Pills */}
-            <div className="flex items-center space-x-1 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800 text-xs font-mono">
-              {[1.0, 2.0, 5.0].map((s) => (
-                <button
-                  key={s}
-                  onClick={() => handleSpeedChange(s)}
-                  className={`px-1.5 py-0.5 rounded transition ${
-                    speedMultiplier === s
-                      ? 'bg-emerald-500 text-black font-extrabold'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {s}x
-                </button>
-              ))}
+            <Scoreline match={match} />
+            <div className="flex items-center gap-2 text-xs text-pp-mute">
+              <span className="font-semibold">{t('lang.label')}</span>
+              <Segmented
+                label={t('lang.label')}
+                value={profile.language}
+                onChange={(language: Language) => actions.setView({ language })}
+                options={UI_LANGUAGES.map((l) => ({ value: l as Language, label: t(`lang.${l}`) }))}
+              />
             </div>
-
-            <button
-              onClick={handleReset}
-              className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition"
-              title="Reset Match to 00:00"
-            >
-              <RotateCcw className="w-4 h-4" />
-            </button>
-
-            {/* Automated Recap Trigger */}
-            <button
-              onClick={handleTriggerRecap}
-              className="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-950 transition"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>Studio Recap</span>
-            </button>
           </div>
         </div>
       </header>
 
-      {/* PERSONA SWITCHER STRIP (Visible across views) */}
-      <div className="bg-[#0e1320] border-b border-slate-800/60 px-6 py-2">
-        <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
-          <div className="flex items-center space-x-2 text-slate-400 font-mono">
-            <Compass className="w-4 h-4 text-emerald-400" />
-            <span className="font-semibold text-slate-300">ACTIVE AUDIENCE PERSONA:</span>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            {[
-              { id: 'casual', label: 'Casual Fan (Story & Drama)', desc: 'Simplified terms & high emotion' },
-              { id: 'tactical', label: 'Tactical Analyst (The Chalkboard)', desc: 'PPDA, line-breaking & xT' },
-              { id: 'fantasy', label: 'Fantasy Scout (FPL Lens)', desc: 'BPS, attacking returns & cleansheet odds' },
-              { id: 'player_spotlight', label: 'Player Cam (Spotlight Mode)', desc: 'Single-star tracking' },
-            ].map((p) => (
-              <button
-                key={p.id}
-                onClick={() => handlePersonaChange(p.id as PersonaType)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
-                  activePersona === p.id
-                    ? 'bg-emerald-500 text-black font-extrabold shadow-md'
-                    : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
-                }`}
-                title={p.desc}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+      {match.status === 'demo' && (
+        <div className="border-b border-pp-gold/30 bg-pp-gold/10 px-4 py-1.5 text-center text-xs text-pp-gold">
+          {t('conn.demoHint')}
         </div>
-      </div>
+      )}
 
-      {/* MAIN CONTENT AREA */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6">
-        {viewMode === 'studio' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left Column: 2D Pitch + Control/Chaos Gauge (7 Cols) */}
-            <div className="lg:col-span-7 space-y-6">
-              {/* Pitch 2D */}
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-display font-bold text-white text-sm uppercase tracking-wider flex items-center space-x-2">
-                    <Activity className="w-4 h-4 text-emerald-400" />
-                    <span>Live Synthetic Pitch Trajectory</span>
-                  </h3>
-                  <span className="text-xs text-slate-400 font-mono">
-                    Clock: <strong className="text-white">{clock}</strong> | Match ID: SYNTH-PL-2026
-                  </span>
+      <main className="mx-auto w-full max-w-7xl flex-1 p-4">
+        {!teams ? (
+          <div className="flex h-64 items-center justify-center text-pp-mute">{t('common.loading')}</div>
+        ) : (
+          <>
+            {view === 'studio' && (
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+                <div className="space-y-4 lg:col-span-7">
+                  {liveReplay ? (
+                    <ReplayCard card={liveReplay} teams={teams} />
+                  ) : (
+                    <Pitch2D
+                      teams={teams}
+                      event={match.lastEvent}
+                      recentEvents={match.events.slice(-6)}
+                      positions={match.positions}
+                      showTags
+                      pitchTags={activeCards(match.cards, clockS, 'pitch_tag')}
+                    />
+                  )}
+                  <ControlChaosGauge match={match} actions={actions} />
+                  <MomentsList match={match} actions={actions} />
                 </div>
-                <Pitch2D currentEvent={currentEvent} />
+                <div className="lg:col-span-5">
+                  <NarrativeFeed match={match} actions={actions} onOpenReplay={setReplay} />
+                </div>
               </div>
-
-              {/* Control vs Chaos Gauge */}
-              <ControlChaosGauge
-                state={controlState}
-                homeTeamName="Manchester Blue"
-                awayTeamName="North London Red"
-              />
-            </div>
-
-            {/* Right Column: Explainable AI Narrative Feed (5 Cols) */}
-            <div className="lg:col-span-5 h-full">
-              <NarrativeFeed
-                insights={insights}
-                recentEvents={recentEvents}
-                currentLanguage={activeLanguage}
-                onLanguageChange={setActiveLanguage}
-              />
-            </div>
-          </div>
-        )}
-
-        {viewMode === 'overlay' && (
-          <div className="relative w-full h-[640px] bg-gradient-to-b from-slate-900/60 to-black/80 rounded-2xl border-2 border-dashed border-purple-500/40 overflow-hidden shadow-2xl backdrop-blur-sm">
-            {/* Simulation of a Live Match Stream with Overlay Layered */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-              <span className="font-display text-9xl font-extrabold text-white">4K BROADCAST FEED</span>
-            </div>
-            <BroadcastOverlay
-              currentEvent={currentEvent}
-              latestInsight={insights[insights.length - 1] ?? null}
-              controlState={controlState}
-              homeScore={homeScore}
-              awayScore={awayScore}
-              clock={clock}
-              period={period}
-            />
-          </div>
-        )}
-
-        {viewMode === 'fan' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Left: Player Spotlight Mode (6 Cols) */}
-            <div className="lg:col-span-6 space-y-6">
-              <PlayerSpotlight
-                teamsData={teamsData}
-                selectedPlayerId={selectedPlayerId}
-                onSelectPlayer={setSelectedPlayerId}
-                recentEvents={recentEvents}
-              />
-              <ControlChaosGauge
-                state={controlState}
-                homeTeamName="Manchester Blue"
-                awayTeamName="North London Red"
-              />
-            </div>
-
-            {/* Right: Personalized Narrative Stream (6 Cols) */}
-            <div className="lg:col-span-6">
-              <NarrativeFeed
-                insights={insights}
-                recentEvents={recentEvents}
-                currentLanguage={activeLanguage}
-                onLanguageChange={setActiveLanguage}
-              />
-            </div>
-          </div>
+            )}
+            {view === 'overlay' && <BroadcastOverlay match={match} actions={actions} />}
+            {view === 'split' && <SplitView match={match} actions={actions} />}
+            {view === 'follow' && <PlayerFocus match={match} actions={actions} />}
+            {view === 'fan' && <MyMatch match={match} actions={actions} />}
+          </>
         )}
       </main>
 
-      {/* RECAP MODAL */}
-      <RecapModal
-        isOpen={recapModalOpen}
-        onClose={() => setRecapModalOpen(false)}
-        recap={recapData}
-        isLoading={isRecapLoading}
-      />
+      {replay && (
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={() => setReplay(null)}>
+          <div className="w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
+            <ReplayCard card={replay} teams={teams} onClose={() => setReplay(null)} />
+          </div>
+        </div>
+      )}
+
+      <RecapModal open={recapOpen} onClose={() => setRecapOpen(false)} recap={match.recap} loading={recapLoading} teams={teams} />
+
+      {match.error && (
+        <div role="alert" className="fixed bottom-4 start-4 end-4 z-50 mx-auto flex max-w-md items-center justify-between gap-3 rounded-xl border border-pp-pulse/50 bg-pp-panel px-4 py-3 text-sm shadow-xl">
+          <span>{match.error}</span>
+          <button type="button" onClick={actions.clearError} aria-label={t('common.close')} className="text-pp-mute hover:text-white">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const ConnectionBadge: React.FC<{ status: ViewProps['match']['status'] }> = ({ status }) => {
+  const { t } = useI18n();
+  if (status === 'live') {
+    return (
+      <Badge tone="pulse">
+        <span className="h-2 w-2 animate-heartbeat rounded-full bg-white" />
+        {t('conn.live')}
+      </Badge>
+    );
+  }
+  if (status === 'demo') return <Badge tone="gold">{t('conn.demo')}</Badge>;
+  return <Badge>{t('conn.connecting')}</Badge>;
+};
+
+const Scoreline: React.FC<{ match: ViewProps['match'] }> = ({ match }) => {
+  const { t } = useI18n();
+  const { teams, score, clock, playback } = match;
+  if (!teams) return null;
+  return (
+    // Scoreboard strip: team colour blocks either side of a white score panel.
+    <div className="flex items-stretch font-display text-base font-bold uppercase tracking-broadcast">
+      <span className="flex items-center px-2.5 text-white" style={{ background: teams.home.primary_color }}>
+        {teams.home.short_name}
+      </span>
+      <span className="ltr-nums flex items-center bg-pp-chalk px-2.5 text-xl font-extrabold text-pp-night">
+        {score.home}-{score.away}
+      </span>
+      <span className="flex items-center px-2.5 text-white" style={{ background: teams.away.primary_color }}>
+        {teams.away.short_name}
+      </span>
+      <span className="ltr-nums flex items-center bg-pp-night px-2.5 text-pp-signal">{playback.ended ? t('play.ended') : clock}</span>
     </div>
   );
 };
