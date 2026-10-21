@@ -151,6 +151,7 @@ def evidence(moment: Moment) -> list[Evidence]:
             out.append(
                 Evidence(
                     label=LABELS.get(key, key.replace("_", " ").capitalize()),
+                    label_key=key,
                     value=moment.facts[key],
                     unit=unit_for(key),
                     source_event_id=source,

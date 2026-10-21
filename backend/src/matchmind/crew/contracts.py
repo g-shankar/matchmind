@@ -59,6 +59,7 @@ class Moment(BaseModel):
 
 class Evidence(BaseModel):
     label: str
+    label_key: str | None = None
     value: FactValue
     unit: str | None = None
     source_event_id: str | None = None
