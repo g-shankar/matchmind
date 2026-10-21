@@ -44,3 +44,7 @@ Things only the owners can do. Everything else the team handles.
    unlisted, check it plays when logged out.
 9. **Submit** by 26 Oct (deadline 27 Oct): project page, pitch, video URL,
    public repo URL. Make the repo public only after the security review passes.
+10. **Microsoft Fabric (optional, owner-run)**: start a Fabric trial capacity
+    (free for 60 days, paid after), then follow `analytics/fabric/README.md`
+    to load the Lakehouse export and the Eventhouse queries. Nothing there is
+    connected yet; decide who pays after the trial before keeping it.

@@ -20,6 +20,9 @@ azure = [
     "azure-eventhub>=5.11",
     "azure-identity>=1.17",
 ]
+analytics = [
+    "pyarrow>=15",
+]
 ai = [
     "openai>=1.40",
     "azure-identity>=1.17",
@@ -34,6 +37,7 @@ dev = [
 matchmind-sim = "matchmind.simulator.cli:main"
 matchmind-api = "matchmind.api.__main__:main"
 matchmind-autoevent = "matchmind.autoevent.cli:main"
+matchmind-lakehouse = "matchmind.analytics.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/matchmind"]
