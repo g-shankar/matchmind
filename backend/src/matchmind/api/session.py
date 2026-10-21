@@ -47,7 +47,19 @@ RECENT_BUNDLES = 8
 _RECAP_CACHE_SIZE = 32
 
 BACKEND_DIR = Path(__file__).resolve().parents[3]
-DEFAULT_MATCH_FILE = BACKEND_DIR / "data" / "matches" / "MM-DEMO-001.jsonl"
+_DEMO = Path("data") / "matches" / "MM-DEMO-001.jsonl"
+
+
+def _default_match_file() -> Path:
+    """The demo match next to the source tree, or under the working directory
+    (a non-editable install puts this module in site-packages)."""
+    for base in (BACKEND_DIR, Path.cwd(), Path.cwd() / "backend"):
+        if (base / _DEMO).is_file():
+            return base / _DEMO
+    return BACKEND_DIR / _DEMO
+
+
+DEFAULT_MATCH_FILE = _default_match_file()
 
 
 class SessionError(ValueError):
