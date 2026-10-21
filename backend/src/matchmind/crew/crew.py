@@ -9,6 +9,12 @@ agent has a circuit breaker: 3 failures in a row open it for 60 s. A model
 text the fact-checker rejects is never shown: the template text (which must
 itself pass) is used instead. Every step is traced per moment.
 
+World languages (docs/LANGUAGES.md): the card or recap is made in English
+first (cached, so no extra model spend), then the Translator agent turns all of
+its strings into the viewer's language in one request, and the fact-checker
+checks the translation again. Translator off, failing or refused: the English
+text is shown, with `fallback_reason` saying why.
+
 Prompt-injection rule: agents only ever receive typed facts produced by our
 own engine and answer with fixed-schema JSON.
 """
@@ -28,6 +34,7 @@ from pydantic import BaseModel
 from matchmind.crew import analyst, commentator, telemetry
 from matchmind.crew import recap as recap_mod
 from matchmind.crew.alerts import AlertWatcher
+from matchmind.crew.breaker import CircuitBreaker
 from matchmind.crew.contracts import (
     AgentStep,
     CrewStatus,
@@ -40,51 +47,26 @@ from matchmind.crew.contracts import (
     OverlayCard,
     Recap,
     ViewerProfile,
+    is_world_language,
 )
-from matchmind.crew.fact_checker import check, check_all
+from matchmind.crew.fact_checker import banned_names_in, check, check_all
 from matchmind.crew.i18n import MissingFact, fill_first, pack
 from matchmind.crew.llm import LLM, LLMSchemaError, ModelBudget, default_budget, make_llm
 from matchmind.crew.producer import ViewerState, build_card, select
-from matchmind.crew.spotter import Spotter
+from matchmind.crew.spotter import Spotter, surname
+from matchmind.crew.translator import TRANSIENT_REASONS, TranslationService, Translator
 from matchmind.crew.wording import localise_teams
 from matchmind.schema import Event
 from matchmind.simulator.teams import Team
 from matchmind.stats.models import EventMetrics, MatchStateSnapshot, PlayerStats
 
 STEP_TIMEOUT_S = 3.0
-BREAKER_FAILURES = 3
-BREAKER_OPEN_S = 60.0
 TRACE_LIMIT = 500
 TRACE_STEPS_LIMIT = 60
 CACHE_LIMIT = 5000
 PROCESSED_LIMIT = 50_000
 RECAP_AI_LIMIT = 256
 AI_AGENTS = ("analyst", "commentator", "recap")
-
-
-class CircuitBreaker:
-    def __init__(self, clock: Callable[[], float]) -> None:
-        self.clock = clock
-        self.failures = 0
-        self.open_until: float | None = None
-
-    def is_open(self) -> bool:
-        if self.open_until is None:
-            return False
-        if self.clock() >= self.open_until:
-            self.open_until = None  # half-open: let the next call try
-            self.failures = BREAKER_FAILURES - 1
-            return False
-        return True
-
-    def success(self) -> None:
-        self.failures = 0
-        self.open_until = None
-
-    def failure(self) -> None:
-        self.failures += 1
-        if self.failures >= BREAKER_FAILURES:
-            self.open_until = self.clock() + BREAKER_OPEN_S
 
 
 class Crew:
@@ -96,15 +78,29 @@ class Crew:
         timeout_s: float = STEP_TIMEOUT_S,
         clock: Callable[[], float] = time.monotonic,
         budget: ModelBudget | None = None,
+        translator: Translator | TranslationService | None = None,
     ) -> None:
         self.teams = teams
         self.llm: LLM = llm if llm is not None else make_llm()
+        # None follows the switches (off by default); pass OffTranslator() where paid calls are not allowed.
+        self.translation = (
+            translator if isinstance(translator, TranslationService) else TranslationService(translator)
+        )
         self.budget = budget if budget is not None else default_budget()
         self.timeout_s = timeout_s
         self.clock = clock
         self.spotter = Spotter(teams)
         self.alerts = AlertWatcher(teams)
         self.names: dict[str, str] = {p.player_id: p.name for t in teams.values() for p in t.players}
+        # Kept exactly as written in every language.
+        self.protected_names: tuple[str, ...] = tuple(
+            sorted(
+                {p.name for t in teams.values() for p in t.players}
+                | {surname(p.name) for t in teams.values() for p in t.players}
+                | {t.name for t in teams.values()}
+                | {t.short_name for t in teams.values() if t.short_name}
+            )
+        )
         self.breakers = {agent: CircuitBreaker(clock) for agent in AI_AGENTS}
         self._pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="crew-llm")
         self._lock = threading.RLock()
@@ -159,6 +155,7 @@ class Crew:
                 moments=len(self._bundles),
                 fallbacks=self._fallbacks,
                 rejections=self._rejections,
+                translator=self.translation.status(),
             )
 
     def traces(self, limit: int = 20) -> list[CrewTrace]:
@@ -256,6 +253,15 @@ class Crew:
                 self._cards.move_to_end(key)
                 return cached.model_copy(deep=True)
 
+        if is_world_language(profile.language):
+            english = self.render(bundle, profile.model_copy(update={"language": "en"}))
+            if english is None:
+                return None
+            card = self._translate_card(english, m, profile.language)
+            if card.fallback_reason not in TRANSIENT_REASONS:
+                self._remember_card(key, card)
+            return card.model_copy(deep=True)
+
         fav_name = self.team_name(profile.favourite_team)
         lang = profile.language
         why = bundle.explanation.why
@@ -319,11 +325,69 @@ class Crew:
         t1 = time.perf_counter()
         card = build_card(bundle, narrative, why, profile)
         self._trace(m, "producer", (time.perf_counter() - t1) * 1000, "ok", f"{detail}: {card.slot}")
+        self._remember_card(key, card)
+        return card.model_copy(deep=True)
+
+    def _remember_card(self, key: tuple, card: OverlayCard) -> None:
         with self._lock:
             self._cards[key] = card
             while len(self._cards) > CACHE_LIMIT:
                 self._cards.popitem(last=False)
-        return card.model_copy(deep=True)
+
+    # ------------------------------------------------------- translation
+
+    def _translate_card(self, english: OverlayCard, moment: Moment, language: str) -> OverlayCard:
+        """The English card in a world language: every string in one Translator
+        request, then the fact-checker on the result. Any failure keeps the
+        English text, marked with the reason."""
+        t0 = time.perf_counter()
+        labels = [e.label for e in english.evidence]
+        texts = [english.headline, english.body, english.why, *labels]
+        result = self.translation.translate(texts, language, self.protected_names)
+        ms = (time.perf_counter() - t0) * 1000
+        detail = f"{english.persona}/{language}"
+        base = {
+            "card_id": f"{moment.moment_id}:{english.persona}:{language}",
+            "language": language,
+            "rtl": False,
+        }
+        reason = result.reason
+        if result.texts is not None:
+            headline, body, why, *new_labels = result.texts
+            parts: dict = {"headline": headline, "body": body}
+            if why:
+                parts["why"] = why
+            reasons = list(check_all(parts, moment.facts, language, translated=True).reasons)
+            if any(banned_names_in(label) for label in new_labels):
+                reasons.append("label: real name not allowed")
+            if not reasons:
+                self._trace(moment, "fact_checker", 0.0, "ok", f"{detail}: translation")
+                source = "cache" if result.cached else "azure"
+                self._trace(moment, "translator", ms, "ok", f"{detail}: {source}")
+                evidence = [
+                    e.model_copy(update={"label": label})
+                    for e, label in zip(english.evidence, new_labels, strict=True)
+                ]
+                return english.model_copy(
+                    update={
+                        **base,
+                        "headline": headline,
+                        "body": body,
+                        "why": why,
+                        "evidence": evidence,
+                        "text_language": language,
+                        "translated_by": "azure_ai_translator",
+                    }
+                )
+            self.translation.note_rejected()
+            self._trace(moment, "fact_checker", 0.0, "rejected", f"{detail} translation: {_short(reasons)}")
+            reason = "translation_rejected"
+        if reason != "translator_off":
+            status = "rejected" if reason == "translation_rejected" else "fallback"
+            self._trace(moment, "translator", ms, status, f"{detail}: {reason}")
+        return english.model_copy(
+            update={**base, "text_language": "en", "translated_by": None, "fallback_reason": reason}
+        )
 
     def cards_for(
         self, bundles: list[MomentBundle], profile: ViewerProfile, state: ViewerState
@@ -346,7 +410,10 @@ class Crew:
         fact-checked)."""
         out: list[OverlayCard] = []
         fav_name = self.team_name(profile.favourite_team)
-        lang = profile.language
+        world = is_world_language(profile.language)
+        # World languages: the English alert, translated once it has passed the checks.
+        text_profile = profile.model_copy(update={"language": "en"}) if world else profile
+        lang = text_profile.language
         for alert in self.alerts.watch(event, metrics, snapshot, players, profile, state):
             m = alert.moment
             if m.moment_id in state.seen:
@@ -380,7 +447,9 @@ class Crew:
                 for k, val in m.facts.items()
                 if isinstance(val, int | float) and not isinstance(val, bool)
             ]
-            card = build_card(bundle, narrative, body, profile, slot="metric_alert", evidence=evidence)
+            card = build_card(bundle, narrative, body, text_profile, slot="metric_alert", evidence=evidence)
+            if world:
+                card = self._translate_card(card, m, profile.language)
             state.remember(m.moment_id)
             out.append(card)
         return out
@@ -398,9 +467,13 @@ class Crew:
         so a caller that jumped around the match can pass the true list.
 
         Model text is only asked for at full time, once per (persona, language,
-        favourite club); before that, and once the budget is spent, templates."""
+        favourite club); before that, and once the budget is spent, templates.
+        World languages get the English recap, translated and fact-checked again."""
         t0 = time.perf_counter()
         moments = self.moments() if moments is None else list(moments)
+        if is_world_language(profile.language):
+            english = self.recap(snapshot, players, profile.model_copy(update={"language": "en"}), moments)
+            return self._translate_recap(english, moments, profile.language, snapshot, t0)
         fav_name = self.team_name(profile.favourite_team)
         facts = recap_mod.recap_facts(moments, snapshot, players, profile, self.teams, self.names)
         full_time = recap_mod.is_full_time(moments)
@@ -463,6 +536,72 @@ class Crew:
             )
             self._store_trace(trace)
         self._span("recap", trace.steps[0].ms, status, reason or produced_by, trace_id, "recap")
+        return out
+
+    def _translate_recap(
+        self, english: Recap, moments: list[Moment], language: str, snapshot: MatchStateSnapshot, t0: float
+    ) -> Recap:
+        """The English recap in a world language: one Translator request for the
+        title, headline, paragraphs and key-moment headlines, then the
+        fact-checker (recap facts, and each key moment's own facts)."""
+        n = len(english.summary_paragraphs)
+        texts = [english.title, english.headline, *english.summary_paragraphs]
+        texts += [k.headline for k in english.key_moments]
+        result = self.translation.translate(texts, language, self.protected_names)
+        reason = result.reason
+        reasons: list[str] = []
+        base = {"language": language, "rtl": False}
+        out: Recap | None = None
+        if result.texts is not None:
+            title, headline = result.texts[0], result.texts[1]
+            paragraphs = result.texts[2 : 2 + n]
+            key_headlines = result.texts[2 + n :]
+            verdict = recap_mod.check_texts(
+                title, headline, paragraphs, english.stats, language, translated=True
+            )
+            reasons = list(verdict.reasons)
+            facts_by_id = {m.moment_id: m.facts for m in moments}
+            for k, text in zip(english.key_moments, key_headlines, strict=True):
+                found = check(text, facts_by_id.get(k.moment_id, {}), language, "headline", translated=True)
+                reasons += [f"key moment {k.match_clock}: {r}" for r in found.reasons]
+            if not reasons:
+                key_moments = [
+                    k.model_copy(update={"headline": h})
+                    for k, h in zip(english.key_moments, key_headlines, strict=True)
+                ]
+                out = english.model_copy(
+                    update={
+                        **base,
+                        "title": title,
+                        "headline": headline,
+                        "summary_paragraphs": paragraphs,
+                        "key_moments": key_moments,
+                        "fact_check": verdict,
+                        "text_language": language,
+                        "translated_by": "azure_ai_translator",
+                    }
+                )
+            else:
+                self.translation.note_rejected()
+                reason = "translation_rejected"
+        if out is None:
+            out = english.model_copy(
+                update={**base, "text_language": "en", "translated_by": None, "fallback_reason": reason}
+            )
+        if reason != "translator_off":
+            status = (
+                "ok" if reason is None else ("rejected" if reason == "translation_rejected" else "fallback")
+            )
+            detail = ("cache" if result.cached else "azure") if reason is None else reason
+            if reasons:
+                detail = f"{detail}: {_short(reasons)}"
+            trace_id = f"recap-{snapshot.match_id}-{snapshot.clock_s:.0f}-{english.persona}-{language}"
+            step = AgentStep(
+                agent="translator", ms=(time.perf_counter() - t0) * 1000, status=status, detail=detail
+            )
+            with self._lock:
+                trace = CrewTrace(moment_id=trace_id, match_clock=snapshot.match_clock, steps=[step])
+                self._store_trace(trace)
         return out
 
     def _ai_recap(

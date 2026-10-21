@@ -265,3 +265,16 @@ def _fresh_model_budget(monkeypatch):
     from matchmind.crew import llm
 
     monkeypatch.setattr(llm, "BUDGET", llm.ModelBudget(total=10_000, per_minute=10_000))
+
+
+@pytest.fixture(autouse=True)
+def _fresh_translator_state(monkeypatch):
+    """Each test gets its own translation budget and cache, and the paid switches off."""
+    from matchmind.crew import translator
+
+    monkeypatch.setattr(
+        translator, "BUDGET", translator.CharacterBudget(total=1_000_000, per_minute=1_000_000)
+    )
+    monkeypatch.setattr(translator, "CACHE", translator.TranslationCache())
+    monkeypatch.delenv("MATCHMIND_TRANSLATOR_ENABLED", raising=False)
+    monkeypatch.delenv("MATCHMIND_AI_ENABLED", raising=False)

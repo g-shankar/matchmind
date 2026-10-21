@@ -1,7 +1,38 @@
 // TypeScript view of the PitchPulse API contract (docs/API-CONTRACT.md, v1).
 // Keep in step with backend/src/matchmind/crew/contracts.py and stats/models.py.
 
-export type Language = 'en' | 'es' | 'fr' | 'ar' | 'ja';
+// Studio languages have hand-written phrase packs. World languages are written in
+// English by the crew, translated by Azure AI Translator and fact-checked again;
+// with the translator off they arrive in English (docs/LANGUAGES.md).
+export type StudioLanguage = 'en' | 'es' | 'fr' | 'ar' | 'ja';
+export type WorldLanguage = 'pt' | 'de' | 'hi' | 'zh-Hans' | 'sw' | 'id' | 'tr' | 'ko';
+export type Language = StudioLanguage | WorldLanguage;
+export type TranslatedBy = 'azure_ai_translator';
+
+export interface LanguageInfo {
+  code: Language;
+  /** The language's own name, e.g. 'Português'. */
+  name: string;
+  english_name: string;
+  source: 'studio' | 'translator';
+  available: boolean;
+  rtl: boolean;
+  /** Why it cannot be shown now. 'not_in_demo' only comes from the offline demo. */
+  reason: 'translator_off' | 'not_in_demo' | null;
+}
+
+export interface TranslatorStatus {
+  mode: 'azure' | 'off';
+  available: boolean;
+  breaker_open: boolean;
+  requests: number;
+  cache_hits: number;
+  characters_sent: number;
+  character_budget: number;
+  translated: number;
+  fallbacks: number;
+  rejections: number;
+}
 export type PersonaType = 'casual' | 'tactical' | 'fantasy' | 'player_spotlight';
 export type FocusMetric = 'pressure' | 'xg' | 'pass_difficulty' | 'top_speed' | 'momentum';
 export type MomentKind =
@@ -241,6 +272,9 @@ export interface OverlayCard {
   produced_by: ProducedBy;
   fallback_reason: string | null;
   replay: Replay | null;
+  /** Language the text is really in: `language`, or 'en' when a world language could not be translated. */
+  text_language?: Language | null;
+  translated_by?: TranslatedBy | null;
 }
 
 export interface Bookmark {
@@ -267,6 +301,9 @@ export interface Recap {
   generated_at_clock: string;
   produced_by: ProducedBy;
   fact_check: { ok: boolean; reasons: string[] };
+  text_language?: Language | null;
+  translated_by?: TranslatedBy | null;
+  fallback_reason?: string | null;
 }
 
 export interface CrewStatus {
@@ -276,6 +313,7 @@ export interface CrewStatus {
   moments: number;
   fallbacks: number;
   rejections: number;
+  translator?: TranslatorStatus;
 }
 
 export interface CrewTrace {
@@ -325,6 +363,8 @@ export interface SnapshotData {
   bookmarks: Bookmark[];
   players: PlayerStats[];
   crew: CrewStatus;
+  /** Every language the viewer can pick, and whether it can be shown now. */
+  languages?: LanguageInfo[];
   auto_eventing: AutoEventingStatus | null;
 }
 

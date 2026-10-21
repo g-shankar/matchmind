@@ -9,7 +9,8 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any
 
-from matchmind.crew.contracts import OverlayCard, ViewerProfile
+from matchmind.crew.contracts import CrewStatus, OverlayCard, ViewerProfile
+from matchmind.crew.languages import language_list
 from matchmind.schema import Event
 from matchmind.simulator.teams import Team
 from matchmind.stats.models import EventMetrics, MatchStateSnapshot, PlayerStats
@@ -120,10 +121,17 @@ def bookmark_payload(bookmark: Bookmark) -> dict[str, Any]:
     return asdict(bookmark)
 
 
+def languages_payload(status: CrewStatus) -> list[dict[str, Any]]:
+    """Every language with its source (studio pack or Azure AI Translator) and
+    whether it can be shown right now."""
+    return [info.model_dump() for info in language_list(status.translator.available)]
+
+
 def snapshot_payload(session: MatchSession, profile: ViewerProfile) -> dict[str, Any]:
     """INITIAL_SNAPSHOT.data for one viewer profile."""
     snap = session.snapshot
     home, away = session.score
+    crew = session.crew_status()
     return {
         "match_id": session.match_id,
         "clock": session.match_clock,
@@ -138,7 +146,8 @@ def snapshot_payload(session: MatchSession, profile: ViewerProfile) -> dict[str,
         "recent_cards": [card_payload(c) for c in session.cards_for(session.recent_bundles(), profile)],
         "bookmarks": [bookmark_payload(b) for b in session.bookmarks],
         "players": [player_payload(p) for p in session.players()],
-        "crew": session.crew_status().model_dump(),
+        "crew": crew.model_dump(),
+        "languages": languages_payload(crew),
         "auto_eventing": session.auto_eventing,
     }
 

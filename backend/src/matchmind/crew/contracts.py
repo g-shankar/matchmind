@@ -10,11 +10,25 @@ from __future__ import annotations
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
-Language = Literal["en", "es", "fr", "ar", "ja"]
-LANGUAGES: tuple[Language, ...] = ("en", "es", "fr", "ar", "ja")
+# Studio languages have hand-written phrase packs (crew/i18n) and never go
+# through a translation service. World languages are written in English by the
+# crew, then translated by Azure AI Translator and fact-checked again (see
+# docs/LANGUAGES.md); with the translator off they are shown in English.
+StudioLanguage = Literal["en", "es", "fr", "ar", "ja"]
+WorldLanguage = Literal["pt", "de", "hi", "zh-Hans", "sw", "id", "tr", "ko"]
+Language = Literal["en", "es", "fr", "ar", "ja", "pt", "de", "hi", "zh-Hans", "sw", "id", "tr", "ko"]
+STUDIO_LANGUAGES: tuple[StudioLanguage, ...] = ("en", "es", "fr", "ar", "ja")
+WORLD_LANGUAGES: tuple[WorldLanguage, ...] = ("pt", "de", "hi", "zh-Hans", "sw", "id", "tr", "ko")
+LANGUAGES: tuple[Language, ...] = (*STUDIO_LANGUAGES, *WORLD_LANGUAGES)
 RTL_LANGUAGES: frozenset[str] = frozenset({"ar"})
+TranslatedBy = Literal["azure_ai_translator"]
+
+
+def is_world_language(language: str) -> bool:
+    return language in WORLD_LANGUAGES
+
 
 Persona = Literal["casual", "tactical", "fantasy", "player_spotlight"]
 PERSONAS: tuple[Persona, ...] = ("casual", "tactical", "fantasy", "player_spotlight")
@@ -140,6 +154,18 @@ class OverlayCard(BaseModel):
     replay: dict | None = Field(
         default=None, description="Drawing geometry: BetterOption or UnfoundRun model dump"
     )
+    text_language: Language | None = Field(
+        default=None,
+        description="Language the text is really in: `language`, or 'en' when a world language "
+        "could not be translated",
+    )
+    translated_by: TranslatedBy | None = None
+
+    @model_validator(mode="after")
+    def _text_language(self) -> OverlayCard:
+        if self.text_language is None:
+            self.text_language = self.language
+        return self
 
 
 class RecapMoment(BaseModel):
@@ -164,10 +190,19 @@ class Recap(BaseModel):
     generated_at_clock: str
     produced_by: Literal["ai", "template"]
     fact_check: FactCheck
+    text_language: Language | None = None
+    translated_by: TranslatedBy | None = None
+    fallback_reason: str | None = None
+
+    @model_validator(mode="after")
+    def _text_language(self) -> Recap:
+        if self.text_language is None:
+            self.text_language = self.language
+        return self
 
 
 class AgentStep(BaseModel):
-    agent: Literal["spotter", "analyst", "commentator", "fact_checker", "producer", "recap"]
+    agent: Literal["spotter", "analyst", "commentator", "fact_checker", "producer", "recap", "translator"]
     ms: float
     status: Literal["ok", "fallback", "rejected", "error", "skipped"]
     detail: str | None = None
@@ -179,6 +214,33 @@ class CrewTrace(BaseModel):
     steps: list[AgentStep]
 
 
+class TranslatorStatus(BaseModel):
+    """Azure AI Translator, as the crew sees it right now."""
+
+    mode: Literal["azure", "off"] = "off"
+    available: bool = False
+    breaker_open: bool = False
+    requests: int = 0
+    cache_hits: int = 0
+    characters_sent: int = 0
+    character_budget: int = 0
+    translated: int = 0
+    fallbacks: int = 0
+    rejections: int = 0
+
+
+class LanguageInfo(BaseModel):
+    """One language the viewer can pick, and whether it can be shown in it now."""
+
+    code: Language
+    name: str = Field(description="The language's own name, e.g. 'Português'")
+    english_name: str
+    source: Literal["studio", "translator"]
+    available: bool
+    rtl: bool = False
+    reason: Literal["translator_off"] | None = None
+
+
 class CrewStatus(BaseModel):
     mode: Literal["ai", "template"]
     model: str | None = None
@@ -186,3 +248,4 @@ class CrewStatus(BaseModel):
     moments: int = 0
     fallbacks: int = 0
     rejections: int = 0
+    translator: TranslatorStatus = Field(default_factory=TranslatorStatus)

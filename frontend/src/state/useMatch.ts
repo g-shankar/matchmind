@@ -4,6 +4,7 @@ import { LiveTransport } from '../api/liveTransport';
 import { DEFAULT_PROFILE, MockMatchServer, loadDemoFixture } from '../api/mockServer';
 import type { MatchTransport } from '../api/transport';
 import { initialMatchState, matchReducer } from './matchStore';
+import { ALL_LANGUAGES } from '../lib/languages';
 
 const PROFILE_KEY = 'pitchpulse.profile';
 const LIVE_TIMEOUT_MS = 2500;
@@ -11,7 +12,7 @@ const RETRY_MS = 2000;
 const MAX_RETRIES = 3;
 
 const PERSONAS = ['casual', 'tactical', 'fantasy', 'player_spotlight'];
-const LANGUAGES = ['en', 'es', 'fr', 'ar', 'ja'];
+const LANGUAGES: string[] = ALL_LANGUAGES;
 const METRICS = ['pressure', 'xg', 'pass_difficulty', 'top_speed', 'momentum'];
 const ID = /^[A-Za-z0-9_-]{1,32}$/;
 

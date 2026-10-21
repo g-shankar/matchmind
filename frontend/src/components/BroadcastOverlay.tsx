@@ -4,6 +4,8 @@ import type { Evidence, FactValue, OverlayCard, Slot, Teams } from '../api/contr
 import { useI18n, type I18n } from '../i18n';
 import { activeCards } from '../state/matchStore';
 import { teamById } from '../lib/teams';
+import { isTranslationReason, textLanguage } from '../lib/languages';
+import { translationReasonText } from './LanguagePicker';
 import type { ViewProps } from '../views/types';
 import { Badge, cx } from './ui';
 import { Pitch2D } from './Pitch2D';
@@ -62,7 +64,18 @@ const SourceLine: React.FC<{ card: OverlayCard }> = ({ card }) => {
   return (
     <p className="truncate text-[clamp(8px,1vw,11px)] text-pp-mute">
       {t('broadcast.source', { by: t(`broadcast.by.${card.produced_by}`) })}
-      {card.fallback_reason && <> · {t('broadcast.fallback', { reason: card.fallback_reason })}</>}
+      {card.fallback_reason && !isTranslationReason(card.fallback_reason) && (
+        <> · {t('broadcast.fallback', { reason: card.fallback_reason })}</>
+      )}
+      {card.translated_by === 'azure_ai_translator' && (
+        <span data-testid="translation-tag" className="text-pp-signal"> · {t('world.translated')}</span>
+      )}
+      {textLanguage(card) !== card.language && (
+        <span data-testid="translation-fallback" className="text-pp-gold">
+          {' · '}
+          {t('world.inEnglishWhy', { reason: translationReasonText(t, card.fallback_reason) })}
+        </span>
+      )}
     </p>
   );
 };
@@ -80,6 +93,7 @@ const LowerThird: React.FC<{ card: OverlayCard; teams: Teams | null; favourite: 
   return (
     <div
       data-testid="lower-third"
+      lang={textLanguage(card)}
       className="pointer-events-auto w-full max-w-3xl animate-slide-up rounded-xl border border-white/10 border-s-4 bg-pp-deep/90 px-[clamp(8px,2vw,18px)] py-[clamp(4px,1.2vw,12px)] shadow-2xl backdrop-blur"
       style={{ borderInlineStartColor: accent ?? '#ff3b2f', boxShadow: accent ? `0 0 0 1px ${accent}55, 0 20px 40px rgba(0,0,0,.5)` : undefined }}
     >
@@ -108,6 +122,7 @@ const SideCard: React.FC<{ card: OverlayCard; teams: Teams | null; favourite: st
   const accent = favouriteAccent(card, teams, favourite);
   return (
     <div
+      lang={textLanguage(card)}
       className="animate-fade-in rounded-lg border border-white/10 border-s-4 bg-pp-deep/85 p-[clamp(6px,1vw,10px)] shadow-xl backdrop-blur"
       style={{ borderInlineStartColor: accent ?? '#ffd400' }}
     >
@@ -303,7 +318,7 @@ export const BroadcastOverlay: React.FC<ViewProps> = ({ match, actions }) => {
               {t('broadcast.alert')}
             </span>
             {alerts.slice(0, 3).map((c) => (
-              <span key={c.card_id} className="flex min-w-0 items-center gap-1.5 truncate text-white">
+              <span key={c.card_id} lang={textLanguage(c)} className="flex min-w-0 items-center gap-1.5 truncate text-white">
                 <span className="truncate font-semibold">{c.headline}</span>
                 {c.evidence[0] && <EvidenceChip evidence={c.evidence[0]} className="hidden text-[0.85em] md:inline-flex" />}
               </span>

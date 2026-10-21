@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from matchmind.crew.contracts import LANGUAGES, PERSONAS, ViewerProfile
+from matchmind.crew.contracts import LANGUAGES, PERSONAS, ViewerProfile, is_world_language
 from matchmind.crew.crew import Crew
 from matchmind.crew.llm import ModelBudget
 from matchmind.simulator.teams import TEAMS
@@ -71,7 +71,10 @@ def test_recap_uses_templates_until_full_time_then_one_model_call_per_audience(m
     assert llm.calls == 0  # no model recap during live play
     for p in profiles:
         crew.recap(snap(5500.0, period=2), players(), p, moments)
-    audiences = {(p.persona, p.language, p.favourite_team) for p in profiles}
+    # World languages reuse the English recap (then translate it): no extra model calls.
+    audiences = {
+        (p.persona, "en" if is_world_language(p.language) else p.language, p.favourite_team) for p in profiles
+    }
     assert llm.calls == len(audiences) <= 60  # cached per persona x language x favourite club
 
 

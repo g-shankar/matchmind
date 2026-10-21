@@ -36,7 +36,7 @@ Football stories do not start and end with the scoreline. **PitchPulse AI** is a
 4. **Render:** Studio Director command center + transparent broadcast overlay canvas (`/overlay`) ready for streaming integration (OBS / vMix).
 5. **Personalize:**
    - **4 Audience Modes:** *Casual Fan*, *Tactical Analyst*, *Fantasy Scout*, and *Player Cam Spotlight*.
-   - **5 Global Languages:** Real-time multilingual storytelling in English, Spanish, French, Arabic, and Japanese powered by Azure AI Translator.
+   - **13 Languages:** 5 hand-written studio languages (English, Spanish, French, Arabic, Japanese) plus 8 world languages (Portuguese, German, Hindi, Simplified Chinese, Kiswahili, Indonesian, Turkish, Korean) translated by Azure AI Translator and fact-checked again; off until switched on, then shown in English with a clear note (see `docs/LANGUAGES.md`).
 
 ---
 
@@ -68,7 +68,7 @@ Football stories do not start and end with the scoreline. **PitchPulse AI** is a
                    ▼                                                       ▼
       [ AZURE AI TRANSLATOR ]                                  [ FASTAPI WEBSOCKET HUB ]
        - Multilingual Localization                              - Real-time Sub-100ms Push
-       (EN, ES, FR, AR, JA)                                                │
+       (PT, DE, HI, ZH, SW, ID, TR, KO)                                    │
                    │                                                       │
                    └───────────────────────────┬───────────────────────────┘
                                                ▼
@@ -118,8 +118,9 @@ PitchPulse AI features a **Hybrid Service Provider Pattern**: it operates out-of
    AZURE_OPENAI_API_KEY=your_azure_openai_key
    AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
    AZURE_OPENAI_DEPLOYMENT=gpt-4o
-   AZURE_TRANSLATOR_KEY=your_translator_key
-   AZURE_TRANSLATOR_REGION=eastus
+   # Translator: keyless (Microsoft Entra ID), custom subdomain endpoint; both switches on
+   MATCHMIND_TRANSLATOR_ENABLED=true
+   AZURE_TRANSLATOR_ENDPOINT=https://<your-translator>.cognitiveservices.azure.com/
    ```
 3. Restart the backend: `python -m uvicorn api.main:app --reload --port 8000`.
 

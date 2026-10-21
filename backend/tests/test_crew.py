@@ -11,9 +11,10 @@ from pydantic import BaseModel
 
 from matchmind.crew import fact_checker
 from matchmind.crew.analyst import AnalystOut
+from matchmind.crew.breaker import BREAKER_OPEN_S
 from matchmind.crew.commentator import CommentatorOut, template_narrative
-from matchmind.crew.contracts import LANGUAGES, PERSONAS, MomentKind, OverlayCard, ViewerProfile
-from matchmind.crew.crew import BREAKER_OPEN_S, Crew
+from matchmind.crew.contracts import PERSONAS, STUDIO_LANGUAGES, MomentKind, OverlayCard, ViewerProfile
+from matchmind.crew.crew import Crew
 from matchmind.crew.fact_checker import BANNED_NAMES, check
 from matchmind.crew.llm import AzureOpenAILLM, LLMError, LLMSchemaError, TemplateLLM, make_llm
 from matchmind.crew.producer import ViewerState, select
@@ -517,7 +518,7 @@ def test_no_real_names_anywhere_in_crew_code_or_phrases():
 # ------------------------------------------------------------- templates
 
 
-@pytest.mark.parametrize("language", LANGUAGES)
+@pytest.mark.parametrize("language", STUDIO_LANGUAGES)
 @pytest.mark.parametrize("persona", PERSONAS)
 def test_every_kind_renders_a_card_that_passes(moments, persona, language):
     crew = Crew(TEAMS, llm=TemplateLLM())
@@ -845,7 +846,7 @@ def test_player_of_the_match_is_deterministic():
     assert player_of_the_match({"A-1": PlayerStats(player_id="A-1", team="NBR")}) is None
 
 
-@pytest.mark.parametrize("language", LANGUAGES)
+@pytest.mark.parametrize("language", STUDIO_LANGUAGES)
 @pytest.mark.parametrize("persona", PERSONAS)
 def test_recap_passes_fact_checker(moments, persona, language):
     crew = Crew(TEAMS, llm=TemplateLLM())

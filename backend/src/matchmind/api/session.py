@@ -42,6 +42,7 @@ from matchmind.crew.contracts import (
 )
 from matchmind.crew.llm import ai_enabled
 from matchmind.crew.producer import ViewerState
+from matchmind.crew.translator import TRANSIENT_REASONS
 from matchmind.schema import Event, EventType
 from matchmind.simulator.publisher import read_jsonl
 from matchmind.simulator.teams import Team, get_team
@@ -150,14 +151,17 @@ def real_engines() -> Engines:
             "The studio crew (matchmind.crew.crew.Crew) is not available in this build."
         ) from exc
     from matchmind.crew.llm import TemplateLLM
+    from matchmind.crew.translator import OffTranslator
 
     llm = live_llm()
-    # The pre-pass over the whole match always runs in template mode, so loading a match
-    # never spends on paid AI calls. (llm=None would mean "whatever the switch says".)
+    translator = live_translator()
+    # The pre-pass over the whole match always runs in template mode and never
+    # translates, so loading a match never spends on paid AI calls. (llm=None or
+    # translator=None would mean "whatever the switch says".)
     return Engines(
         stats=StatsEngine,
-        crew=lambda teams: Crew(teams, llm=llm),
-        bookmark_crew=lambda teams: Crew(teams, llm=TemplateLLM()),
+        crew=lambda teams: Crew(teams, llm=llm, translator=translator),
+        bookmark_crew=lambda teams: Crew(teams, llm=TemplateLLM(), translator=OffTranslator()),
     )
 
 
@@ -176,6 +180,16 @@ def live_llm() -> Any:
     except Exception:  # noqa: BLE001 - optional, paid add-on
         logger.warning("MATCHMIND_AI_ENABLED is on but the model client could not start; using templates")
         return None
+
+
+def live_translator() -> Any:
+    """Azure AI Translator only when MATCHMIND_TRANSLATOR_ENABLED and MATCHMIND_AI_ENABLED
+    are both on; otherwise the off mode (world languages shown in English)."""
+    from matchmind.crew.translator import AzureTranslator, OffTranslator, translator_enabled
+
+    if not translator_enabled():
+        return OffTranslator()
+    return AzureTranslator()  # reads AZURE_TRANSLATOR_ENDPOINT; builds no client until first use
 
 
 # --- Results handed to the transport ----------------------------------------------------------
@@ -424,13 +438,17 @@ class MatchSession:
 
     def recap(self, profile: ViewerProfile) -> Recap:
         key = (profile.model_dump_json(), self._live.next_index)
-        if key not in self._recaps:
+        cached = self._recaps.get(key)
+        if cached is not None:
+            return cached
+        recap = self.crew.recap(self.snapshot, self._live.stats.players(), profile, self.moments_so_far())
+        # A recap left in English by a passing translator problem is not kept, so the
+        # next request can try again (the crew still caches what it can).
+        if recap.fallback_reason not in TRANSIENT_REASONS:
             if len(self._recaps) >= _RECAP_CACHE_SIZE:
                 self._recaps.pop(next(iter(self._recaps)))
-            self._recaps[key] = self.crew.recap(
-                self.snapshot, self._live.stats.players(), profile, self.moments_so_far()
-            )
-        return self._recaps[key]
+            self._recaps[key] = recap
+        return recap
 
     def crew_status(self) -> CrewStatus:
         return self.crew.status()

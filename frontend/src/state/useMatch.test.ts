@@ -10,4 +10,10 @@ describe('sanitizeProfile', () => {
   it('falls back to defaults for junk', () => {
     expect(sanitizeProfile('nope').language).toBe('en');
   });
+
+  it('keeps world languages and drops unknown ones', () => {
+    expect(sanitizeProfile({ language: 'zh-Hans' }).language).toBe('zh-Hans');
+    expect(sanitizeProfile({ language: 'sw' }).language).toBe('sw');
+    expect(sanitizeProfile({ language: 'zh' }).language).toBe('en');
+  });
 });

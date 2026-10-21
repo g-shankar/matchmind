@@ -4,6 +4,8 @@ import type { Recap, Teams } from '../api/contract';
 import { useI18n } from '../i18n';
 import { playerById } from '../lib/teams';
 import { Badge } from './ui';
+import { TranslationTag } from './LanguagePicker';
+import { textLanguage } from '../lib/languages';
 import { factLabel, factValue } from './BroadcastOverlay';
 
 export interface RecapModalProps {
@@ -44,6 +46,7 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
   const potmName = recap.player_of_the_match ?? potm?.name ?? null;
   const potmColor = potm?.team.primary_color ?? '#ff9f1c';
   const stats = Object.entries(recap.stats);
+  const lang = textLanguage(recap);
 
   return (
     <div className="space-y-6">
@@ -53,8 +56,9 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
             {t('broadcast.recap.generatedAt', { clock: `⁦${recap.generated_at_clock}⁩` })}
           </span>
           <Badge tone={recap.produced_by === 'ai' ? 'signal' : 'mute'}>{t(`produced.${recap.produced_by}`)}</Badge>
+          <TranslationTag item={recap} />
         </div>
-        <h2 id="recap-headline" className="font-display text-2xl font-extrabold tracking-wide text-white">
+        <h2 id="recap-headline" lang={lang} className="font-display text-2xl font-extrabold tracking-wide text-white">
           {recap.headline}
         </h2>
       </div>
@@ -62,7 +66,7 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
       {recap.summary_paragraphs.length > 0 && (
         <section>
           <SectionTitle>{t('broadcast.recap.summary')}</SectionTitle>
-          <div className="space-y-3">
+          <div className="space-y-3" lang={lang}>
             {recap.summary_paragraphs.map((para, idx) => (
               <p key={idx} className="text-sm leading-relaxed text-slate-300">
                 {para}
@@ -84,7 +88,11 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
                     <Badge tone="pulse" className="mb-0.5">
                       {t(`kind.${m.kind}`)}
                     </Badge>
-                    {m.headline !== t(`kind.${m.kind}`) && <span className="block text-slate-200">{m.headline}</span>}
+                    {m.headline !== t(`kind.${m.kind}`) && (
+                      <span lang={lang} className="block text-slate-200">
+                        {m.headline}
+                      </span>
+                    )}
                   </span>
                 </li>
               ))}
@@ -192,7 +200,7 @@ export const RecapModal: React.FC<RecapModalProps> = ({ open, onClose, recap, lo
         <header className="flex items-center justify-between gap-3 border-b border-pp-line to-pp-panel px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-2">
             <FileText className="h-5 w-5 shrink-0 text-pp-pulse" aria-hidden />
-            <h2 id="recap-title" className="truncate font-display text-lg font-bold uppercase tracking-wider text-white">
+            <h2 id="recap-title" lang={recap ? textLanguage(recap) : undefined} className="truncate font-display text-lg font-bold uppercase tracking-wider text-white">
               {recap?.title || t('broadcast.recap.title')}
             </h2>
           </div>

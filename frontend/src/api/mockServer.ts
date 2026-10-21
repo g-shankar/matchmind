@@ -10,6 +10,7 @@ import type {
   Evidence,
   FocusMetric,
   Language,
+  LanguageInfo,
   MatchEvent,
   MatchState,
   MomentKind,
@@ -28,6 +29,7 @@ import type {
 } from './contract';
 import type { MatchTransport, MessageHandler } from './transport';
 import { metricAlertText } from './mockText';
+import { defaultLanguages, isWorldLanguage } from '../lib/languages';
 
 export interface FixtureTick {
   event: MatchEvent;
@@ -99,6 +101,22 @@ const BOOKMARK_KINDS: MomentKind[] = [
 
 const textPersona = (p: PersonaType): PersonaType => (p === 'player_spotlight' ? 'casual' : p);
 
+// The recording holds studio text in en, es and ar only, and the demo never calls a
+// translator: other languages are shown in English and say why.
+const DEMO_LANGUAGES: Language[] = ['en', 'es', 'ar'];
+
+export function demoLanguages(): LanguageInfo[] {
+  return defaultLanguages(false).map((l) =>
+    l.source === 'studio' && !DEMO_LANGUAGES.includes(l.code) ? { ...l, available: false, reason: 'not_in_demo' } : l,
+  );
+}
+
+// Why text asked for in `asked` is shown in `shown` instead (null when it is not).
+function languageFallback(asked: Language, shown: Language): string | null {
+  if (asked === shown) return null;
+  return isWorldLanguage(asked) ? 'translator_off' : 'not_in_demo';
+}
+
 export function pickText(m: FixtureMoment, persona: PersonaType, language: Language): { text: MomentText; language: Language } {
   const byLang = m.texts[textPersona(persona)] ?? m.texts.casual ?? {};
   const text = byLang[language];
@@ -116,7 +134,8 @@ export function cardForMoment(m: FixtureMoment, profile: ViewerProfile): Overlay
   const focus = profile.focus_player_id;
   const involvesFocus = !!focus && m.player_ids.includes(focus);
   if (profile.persona === 'player_spotlight' && focus && !involvesFocus && m.kind !== 'goal') return null;
-  const { text, language } = pickText(m, profile.persona, profile.language);
+  const { text, language: shown } = pickText(m, profile.persona, profile.language);
+  const language = profile.language;
   const favourite_side = profile.favourite_team ? m.team === profile.favourite_team : null;
   const priority = Math.min(100, m.priority + (favourite_side ? 10 : 0) + (involvesFocus ? 15 : 0));
   return {
@@ -129,18 +148,20 @@ export function cardForMoment(m: FixtureMoment, profile: ViewerProfile): Overlay
     duration_s: m.duration_s,
     persona: profile.persona,
     language,
-    rtl: language === 'ar',
+    rtl: shown === 'ar',
     headline: text.headline,
     body: text.body,
     why: text.why,
     tactical_tag: m.tactical_tag,
-    evidence: localEvidence(m, language),
+    evidence: localEvidence(m, shown),
     player_ids: m.player_ids,
     team: m.team,
     favourite_side,
     produced_by: 'template',
-    fallback_reason: null,
+    fallback_reason: languageFallback(language, shown),
     replay: m.replay,
+    text_language: shown,
+    translated_by: null,
   };
 }
 
@@ -208,7 +229,7 @@ export function metricAlert(
     show_at_s: e.clock_s,
     duration_s: 6,
     persona: 'casual',
-    language: text.language,
+    language,
     rtl: text.language === 'ar',
     headline: text.headline,
     body: text.body,
@@ -219,8 +240,10 @@ export function metricAlert(
     team,
     favourite_side: null,
     produced_by: 'template',
-    fallback_reason: null,
+    fallback_reason: languageFallback(language, text.language),
     replay: null,
+    text_language: text.language,
+    translated_by: null,
   };
 }
 
@@ -361,7 +384,11 @@ export class MockMatchServer implements MatchTransport {
 
   private recapFor(persona: PersonaType, language: Language): Recap | null {
     const byLang = this.fixture.recaps[textPersona(persona)] ?? this.fixture.recaps.casual;
-    return byLang?.[language] ?? byLang?.en ?? null;
+    const own = byLang?.[language];
+    if (own) return own;
+    const english = byLang?.en;
+    if (!english) return null;
+    return { ...english, language, rtl: false, text_language: 'en', translated_by: null, fallback_reason: languageFallback(language, 'en') };
   }
 
   private jumpTo(index: number) {
@@ -448,6 +475,7 @@ export class MockMatchServer implements MatchTransport {
       bookmarks: this.bookmarks(),
       players: [...this.players.values()],
       crew: this.fixture.crew,
+      languages: demoLanguages(),
       auto_eventing: null,
     };
   }
