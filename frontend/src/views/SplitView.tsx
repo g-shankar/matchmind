@@ -25,7 +25,7 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
   getMoment.current = actions.getMoment;
 
   const lang = match.profile.language;
-  const now = { clock_s: match.playback.clock_s, period: (match.playback as { period?: number }).period ?? match.period };
+  const now = { clock_s: match.playback.clock_s, period: match.playback.period };
   const latest = useMemo(() => {
     for (let i = match.cards.length - 1; i >= 0; i--) if (STORY_SLOTS.has(match.cards[i].slot)) return match.cards[i];
     return null;

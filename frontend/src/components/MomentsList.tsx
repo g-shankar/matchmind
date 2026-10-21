@@ -18,8 +18,7 @@ export const compareMoments = (a: WithPeriod, b: WithPeriod) => periodOf(a) - pe
 
 export const MomentsList: React.FC<ViewProps> = ({ match, actions }) => {
   const { t } = useI18n();
-  const now: WithPeriod = { clock_s: match.playback.clock_s, period: (match.playback as WithPeriod).period ?? match.period };
-  const seek = actions.seek as (clockS: number, period?: number) => void;
+  const now: WithPeriod = { clock_s: match.playback.clock_s, period: match.playback.period };
   const bookmarks = useMemo(() => match.bookmarks.slice().sort(compareMoments), [match.bookmarks]);
 
   return (
@@ -48,7 +47,7 @@ export const MomentsList: React.FC<ViewProps> = ({ match, actions }) => {
               <li key={b.moment_id} className="shrink-0">
                 <button
                   type="button"
-                  onClick={() => seek(seekTarget(b.clock_s), (b as WithPeriod).period)}
+                  onClick={() => actions.seek(seekTarget(b.clock_s), b.period)}
                   aria-label={t('studio.moments.jump', { clock: b.match_clock, title })}
                   title={past || hidden ? title : `${t('studio.moments.upcoming')}: ${title}`}
                   className={cx(

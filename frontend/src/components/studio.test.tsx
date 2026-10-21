@@ -113,7 +113,7 @@ describe('MomentsList', () => {
     const actions = actionsMock();
     const match = matchWith({
       bookmarks: [bm('M-1', 'goal', 20, 'Goal for AAA', 1), bm('M-0', 'better_option', 5, 'Shot or pass', 1), bm('M-9', 'goal', 3000, 'Late winner', 2)],
-      playback: { is_running: true, speed_multiplier: 10, clock_s: 30, ended: false },
+      playback: { is_running: true, speed_multiplier: 10, clock_s: 30, match_clock: '00:00', period: 1, ended: false },
     });
     ui(<MomentsList match={match} actions={actions} />);
     fireEvent.click(screen.getByRole('button', { name: /Goal for AAA/ }));
@@ -139,7 +139,7 @@ describe('SplitView', () => {
       Promise.resolve(cardForMoment(fixture.moments.find((m) => m.moment_id === id)!, { ...DEFAULT_PROFILE, persona, language })),
     );
     const actions = actionsMock({ getMoment: getMoment as unknown as MatchActions['getMoment'] });
-    const match = matchWith({ cards: [goal], playback: { is_running: true, speed_multiplier: 10, clock_s: 30, ended: false } });
+    const match = matchWith({ cards: [goal], playback: { is_running: true, speed_multiplier: 10, clock_s: 30, match_clock: '00:00', period: 1, ended: false } });
     await act(async () => {
       ui(<SplitView match={match} actions={actions} />);
     });
