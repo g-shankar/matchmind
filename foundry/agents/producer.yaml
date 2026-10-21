@@ -318,6 +318,14 @@ contract:
             - fr
             - ar
             - ja
+            - pt
+            - de
+            - hi
+            - zh-Hans
+            - sw
+            - id
+            - tr
+            - ko
             title: Language
             type: string
           headline:
@@ -369,6 +377,14 @@ contract:
             - fr
             - ar
             - ja
+            - pt
+            - de
+            - hi
+            - zh-Hans
+            - sw
+            - id
+            - tr
+            - ko
             title: Language
             type: string
           favourite_team:
@@ -513,6 +529,14 @@ contract:
         - fr
         - ar
         - ja
+        - pt
+        - de
+        - hi
+        - zh-Hans
+        - sw
+        - id
+        - tr
+        - ko
         title: Language
         type: string
       rtl:
@@ -574,6 +598,34 @@ contract:
         default: null
         description: 'Drawing geometry: BetterOption or UnfoundRun model dump'
         title: Replay
+      text_language:
+        anyOf:
+        - enum:
+          - en
+          - es
+          - fr
+          - ar
+          - ja
+          - pt
+          - de
+          - hi
+          - zh-Hans
+          - sw
+          - id
+          - tr
+          - ko
+          type: string
+        - type: 'null'
+        default: null
+        description: 'Language the text is really in: `language`, or ''en'' when a world language could not be translated'
+        title: Text Language
+      translated_by:
+        anyOf:
+        - const: azure_ai_translator
+          type: string
+        - type: 'null'
+        default: null
+        title: Translated By
     required:
     - card_id
     - moment_id

@@ -21,7 +21,7 @@ from typing import Any
 import yaml
 from pydantic import BaseModel
 
-from matchmind.crew import analyst, commentator, crew, fact_checker, llm, producer, recap, spotter
+from matchmind.crew import analyst, breaker, commentator, crew, fact_checker, llm, producer, recap, spotter
 from matchmind.crew.contracts import Explanation, FactCheck, Moment, MomentBundle, Narrative, OverlayCard
 from matchmind.foundry.contracts import (
     AnalystIn,
@@ -81,8 +81,8 @@ def _guardrails(model_backed: bool) -> list[str]:
         rules += [
             f"Timeout {crew.STEP_TIMEOUT_S:g} s per model call, one repair retry on a schema mismatch, "
             "then the localised template.",
-            f"Circuit breaker: {crew.BREAKER_FAILURES} failures in a row open it "
-            f"for {crew.BREAKER_OPEN_S:g} s.",
+            f"Circuit breaker: {breaker.BREAKER_FAILURES} failures in a row open it "
+            f"for {breaker.BREAKER_OPEN_S:g} s.",
             "Process-wide model budget (MATCHMIND_AI_BUDGET, MATCHMIND_AI_RATE_PER_MIN); "
             "fallback_reason 'budget' once spent.",
             "Every model text is fact-checked (strict number words); a rejected text is never shown.",

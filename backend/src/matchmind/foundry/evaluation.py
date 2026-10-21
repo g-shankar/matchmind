@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Any
 
 from matchmind.crew import commentator
-from matchmind.crew.contracts import LANGUAGES, PERSONAS, MomentBundle, ViewerProfile
+from matchmind.crew.contracts import PERSONAS, STUDIO_LANGUAGES, MomentBundle, ViewerProfile
 from matchmind.crew.crew import Crew
 from matchmind.crew.fact_checker import check, extract_numbers, length_problems
 from matchmind.crew.llm import ModelBudget, TemplateLLM
@@ -91,7 +91,7 @@ def match_records(events: list[Event], tally: dict[str, int] | None = None) -> I
         m = bundle.moment
         for persona in PERSONAS:
             focus = m.player_ids[0] if persona == "player_spotlight" and m.player_ids else None
-            for language in LANGUAGES:
+            for language in STUDIO_LANGUAGES:
                 profile = ViewerProfile(persona=persona, language=language, focus_player_id=focus)
                 card = crew.render(bundle, profile)
                 if card is None:
@@ -118,7 +118,7 @@ def match_records(events: list[Event], tally: dict[str, int] | None = None) -> I
                 }
     snapshot, players = stats.snapshot(), stats.players()
     for persona in PERSONAS:
-        for language in LANGUAGES:
+        for language in STUDIO_LANGUAGES:
             recap = crew.recap(snapshot, players, ViewerProfile(persona=persona, language=language))
             yield {
                 "id": f"{match_id}:recap:{persona}:{language}",
@@ -325,7 +325,7 @@ def evaluate(records: list[dict[str, Any]]) -> dict[str, Any]:
 def scorecard(result: dict[str, Any]) -> str:
     """A plain-text table for the terminal and the docs."""
     groups = ["all", "type:card", "type:recap"]
-    groups += [f"persona:{p}" for p in PERSONAS] + [f"language:{lang}" for lang in LANGUAGES]
+    groups += [f"persona:{p}" for p in PERSONAS] + [f"language:{lang}" for lang in STUDIO_LANGUAGES]
     lines = [
         f"PitchPulse crew evaluation: {result['records']} records from {result['matches']} matches "
         f"(produced_by: {', '.join(f'{k}={v}' for k, v in sorted(result['produced_by'].items()))})",

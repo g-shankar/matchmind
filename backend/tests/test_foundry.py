@@ -11,7 +11,7 @@ import yaml
 from pydantic import BaseModel
 
 from matchmind.crew import analyst, commentator, llm, recap
-from matchmind.crew.contracts import LANGUAGES, PERSONAS, ViewerProfile
+from matchmind.crew.contracts import PERSONAS, STUDIO_LANGUAGES, ViewerProfile
 from matchmind.crew.crew import Crew
 from matchmind.crew.llm import LLMSchemaError
 from matchmind.foundry import cli, evaluation, manifests
@@ -118,7 +118,7 @@ def test_dataset_has_azure_evaluation_columns_for_every_persona_and_language(dem
     recaps = [r for r in demo_records if r["type"] == "recap"]
     assert len(recaps) == 20
     assert {(r["persona"], r["language"]) for r in cards} == {
-        (p, lang) for p in PERSONAS for lang in LANGUAGES
+        (p, lang) for p in PERSONAS for lang in STUDIO_LANGUAGES
     }
     for r in demo_records:
         assert evaluation.check_record_fields(r) == []

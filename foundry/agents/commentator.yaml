@@ -321,6 +321,14 @@ contract:
         - fr
         - ar
         - ja
+        - pt
+        - de
+        - hi
+        - zh-Hans
+        - sw
+        - id
+        - tr
+        - ko
         title: Language
         type: string
       headline:

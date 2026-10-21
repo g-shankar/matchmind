@@ -24,6 +24,10 @@ behaviour: |-
     unless it matches a numeric fact. Templates are exempt: they use articles
     such as "un"/"une" and words such as "premier" by design.
 
+  Machine-translated text (world languages, `translated=True`) gets the same
+  number and name checks with slightly roomier length rules; the translator's
+  own protection check makes sure every number and name came back unchanged.
+
   String facts (names, clocks such as "67:28") are removed from the text before
   numbers are read, so the digits inside a clock never need their own fact.
 
@@ -52,6 +56,14 @@ contract:
         - fr
         - ar
         - ja
+        - pt
+        - de
+        - hi
+        - zh-Hans
+        - sw
+        - id
+        - tr
+        - ko
         title: Language
         type: string
       field:
