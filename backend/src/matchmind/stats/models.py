@@ -3,7 +3,7 @@ comes from one of these models."""
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 class XY(BaseModel):
@@ -122,6 +122,7 @@ class PlayerStats(BaseModel):
     carry_distance_m: float = 0.0
     distance_km: float = 0.0
 
+    @computed_field  # serialised too: the API contract lists pass_accuracy
     @property
     def pass_accuracy(self) -> float:
         return round(100 * self.passes_completed / self.passes, 1) if self.passes else 0.0
