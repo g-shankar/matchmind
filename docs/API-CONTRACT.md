@@ -50,7 +50,7 @@ interface ViewerProfile {
   focus_metric: FocusMetric | null;
 }
 
-interface Evidence { label: string; value: FactValue; unit: string | null; source_event_id: string | null }
+interface Evidence { label: string; value: FactValue; unit: string | null; label_key: string | null; source_event_id: string | null }
 ```
 
 ## Events and stats

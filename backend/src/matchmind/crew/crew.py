@@ -360,6 +360,7 @@ class Crew:
             evidence = [
                 Evidence(
                     label=analyst.LABELS.get(k, k.replace("_", " ").capitalize()),
+                    label_key=k,
                     value=val,
                     unit=analyst.unit_for(k),
                     source_event_id=m.source_event_ids[0],

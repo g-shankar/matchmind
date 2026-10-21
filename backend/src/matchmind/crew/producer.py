@@ -26,6 +26,7 @@ from matchmind.crew.contracts import (
     Slot,
     ViewerProfile,
 )
+from matchmind.crew.i18n import pack
 
 LOWER_THIRD_GAP_S = 8.0
 FAVOURITE_BOOST = 15
@@ -93,6 +94,21 @@ def favourite_side(team: str | None, profile: ViewerProfile) -> bool | None:
     return team == profile.favourite_team
 
 
+def localise_evidence(items: list[Evidence], language: str) -> list[Evidence]:
+    """Copies of the evidence with labels in the card's language (English, then
+    the existing label, when a pack has no entry)."""
+    out: list[Evidence] = []
+    for item in items:
+        key = item.label_key
+        label = item.label
+        if key:
+            label = (
+                pack(language).get("labels", {}).get(key) or pack("en").get("labels", {}).get(key) or label
+            )
+        out.append(item.model_copy(update={"label": label}))
+    return out
+
+
 def build_card(
     bundle: MomentBundle,
     narrative: Narrative,
@@ -128,7 +144,9 @@ def build_card(
         body=narrative.body,
         why=why,
         tactical_tag=bundle.explanation.tactical_tag,
-        evidence=evidence if evidence is not None else bundle.explanation.evidence,
+        evidence=localise_evidence(
+            evidence if evidence is not None else bundle.explanation.evidence, profile.language
+        ),
         player_ids=list(m.player_ids),
         team=m.team,
         favourite_side=fav,

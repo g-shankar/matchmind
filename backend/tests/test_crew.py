@@ -476,11 +476,37 @@ def test_template_crew_cards_for_better_option(moments, language):
     assert card.kind == MomentKind.BETTER_OPTION and card.slot == "side_panel"
     assert card.rtl is (language == "ar")
     assert card.replay is not None and card.replay["times_better"] == 3.1
-    assert {e.label for e in card.evidence} >= {"Pass vs shot", "Shot xG"}
+    assert {e.label_key for e in card.evidence} >= {"times_better", "shot_xg"}
     assert ("3,1" if language == "es" else "3.1") in card.body + card.why or "3.1" in card.why
     # the same event again changes nothing (at-least-once delivery)
     assert crew.process(event, better_option_metrics("T-00005"), snap(720.0), pl) == bundles
     assert crew.status().moments == len(bundles)
+
+
+def test_evidence_labels_are_localised_without_touching_the_bundle():
+    from matchmind.crew import analyst
+    from matchmind.crew.i18n import pack
+
+    crew = Crew(TEAMS, llm=TemplateLLM())
+    event = ev(5, EventType.SHOT, 720.0, team="NBR", player_id="NBR-9", outcome=Outcome.OFF_TARGET)
+    bundles = crew.process(event, better_option_metrics("T-00005"), snap(720.0), players())
+    bo = [b for b in bundles if b.moment.kind == MomentKind.BETTER_OPTION]
+    for language in ("es", "ar"):
+        card = crew.cards_for(bo, ViewerProfile(language=language), ViewerState())[0]
+        assert card.evidence and all(e.label_key for e in card.evidence)
+        for e in card.evidence:
+            assert e.label == pack(language)["labels"][e.label_key]
+            assert e.label != analyst.LABELS[e.label_key]
+    assert all(e.label == analyst.LABELS[e.label_key] for e in bo[0].explanation.evidence)
+
+
+def test_every_label_key_exists_in_every_language_pack():
+    from matchmind.crew import analyst
+    from matchmind.crew.i18n import PACKS
+
+    for language, p in PACKS.items():
+        assert set(analyst.LABELS) <= set(p["labels"]), language
+    assert PACKS["en"]["labels"] == analyst.LABELS
 
 
 def test_favourite_club_is_phrased_from_the_viewers_side(moments):
