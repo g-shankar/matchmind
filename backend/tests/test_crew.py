@@ -426,6 +426,85 @@ def test_fact_checker_length_and_banned_names():
         assert not verdict.ok and any("real name" in r for r in verdict.reasons)
 
 
+def _banned(prefix: str) -> str:
+    # Real names are only spelled out in fact_checker.py; look them up instead of writing them here.
+    return next(n for n in BANNED_NAMES if n.startswith(prefix))
+
+
+def test_banned_names_cover_managers_grounds_nicknames_and_accents():
+    for name in (_banned("Guard"), _banned("Anf"), _banned("Old T"), _banned("Gunn"), _banned("Red D")):
+        verdict = check(f"Just like {name} on a big night.", {})
+        assert verdict.reasons == ["real name not allowed"], name
+        assert name not in " ".join(verdict.reasons)
+    plain = _banned("Odeg")
+    accented = chr(0xD8) + plain[1:]  # O with stroke: NFKD does not split it
+    assert not check(f"A pass {accented} would make.", {}).ok
+    assert not check("Like F" + chr(0xE9) + "rnandes did.", {}).ok  # combining accent is stripped
+    wide = "".join(chr(ord(c) + 0xFEE0) for c in _banned("Ars"))  # full-width letters
+    assert not check(f"{wide} style.", {}).ok
+    assert check("Northbridge FC press high.", {}).ok
+
+
+def test_rejected_name_never_reaches_the_trace():
+    name = _banned("Guard")
+
+    def liar(schema, user):
+        if schema is CommentatorOut:
+            return CommentatorOut(headline=f"{name} would love this", body="He should have passed.")
+        return good_answer(schema, user)
+
+    crew = Crew(TEAMS, llm=FakeLLM(answer=liar))
+    bundle = better_option_bundle(crew)
+    card = crew.render(bundle, ViewerProfile())
+    assert card.produced_by == "template" and "real name not allowed" in card.fallback_reason
+    details = " ".join(s.detail or "" for t in crew.traces(100) for s in t.steps)
+    assert "real name not allowed" in details and name not in details and name not in card.fallback_reason
+
+
+@pytest.mark.parametrize(
+    ("text", "language"),
+    [("three shots", "en"), ("tres disparos", "es"), ("trois tirs", "fr"), ("ثلاث تسديدات", "ar")]
+    + [("三本のシュート", "ja"), ("A hat-trick of shots", "en"), ("Il a tiré trois fois", "fr")]
+    + [("وثلاث تسديدات", "ar"), ("Shot thrice in reply", "es")],
+)
+def test_number_words_in_model_text_must_match_a_fact(text, language):
+    facts = {"shots": 2}
+    verdict = check(text, facts, language, strict_words=True)
+    assert not verdict.ok and any("number word" in r for r in verdict.reasons), text
+    assert check(text, facts, language).ok  # templates are not held to the word rule
+
+
+@pytest.mark.parametrize(
+    ("text", "language"),
+    [("two shots", "en"), ("dos disparos", "es"), ("deux tirs", "fr"), ("اثنتين", "ar"), ("二本", "ja")]
+    + [("A brace in the first half", "en"), ("Un tir et une passe", "fr"), ("Una ocasión clara", "es")],
+)
+def test_number_words_that_match_facts_pass(text, language):
+    assert check(text, {"shots": 2}, language, strict_words=True).ok, text
+
+
+def test_kanji_values():
+    assert [fact_checker.kanji_value(k) for k in ("三", "十", "十二", "二十五", "百", "〇")] == [
+        3,
+        10,
+        12,
+        25,
+        100,
+        0,
+    ]
+
+
+def test_model_number_word_falls_back_to_template():
+    def liar(schema, user):
+        if schema is CommentatorOut:
+            return CommentatorOut(headline="Seven passes he ignored", body="He should have passed.")
+        return good_answer(schema, user)
+
+    crew = Crew(TEAMS, llm=FakeLLM(answer=liar))
+    card = crew.render(better_option_bundle(crew), ViewerProfile())
+    assert card.produced_by == "template" and "number word" in card.fallback_reason
+
+
 def test_no_real_names_anywhere_in_crew_code_or_phrases():
     for path in sorted(CREW_DIR.rglob("*.py")):
         if path.name == "fact_checker.py":

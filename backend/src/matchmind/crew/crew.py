@@ -201,7 +201,7 @@ class Crew:
         )
         ms = (time.perf_counter() - t0) * 1000
         if result is not None:
-            verdict = check(result.why, moment.facts, "en", "why")
+            verdict = check(result.why, moment.facts, "en", "why", strict_words=True)
             self._trace(
                 moment, "fact_checker", 0.0, "ok" if verdict.ok else "rejected", _short(verdict.reasons)
             )
@@ -270,7 +270,9 @@ class Crew:
         )
         ms = (time.perf_counter() - t0) * 1000
         if result is not None:
-            verdict = check_all({"headline": result.headline, "body": result.body}, m.facts, lang)
+            verdict = check_all(
+                {"headline": result.headline, "body": result.body}, m.facts, lang, strict_words=True
+            )
             if verdict.ok:
                 narrative = Narrative(
                     moment_id=m.moment_id,
@@ -398,7 +400,12 @@ class Crew:
         result, reason = self._ai("recap", recap_mod.RECAP_SYSTEM, payload, recap_mod.RecapOut)
         if result is not None:
             ai_verdict = recap_mod.check_texts(
-                result.title, result.headline, list(result.summary_paragraphs), facts, profile.language
+                result.title,
+                result.headline,
+                list(result.summary_paragraphs),
+                facts,
+                profile.language,
+                strict_words=True,
             )
             if ai_verdict.ok:
                 title, headline, paragraphs = result.title, result.headline, list(result.summary_paragraphs)
