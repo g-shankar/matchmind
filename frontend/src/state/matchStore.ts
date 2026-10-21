@@ -63,6 +63,8 @@ export const MAX_EVENTS = 60;
 export const MAX_CARDS = 80;
 export const MAX_TRAIL = 16;
 export const MAX_HISTORY = 400;
+export const MAX_PLAYERS = 60;
+export const MAX_BOOKMARKS = 200;
 
 export const initialMatchState = (profile: ViewerProfile = DEFAULT_PROFILE): MatchViewState => ({
   status: 'connecting',
@@ -144,7 +146,12 @@ export function matchReducer(state: MatchViewState, action: MatchAction): MatchV
       return { ...state, cards: state.cards.map((c) => byMoment.get(c.moment_id) ?? c) };
     }
     case 'message':
-      return applyMessage(state, action.message);
+      try {
+        return applyMessage(state, action.message);
+      } catch {
+        // A frame that does not match the contract is dropped; the next snapshot or tick restores state.
+        return state;
+      }
   }
 }
 
@@ -153,7 +160,7 @@ function applyMessage(state: MatchViewState, m: ServerMessage): MatchViewState {
     case 'INITIAL_SNAPSHOT': {
       const d = m.data;
       const players: Record<string, PlayerStats> = {};
-      for (const p of d.players) players[p.player_id] = p;
+      for (const p of d.players.slice(0, MAX_PLAYERS)) players[p.player_id] = p;
       const sameMatch = state.matchId === d.match_id;
       // After a seek or reset the timeline restarts, so history behind the new clock is dropped.
       const history = sameMatch ? state.history.filter((h) => h.clock_s <= d.state.clock_s) : [];
@@ -170,12 +177,12 @@ function applyMessage(state: MatchViewState, m: ServerMessage): MatchViewState {
         playback: d.playback,
         events: [],
         lastEvent: null,
-        cards: d.recent_cards,
+        cards: d.recent_cards.slice(-MAX_CARDS),
         players,
         positions: {},
         trails: {},
         history: [...history, sample(d.state)].slice(-MAX_HISTORY),
-        bookmarks: d.bookmarks,
+        bookmarks: d.bookmarks.slice(0, MAX_BOOKMARKS),
         crew: d.crew,
         autoEventing: d.auto_eventing,
         recap: d.playback.ended ? state.recap : null,

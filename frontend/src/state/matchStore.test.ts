@@ -58,3 +58,11 @@ describe('activeCards', () => {
     expect(activeCards([card], 22, 'side_panel')).toHaveLength(0);
   });
 });
+
+describe('malformed frames', () => {
+  it('drops a snapshot that does not match the contract instead of throwing', () => {
+    const s = initialMatchState();
+    const bad = { type: 'INITIAL_SNAPSHOT', data: { players: null } } as never;
+    expect(matchReducer(s, { type: 'message', message: bad })).toBe(s);
+  });
+});

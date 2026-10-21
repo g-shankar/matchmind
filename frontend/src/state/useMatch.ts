@@ -10,10 +10,29 @@ const LIVE_TIMEOUT_MS = 2500;
 const RETRY_MS = 2000;
 const MAX_RETRIES = 3;
 
+const PERSONAS = ['casual', 'tactical', 'fantasy', 'player_spotlight'];
+const LANGUAGES = ['en', 'es', 'fr', 'ar', 'ja'];
+const METRICS = ['pressure', 'xg', 'pass_difficulty', 'top_speed', 'momentum'];
+const ID = /^[A-Za-z0-9_-]{1,32}$/;
+
+// Keeps only known profile fields with allowed values; anything else falls back to the default.
+export function sanitizeProfile(raw: unknown): ViewerProfile {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const pick = <T,>(v: unknown, ok: boolean, fallback: T): T => (ok ? (v as T) : fallback);
+  const idOrNull = (v: unknown) => (v === null || (typeof v === 'string' && ID.test(v)) ? (v as string | null) : null);
+  return {
+    persona: pick(r.persona, PERSONAS.includes(r.persona as string), DEFAULT_PROFILE.persona),
+    language: pick(r.language, LANGUAGES.includes(r.language as string), DEFAULT_PROFILE.language),
+    favourite_team: idOrNull(r.favourite_team),
+    focus_player_id: idOrNull(r.focus_player_id),
+    focus_metric: pick(r.focus_metric, METRICS.includes(r.focus_metric as string), null),
+  };
+}
+
 function storedProfile(): ViewerProfile {
   try {
     const raw = localStorage.getItem(PROFILE_KEY);
-    if (raw) return { ...DEFAULT_PROFILE, ...(JSON.parse(raw) as Partial<ViewerProfile>) };
+    if (raw) return sanitizeProfile(JSON.parse(raw));
   } catch {
     // Private windows and blocked storage fall back to defaults.
   }
