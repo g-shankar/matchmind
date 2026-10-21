@@ -56,3 +56,45 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npm run build
+
+  licences:
+    name: Licence check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: pip install "./backend[azure,api]" pip-licenses
+      - run: pip-licenses --partial-match --fail-on="GPL;AGPL;SSPL"
+      - run: npm ci --no-audit --no-fund
+        working-directory: frontend
+      - run: npx --yes license-checker --production --failOn "GPL;AGPL;SSPL"
+        working-directory: frontend
+
+  infra:
+    name: Bicep build and lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: az bicep install
+      - run: az bicep lint --file deployment/azure_bicep/main.bicep
+      - run: az bicep build --file deployment/azure_bicep/main.bicep --stdout > /dev/null
+      - name: Template outputs no keys
+        run: |
+          ! grep -nE "listKeys|listConnectionStrings|primaryKey|connectionString" deployment/azure_bicep/main.bicep
+
+  image:
+    name: Container image build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -f deployment/Dockerfile -t pitchpulse:ci .
+      - name: Image runs as non-root and has the simulator
+        run: |
+          test "$(docker run --rm pitchpulse:ci id -u)" = "10001"
+          docker run --rm pitchpulse:ci matchmind-sim --help
+          docker run --rm pitchpulse:ci test -f static/index.html

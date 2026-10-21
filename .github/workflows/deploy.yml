@@ -1,0 +1,98 @@
+name: deploy
+
+# Manual only. "what-if" previews the infrastructure change and touches
+# nothing; "deploy" builds the image and rolls it out. The production
+# environment requires an owner's approval before either job runs.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: what-if previews, deploy applies
+        type: choice
+        options: [what-if, deploy]
+        default: what-if
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+env:
+  TEMPLATE: deployment/azure_bicep/main.bicep
+  RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+  LOCATION: ${{ vars.AZURE_LOCATION }}
+  IMAGE_REPO: pitchpulse
+
+jobs:
+  azure:
+    name: ${{ inputs.mode }}
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      # Keyless sign-in: GitHub OIDC token exchanged for an Entra ID token.
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resource group
+        if: inputs.mode == 'deploy'
+        run: az group create --name "$RESOURCE_GROUP" --location "$LOCATION" --output none
+
+      - name: What-if
+        if: inputs.mode == 'what-if'
+        run: |
+          if [ "$(az group exists --name "$RESOURCE_GROUP")" = "false" ]; then
+            echo "Resource group $RESOURCE_GROUP does not exist yet: every resource below would be created."
+            az bicep build --file "$TEMPLATE" --stdout | jq -r '.resources[] | .type' | sort | uniq -c
+            exit 0
+          fi
+          az deployment group what-if \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file "$TEMPLATE" \
+            --parameters deployApps=false
+
+      - name: Base infrastructure
+        id: base
+        if: inputs.mode == 'deploy'
+        run: |
+          out=$(az deployment group create \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "base-${GITHUB_RUN_ID}" \
+            --template-file "$TEMPLATE" \
+            --parameters deployApps=false \
+            --query properties.outputs --output json)
+          echo "registry=$(jq -r .registryName.value <<<"$out")" >> "$GITHUB_OUTPUT"
+          echo "login_server=$(jq -r .registryLoginServer.value <<<"$out")" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        id: image
+        if: inputs.mode == 'deploy'
+        env:
+          LOGIN_SERVER: ${{ steps.base.outputs.login_server }}
+          REGISTRY: ${{ steps.base.outputs.registry }}
+        run: |
+          image="$LOGIN_SERVER/$IMAGE_REPO:${GITHUB_SHA}"
+          az acr login --name "$REGISTRY"
+          docker build -f deployment/Dockerfile -t "$image" .
+          docker push "$image"
+          echo "ref=$image" >> "$GITHUB_OUTPUT"
+
+      - name: Apps
+        if: inputs.mode == 'deploy'
+        env:
+          IMAGE: ${{ steps.image.outputs.ref }}
+        run: |
+          url=$(az deployment group create \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "apps-${GITHUB_RUN_ID}" \
+            --template-file "$TEMPLATE" \
+            --parameters deployApps=true containerImage="$IMAGE" \
+            --query properties.outputs.appUrl.value --output tsv)
+          echo "### Preview: $url" >> "$GITHUB_STEP_SUMMARY"

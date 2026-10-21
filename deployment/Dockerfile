@@ -1,17 +1,26 @@
-# Production Multi-Stage Dockerfile for PitchPulse AI
-FROM node:20-slim AS frontend-build
-WORKDIR /app/frontend
-COPY frontend/package*.json ./
-RUN npm install
+# PitchPulse: one image for the web app (API + built frontend) and the
+# match simulator job. Build from the repo root:
+#   docker build -f deployment/Dockerfile -t pitchpulse .
+
+FROM node:20-slim AS frontend
+WORKDIR /src/frontend
+COPY frontend/package.json frontend/package-lock.json ./
+RUN npm ci --no-audit --no-fund
 COPY frontend/ ./
 RUN npm run build
 
-FROM python:3.11-slim AS backend
+FROM python:3.12-slim AS runtime
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
-COPY backend/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-COPY backend/ ./
-COPY --from=frontend-build /app/frontend/dist ./static
 
+COPY backend/ ./backend/
+RUN pip install "./backend[azure,api]" \
+    && useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin pitchpulse
+COPY --from=frontend /src/frontend/dist ./static
+
+USER 10001
 EXPOSE 8000
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "matchmind.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
