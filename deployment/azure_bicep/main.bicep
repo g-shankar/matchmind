@@ -320,7 +320,10 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
             cpu: json('0.5')
             memory: '1Gi'
           }
-          env: concat(appEnv, eventHubEnv, [{ name: 'MATCHMIND_ALLOWED_ORIGINS', value: allowedOrigins }])
+          env: concat(appEnv, eventHubEnv, [
+            { name: 'MATCHMIND_ALLOWED_ORIGINS', value: allowedOrigins }
+            { name: 'MATCHMIND_PUBLIC_ORIGIN', value: 'https://${appFqdn}' }
+          ])
           probes: [
             // Startup runs the crew over the whole demo match (about 20 s),
             // so allow up to 2 minutes before liveness takes over.

@@ -24,8 +24,14 @@ COPY --from=frontend /src/frontend/dist ./static
 # The package is installed into site-packages, so point the API at the
 # bundled demo match and the built frontend explicitly.
 ENV MATCHMIND_MATCH_FILE=/app/backend/data/matches/MM-DEMO-001.jsonl \
-    MATCHMIND_STATIC_DIR=/app/static
+    MATCHMIND_STATIC_DIR=/app/static \
+    MATCHMIND_HOST=0.0.0.0 \
+    PORT=8000 \
+    FORWARDED_ALLOW_IPS=*
 
 USER 10001
 EXPOSE 8000
-CMD ["uvicorn", "matchmind.api.app:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# The API's own launcher sets the WebSocket size limit and hides the server
+# header; only the Container Apps ingress can reach the port, so forwarded
+# headers are trusted.
+CMD ["matchmind-api"]
