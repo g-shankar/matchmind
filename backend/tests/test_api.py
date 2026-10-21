@@ -232,7 +232,7 @@ def test_players_route(client, clock):
     assert players[0]["pass_accuracy"] == 100.0
 
 
-def test_rest_playback_controls(client):
+def test_rest_playback_controls(client, clock):
     r = client.post("/api/match/speed", json={"speed_multiplier": 60})
     assert r.json()["speed_multiplier"] == 60
     assert client.post("/api/match/speed", json={"speed_multiplier": 5}).status_code == 400
@@ -240,8 +240,10 @@ def test_rest_playback_controls(client):
     assert r.status_code == 200 and r.json()["clock_s"] == 2700 and r.json()["period"] == 2
     r = client.post("/api/match/seek", json={"clock_s": 99999})
     assert r.status_code == 400
+    clock.t += 1  # seeks and resets are throttled to one per half second
     r = client.post("/api/match/seek", json={"clock_s": 9000, "period": 2})
     assert r.status_code == 400 and r.json() == {"detail": "That time is after full time."}
+    clock.t += 1
     r = client.post("/api/match/reset")
     assert r.json()["is_running"] is True and r.json()["clock_s"] == 0
 
@@ -408,6 +410,7 @@ def test_ws_shared_playback_reaches_everyone(client, clock):
         assert snap_a["home_score"] == 1 and snap_a["away_score"] == 0 and snap_a["period"] == 2
         assert snap_b["playback"]["clock_s"] == 2700
         assert [c["moment_id"] for c in snap_a["recent_cards"]] == ["goal-MM-TEST-001-00003"]
+        clock.t += 1  # seeks and resets are throttled to one per half second
         b.send_json({"action": "reset"})
         assert recv(a, "MATCH_RESET") == {}
         assert recv(a, "INITIAL_SNAPSHOT")["home_score"] == 0
@@ -439,10 +442,56 @@ def test_ws_rejects_unlisted_origin(client):
         ws.receive_json()
 
 
-def test_ws_allows_listed_and_same_origin(client):
-    for origin in (ALLOWED, "http://testserver"):
-        with client.websocket_connect("/ws/match", headers={"Origin": origin}) as ws:
-            recv(ws, "INITIAL_SNAPSHOT")
+def ws_refused(client: TestClient, headers: dict[str, str]) -> int:
+    with (
+        pytest.raises(WebSocketDisconnect) as exc,
+        client.websocket_connect("/ws/match", headers=headers) as ws,
+    ):
+        ws.receive_json()
+    return exc.value.code
+
+
+def test_ws_allows_listed_origin_and_never_trusts_host(client):
+    with client.websocket_connect("/ws/match", headers={"Origin": ALLOWED}) as ws:
+        recv(ws, "INITIAL_SNAPSHOT")
+    # A matching Host header proves nothing: the attacker controls both.
+    assert ws_refused(client, {"Origin": "http://evil.test", "Host": "evil.test"}) == 1008
+    assert ws_refused(client, {"Origin": "http://testserver"}) == 1008
+
+
+def test_ws_allows_own_public_origin_only_when_serving_the_frontend(session, clock, tmp_path):
+    static = tmp_path / "static"
+    static.mkdir()
+    (static / "index.html").write_text("<!doctype html><title>PitchPulse</title>")
+    own = "https://pitchpulse.example"
+    for static_dir, allowed in ((static, True), (tmp_path / "none", False)):
+        app = create_app(
+            session=session,
+            tick_interval=None,
+            allowed_origins=[ALLOWED],
+            static_dir=static_dir,
+            clock=clock,
+            public_origin=own,
+        )
+        with TestClient(app) as c:
+            if allowed:
+                with c.websocket_connect("/ws/match", headers={"Origin": own + "/"}) as ws:
+                    recv(ws, "INITIAL_SNAPSHOT")
+            else:
+                assert ws_refused(c, {"Origin": own}) == 1008
+
+
+def test_public_origin_from_env(monkeypatch, session, clock, tmp_path):
+    static = tmp_path / "static"
+    static.mkdir()
+    (static / "index.html").write_text("<!doctype html><title>PitchPulse</title>")
+    monkeypatch.setenv("MATCHMIND_PUBLIC_ORIGIN", "https://pitchpulse.example")
+    app = create_app(session=session, tick_interval=None, allowed_origins=[], static_dir=static, clock=clock)
+    with (
+        TestClient(app) as c,
+        c.websocket_connect("/ws/match", headers={"Origin": "https://pitchpulse.example"}) as ws,
+    ):
+        recv(ws, "INITIAL_SNAPSHOT")
 
 
 def test_ws_rate_limit(client):

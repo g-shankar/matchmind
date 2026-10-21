@@ -214,10 +214,20 @@ the last event, or `toggle_pause` after full time, gets `ERROR` (use `reset` or
 `seek`). After `MATCH_END` the server also sends `PLAYBACK_CONTROL` with
 `ended: true`.
 
+Seek and reset are shared, so they are throttled for everyone: at most one
+every 0.5 s across WebSocket and REST together. A seek or reset inside that
+window is refused (WebSocket `ERROR` "Jumping around too fast. Wait a moment
+and try again.", REST 429 with the same `detail`); nothing is queued.
+
 Client -> server. `{ "action": ..., ... }` as JSON text, max 4 KB, unknown
 actions, unknown fields and bad values get `ERROR`. Each connection may send
 about 10 actions a second (bursts of 20). Browsers must connect from an origin
-in `MATCHMIND_ALLOWED_ORIGINS` or from the page the server itself serves.
+in `MATCHMIND_ALLOWED_ORIGINS`, or, when this server serves the built frontend
+itself, from `MATCHMIND_PUBLIC_ORIGIN`. The `Host` header is never trusted for
+this. A refused origin, a full server (`MATCHMIND_MAX_CONNECTIONS`) or too many
+connections from one IP (`MATCHMIND_MAX_CONN_PER_IP`) closes with code 1008. A
+viewer that falls more than 4 MB behind on messages is disconnected with code
+1013 (try again later); reconnecting gets a fresh `INITIAL_SNAPSHOT`.
 
 | action | fields | effect |
 |---|---|---|
@@ -244,9 +254,9 @@ the focus metric (one place in `MatchSession.cards_for`).
 | `GET /api/teams` | `{ home: TeamInfo, away: TeamInfo }` |
 | `GET /api/match/snapshot` | `INITIAL_SNAPSHOT.data` for the default profile |
 | `GET /api/match/players` | `PlayerStats[]` |
-| `GET /api/match/bookmarks` | `Bookmark[]` for the whole match |
+| `GET /api/match/bookmarks` | `Bookmark[]` for the whole match (leaves out `speed_burst`, `rocket_shot`, `distance_milestone` and `hard_pass`, which still arrive as tick cards; same list in `INITIAL_SNAPSHOT.bookmarks`) |
 | `GET /api/match/moment/{moment_id}?persona=&lang=&favourite_team=` | `OverlayCard` (for "jump to moment" and replays) |
-| `GET /api/match/recap?persona=&lang=` | `Recap` (so far, or full match after the end) |
+| `GET /api/match/recap?persona=&lang=` | `Recap` (so far, or full match after the end; the same after a seek as after watching straight through) |
 | `POST /api/match/seek` `{ clock_s, period? }` | `Playback` |
 | `POST /api/match/speed` `{ speed_multiplier }` | `Playback` |
 | `POST /api/match/reset` | `Playback` |
@@ -254,8 +264,10 @@ the focus metric (one place in `MatchSession.cards_for`).
 | `GET /api/crew/trace?limit=20` | `CrewTrace[]` (newest first) |
 | `GET /api/auto-eventing` | `AutoEventingStatus` or 404 until built |
 
-Errors: `{ "detail": "plain words" }` with 400 or 404 (503 while the match is
-still loading, 500 with a generic message if something breaks on our side).
+Errors: `{ "detail": "plain words" }` with 400 or 404 (429 for a seek or reset
+inside the 0.5 s throttle, or more than about 2 POSTs a second, bursts of 10,
+from one client IP; 503 while the match is still loading, 500 with a generic
+message if something breaks on our side).
 API responses carry `Cache-Control: no-store`.
 
 ## Server settings
@@ -266,5 +278,10 @@ API responses carry `Cache-Control: no-store`.
 | `MATCHMIND_MATCH_FILE` | `backend/data/matches/MM-DEMO-001.jsonl` | the match to play |
 | `MATCHMIND_STATIC_DIR` | `./static` (working directory) | built frontend served at `/` when it has an `index.html` |
 | `MATCHMIND_BASE_RATE` | `10` | match seconds per real second at 1x |
-| `MATCHMIND_AI_ENABLED` | `false` | live crew uses the paid model client; the whole-match bookmark pass always uses templates |
+| `MATCHMIND_AI_ENABLED` | `false` | `true`, `1` or `yes` (any case): live crew uses the paid model client; the whole-match bookmark pass always uses templates. Model recaps are only made at full time, once per persona, language and favourite club |
+| `MATCHMIND_AI_BUDGET` | `300` | most paid model calls per process; then templates with `fallback_reason: 'budget'` |
+| `MATCHMIND_AI_RATE_PER_MIN` | `30` | most paid model calls in any 60 s; then templates with `fallback_reason: 'budget'` |
+| `MATCHMIND_PUBLIC_ORIGIN` | (none) | this server's own public origin (e.g. `https://pitchpulse.example`), allowed for the WebSocket only when the built frontend is served from `MATCHMIND_STATIC_DIR` |
+| `MATCHMIND_MAX_CONNECTIONS` | `200` | most open WebSockets |
+| `MATCHMIND_MAX_CONN_PER_IP` | `20` | most open WebSockets from one client IP |
 | `MATCHMIND_HOST`, `PORT` / `MATCHMIND_PORT` | `127.0.0.1`, `8000` | `matchmind-api` / `python -m matchmind.api`; ASGI app `matchmind.api.app:app` |
