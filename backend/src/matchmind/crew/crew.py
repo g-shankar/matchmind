@@ -66,6 +66,9 @@ TRACE_STEPS_LIMIT = 60
 CACHE_LIMIT = 5000
 PROCESSED_LIMIT = 50_000
 RECAP_AI_LIMIT = 256
+# A world-language recap is translated at most once per audience in this many seconds
+# before full time (the last translation is reused in between), and once at full time.
+RECAP_TRANSLATE_EVERY_S = 60.0
 AI_AGENTS = ("analyst", "commentator", "recap")
 
 
@@ -112,6 +115,9 @@ class Crew:
         self._cards: OrderedDict[tuple, OverlayCard] = OrderedDict()
         self._traces: OrderedDict[str, CrewTrace] = OrderedDict()
         self._recap_ai: OrderedDict[tuple, tuple[Any | None, str | None]] = OrderedDict()
+        # (match, persona, language, club, focus) -> (when, translated recap, made at full time)
+        self._recap_translated: OrderedDict[tuple, tuple[float, Recap, bool]] = OrderedDict()
+        self._generation = getattr(self, "_generation", 0) + 1  # changes on every reset
         self._fallbacks = 0
         self._rejections = 0
         self._match_id: str | None = None
@@ -473,7 +479,7 @@ class Crew:
         moments = self.moments() if moments is None else list(moments)
         if is_world_language(profile.language):
             english = self.recap(snapshot, players, profile.model_copy(update={"language": "en"}), moments)
-            return self._translate_recap(english, moments, profile.language, snapshot, t0)
+            return self.translate_recap(english, moments, profile, snapshot)
         fav_name = self.team_name(profile.favourite_team)
         facts = recap_mod.recap_facts(moments, snapshot, players, profile, self.teams, self.names)
         full_time = recap_mod.is_full_time(moments)
@@ -535,8 +541,46 @@ class Crew:
                 )
             )
             self._store_trace(trace)
-        self._span("recap", trace.steps[0].ms, status, reason or produced_by, trace_id, "recap")
+        # The span id leaves out persona and language: telemetry never carries viewer choices.
+        span_id = f"recap-{snapshot.match_id}-{snapshot.clock_s:.0f}"
+        self._span("recap", trace.steps[0].ms, status, reason or produced_by, span_id, "recap")
         return out
+
+    def translate_recap(
+        self, english: Recap, moments: list[Moment], profile: ViewerProfile, snapshot: MatchStateSnapshot
+    ) -> Recap:
+        """The English recap in the viewer's world language, paced: before full time at
+        most one translation per audience every RECAP_TRANSLATE_EVERY_S (the last one,
+        with its own `generated_at_clock`, is reused in between); at full time once.
+        Safe to call without the caller's crew lock: a reset while the request is out
+        means the answer is returned but not kept."""
+        t0 = time.perf_counter()
+        key = (
+            snapshot.match_id,
+            profile.persona,
+            profile.language,
+            profile.favourite_team,
+            profile.focus_player_id,
+        )
+        full_time = recap_mod.is_full_time(moments)
+        with self._lock:
+            generation = self._generation
+            last = self._recap_translated.get(key)
+            if last is not None:
+                made_at, previous, made_at_full_time = last
+                fresh = self.clock() - made_at < RECAP_TRANSLATE_EVERY_S
+                if made_at_full_time or (fresh and not full_time):
+                    self._recap_translated.move_to_end(key)
+                    return previous.model_copy(deep=True)
+        out = self._translate_recap(english, moments, profile.language, snapshot, t0)
+        if out.translated_by is not None:
+            with self._lock:
+                if generation == self._generation:
+                    self._recap_translated[key] = (self.clock(), out, full_time)
+                    self._recap_translated.move_to_end(key)
+                    while len(self._recap_translated) > RECAP_AI_LIMIT:
+                        self._recap_translated.popitem(last=False)
+        return out.model_copy(deep=True)
 
     def _translate_recap(
         self, english: Recap, moments: list[Moment], language: str, snapshot: MatchStateSnapshot, t0: float
@@ -648,6 +692,7 @@ class Crew:
         user = dict(payload)
         for attempt in range(2):
             if not self.budget.take():
+                breaker.cancel_probe()  # no call was made: let the next caller probe
                 with self._lock:
                     self._fallbacks += 1
                 return None, "budget"

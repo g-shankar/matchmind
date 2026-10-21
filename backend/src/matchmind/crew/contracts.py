@@ -220,10 +220,7 @@ class TranslatorStatus(BaseModel):
     mode: Literal["azure", "off"] = "off"
     available: bool = False
     breaker_open: bool = False
-    requests: int = 0
     cache_hits: int = 0
-    characters_sent: int = 0
-    character_budget: int = 0
     translated: int = 0
     fallbacks: int = 0
     rejections: int = 0

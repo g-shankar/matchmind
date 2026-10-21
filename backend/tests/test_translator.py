@@ -321,7 +321,7 @@ def test_translator_off_shows_english_and_says_so(moments):  # noqa: F811
         assert card.fallback_reason == "translator_off" and card.translated_by is None
         assert card.headline == english.headline
     status = crew.status().translator
-    assert status.mode == "off" and status.available is False and status.requests == 0
+    assert status.mode == "off" and status.available is False and crew.translation.requests == 0
 
 
 def test_switch_needs_both_flags(monkeypatch):
@@ -368,6 +368,52 @@ def test_recap_in_a_world_language_is_one_request_and_checked(moments):  # noqa:
     assert len(recap.key_moments) == len(english.key_moments)
     assert all("«zh-Hans»" in k.headline for k in recap.key_moments)
     assert recap.stats == english.stats  # numbers come from the engine, untouched
+
+
+def test_live_recap_is_translated_at_most_once_a_minute_then_once_at_full_time(moments):  # noqa: F811
+    fake = FakeAzure()
+    now = [0.0]
+    crew = Crew(TEAMS, llm=TemplateLLM(), translator=service(fake), clock=lambda: now[0])
+    live = [m for m in moments if m.facts.get("phase") != "full_time"]
+    profile = ViewerProfile(language="de")
+    first = crew.recap(snap(3000.0, period=2), players(), profile, live)
+    assert first.translated_by == "azure_ai_translator" and len(fake.requests) == 1
+    # Every match minute changes the English text; a caller hammering the route
+    # within the window gets the last translation (with its own clock), not a new bill.
+    for minute in range(1, 30):
+        now[0] += 1.0
+        again = crew.recap(snap(3000.0 + 60 * minute, period=2), players(), profile, live)
+        assert again.generated_at_clock == first.generated_at_clock
+    assert len(fake.requests) == 1
+    now[0] += 61.0
+    later = crew.recap(snap(5000.0, period=2), players(), profile, live)
+    assert later.generated_at_clock != first.generated_at_clock and len(fake.requests) == 2
+    # Full time: translated once at once, then reused for good.
+    final = crew.recap(snap(5500.0, period=2), players(), profile, moments)
+    assert final.translated_by == "azure_ai_translator" and len(fake.requests) == 3
+    for _ in range(5):
+        now[0] += 120.0
+        crew.recap(snap(5500.0, period=2), players(), profile, moments)
+    assert len(fake.requests) == 3
+    # Each audience is its own entry (personas and languages are not mixed up).
+    crew.recap(snap(5500.0, period=2), players(), ViewerProfile(language="ko"), moments)
+    crew.recap(snap(5500.0, period=2), players(), ViewerProfile(language="de", persona="tactical"), moments)
+    assert len(fake.requests) == 5
+
+
+def test_reset_while_a_recap_is_being_translated_keeps_nothing_stale(moments):  # noqa: F811
+    crew_box: list[Crew] = []
+
+    def reset_midway(h: str) -> str:
+        crew_box[0].reset()  # a seek lands while the request is out
+        return h
+
+    fake = FakeAzure(tamper=reset_midway)
+    crew = world_crew(fake)
+    crew_box.append(crew)
+    out = crew.recap(snap(5500.0, period=2), players(), ViewerProfile(language="tr"), moments)
+    assert out.translated_by == "azure_ai_translator"  # this caller still gets its answer
+    assert crew._recap_translated == {}  # but it is not kept for after the jump
 
 
 def test_tampered_recap_falls_back_to_english(moments):  # noqa: F811
@@ -455,6 +501,49 @@ def test_circuit_breaker_opens_after_three_failures_then_recovers():
     fake.status = 200
     assert svc.translate(["Text 5"], "de").texts is not None
     assert not svc.status().breaker_open
+
+
+def test_half_open_breaker_lets_exactly_one_probe_through():
+    fake = FakeAzure(status=503)
+    now = [0.0]
+    svc = service(fake, clock=lambda: now[0])
+    for i in range(3):
+        svc.translate([f"Text {i}"], "de")
+    assert svc.status().breaker_open
+    now[0] += BREAKER_OPEN_S + 1
+    fake.status, fake.delay = 200, 0.3
+    fake.requests.clear()
+    results = []
+    start = threading.Barrier(5)
+
+    def go(i: int) -> None:
+        start.wait()
+        results.append(svc.translate([f"Different text {i}"], "de"))  # different texts: no in-flight sharing
+
+    threads = [threading.Thread(target=go, args=(i,)) for i in range(5)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert len(fake.requests) == 1  # one probe, not five
+    assert sorted(r.reason or "ok" for r in results) == ["ok"] + ["translator_circuit_open"] * 4
+    assert svc.translate(["After the probe"], "de").texts is not None  # closed again
+
+
+def test_probe_that_never_reports_expires():
+    from matchmind.crew.breaker import PROBE_TIMEOUT_S, CircuitBreaker
+
+    now = [0.0]
+    b = CircuitBreaker(lambda: now[0])
+    for _ in range(3):
+        b.failure()
+    now[0] += BREAKER_OPEN_S + 1
+    assert b.is_open() is False  # the probe
+    assert b.is_open() is True  # everyone else waits
+    b.cancel_probe()  # the probe made no call
+    assert b.is_open() is False and b.is_open() is True
+    now[0] += PROBE_TIMEOUT_S + 1  # a probe that never reports back
+    assert b.is_open() is False
 
 
 def test_timeout_is_short_and_falls_back():

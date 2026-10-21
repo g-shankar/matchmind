@@ -187,8 +187,7 @@ interface CrewStatus {
 }
 interface TranslatorStatus {
   mode: 'azure' | 'off'; available: boolean; breaker_open: boolean;
-  requests: number; cache_hits: number; characters_sent: number; character_budget: number;
-  translated: number; fallbacks: number; rejections: number;
+  cache_hits: number; translated: number; fallbacks: number; rejections: number;
 }
 interface CrewTrace {
   moment_id: string; match_clock: string;
@@ -291,7 +290,8 @@ the focus metric (one place in `MatchSession.cards_for`).
 
 Errors: `{ "detail": "plain words" }` with 400 or 404 (429 for a seek or reset
 inside the 0.5 s throttle, or more than about 2 POSTs a second, bursts of 10,
-from one client IP; 503 while the match is still loading, 500 with a generic
+from one client IP, or more than about 3 `GET /api/match/moment` and
+`GET /api/match/recap` requests a second, bursts of 30, from one client IP; 503 while the match is still loading, 500 with a generic
 message if something breaks on our side).
 API responses carry `Cache-Control: no-store`.
 

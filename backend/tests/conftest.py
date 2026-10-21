@@ -188,6 +188,12 @@ class FakeCrew:
             fact_check=FactCheck(ok=True),
         )
 
+    def translate_recap(self, english, moments, profile, snapshot) -> Recap:
+        self.translate_calls = getattr(self, "translate_calls", 0) + 1
+        return english.model_copy(
+            update={"language": profile.language, "text_language": "en", "fallback_reason": "translator_off"}
+        )
+
     def status(self) -> CrewStatus:
         return CrewStatus(mode="template", moments=self.process_calls)
 

@@ -33,7 +33,14 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from matchmind.crew.contracts import LANGUAGES, FocusMetric, Language, Persona, ViewerProfile
+from matchmind.crew.contracts import (
+    LANGUAGES,
+    FocusMetric,
+    Language,
+    Persona,
+    ViewerProfile,
+    is_world_language,
+)
 from matchmind.crew.producer import ViewerState
 
 from . import view
@@ -47,6 +54,9 @@ MAX_CONN_PER_IP = int(os.environ.get("MATCHMIND_MAX_CONN_PER_IP", "20"))
 SEND_QUEUE_BYTES = 4 * 1024 * 1024  # per connection; a viewer this far behind is dropped
 JUMP_INTERVAL_S = 0.5  # at most one seek or reset per half second, for everyone
 POST_BURST, POST_PER_SECOND = 10, 2.0  # per client IP on the POST routes
+# Per client IP on the GET routes that may call a paid service (moment cards and recaps).
+# Room for the app's own bursts: re-voicing 12 cards after a language switch, 4 per split view.
+GET_BURST, GET_PER_SECOND = 30, 3.0
 IP_LIMITERS_MAX = 10_000
 CLOSE_TRY_AGAIN = 1013  # WebSocket "try again later"
 DEFAULT_ORIGINS = "http://localhost:5173,http://localhost:3000"
@@ -487,21 +497,25 @@ def create_app(
     async def teams() -> dict[str, Any]:
         return view.teams_payload(hub.session)
 
-    ip_limiters: OrderedDict[str, RateLimiter] = OrderedDict()
+    def ip_limit(burst: int, per_second: float) -> Callable[[Request], None]:
+        """A simple per-client-IP token bucket (its own table per route group)."""
+        ip_limiters: OrderedDict[str, RateLimiter] = OrderedDict()
 
-    def post_limit(request: Request) -> None:
-        """A simple per-client-IP limit on the POST routes."""
-        ip = request.client.host if request.client else "unknown"
-        limiter = ip_limiters.get(ip)
-        if limiter is None:
-            limiter = ip_limiters[ip] = RateLimiter(burst=POST_BURST, per_second=POST_PER_SECOND, clock=clock)
-            while len(ip_limiters) > IP_LIMITERS_MAX:
-                ip_limiters.popitem(last=False)
-        ip_limiters.move_to_end(ip)
-        if not limiter.allow():
-            raise HTTPException(status_code=429, detail=TOO_MANY)
+        def check(request: Request) -> None:
+            ip = request.client.host if request.client else "unknown"
+            limiter = ip_limiters.get(ip)
+            if limiter is None:
+                limiter = ip_limiters[ip] = RateLimiter(burst=burst, per_second=per_second, clock=clock)
+                while len(ip_limiters) > IP_LIMITERS_MAX:
+                    ip_limiters.popitem(last=False)
+            ip_limiters.move_to_end(ip)
+            if not limiter.allow():
+                raise HTTPException(status_code=429, detail=TOO_MANY)
 
-    limited = [Depends(post_limit)]
+        return check
+
+    limited = [Depends(ip_limit(POST_BURST, POST_PER_SECOND))]
+    limited_get = [Depends(ip_limit(GET_BURST, GET_PER_SECOND))]
 
     @app.get("/api/match/snapshot")
     async def snapshot() -> dict[str, Any]:
@@ -515,7 +529,7 @@ def create_app(
     async def bookmarks() -> list[dict[str, Any]]:
         return [view.bookmark_payload(b) for b in hub.session.bookmarks]
 
-    @app.get("/api/match/moment/{moment_id}")
+    @app.get("/api/match/moment/{moment_id}", dependencies=limited_get)
     async def moment(
         moment_id: str,
         persona: Persona = "casual",
@@ -532,9 +546,16 @@ def create_app(
             raise HTTPException(status_code=404, detail="We could not find that moment.")
         return view.card_payload(card)
 
-    @app.get("/api/match/recap")
+    @app.get("/api/match/recap", dependencies=limited_get)
     async def recap(persona: Persona = "casual", lang: Language = "en") -> dict[str, Any]:
-        result = await hub.run_crew(hub.session.recap, ViewerProfile(persona=persona, language=lang))
+        profile = ViewerProfile(persona=persona, language=lang)
+        if not is_world_language(lang):
+            result = await hub.run_crew(hub.session.recap, profile)
+            return result.model_dump(mode="json")
+        # World language: the English recap under the crew lock (quick), then the
+        # Translator call with no lock held, so a slow translator never stalls playback.
+        english, moments, snap = await hub.run_crew(hub.session.recap_source, profile)
+        result = await asyncio.to_thread(hub.session.translate_recap, english, moments, snap, profile)
         return result.model_dump(mode="json")
 
     @app.post("/api/match/seek", dependencies=limited)

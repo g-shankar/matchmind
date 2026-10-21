@@ -90,6 +90,22 @@ only when the translator is used.
   request tries again.
 - **The whole-match bookmark pass never translates**, so loading a match costs
   nothing.
+- **Recaps are paced.** Before full time a world-language recap is translated
+  at most once a minute per audience (persona, language, club, focus player);
+  in between, the last translation is reused, with its own "generated at"
+  clock. At full time it is translated once and then reused. A seek or reset
+  throws the kept translations away.
+- **Rate limits.** `GET /api/match/moment` and `GET /api/match/recap` (the
+  routes that can spend characters) allow about 3 requests a second per client
+  IP, bursts of 30; beyond that, 429.
+- **No lock during the call.** The recap route builds the English recap under
+  the crew lock, then calls Translator with no lock held, so a slow translator
+  never stalls playback. The moment route holds no lock. Live tick cards are
+  still translated inside the crew step, bounded by the 2.5 s timeout, the
+  breaker and the budget, the same as the paid model steps.
+- **Breaker probes.** After the breaker's 60 s pause exactly one request is let
+  through to test Translator; everyone else keeps the English text until it
+  answers.
 
 ## What the screen shows
 
@@ -109,7 +125,9 @@ only when the translator is used.
 
 - `GET /api/languages` returns `{ languages: LanguageInfo[], translator: TranslatorStatus }`.
 - `INITIAL_SNAPSHOT.languages` carries the same list; `CrewStatus.translator`
-  carries the counters (requests, cache hits, characters sent, rejections).
+  carries the mode, availability, breaker state and outcome counts (cache hits,
+  translations, fallbacks, rejections). Spend counters (requests, characters
+  sent, budget) stay inside the server and are not published.
 - `OverlayCard` and `Recap` carry `text_language` and `translated_by`.
 
 See `docs/API-CONTRACT.md` for the types.

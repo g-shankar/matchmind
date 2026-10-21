@@ -25,10 +25,7 @@ export interface TranslatorStatus {
   mode: 'azure' | 'off';
   available: boolean;
   breaker_open: boolean;
-  requests: number;
   cache_hits: number;
-  characters_sent: number;
-  character_budget: number;
   translated: number;
   fallbacks: number;
   rejections: number;

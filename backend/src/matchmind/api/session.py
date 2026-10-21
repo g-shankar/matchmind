@@ -117,6 +117,13 @@ class CrewLike(Protocol):
         profile: ViewerProfile,
         moments: list[Moment] | None = None,
     ) -> Recap: ...
+    def translate_recap(
+        self,
+        english: Recap,
+        moments: list[Moment],
+        profile: ViewerProfile,
+        snapshot: MatchStateSnapshot,
+    ) -> Recap: ...
     def status(self) -> CrewStatus: ...
     def traces(self, limit: int) -> list[CrewTrace]: ...
     def reset(self) -> None: ...
@@ -449,6 +456,18 @@ class MatchSession:
                 self._recaps.pop(next(iter(self._recaps)))
             self._recaps[key] = recap
         return recap
+
+    def recap_source(self, profile: ViewerProfile) -> tuple[Recap, list[Moment], MatchStateSnapshot]:
+        """What a world-language recap is translated from: the English recap for the same
+        audience, the moments so far and the snapshot. Quick; call it under the crew lock."""
+        english = self.recap(profile.model_copy(update={"language": "en"}))
+        return english, self.moments_so_far(), self.snapshot
+
+    def translate_recap(
+        self, english: Recap, moments: list[Moment], snapshot: MatchStateSnapshot, profile: ViewerProfile
+    ) -> Recap:
+        """The translation step (may wait on Azure AI Translator). Needs no session lock."""
+        return self.crew.translate_recap(english, moments, profile, snapshot)
 
     def crew_status(self) -> CrewStatus:
         return self.crew.status()

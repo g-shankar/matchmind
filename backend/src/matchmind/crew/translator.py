@@ -395,10 +395,7 @@ class TranslationService:
                 mode="azure" if self.enabled else "off",
                 available=self.enabled,
                 breaker_open=self.breaker.peek_open(),
-                requests=self.requests,
                 cache_hits=self.cache_hits,
-                characters_sent=self.characters_sent,
-                character_budget=self.budget.total if self.enabled else 0,
                 translated=self.translated,
                 fallbacks=self.fallbacks,
                 rejections=self.rejections,
@@ -469,8 +466,10 @@ class TranslationService:
                 return "translator_circuit_open"
         characters = sum(len(s) for s in sent)
         if characters > MAX_REQUEST_CHARS or len(sent) > MAX_ITEMS:
+            self.breaker.cancel_probe()  # no call was made: let the next caller probe
             return "translator_too_long"
         if not self.budget.take(characters):
+            self.breaker.cancel_probe()
             return "translator_budget"
         with self._lock:
             self.requests += 1

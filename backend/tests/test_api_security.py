@@ -90,6 +90,46 @@ def test_post_routes_are_limited_per_ip(client, clock):
     assert client.post("/api/match/speed", json={"speed_multiplier": 10}).status_code == 200
 
 
+@pytest.mark.parametrize(
+    "path", ["/api/match/moment/goal-MM-TEST-001-00007?lang=pt", "/api/match/recap?lang=pt"]
+)
+def test_routes_that_can_call_the_translator_are_limited_per_ip(client, clock, path):
+    # Moments and recaps in a world language may spend Translator characters: an
+    # anonymous caller must not be able to drain the budget by looping on them.
+    codes = [client.get(path).status_code for _ in range(app_mod.GET_BURST + 5)]
+    assert codes[: app_mod.GET_BURST] == [200] * app_mod.GET_BURST
+    assert set(codes[app_mod.GET_BURST :]) == {429}
+    assert client.get(path).json() == {"detail": app_mod.TOO_MANY}
+    assert client.post("/api/match/speed", json={"speed_multiplier": 10}).status_code == 200  # own bucket
+    clock.t += 1
+    assert client.get(path).status_code == 200
+
+
+def test_world_language_recap_is_translated_without_the_crew_lock(client):
+    hub = client.app.state.hub
+    seen: list[bool] = []
+    crew = hub.session.crew
+    original = crew.translate_recap
+
+    def watch(*args, **kwargs):
+        seen.append(hub._crew_lock.locked())
+        return original(*args, **kwargs)
+
+    crew.translate_recap = watch
+    r = client.get("/api/match/recap?lang=hi&persona=tactical")
+    assert r.status_code == 200 and r.json()["language"] == "hi"
+    assert seen == [False]  # a slow Translator never holds up playback
+    assert client.get("/api/match/recap?lang=es").json()["language"] == "es"  # studio path unchanged
+    assert seen == [False]
+
+
+def test_public_payloads_carry_no_translator_spend_counters(client):
+    public = {"mode", "available", "breaker_open", "cache_hits", "translated", "fallbacks", "rejections"}
+    assert set(client.get("/api/languages").json()["translator"]) == public
+    assert set(client.get("/api/crew/status").json()["translator"]) == public
+    assert set(client.get("/api/match/snapshot").json()["crew"]["translator"]) == public
+
+
 # --- send queue ---------------------------------------------------------------------------------
 
 

@@ -139,6 +139,22 @@ def test_dataset_never_calls_paid_ai_even_with_the_switch_on(monkeypatch):
     assert records and {r["produced_by"] for r in records} == {"template"}
 
 
+def test_evaluation_never_translates_even_with_both_switches_on(monkeypatch):
+    from matchmind.crew import translator
+
+    monkeypatch.setenv("MATCHMIND_AI_ENABLED", "true")
+    monkeypatch.setenv("MATCHMIND_TRANSLATOR_ENABLED", "true")
+    monkeypatch.setenv("AZURE_TRANSLATOR_ENDPOINT", "https://trl-test.cognitiveservices.azure.com/")
+    assert translator.translator_enabled()
+
+    def refuse(*a, **kw):
+        raise AssertionError("evaluation must never build a paid translator")
+
+    monkeypatch.setattr(translator.AzureTranslator, "__init__", refuse)
+    crew, _, bundles = evaluation._replay(read_jsonl(DEMO)[:200])
+    assert bundles and crew.translation.enabled is False
+
+
 def test_dataset_is_reproducible(tmp_path):
     a, b = tmp_path / "a.jsonl", tmp_path / "b.jsonl"
     evaluation.build_dataset([DEMO], a)

@@ -197,6 +197,28 @@ def test_ai_spans_carry_model_verdict_and_fallback_reason_but_no_text(spans):
             assert not any(f == text or (len(f) > 3 and f in text) for f in forbidden), (value, a)
 
 
+def test_recap_spans_never_carry_persona_or_language(spans):
+    crew = Crew(TEAMS, llm=TemplateLLM())
+    events = read_jsonl(DEMO)[:300]
+    stats = StatsEngine(events[0].match_id, "NBR", "HCY")
+    for e in events:
+        crew.process(e, stats.process(e), stats.snapshot(), stats.players())
+    for profile in (
+        ViewerProfile(persona="player_spotlight", language="fr", favourite_team="HCY"),
+        ViewerProfile(persona="tactical", language="ja"),
+        ViewerProfile(persona="fantasy", language="pt"),  # world language: English recap, translator off
+    ):
+        crew.recap(stats.snapshot(), stats.players(), profile)
+    recaps = [a for a in _attrs(spans) if a["gen_ai.agent.id"] == "pitchpulse-recap"]
+    assert len(recaps) >= 3
+    forbidden = {"player_spotlight", "tactical", "fantasy", "fr", "ja", "pt", "HCY", "Harbour City"}
+    for a in recaps:
+        for value in a.values():
+            text = str(value)
+            parts = text.split("-")
+            assert not any(f == text or f in parts or (len(f) > 3 and f in text) for f in forbidden), a
+
+
 def test_error_steps_are_marked_as_span_errors(spans):
     telemetry.record_step(
         agent="commentator",

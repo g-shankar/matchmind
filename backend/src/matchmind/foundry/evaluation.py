@@ -38,6 +38,7 @@ from matchmind.crew.crew import Crew
 from matchmind.crew.fact_checker import check, extract_numbers, length_problems
 from matchmind.crew.llm import ModelBudget, TemplateLLM
 from matchmind.crew.spotter import surname
+from matchmind.crew.translator import OffTranslator
 from matchmind.schema import Event
 from matchmind.simulator.publisher import read_jsonl
 from matchmind.simulator.teams import get_team
@@ -70,8 +71,10 @@ def _replay(events: list[Event]) -> tuple[Crew, StatsEngine, list[MomentBundle]]
     home, away = str(start.details["home"]), str(start.details["away"])
     teams = {home: get_team(home), away: get_team(away)}
     stats = StatsEngine(start.match_id, home, away)
-    # Pinned to templates: an evaluation run never spends on paid AI.
-    crew = Crew(teams, llm=TemplateLLM(), budget=ModelBudget(total=0, per_minute=0))
+    # Pinned to templates and no translation: an evaluation run never spends on paid AI.
+    crew = Crew(
+        teams, llm=TemplateLLM(), budget=ModelBudget(total=0, per_minute=0), translator=OffTranslator()
+    )
     bundles: list[MomentBundle] = []
     for event in events:
         metrics = stats.process(event)
