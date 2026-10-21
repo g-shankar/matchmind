@@ -3,25 +3,43 @@
 @tailwind utilities;
 
 :root {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', 'Noto Sans Arabic', system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+[dir='rtl'] body {
+  font-family: 'Noto Sans Arabic', 'Inter', system-ui, sans-serif;
 }
 
 .font-display {
-  font-family: 'Oswald', sans-serif;
+  font-family: 'Oswald', 'Noto Kufi Arabic', sans-serif;
 }
 
-/* Custom scrollbar for streaming narrative log */
+/* Numbers and clocks keep left-to-right order inside right-to-left text. */
+.ltr-nums {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(12, 18, 34, 0.6);
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(51, 65, 85, 0.8);
+  background: rgba(36, 50, 79, 0.9);
   border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(100, 116, 139, 1);
 }
