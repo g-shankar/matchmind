@@ -43,7 +43,7 @@ from matchmind.crew.contracts import (
 )
 from matchmind.crew.fact_checker import check, check_all
 from matchmind.crew.i18n import MissingFact, fill_first, pack
-from matchmind.crew.llm import LLM, LLMSchemaError, make_llm
+from matchmind.crew.llm import LLM, LLMSchemaError, ModelBudget, default_budget, make_llm
 from matchmind.crew.producer import ViewerState, build_card, select
 from matchmind.crew.spotter import Spotter
 from matchmind.crew.wording import localise_teams
@@ -58,6 +58,7 @@ TRACE_LIMIT = 500
 TRACE_STEPS_LIMIT = 60
 CACHE_LIMIT = 5000
 PROCESSED_LIMIT = 50_000
+RECAP_AI_LIMIT = 256
 AI_AGENTS = ("analyst", "commentator", "recap")
 
 
@@ -94,9 +95,11 @@ class Crew:
         *,
         timeout_s: float = STEP_TIMEOUT_S,
         clock: Callable[[], float] = time.monotonic,
+        budget: ModelBudget | None = None,
     ) -> None:
         self.teams = teams
         self.llm: LLM = llm if llm is not None else make_llm()
+        self.budget = budget if budget is not None else default_budget()
         self.timeout_s = timeout_s
         self.clock = clock
         self.spotter = Spotter(teams)
@@ -112,6 +115,7 @@ class Crew:
         self._processed: OrderedDict[str, list[str]] = OrderedDict()
         self._cards: OrderedDict[tuple, OverlayCard] = OrderedDict()
         self._traces: OrderedDict[str, CrewTrace] = OrderedDict()
+        self._recap_ai: OrderedDict[tuple, tuple[Any | None, str | None]] = OrderedDict()
         self._fallbacks = 0
         self._rejections = 0
         self._match_id: str | None = None
@@ -127,6 +131,12 @@ class Crew:
             self.spotter.reset()
             self.breakers = {agent: CircuitBreaker(self.clock) for agent in AI_AGENTS}
             self._init_state()
+
+    def restore(self, bundles: list[MomentBundle]) -> None:
+        """After a reset for a jump: take back the moments already played, in order."""
+        with self._lock:
+            for b in bundles:
+                self._bundles[b.moment.moment_id] = b
 
     def moments(self) -> list[Moment]:
         with self._lock:
@@ -201,7 +211,7 @@ class Crew:
         )
         ms = (time.perf_counter() - t0) * 1000
         if result is not None:
-            verdict = check(result.why, moment.facts, "en", "why")
+            verdict = check(result.why, moment.facts, "en", "why", strict_words=True)
             self._trace(
                 moment, "fact_checker", 0.0, "ok" if verdict.ok else "rejected", _short(verdict.reasons)
             )
@@ -270,7 +280,9 @@ class Crew:
         )
         ms = (time.perf_counter() - t0) * 1000
         if result is not None:
-            verdict = check_all({"headline": result.headline, "body": result.body}, m.facts, lang)
+            verdict = check_all(
+                {"headline": result.headline, "body": result.body}, m.facts, lang, strict_words=True
+            )
             if verdict.ok:
                 narrative = Narrative(
                     moment_id=m.moment_id,
@@ -376,10 +388,19 @@ class Crew:
     # ------------------------------------------------------------- recap
 
     def recap(
-        self, snapshot: MatchStateSnapshot, players: dict[str, PlayerStats], profile: ViewerProfile
+        self,
+        snapshot: MatchStateSnapshot,
+        players: dict[str, PlayerStats],
+        profile: ViewerProfile,
+        moments: list[Moment] | None = None,
     ) -> Recap:
+        """The recap so far. `moments` (in match order) overrides the crew's own,
+        so a caller that jumped around the match can pass the true list.
+
+        Model text is only asked for at full time, once per (persona, language,
+        favourite club); before that, and once the budget is spent, templates."""
         t0 = time.perf_counter()
-        moments = self.moments()
+        moments = self.moments() if moments is None else list(moments)
         fav_name = self.team_name(profile.favourite_team)
         facts = recap_mod.recap_facts(moments, snapshot, players, profile, self.teams, self.names)
         full_time = recap_mod.is_full_time(moments)
@@ -388,17 +409,17 @@ class Crew:
         produced_by = "template"
         trace_id = f"recap-{snapshot.match_id}-{snapshot.clock_s:.0f}-{profile.persona}-{profile.language}"
 
-        payload = {
-            "audience": commentator.PERSONA_BRIEFS[profile.persona],
-            "language": commentator.LANGUAGE_NAMES[profile.language],
-            "full_time": full_time,
-            "facts": facts,
-            "favourite_team": fav_name,
-        }
-        result, reason = self._ai("recap", recap_mod.RECAP_SYSTEM, payload, recap_mod.RecapOut)
+        result, reason = None, None
+        if full_time and self.llm.enabled:
+            result, reason = self._ai_recap(snapshot.match_id, profile, facts, fav_name)
         if result is not None:
             ai_verdict = recap_mod.check_texts(
-                result.title, result.headline, list(result.summary_paragraphs), facts, profile.language
+                result.title,
+                result.headline,
+                list(result.summary_paragraphs),
+                facts,
+                profile.language,
+                strict_words=True,
             )
             if ai_verdict.ok:
                 title, headline, paragraphs = result.title, result.headline, list(result.summary_paragraphs)
@@ -443,6 +464,32 @@ class Crew:
             self._store_trace(trace)
         return out
 
+    def _ai_recap(
+        self, match_id: str, profile: ViewerProfile, facts: dict, fav_name: str | None
+    ) -> tuple[Any | None, str | None]:
+        """One model recap per (match, persona, language, favourite club), cached,
+        failures included, so many viewers never mean many paid calls. The
+        viewer's focus player is left out of the request; the cached text is
+        still fact-checked against each viewer's own facts."""
+        key = (match_id, profile.persona, profile.language, profile.favourite_team)
+        with self._lock:
+            if key in self._recap_ai:
+                return self._recap_ai[key]
+        shared = {k: v for k, v in facts.items() if not k.startswith("focus")}
+        payload = {
+            "audience": commentator.PERSONA_BRIEFS[profile.persona],
+            "language": commentator.LANGUAGE_NAMES[profile.language],
+            "full_time": True,
+            "facts": shared,
+            "favourite_team": fav_name,
+        }
+        outcome = self._ai("recap", recap_mod.RECAP_SYSTEM, payload, recap_mod.RecapOut)
+        with self._lock:
+            self._recap_ai[key] = outcome
+            while len(self._recap_ai) > RECAP_AI_LIMIT:
+                self._recap_ai.popitem(last=False)
+        return outcome
+
     # ------------------------------------------------------------ AI calls
 
     def _ai(
@@ -460,6 +507,10 @@ class Crew:
         reason = "error"
         user = dict(payload)
         for attempt in range(2):
+            if not self.budget.take():
+                with self._lock:
+                    self._fallbacks += 1
+                return None, "budget"
             future = self._pool.submit(self.llm.complete_json, system, user, schema, self.timeout_s)
             try:
                 result = future.result(timeout=self.timeout_s)

@@ -14,6 +14,10 @@ from __future__ import annotations
 
 import json
 import os
+import threading
+import time
+from collections import deque
+from collections.abc import Callable
 from typing import Any, Protocol, runtime_checkable
 
 from pydantic import BaseModel, ValidationError
@@ -116,7 +120,53 @@ class AzureOpenAILLM:
 
 
 def ai_enabled() -> bool:
-    return os.environ.get("MATCHMIND_AI_ENABLED", "false").strip().lower() == "true"
+    """The one switch for paid AI: MATCHMIND_AI_ENABLED = true, 1 or yes (any case)."""
+    return os.environ.get("MATCHMIND_AI_ENABLED", "false").strip().lower() in ("true", "1", "yes")
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        return max(0, int(os.environ.get(name, default)))
+    except ValueError:
+        return default
+
+
+class ModelBudget:
+    """Process-wide cap on paid model calls: a total (MATCHMIND_AI_BUDGET, default
+    300) and a rolling per-minute rate (MATCHMIND_AI_RATE_PER_MIN, default 30).
+    Once either is spent the crew uses templates with fallback_reason 'budget'."""
+
+    def __init__(
+        self,
+        total: int | None = None,
+        per_minute: int | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self.total = total if total is not None else _env_int("MATCHMIND_AI_BUDGET", 300)
+        self.per_minute = per_minute if per_minute is not None else _env_int("MATCHMIND_AI_RATE_PER_MIN", 30)
+        self.clock = clock
+        self.used = 0
+        self._recent: deque[float] = deque()
+        self._lock = threading.Lock()
+
+    def take(self) -> bool:
+        """Spend one call if the budget and the rate allow it."""
+        with self._lock:
+            now = self.clock()
+            while self._recent and now - self._recent[0] >= 60.0:
+                self._recent.popleft()
+            if self.used >= self.total or len(self._recent) >= self.per_minute:
+                return False
+            self.used += 1
+            self._recent.append(now)
+            return True
+
+
+BUDGET = ModelBudget()
+
+
+def default_budget() -> ModelBudget:
+    return BUDGET
 
 
 def make_llm() -> LLM:

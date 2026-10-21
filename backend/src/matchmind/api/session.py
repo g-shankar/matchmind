@@ -12,27 +12,35 @@ Speed: `speed_multiplier` is 1, 10 or 60. One real second plays
 `BASE_RATE x speed_multiplier` match seconds. BASE_RATE defaults to 10 (env
 MATCHMIND_BASE_RATE), so 1x plays the 90 minutes in about 9 real minutes, 10x in
 about 54 seconds and 60x in about 9 seconds.
+
+Seek replays stats from the nearest checkpoint (a copy of the stats engine taken
+every CHECKPOINT_EVERY events at load), so a jump costs at most that many
+events of work. Moments before the jump point come from the load-time pass, so
+the recap after a jump is the same as after watching straight through.
 """
 
 from __future__ import annotations
 
+import copy
 import logging
 import os
 import time
 from collections import deque
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Protocol
 
 from matchmind.crew.contracts import (
     CrewStatus,
     CrewTrace,
+    Moment,
     MomentBundle,
     OverlayCard,
     Recap,
     ViewerProfile,
 )
+from matchmind.crew.llm import ai_enabled
 from matchmind.crew.producer import ViewerState
 from matchmind.schema import Event, EventType
 from matchmind.simulator.publisher import read_jsonl
@@ -46,6 +54,9 @@ DEFAULT_SPEED = 10
 DEFAULT_BASE_RATE = 10.0
 RECENT_BUNDLES = 8
 _RECAP_CACHE_SIZE = 32
+CHECKPOINT_EVERY = 200
+# Pitch tags and pass ratings are shown on ticks but would flood "jump to moment".
+NO_BOOKMARK_KINDS = frozenset({"speed_burst", "rocket_shot", "distance_milestone", "hard_pass"})
 
 BACKEND_DIR = Path(__file__).resolve().parents[3]
 _DEMO = Path("data") / "matches" / "MM-DEMO-001.jsonl"
@@ -99,11 +110,16 @@ class CrewLike(Protocol):
         state: ViewerState,
     ) -> list[OverlayCard]: ...
     def recap(
-        self, snapshot: MatchStateSnapshot, players: Mapping[str, PlayerStats], profile: ViewerProfile
+        self,
+        snapshot: MatchStateSnapshot,
+        players: Mapping[str, PlayerStats],
+        profile: ViewerProfile,
+        moments: list[Moment] | None = None,
     ) -> Recap: ...
     def status(self) -> CrewStatus: ...
     def traces(self, limit: int) -> list[CrewTrace]: ...
     def reset(self) -> None: ...
+    def restore(self, bundles: list[MomentBundle]) -> None: ...
 
 
 StatsFactory = Callable[[str, str, str], StatsEngineLike]
@@ -133,18 +149,16 @@ def real_engines() -> Engines:
         raise RuntimeError(
             "The studio crew (matchmind.crew.crew.Crew) is not available in this build."
         ) from exc
+    from matchmind.crew.llm import TemplateLLM
+
     llm = live_llm()
     # The pre-pass over the whole match always runs in template mode, so loading a match
-    # never spends on paid AI calls.
+    # never spends on paid AI calls. (llm=None would mean "whatever the switch says".)
     return Engines(
         stats=StatsEngine,
         crew=lambda teams: Crew(teams, llm=llm),
-        bookmark_crew=lambda teams: Crew(teams, llm=None),
+        bookmark_crew=lambda teams: Crew(teams, llm=TemplateLLM()),
     )
-
-
-def ai_enabled() -> bool:
-    return os.environ.get("MATCHMIND_AI_ENABLED", "false").strip().lower() in ("1", "true", "yes")
 
 
 def live_llm() -> Any:
@@ -189,6 +203,8 @@ class Tick:
     score_home: int
     score_away: int
     is_last: bool
+    # Player stats as they were after this event (a copy), for crew work done later.
+    players: Mapping[str, PlayerStats] | None = None
 
 
 @dataclass
@@ -259,6 +275,7 @@ class MatchSession:
         self._bookmark_crew: CrewLike = (engines.bookmark_crew or engines.crew)(self.teams)
         self._bundles: dict[str, MomentBundle] = {}
         self._bundle_index: list[tuple[int, MomentBundle]] = []
+        self._checkpoints: list[tuple[int, StatsEngineLike]] = []
         self.bookmarks: list[Bookmark] = []
         self._precompute()
 
@@ -290,11 +307,15 @@ class MatchSession:
         """Run stats and a template crew over the whole match once, for bookmarks and replays."""
         stats = self._new_stats()
         for i, event in enumerate(self.events):
+            if i % CHECKPOINT_EVERY == 0:
+                self._checkpoints.append((i, copy.deepcopy(stats)))  # stats after events[:i]
             metrics = stats.process(event)
             for bundle in self._bookmark_crew.process(event, metrics, stats.snapshot(), stats.players()):
                 m = bundle.moment
                 self._bundles[m.moment_id] = bundle
                 self._bundle_index.append((i, bundle))
+                if str(m.kind) in NO_BOOKMARK_KINDS:
+                    continue
                 self.bookmarks.append(
                     Bookmark(
                         moment_id=m.moment_id,
@@ -384,7 +405,7 @@ class MatchSession:
         state = state if state is not None else ViewerState()
         cards = list(self.crew.cards_for(bundles, profile, state))
         if tick is not None and profile.focus_metric is not None:
-            players = self._live.stats.players()
+            players = tick.players if tick.players is not None else self._live.stats.players()
             cards.extend(
                 self.crew.metric_alerts(tick.event, tick.metrics, tick.snapshot, players, profile, state)
             )
@@ -395,12 +416,20 @@ class MatchSession:
         bundle = self._bundles.get(moment_id)
         return self.crew.render(bundle, profile) if bundle is not None else None
 
+    def moments_so_far(self) -> list[Moment]:
+        """Every moment up to the current position, from the load-time pass. The same
+        list whether the viewer watched straight through or jumped here."""
+        done = self._live.next_index
+        return [b.moment for idx, b in self._bundle_index if idx < done]
+
     def recap(self, profile: ViewerProfile) -> Recap:
         key = (profile.model_dump_json(), self._live.next_index)
         if key not in self._recaps:
             if len(self._recaps) >= _RECAP_CACHE_SIZE:
                 self._recaps.pop(next(iter(self._recaps)))
-            self._recaps[key] = self.crew.recap(self.snapshot, self._live.stats.players(), profile)
+            self._recaps[key] = self.crew.recap(
+                self.snapshot, self._live.stats.players(), profile, self.moments_so_far()
+            )
         return self._recaps[key]
 
     def crew_status(self) -> CrewStatus:
@@ -415,8 +444,11 @@ class MatchSession:
         """Keep the wall clock reference fresh without playing (e.g. nobody is watching)."""
         self._last_wall = self._clock()
 
-    def advance(self) -> list[Tick]:
-        """Play every event that is due by now. Returns them in order."""
+    def advance(self, with_crew: bool = True) -> list[Tick]:
+        """Play every event that is due by now. Returns them in order.
+
+        `with_crew=False` plays stats only; the caller then runs `crew_tick` on each
+        tick, in order, outside the playback lock (model calls can be slow)."""
         now = self._clock()
         if self.is_running and not self.ended:
             self._position += max(0.0, now - self._last_wall) * self.base_rate * self.speed
@@ -426,10 +458,17 @@ class MatchSession:
             i = self._live.next_index
             if self._tl[i] > self._position + 1e-6:
                 break
-            ticks.append(self._play(i, with_crew=True))
+            ticks.append(self._play(i, with_crew=with_crew, keep_players=not with_crew))
         return ticks
 
-    def _play(self, i: int, with_crew: bool) -> Tick:
+    def crew_tick(self, tick: Tick) -> Tick:
+        """The crew's moments for a tick played with `with_crew=False`."""
+        players = tick.players if tick.players is not None else self._live.stats.players()
+        bundles = self.crew.process(tick.event, tick.metrics, tick.snapshot, players)
+        self._live.recent.extend(bundles)
+        return replace(tick, bundles=bundles)
+
+    def _play(self, i: int, with_crew: bool, keep_players: bool = False) -> Tick:
         live = self._live
         event = self.events[i]
         metrics = live.stats.process(event)
@@ -446,7 +485,12 @@ class MatchSession:
         if is_last:
             self.ended = True
             self.is_running = False
-        return Tick(event, metrics, snapshot, changed, bundles, live.score_home, live.score_away, is_last)
+        players = None
+        if keep_players:
+            players = {pid: p.model_copy() for pid, p in live.stats.players().items()}
+        return Tick(
+            event, metrics, snapshot, changed, bundles, live.score_home, live.score_away, is_last, players
+        )
 
     def toggle_pause(self) -> None:
         if self.ended:
@@ -486,11 +530,15 @@ class MatchSession:
             EventType.PERIOD_START,
         ):
             target += 1
+        start, stats = max((cp for cp in self._checkpoints if cp[0] < target), key=lambda cp: cp[0])
+        before = [b for idx, b in self._bundle_index if idx < target]
         self.crew.reset()
-        self._live = self._fresh_live()
-        for i in range(target):
+        self.crew.restore(before)
+        self._recaps.clear()
+        self._live = _Live(stats=copy.deepcopy(stats), next_index=start)
+        for i in range(start, target):
             self._play(i, with_crew=False)
-        self._live.recent.extend(b for idx, b in self._bundle_index if idx < target)
+        self._live.recent.extend(before)
         self.ended = False
         self._position = self._tl[target - 1]
         if self.events[target].period == period:

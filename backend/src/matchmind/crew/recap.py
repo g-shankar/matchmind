@@ -162,11 +162,13 @@ def key_moments(moments: list[Moment], headline_for) -> list[RecapMoment]:
     return out
 
 
-def check_texts(title: str, headline: str, paragraphs: list[str], facts, language: str) -> FactCheck:
+def check_texts(
+    title: str, headline: str, paragraphs: list[str], facts, language: str, strict_words: bool = False
+) -> FactCheck:
     reasons: list[str] = []
     for field, texts in (("text", [title]), ("headline", [headline]), ("paragraph", paragraphs)):
         for text in texts:
-            reasons += [f"{field}: {r}" for r in check(text, facts, language, field).reasons]
+            reasons += [f"{field}: {r}" for r in check(text, facts, language, field, strict_words).reasons]
     if not 2 <= len(paragraphs) <= 3:
         reasons.append("recap needs 2 or 3 paragraphs")
     return FactCheck(ok=not reasons, reasons=reasons)

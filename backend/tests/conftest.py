@@ -110,6 +110,8 @@ class FakeCrew:
         self.process_calls = 0
         self.recap_calls = 0
         self.resets = 0
+        self.restored: list[MomentBundle] = []
+        self.recap_moments: list[Moment] | None = None
 
     def process(self, event, metrics, snapshot, players) -> list[MomentBundle]:
         self.process_calls += 1
@@ -166,8 +168,9 @@ class FakeCrew:
     def metric_alerts(self, event, metrics, snapshot, players, profile, state) -> list[OverlayCard]:
         return []
 
-    def recap(self, snapshot, players, profile) -> Recap:
+    def recap(self, snapshot, players, profile, moments=None) -> Recap:
         self.recap_calls += 1
+        self.recap_moments = moments
         return Recap(
             match_id=snapshot.match_id,
             persona=profile.persona,
@@ -194,6 +197,10 @@ class FakeCrew:
 
     def reset(self) -> None:
         self.resets += 1
+        self.restored = []
+
+    def restore(self, bundles) -> None:
+        self.restored = list(bundles)
 
 
 FAKE_ENGINES = Engines(stats=FakeStats, crew=FakeCrew)
@@ -250,3 +257,11 @@ def clock() -> FakeClock:
 @pytest.fixture
 def session(clock: FakeClock) -> MatchSession:
     return MatchSession(make_events(), engines=FAKE_ENGINES, clock=clock, base_rate=10)
+
+
+@pytest.fixture(autouse=True)
+def _fresh_model_budget(monkeypatch):
+    """Each test gets its own process-wide model budget, so tests never share spend."""
+    from matchmind.crew import llm
+
+    monkeypatch.setattr(llm, "BUDGET", llm.ModelBudget(total=10_000, per_minute=10_000))

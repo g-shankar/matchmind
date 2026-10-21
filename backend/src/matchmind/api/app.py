@@ -1,8 +1,14 @@
 """PitchPulse match API: one WebSocket and a few REST routes (docs/API-CONTRACT.md).
 
 Playback is shared by everyone watching; viewer choices live per connection.
-All work on the shared session runs under one lock in a worker thread, so a
-slow crew call never freezes the event loop.
+Session work runs in worker threads, so a slow crew call never freezes the
+event loop. Two locks, always taken in this order:
+
+- the crew lock orders crew work (moments, cards, recaps) and the jumps that
+  reset it. Paid model calls only ever run under this lock.
+- the playback lock guards the session's state (stats, clock, play/pause).
+  It is only held for quick work, never for a model call, so pause, speed and
+  the REST reads answer at once even while the model is slow.
 """
 
 from __future__ import annotations
@@ -14,13 +20,13 @@ import logging
 import math
 import os
 import time
+from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Literal, TypeVar
-from urllib.parse import urlparse
 
-from fastapi import FastAPI, HTTPException, Query, Request, WebSocket
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -37,9 +43,16 @@ logger = logging.getLogger("pitchpulse.api")
 
 MAX_MESSAGE_BYTES = 4096
 MAX_CONNECTIONS = int(os.environ.get("MATCHMIND_MAX_CONNECTIONS", "200"))
-SEND_QUEUE_LIMIT = 5000
+MAX_CONN_PER_IP = int(os.environ.get("MATCHMIND_MAX_CONN_PER_IP", "20"))
+SEND_QUEUE_BYTES = 4 * 1024 * 1024  # per connection; a viewer this far behind is dropped
+JUMP_INTERVAL_S = 0.5  # at most one seek or reset per half second, for everyone
+POST_BURST, POST_PER_SECOND = 10, 2.0  # per client IP on the POST routes
+IP_LIMITERS_MAX = 10_000
+CLOSE_TRY_AGAIN = 1013  # WebSocket "try again later"
 DEFAULT_ORIGINS = "http://localhost:5173,http://localhost:3000"
 OOPS = "Something went wrong on our side. Please try again."
+TOO_FAST = "Jumping around too fast. Wait a moment and try again."
+TOO_MANY = "Too many requests. Wait a moment and try again."
 
 T = TypeVar("T")
 
@@ -143,22 +156,36 @@ class RateLimiter:
 
 
 class Connection:
-    def __init__(self, ws: WebSocket, clock: Callable[[], float]) -> None:
+    def __init__(
+        self,
+        ws: WebSocket,
+        clock: Callable[[], float],
+        on_drop: Callable[[Connection], None] | None = None,
+    ) -> None:
         self.ws = ws
         self.profile = ViewerProfile()
         self.view_state = ViewerState()  # what the producer remembers for this viewer
-        self.queue: asyncio.Queue[str | None] = asyncio.Queue(maxsize=SEND_QUEUE_LIMIT)
+        self.queue: asyncio.Queue[str | None] = asyncio.Queue()
+        self.queued_bytes = 0  # bounded by SEND_QUEUE_BYTES
         self.limiter = RateLimiter(clock=clock)
         self.closed = False
+        self.writer_task: asyncio.Task[None] | None = None
+        self._on_drop = on_drop
+        self._closer: asyncio.Task[None] | None = None
+
+    def start(self) -> asyncio.Task[None]:
+        self.writer_task = asyncio.create_task(self.writer())
+        return self.writer_task
 
     def send(self, payload: dict[str, Any]) -> None:
         if self.closed:
             return
-        try:
-            self.queue.put_nowait(json.dumps(payload, separators=(",", ":")))
-        except asyncio.QueueFull:
-            # The viewer cannot keep up; drop the connection rather than grow memory.
-            self.close()
+        text = json.dumps(payload, separators=(",", ":"))  # ASCII: one byte per character
+        if self.queued_bytes + len(text) > SEND_QUEUE_BYTES:
+            self.overflow()
+            return
+        self.queued_bytes += len(text)
+        self.queue.put_nowait(text)
 
     def error(self, text: str) -> None:
         self.send(view.message("ERROR", {"message": text}))
@@ -166,14 +193,35 @@ class Connection:
     def close(self) -> None:
         if not self.closed:
             self.closed = True
-            with contextlib.suppress(asyncio.QueueFull):
-                self.queue.put_nowait(None)
+            self.queue.put_nowait(None)
+
+    def overflow(self) -> None:
+        """The viewer cannot keep up: drop it for real rather than grow memory."""
+        if self.closed:
+            return
+        self.closed = True
+        self._drain()
+        if self.writer_task is not None:
+            self.writer_task.cancel()
+        if self._on_drop is not None:
+            self._on_drop(self)
+        self._closer = asyncio.get_running_loop().create_task(self._close_socket(CLOSE_TRY_AGAIN))
+
+    def _drain(self) -> None:
+        while not self.queue.empty():
+            self.queue.get_nowait()
+        self.queued_bytes = 0
+
+    async def _close_socket(self, code: int) -> None:
+        with contextlib.suppress(Exception):
+            await asyncio.wait_for(self.ws.close(code=code), timeout=2)
 
     async def writer(self) -> None:
         while True:
             text = await self.queue.get()
             if text is None:
                 break
+            self.queued_bytes = max(0, self.queued_bytes - len(text))
             try:
                 await self.ws.send_text(text)
             except Exception:  # noqa: BLE001 - the socket went away
@@ -188,7 +236,32 @@ class Hub:
         self._session = session
         self.clock = clock
         self.connections: set[Connection] = set()
-        self._lock = asyncio.Lock()
+        self._lock = asyncio.Lock()  # playback lock: quick session state work only
+        self._crew_lock = asyncio.Lock()  # crew work, in order; taken before the playback lock
+        self._last_jump: float | None = None
+        self._slots = 0  # WebSocket slots reserved (before accept)
+        self._slots_per_ip: dict[str, int] = {}
+
+    # --- connection slots ----------------------------------------------------------------------
+
+    def reserve(self, ip: str) -> bool:
+        """Take a connection slot before the handshake, so the caps cannot be raced."""
+        if self._slots >= MAX_CONNECTIONS or self._slots_per_ip.get(ip, 0) >= MAX_CONN_PER_IP:
+            return False
+        self._slots += 1
+        self._slots_per_ip[ip] = self._slots_per_ip.get(ip, 0) + 1
+        return True
+
+    def release(self, ip: str) -> None:
+        self._slots = max(0, self._slots - 1)
+        left = self._slots_per_ip.get(ip, 0) - 1
+        if left > 0:
+            self._slots_per_ip[ip] = left
+        else:
+            self._slots_per_ip.pop(ip, None)
+
+    def drop(self, conn: Connection) -> None:
+        self.connections.discard(conn)
 
     @property
     def session(self) -> MatchSession:
@@ -200,8 +273,15 @@ class Hub:
         self._session = session
 
     async def run(self, fn: Callable[..., T], *args: Any) -> T:
-        """Run one piece of session work, serialised, off the event loop."""
+        """Quick session work under the playback lock, off the event loop. Never a model call."""
         async with self._lock:
+            return await asyncio.to_thread(fn, *args)
+
+    async def run_crew(self, fn: Callable[..., T], *args: Any) -> T:
+        """Crew work (may call the model) under the crew lock only. Everything that
+        changes the session's stats also holds the crew lock, so the state it reads
+        is steady; pause and speed may still change underneath, which is harmless."""
+        async with self._crew_lock:
             return await asyncio.to_thread(fn, *args)
 
     # --- broadcasting ------------------------------------------------------------------------
@@ -210,11 +290,16 @@ class Hub:
         return [view.message("INITIAL_SNAPSHOT", view.snapshot_payload(self.session, p)) for p in profiles]
 
     async def send_snapshots(self, conns: list[Connection]) -> None:
+        async with self._crew_lock:
+            await self._send_snapshots(conns)
+
+    async def _send_snapshots(self, conns: list[Connection]) -> None:
+        """Caller holds the crew lock."""
         conns = [c for c in conns if not c.closed]
         profiles = [c.profile.model_copy() for c in conns]
         for conn in conns:
             conn.view_state = ViewerState()
-        messages = await self.run(self._snapshot_messages, conns, profiles)
+        messages = await asyncio.to_thread(self._snapshot_messages, conns, profiles)
         for conn, msg in zip(conns, messages, strict=True):
             conn.send(msg)
 
@@ -222,11 +307,14 @@ class Hub:
         for conn in list(self.connections):
             conn.send(payload)
 
-    def _advance(self, conns: list[Connection], profiles: list[ViewerProfile]) -> list[list[dict]]:
+    def _render(
+        self, ticks: list[Tick], conns: list[Connection], profiles: list[ViewerProfile]
+    ) -> list[list[dict]]:
+        """Crew work for ticks already played: moments, then cards and recaps per viewer."""
         session = self.session
-        ticks: list[Tick] = session.advance()
         out: list[list[dict]] = [[] for _ in conns]
         for tick in ticks:
+            tick = session.crew_tick(tick)
             shared = view.tick_shared(tick)
             for i, profile in enumerate(profiles):
                 cards = session.cards_for(tick.bundles, profile, conns[i].view_state, tick)
@@ -243,13 +331,18 @@ class Hub:
         """One step of the playback loop."""
         if self._session is None:
             return
-        conns = [c for c in self.connections if not c.closed]
-        if not conns:
-            # Nobody is watching: hold the match where it is.
-            await self.run(self._session.touch)
-            return
-        profiles = [c.profile.model_copy() for c in conns]
-        batches = await self.run(self._advance, conns, profiles)
+        async with self._crew_lock:
+            conns = [c for c in self.connections if not c.closed]
+            if not conns:
+                # Nobody is watching: hold the match where it is.
+                await self.run(self._session.touch)
+                return
+            profiles = [c.profile.model_copy() for c in conns]
+            # Stats under the playback lock (quick); crew and model work after it is released.
+            ticks = await self.run(self._session.advance, False)
+            if not ticks:
+                return
+            batches = await asyncio.to_thread(self._render, ticks, conns, profiles)
         for conn, batch in zip(conns, batches, strict=True):
             for msg in batch:
                 conn.send(msg)
@@ -279,16 +372,30 @@ class Hub:
         self.broadcast(view.message("PLAYBACK_CONTROL", playback))
         return playback
 
+    def _claim_jump(self) -> None:
+        """One shared throttle for seek and reset (WebSocket and REST alike):
+        at most one every JUMP_INTERVAL_S; requests in between are refused."""
+        now = self.clock()
+        if self._last_jump is not None and now - self._last_jump < JUMP_INTERVAL_S:
+            raise HTTPException(status_code=429, detail=TOO_FAST)
+        self._last_jump = now
+
     async def reset(self) -> dict[str, Any]:
-        await self.run(self.session.reset)
-        self.broadcast(view.message("MATCH_RESET", {}))
-        await self.send_snapshots(list(self.connections))
-        return self.session.playback()
+        session = self.session
+        self._claim_jump()
+        async with self._crew_lock:
+            await self.run(session.reset)
+            self.broadcast(view.message("MATCH_RESET", {}))
+            await self._send_snapshots(list(self.connections))
+            return session.playback()
 
     async def seek(self, clock_s: float, period: int | None) -> dict[str, Any]:
-        await self.run(self.session.seek, clock_s, period)
-        await self.send_snapshots(list(self.connections))
-        return self.session.playback()
+        session = self.session
+        self._claim_jump()
+        async with self._crew_lock:
+            await self.run(session.seek, clock_s, period)
+            await self._send_snapshots(list(self.connections))
+            return session.playback()
 
 
 # --- App -------------------------------------------------------------------------------------
@@ -301,9 +408,19 @@ def create_app(
     allowed_origins: list[str] | None = None,
     static_dir: str | Path | None = None,
     clock: Callable[[], float] = time.monotonic,
+    public_origin: str | None = None,
 ) -> FastAPI:
     hub = Hub(session, clock=clock)
     origins = allowed_origins if allowed_origins is not None else allowed_origins_from_env()
+    # Default: ./static relative to the working directory (the container copies the build there).
+    static = Path(static_dir or os.environ.get("MATCHMIND_STATIC_DIR") or "static")
+    serves_frontend = static.is_dir() and (static / "index.html").is_file()
+    # WebSocket origins: the allow-list, plus this server's own public origin when it
+    # serves the frontend itself. The Host header is never used: anyone can set it.
+    ws_origins = set(origins)
+    own = (public_origin or os.environ.get("MATCHMIND_PUBLIC_ORIGIN") or "").strip().rstrip("/")
+    if serves_frontend and own and own != "*":
+        ws_origins.add(own)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -369,9 +486,25 @@ def create_app(
     async def teams() -> dict[str, Any]:
         return view.teams_payload(hub.session)
 
+    ip_limiters: OrderedDict[str, RateLimiter] = OrderedDict()
+
+    def post_limit(request: Request) -> None:
+        """A simple per-client-IP limit on the POST routes."""
+        ip = request.client.host if request.client else "unknown"
+        limiter = ip_limiters.get(ip)
+        if limiter is None:
+            limiter = ip_limiters[ip] = RateLimiter(burst=POST_BURST, per_second=POST_PER_SECOND, clock=clock)
+            while len(ip_limiters) > IP_LIMITERS_MAX:
+                ip_limiters.popitem(last=False)
+        ip_limiters.move_to_end(ip)
+        if not limiter.allow():
+            raise HTTPException(status_code=429, detail=TOO_MANY)
+
+    limited = [Depends(post_limit)]
+
     @app.get("/api/match/snapshot")
     async def snapshot() -> dict[str, Any]:
-        return await hub.run(view.snapshot_payload, hub.session, ViewerProfile())
+        return await hub.run_crew(view.snapshot_payload, hub.session, ViewerProfile())
 
     @app.get("/api/match/players")
     async def players() -> list[dict[str, Any]]:
@@ -391,27 +524,29 @@ def create_app(
         if len(moment_id) > 80:
             raise HTTPException(status_code=404, detail="We could not find that moment.")
         profile = _profile(persona, lang, favourite_team)
-        card = await hub.run(hub.session.card_for_moment, moment_id, profile)
+        # Moments are fixed at load and the crew is thread-safe: no lock, so a slow
+        # model answer here holds up nobody else.
+        card = await asyncio.to_thread(hub.session.card_for_moment, moment_id, profile)
         if card is None:
             raise HTTPException(status_code=404, detail="We could not find that moment.")
         return view.card_payload(card)
 
     @app.get("/api/match/recap")
     async def recap(persona: Persona = "casual", lang: Language = "en") -> dict[str, Any]:
-        result = await hub.run(hub.session.recap, ViewerProfile(persona=persona, language=lang))
+        result = await hub.run_crew(hub.session.recap, ViewerProfile(persona=persona, language=lang))
         return result.model_dump(mode="json")
 
-    @app.post("/api/match/seek")
+    @app.post("/api/match/seek", dependencies=limited)
     async def seek(body: SeekBody) -> dict[str, Any]:
         if not math.isfinite(body.clock_s):
             raise HTTPException(status_code=400, detail="Pick a time between kick-off and full time.")
         return await hub.seek(body.clock_s, body.period)
 
-    @app.post("/api/match/speed")
+    @app.post("/api/match/speed", dependencies=limited)
     async def speed(body: SpeedBody) -> dict[str, Any]:
         return await hub.set_speed(body.speed_multiplier)
 
-    @app.post("/api/match/reset")
+    @app.post("/api/match/reset", dependencies=limited)
     async def reset() -> dict[str, Any]:
         return await hub.reset()
 
@@ -436,38 +571,47 @@ def create_app(
         origin = ws.headers.get("origin")
         if origin is None:
             return True  # not a browser; browsers always send Origin
-        origin = origin.rstrip("/")
-        if origin in origins:
-            return True
-        return urlparse(origin).netloc == ws.headers.get("host")  # same-origin (served frontend)
+        return origin.rstrip("/") in ws_origins  # the Host header is never trusted for this
 
     @app.websocket("/ws/match")
     async def ws_match(ws: WebSocket) -> None:
-        if not _origin_ok(ws) or len(hub.connections) >= MAX_CONNECTIONS or hub._session is None:
+        if not _origin_ok(ws) or hub._session is None:
             await ws.close(code=1008)
             return
-        await ws.accept()
-        conn = Connection(ws, hub.clock)
-        hub.connections.add(conn)
-        writer = asyncio.create_task(conn.writer())
+        ip = ws.client.host if ws.client else "unknown"
+        if not hub.reserve(ip):
+            await ws.close(code=1008)
+            return
+        conn: Connection | None = None
+        writer: asyncio.Task[None] | None = None
         try:
-            await hub.send_snapshots([conn])
-            while not conn.closed:
-                msg = await ws.receive()
-                if msg["type"] == "websocket.disconnect":
-                    break
-                text = msg.get("text")
-                if text is None:
-                    conn.error("Send actions as JSON text.")
-                    continue
-                await _handle(conn, text)
+            await ws.accept()
+            conn = Connection(ws, hub.clock, on_drop=hub.drop)
+            hub.connections.add(conn)
+            writer = conn.start()
+            await _serve(ws, conn)
         except Exception:  # noqa: BLE001 - never leak details to the client
             logger.exception("websocket connection failed")
         finally:
-            hub.connections.discard(conn)
-            conn.close()
-            with contextlib.suppress(Exception):
-                await asyncio.wait_for(writer, timeout=2)
+            hub.release(ip)
+            if conn is not None:
+                hub.drop(conn)
+                conn.close()
+            if writer is not None and not writer.done():  # a dropped viewer's writer is already cancelled
+                with contextlib.suppress(Exception):
+                    await asyncio.wait_for(writer, timeout=2)
+
+    async def _serve(ws: WebSocket, conn: Connection) -> None:
+        await hub.send_snapshots([conn])
+        while not conn.closed:
+            msg = await ws.receive()
+            if msg["type"] == "websocket.disconnect":
+                break
+            text = msg.get("text")
+            if text is None:
+                conn.error("Send actions as JSON text.")
+                continue
+            await _handle(conn, text)
 
     async def _handle(conn: Connection, text: str) -> None:
         if len(text.encode("utf-8")) > MAX_MESSAGE_BYTES:
@@ -541,9 +685,7 @@ def create_app(
 
     # --- Built frontend ----------------------------------------------------------------------
 
-    # Default: ./static relative to the working directory (the container copies the build there).
-    static = Path(static_dir or os.environ.get("MATCHMIND_STATIC_DIR") or "static")
-    if static.is_dir() and (static / "index.html").is_file():
+    if serves_frontend:
         app.mount("/", StaticFiles(directory=static, html=True), name="static")
 
     return app
