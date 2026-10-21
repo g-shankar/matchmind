@@ -151,7 +151,7 @@ interface UnfoundRunReplay {
   carrier_pos: XY; runner_path: XY[]; target: XY; defenders_at_pass: XY[];
 }
 
-interface Bookmark { moment_id: string; kind: MomentKind; match_clock: string; clock_s: number; title: string }
+interface Bookmark { moment_id: string; kind: MomentKind; match_clock: string; clock_s: number; period: 1 | 2; title: string }
 
 interface Recap {
   match_id: string; persona: PersonaType; language: Language; rtl: boolean;
@@ -193,24 +193,48 @@ Server -> client. Every message is `{ "type": ..., "data": ... }`.
 | `ERROR` | `{ message }` | invalid action (plain words, no stack traces) |
 
 ```ts
-interface Playback { is_running: boolean; speed_multiplier: 1 | 10 | 60; clock_s: number; ended: boolean }
+interface Playback {
+  is_running: boolean; speed_multiplier: 1 | 10 | 60;
+  clock_s: number; match_clock: string; period: number;   // of the last event played
+  ended: boolean;
+}
 ```
 
-Client -> server. `{ "action": ..., ... }`, max 4 KB, unknown actions get `ERROR`.
+Speed: one real second plays `10 x speed_multiplier` match seconds (the base
+rate of 10 can be changed with `MATCHMIND_BASE_RATE`). So 1x plays the match in
+about 9 minutes, 10x (the default) in about 54 seconds and 60x in about 9
+seconds. The half-time break is skipped. Playback only moves while at least
+one viewer is connected.
+
+Seek: `clock_s` is the match clock, which restarts at 2700 (45:00) for the
+second half while first-half stoppage time runs past 2700. Pass `period` (1 or
+2) to be exact, as bookmarks do; without it, any time from 2700 on means the
+second half. Seeking to the start of a half includes its kick-off. A time after
+the last event, or `toggle_pause` after full time, gets `ERROR` (use `reset` or
+`seek`). After `MATCH_END` the server also sends `PLAYBACK_CONTROL` with
+`ended: true`.
+
+Client -> server. `{ "action": ..., ... }` as JSON text, max 4 KB, unknown
+actions, unknown fields and bad values get `ERROR`. Each connection may send
+about 10 actions a second (bursts of 20). Browsers must connect from an origin
+in `MATCHMIND_ALLOWED_ORIGINS` or from the page the server itself serves.
 
 | action | fields | effect |
 |---|---|---|
 | `toggle_pause` | | shared |
 | `set_speed` | `speed_multiplier: 1 \| 10 \| 60` | shared |
 | `reset` | | shared |
-| `seek` | `clock_s: number` | shared; replays stats to that point, then `INITIAL_SNAPSHOT` |
-| `set_view` | any subset of `ViewerProfile` | this connection only; `PROFILE_CHANGED`, cards from now on follow it |
-| `set_persona` | `persona` | old alias for `set_view` |
+| `seek` | `clock_s: number`, `period?: 1 \| 2` | shared; replays stats to that point (no cards on the way), then `INITIAL_SNAPSHOT` with the moments before that point as `recent_cards` |
+| `set_view` | any subset of `ViewerProfile` | this connection only; `PROFILE_CHANGED`, cards from now on follow it. `null` clears `favourite_team`, `focus_player_id` or `focus_metric`; the club and player must be in this match |
+| `set_persona` | `persona`, `spotlight_player_id?` | old alias for `set_view` (`spotlight_player_id` sets `focus_player_id`) |
 
 Cards in `MATCH_TICK` are already filtered and ordered for the connection's
 profile: persona and language applied, favourite club's moments boosted,
 `focus_player_id` moments always kept, `focus_metric` changes sent as
 `slot: 'metric_alert'`, speed and distance tags as `slot: 'pitch_tag'`.
+The server gets these from the crew: `render(bundle, profile)` for each moment,
+plus, when the crew provides it, `metric_alerts(snapshot, players, profile)` for
+the focus metric (one place in `MatchSession.cards_for`).
 
 ## REST
 
@@ -223,11 +247,24 @@ profile: persona and language applied, favourite club's moments boosted,
 | `GET /api/match/bookmarks` | `Bookmark[]` for the whole match |
 | `GET /api/match/moment/{moment_id}?persona=&lang=&favourite_team=` | `OverlayCard` (for "jump to moment" and replays) |
 | `GET /api/match/recap?persona=&lang=` | `Recap` (so far, or full match after the end) |
-| `POST /api/match/seek` `{ clock_s }` | `Playback` |
+| `POST /api/match/seek` `{ clock_s, period? }` | `Playback` |
 | `POST /api/match/speed` `{ speed_multiplier }` | `Playback` |
 | `POST /api/match/reset` | `Playback` |
 | `GET /api/crew/status` | `CrewStatus` |
 | `GET /api/crew/trace?limit=20` | `CrewTrace[]` (newest first) |
 | `GET /api/auto-eventing` | `AutoEventingStatus` or 404 until built |
 
-Errors: `{ "detail": "plain words" }` with 400 or 404.
+Errors: `{ "detail": "plain words" }` with 400 or 404 (503 while the match is
+still loading, 500 with a generic message if something breaks on our side).
+API responses carry `Cache-Control: no-store`.
+
+## Server settings
+
+| env | default | meaning |
+|---|---|---|
+| `MATCHMIND_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:3000` | comma-separated CORS and WebSocket origins; `*` is ignored |
+| `MATCHMIND_MATCH_FILE` | `backend/data/matches/MM-DEMO-001.jsonl` | the match to play |
+| `MATCHMIND_STATIC_DIR` | `./static` (working directory) | built frontend served at `/` when it has an `index.html` |
+| `MATCHMIND_BASE_RATE` | `10` | match seconds per real second at 1x |
+| `MATCHMIND_AI_ENABLED` | `false` | live crew uses the paid model client; the whole-match bookmark pass always uses templates |
+| `MATCHMIND_HOST`, `PORT` / `MATCHMIND_PORT` | `127.0.0.1`, `8000` | `matchmind-api` / `python -m matchmind.api`; ASGI app `matchmind.api.app:app` |
