@@ -160,6 +160,12 @@ class FakeCrew:
             produced_by="template",
         )
 
+    def cards_for(self, bundles, profile, state) -> list[OverlayCard]:
+        return [c for b in bundles if (c := self.render(b, profile)) is not None]
+
+    def metric_alerts(self, event, metrics, snapshot, players, profile, state) -> list[OverlayCard]:
+        return []
+
     def recap(self, snapshot, players, profile) -> Recap:
         self.recap_calls += 1
         return Recap(
