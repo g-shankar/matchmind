@@ -1,0 +1,706 @@
+{
+ "fps": 30,
+ "bpm": 120,
+ "beat": 0.5,
+ "bar": 2.0,
+ "duration": 112.0,
+ "beats": [
+  0.0,
+  0.5,
+  1.0,
+  1.5,
+  2.0,
+  2.5,
+  3.0,
+  3.5,
+  4.0,
+  4.5,
+  5.0,
+  5.5,
+  6.0,
+  6.5,
+  7.0,
+  7.5,
+  8.0,
+  8.5,
+  9.0,
+  9.5,
+  10.0,
+  10.5,
+  11.0,
+  11.5,
+  12.0,
+  12.5,
+  13.0,
+  13.5,
+  14.0,
+  14.5,
+  15.0,
+  15.5,
+  16.0,
+  16.5,
+  17.0,
+  17.5,
+  18.0,
+  18.5,
+  19.0,
+  19.5,
+  20.0,
+  20.5,
+  21.0,
+  21.5,
+  22.0,
+  22.5,
+  23.0,
+  23.5,
+  24.0,
+  24.5,
+  25.0,
+  25.5,
+  26.0,
+  26.5,
+  27.0,
+  27.5,
+  28.0,
+  28.5,
+  29.0,
+  29.5,
+  30.0,
+  30.5,
+  31.0,
+  31.5,
+  32.0,
+  32.5,
+  33.0,
+  33.5,
+  34.0,
+  34.5,
+  35.0,
+  35.5,
+  36.0,
+  36.5,
+  37.0,
+  37.5,
+  38.0,
+  38.5,
+  39.0,
+  39.5,
+  40.0,
+  40.5,
+  41.0,
+  41.5,
+  42.0,
+  42.5,
+  43.0,
+  43.5,
+  44.0,
+  44.5,
+  45.0,
+  45.5,
+  46.0,
+  46.5,
+  47.0,
+  47.5,
+  48.0,
+  48.5,
+  49.0,
+  49.5,
+  50.0,
+  50.5,
+  51.0,
+  51.5,
+  52.0,
+  52.5,
+  53.0,
+  53.5,
+  54.0,
+  54.5,
+  55.0,
+  55.5,
+  56.0,
+  56.5,
+  57.0,
+  57.5,
+  58.0,
+  58.5,
+  59.0,
+  59.5,
+  60.0,
+  60.5,
+  61.0,
+  61.5,
+  62.0,
+  62.5,
+  63.0,
+  63.5,
+  64.0,
+  64.5,
+  65.0,
+  65.5,
+  66.0,
+  66.5,
+  67.0,
+  67.5,
+  68.0,
+  68.5,
+  69.0,
+  69.5,
+  70.0,
+  70.5,
+  71.0,
+  71.5,
+  72.0,
+  72.5,
+  73.0,
+  73.5,
+  74.0,
+  74.5,
+  75.0,
+  75.5,
+  76.0,
+  76.5,
+  77.0,
+  77.5,
+  78.0,
+  78.5,
+  79.0,
+  79.5,
+  80.0,
+  80.5,
+  81.0,
+  81.5,
+  82.0,
+  82.5,
+  83.0,
+  83.5,
+  84.0,
+  84.5,
+  85.0,
+  85.5,
+  86.0,
+  86.5,
+  87.0,
+  87.5,
+  88.0,
+  88.5,
+  89.0,
+  89.5,
+  90.0,
+  90.5,
+  91.0,
+  91.5,
+  92.0,
+  92.5,
+  93.0,
+  93.5,
+  94.0,
+  94.5,
+  95.0,
+  95.5,
+  96.0,
+  96.5,
+  97.0,
+  97.5,
+  98.0,
+  98.5,
+  99.0,
+  99.5,
+  100.0,
+  100.5,
+  101.0,
+  101.5,
+  102.0,
+  102.5,
+  103.0,
+  103.5,
+  104.0,
+  104.5,
+  105.0,
+  105.5,
+  106.0,
+  106.5,
+  107.0,
+  107.5,
+  108.0,
+  108.5,
+  109.0,
+  109.5,
+  110.0,
+  110.5,
+  111.0,
+  111.5,
+  112.0
+ ],
+ "scenes": [
+  {
+   "n": 1,
+   "name": "title",
+   "start": 0.0,
+   "duration": 6.0
+  },
+  {
+   "n": 2,
+   "name": "pipeline",
+   "start": 6.0,
+   "duration": 14.0
+  },
+  {
+   "n": 3,
+   "name": "crew",
+   "start": 20.0,
+   "duration": 24.0
+  },
+  {
+   "n": 4,
+   "name": "should-he-have-passed",
+   "start": 44.0,
+   "duration": 24.0
+  },
+  {
+   "n": 5,
+   "name": "split",
+   "start": 68.0,
+   "duration": 12.0
+  },
+  {
+   "n": 6,
+   "name": "languages",
+   "start": 80.0,
+   "duration": 10.0
+  },
+  {
+   "n": 7,
+   "name": "overlay",
+   "start": 90.0,
+   "duration": 8.0
+  },
+  {
+   "n": 8,
+   "name": "azure",
+   "start": 98.0,
+   "duration": 14.0
+  }
+ ],
+ "lines": [
+  {
+   "id": "s1a",
+   "scene": 1,
+   "start": 0.5,
+   "end": 2.655,
+   "speech": [
+    0.528,
+    2.572
+   ],
+   "text": "Every broadcast has a crew.",
+   "caption": false
+  },
+  {
+   "id": "s1b",
+   "scene": 1,
+   "start": 2.955,
+   "end": 5.109,
+   "speech": [
+    2.986,
+    5.023
+   ],
+   "text": "So we built one, with AI.",
+   "caption": false
+  },
+  {
+   "id": "s2a",
+   "scene": 2,
+   "start": 6.5,
+   "end": 10.745,
+   "speech": [
+    6.529,
+    10.655
+   ],
+   "text": "PitchPulse streams a fully synthetic match through five stages.",
+   "caption": true
+  },
+  {
+   "id": "s2b",
+   "scene": 2,
+   "start": 11.045,
+   "end": 19.045,
+   "speech": [
+    11.072,
+    18.952
+   ],
+   "text": "Ingest. A deterministic stats engine. An AI studio crew. Broadcast overlays. And a view for every viewer.",
+   "caption": true
+  },
+  {
+   "id": "s3a",
+   "scene": 3,
+   "start": 20.5,
+   "end": 23.764,
+   "speech": [
+    20.54,
+    23.662
+   ],
+   "text": "The crew is five agents, each with one job.",
+   "caption": true
+  },
+  {
+   "id": "s3b",
+   "scene": 3,
+   "start": 24.064,
+   "end": 32.32,
+   "speech": [
+    24.117,
+    32.236
+   ],
+   "text": "The Spotter finds the moment. The Analyst pulls the evidence. The Commentator writes it. The Producer decides what goes on air.",
+   "caption": true
+  },
+  {
+   "id": "s3c",
+   "scene": 3,
+   "start": 32.82,
+   "end": 37.257,
+   "speech": [
+    32.858,
+    37.139
+   ],
+   "text": "And the Fact-checker blocks any number the stats engine can't prove.",
+   "caption": true
+  },
+  {
+   "id": "s3d",
+   "scene": 3,
+   "start": 38.057,
+   "end": 42.708,
+   "speech": [
+    38.101,
+    42.604
+   ],
+   "text": "If a model fails, the crew falls back on screen, and the show goes on.",
+   "caption": true
+  },
+  {
+   "id": "s4a",
+   "scene": 4,
+   "start": 45.0,
+   "end": 51.357,
+   "speech": [
+    45.064,
+    51.266
+   ],
+   "text": "Thirty-four minutes. Asante shoots from fifteen metres. A five per cent chance, and it's saved.",
+   "caption": true
+  },
+  {
+   "id": "s4b",
+   "scene": 4,
+   "start": 52.557,
+   "end": 55.437,
+   "speech": [
+    52.592,
+    55.327
+   ],
+   "text": "But the engine saw Kerrigan, free in the middle.",
+   "caption": true
+  },
+  {
+   "id": "s4c",
+   "scene": 4,
+   "start": 55.837,
+   "end": 61.256,
+   "speech": [
+    55.871,
+    61.165
+   ],
+   "text": "That pass arrives eighty-three per cent of the time, into a twenty-four per cent chance.",
+   "caption": true
+  },
+  {
+   "id": "s4d",
+   "scene": 4,
+   "start": 61.856,
+   "end": 64.651,
+   "speech": [
+    61.914,
+    64.525
+   ],
+   "text": "Four times the value. He should have passed.",
+   "caption": false
+  },
+  {
+   "id": "s5a",
+   "scene": 5,
+   "start": 68.8,
+   "end": 74.965,
+   "speech": [
+    68.839,
+    74.863
+   ],
+   "text": "Same moment, two audiences. The analyst gets the evidence trail. The fan gets the story.",
+   "caption": true
+  },
+  {
+   "id": "s6a",
+   "scene": 6,
+   "start": 80.5,
+   "end": 82.953,
+   "speech": [
+    80.536,
+    82.82
+   ],
+   "text": "In English, Spanish, or Arabic.",
+   "caption": true
+  },
+  {
+   "id": "s6b",
+   "scene": 6,
+   "start": 83.553,
+   "end": 85.58,
+   "speech": [
+    83.591,
+    85.525
+   ],
+   "text": "El pase val\u00eda cuatro veces m\u00e1s.",
+   "caption": true
+  },
+  {
+   "id": "s7a",
+   "scene": 7,
+   "start": 90.6,
+   "end": 94.696,
+   "speech": [
+    90.64,
+    94.615
+   ],
+   "text": "Drop it straight onto the broadcast, or follow one player all match.",
+   "caption": true
+  },
+  {
+   "id": "s8a",
+   "scene": 8,
+   "start": 98.6,
+   "end": 106.344,
+   "speech": [
+    98.624,
+    106.258
+   ],
+   "text": "Built on Azure: Container Apps, Event Hubs, and Azure OpenAI with managed identity. Every number checked.",
+   "caption": false
+  },
+  {
+   "id": "s8b",
+   "scene": 8,
+   "start": 107.144,
+   "end": 108.168,
+   "speech": [
+    107.187,
+    108.063
+   ],
+   "text": "PitchPulse.",
+   "caption": false
+  }
+ ],
+ "cues_raw": {
+  "s1a.crew": 2.193,
+  "s2b.ingest": 11.072,
+  "s2b.stats-engine": 12.873,
+  "s2b.studio-crew": 14.374,
+  "s2b.overlays": 16.1,
+  "s2b.every-viewer": 17.977,
+  "s3a.five-agents": 21.411,
+  "s3b.spotter": 24.373,
+  "s3b.analyst": 26.291,
+  "s3b.commentator": 28.336,
+  "s3b.producer": 30.062,
+  "s3c.fact-checker": 33.362,
+  "s3c.blocks": 34.18,
+  "s3d.falls-back": 39.838,
+  "s3d.show-goes-on": 41.768,
+  "s4a.shoots": 46.892,
+  "s4a.five-per-cent": 48.85,
+  "s4a.saved": 50.874,
+  "s4b.kerrigan": 53.674,
+  "s4c.eighty-three": 56.954,
+  "s4c.twenty-four": 59.481,
+  "s4d.four-times": 61.914,
+  "s4d.should-have-passed": 63.398,
+  "s5a.two-audiences": 69.729,
+  "s5a.analyst": 71.03,
+  "s5a.fan": 73.562,
+  "s6a.english": 80.757,
+  "s6a.spanish": 81.42,
+  "s6a.arabic": 82.304,
+  "s7a.broadcast": 92.16,
+  "s7a.follow-one-player": 92.978,
+  "s8a.azure": 99.278,
+  "s8a.container-apps": 99.787,
+  "s8a.event-hubs": 100.95,
+  "s8a.azure-openai": 102.114,
+  "s8a.every-number": 104.731,
+  "s8b.pitchpulse": 107.187
+ },
+ "cues": {
+  "s1a.crew": 2.0,
+  "s2b.ingest": 11.0,
+  "s2b.stats-engine": 13.0,
+  "s2b.studio-crew": 14.5,
+  "s2b.overlays": 16.0,
+  "s2b.every-viewer": 18.0,
+  "s3a.five-agents": 21.5,
+  "s3b.spotter": 24.5,
+  "s3b.analyst": 26.5,
+  "s3b.commentator": 28.5,
+  "s3b.producer": 30.0,
+  "s3c.fact-checker": 33.5,
+  "s3c.blocks": 34.0,
+  "s3d.falls-back": 40.0,
+  "s3d.show-goes-on": 42.0,
+  "s4a.shoots": 47.0,
+  "s4a.five-per-cent": 49.0,
+  "s4a.saved": 51.0,
+  "s4b.kerrigan": 53.5,
+  "s4c.eighty-three": 57.0,
+  "s4c.twenty-four": 59.5,
+  "s4d.four-times": 62.0,
+  "s4d.should-have-passed": 63.5,
+  "s5a.two-audiences": 69.5,
+  "s5a.analyst": 71.0,
+  "s5a.fan": 73.5,
+  "s6a.english": 81.0,
+  "s6a.spanish": 81.5,
+  "s6a.arabic": 82.5,
+  "s7a.broadcast": 92.0,
+  "s7a.follow-one-player": 93.0,
+  "s8a.azure": 99.5,
+  "s8a.container-apps": 100.0,
+  "s8a.event-hubs": 101.0,
+  "s8a.azure-openai": 102.0,
+  "s8a.every-number": 104.5,
+  "s8b.pitchpulse": 107.0
+ },
+ "sfx": [
+  {
+   "t": 2.0,
+   "kind": "hit"
+  },
+  {
+   "t": 6.0,
+   "kind": "swish"
+  },
+  {
+   "t": 11.0,
+   "kind": "click"
+  },
+  {
+   "t": 13.0,
+   "kind": "click"
+  },
+  {
+   "t": 14.5,
+   "kind": "click"
+  },
+  {
+   "t": 16.0,
+   "kind": "click"
+  },
+  {
+   "t": 18.0,
+   "kind": "click"
+  },
+  {
+   "t": 20.0,
+   "kind": "swish"
+  },
+  {
+   "t": 24.5,
+   "kind": "click"
+  },
+  {
+   "t": 26.5,
+   "kind": "click"
+  },
+  {
+   "t": 28.5,
+   "kind": "click"
+  },
+  {
+   "t": 30.0,
+   "kind": "click"
+  },
+  {
+   "t": 34.0,
+   "kind": "buzz"
+  },
+  {
+   "t": 40.0,
+   "kind": "click"
+  },
+  {
+   "t": 44.0,
+   "kind": "swish"
+  },
+  {
+   "t": 51.0,
+   "kind": "hit"
+  },
+  {
+   "t": 53.5,
+   "kind": "click"
+  },
+  {
+   "t": 57.0,
+   "kind": "click"
+  },
+  {
+   "t": 59.5,
+   "kind": "click"
+  },
+  {
+   "t": 62.0,
+   "kind": "hit"
+  },
+  {
+   "t": 68.0,
+   "kind": "swish"
+  },
+  {
+   "t": 80.0,
+   "kind": "swish"
+  },
+  {
+   "t": 81.0,
+   "kind": "click"
+  },
+  {
+   "t": 81.5,
+   "kind": "click"
+  },
+  {
+   "t": 82.5,
+   "kind": "click"
+  },
+  {
+   "t": 90.0,
+   "kind": "swish"
+  },
+  {
+   "t": 98.0,
+   "kind": "swish"
+  },
+  {
+   "t": 100.0,
+   "kind": "click"
+  },
+  {
+   "t": 101.0,
+   "kind": "click"
+  },
+  {
+   "t": 102.0,
+   "kind": "click"
+  },
+  {
+   "t": 107.0,
+   "kind": "hit"
+  }
+ ]
+}

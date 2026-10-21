@@ -1,0 +1,558 @@
+{
+ "branch": "feat/matchmind-engine",
+ "facts": [
+  {
+   "id": "match.id",
+   "text": "Demo match MM-DEMO-001, fully synthetic.",
+   "value": "MM-DEMO-001",
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/matchmind-engine/backend/data/matches/MM-DEMO-001.jsonl#L1"
+  },
+  {
+   "id": "match.events",
+   "text": "The demo match streams 2,069 events.",
+   "value": 2069,
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/matchmind-engine/backend/data/matches/MM-DEMO-001.jsonl"
+  },
+  {
+   "id": "team.NBR",
+   "text": "Northbridge FC: Possession 4-3-3, patient build-up through the half-spaces.",
+   "value": {
+    "name": "Northbridge FC",
+    "short": "NBR",
+    "formation": "4-3-3",
+    "primary": "#2f6fde",
+    "secondary": "#0d1b3d"
+   },
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/matchmind-engine/backend/src/matchmind/simulator/teams.py"
+  },
+  {
+   "id": "team.HCY",
+   "text": "Harbour City: Direct 4-2-3-1, high press and quick vertical transitions.",
+   "value": {
+    "name": "Harbour City",
+    "short": "HCY",
+    "formation": "4-2-3-1",
+    "primary": "#f08a24",
+    "secondary": "#3a1a05"
+   },
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/matchmind-engine/backend/src/matchmind/simulator/teams.py"
+  },
+  {
+   "id": "goal.23:20",
+   "text": "23:20 goal, Adam Kerrigan (NBR), 1-0.",
+   "value": {
+    "clock": "23:20",
+    "team": "NBR",
+    "scorer": "Adam Kerrigan",
+    "score": "1-0",
+    "line": 490
+   },
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/matchmind-engine/backend/data/matches/MM-DEMO-001.jsonl#L490"
+  },
+  {
+   "id": "goal.41:40",
+   "text": "41:40 goal, Luca Ferrante (NBR), 2-0.",
+   "value": {
+    "clock": "41:40",
+    "team": "NBR",
+    "scorer": "Luca Ferrante",
+    "score": "2-0",
+    "line": 878
+   },
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/matchmind-engine/backend/data/matches/MM-DEMO-001.jsonl#L878"
+  },
+  {
+   "id": "goal.67:28",
+   "text": "67:28 goal, Elias Varga (HCY), 2-1.",
+   "value": {
+    "clock": "67:28",
+    "team": "HCY",
+    "scorer": "Elias Varga",
+    "score": "2-1",
+    "line": 1463
+   },
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/matchmind-engine/backend/data/matches/MM-DEMO-001.jsonl#L1463"
+  },
+  {
+   "id": "goal.84:22",
+   "text": "84:22 goal, Ivan Petrov (HCY), 2-2.",
+   "value": {
+    "clock": "84:22",
+    "team": "HCY",
+    "scorer": "Ivan Petrov",
+    "score": "2-2",
+    "line": 1841
+   },
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/matchmind-engine/backend/data/matches/MM-DEMO-001.jsonl#L1841"
+  },
+  {
+   "id": "goal.90+2:22",
+   "text": "90+2:22 goal, Jaden Clarke (HCY), 2-3.",
+   "value": {
+    "clock": "90+2:22",
+    "team": "HCY",
+    "scorer": "Jaden Clarke",
+    "score": "2-3",
+    "line": 2017
+   },
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/matchmind-engine/backend/data/matches/MM-DEMO-001.jsonl#L2017"
+  },
+  {
+   "id": "match.final",
+   "text": "Full time: Northbridge FC 2-3 Harbour City.",
+   "value": {
+    "NBR": 2,
+    "HCY": 3
+   },
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/matchmind-engine/backend/data/matches/MM-DEMO-001.jsonl#L2069"
+  },
+  {
+   "id": "card.red",
+   "text": "53:35 red card, Marek Lindqvist (NBR).",
+   "value": {
+    "clock": "53:35",
+    "player": "Marek Lindqvist"
+   },
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/matchmind-engine/backend/data/matches/MM-DEMO-001.jsonl#L1160"
+  },
+  {
+   "id": "spha.NBR",
+   "text": "34:16: Kofi Asante shot from 15.4 m (chance 5%); a 16.4 m pass to Adam Kerrigan (83% to arrive, chance 24%) was worth 4.0x more. Outcome: saved.",
+   "value": {
+    "shooter_id": "NBR-11",
+    "teammate_id": "NBR-9",
+    "shot_chance_quality": 0.05,
+    "alt_chance_quality": 0.238,
+    "pass_success": 0.832,
+    "alt_value": 0.198,
+    "times_better": 4.0,
+    "pass_distance_m": 16.4,
+    "nearest_marker_m": 9.5,
+    "shooter_distance_to_goal_m": 15.4,
+    "mate_distance_to_goal_m": 11.3,
+    "shot_speed_kmh": 91.8,
+    "freeze_frame": [
+     {
+      "player_id": "HCY-1",
+      "team": "HCY",
+      "x": 103.2,
+      "y": 36.4,
+      "teammate": false,
+      "keeper": true,
+      "actor": false
+     },
+     {
+      "player_id": "HCY-10",
+      "team": "HCY",
+      "x": 74.26,
+      "y": 39.53,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "HCY-11",
+      "team": "HCY",
+      "x": 72.8,
+      "y": 20.31,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "HCY-2",
+      "team": "HCY",
+      "x": 99.6,
+      "y": 44.6,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "HCY-3",
+      "team": "HCY",
+      "x": 96.3,
+      "y": 48.6,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "HCY-4",
+      "team": "HCY",
+      "x": 102.0,
+      "y": 38.8,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "HCY-5",
+      "team": "HCY",
+      "x": 92.5,
+      "y": 21.0,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "HCY-6",
+      "team": "HCY",
+      "x": 87.29,
+      "y": 43.72,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "HCY-7",
+      "team": "HCY",
+      "x": 73.82,
+      "y": 56.07,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "HCY-8",
+      "team": "HCY",
+      "x": 84.5,
+      "y": 31.61,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "NBR-10",
+      "team": "NBR",
+      "x": 81.31,
+      "y": 49.83,
+      "teammate": true,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "NBR-11",
+      "team": "NBR",
+      "x": 97.5,
+      "y": 47.5,
+      "teammate": true,
+      "keeper": false,
+      "actor": true
+     },
+     {
+      "player_id": "NBR-6",
+      "team": "NBR",
+      "x": 93.5,
+      "y": 22.0,
+      "teammate": true,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "NBR-7",
+      "team": "NBR",
+      "x": 97.75,
+      "y": 11.91,
+      "teammate": true,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "NBR-8",
+      "team": "NBR",
+      "x": 82.1,
+      "y": 25.51,
+      "teammate": true,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "NBR-9",
+      "team": "NBR",
+      "x": 94.0,
+      "y": 31.5,
+      "teammate": true,
+      "keeper": false,
+      "actor": false
+     }
+    ],
+    "shot_end": {
+     "x": 104.6,
+     "y": 34.39
+    },
+    "clock": "34:16",
+    "outcome": "saved",
+    "event_id": "MM-DEMO-001-00717",
+    "shooter": "Kofi Asante",
+    "teammate": "Adam Kerrigan"
+   },
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/matchmind-engine/backend/data/matches/MM-DEMO-001.jsonl#L718"
+  },
+  {
+   "id": "spha.HCY",
+   "text": "78:56: Mateo Rios shot from 15.4 m (chance 5%); a 16.4 m pass to Ivan Petrov (83% to arrive, chance 24%) was worth 4.0x more. Outcome: blocked.",
+   "value": {
+    "shooter_id": "HCY-7",
+    "teammate_id": "HCY-9",
+    "shot_chance_quality": 0.05,
+    "alt_chance_quality": 0.238,
+    "pass_success": 0.832,
+    "alt_value": 0.198,
+    "times_better": 4.0,
+    "pass_distance_m": 16.4,
+    "nearest_marker_m": 10.6,
+    "shooter_distance_to_goal_m": 15.4,
+    "mate_distance_to_goal_m": 11.3,
+    "shot_speed_kmh": 99.7,
+    "freeze_frame": [
+     {
+      "player_id": "HCY-10",
+      "team": "HCY",
+      "x": 15.01,
+      "y": 37.62,
+      "teammate": true,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "HCY-11",
+      "team": "HCY",
+      "x": 11.09,
+      "y": 14.35,
+      "teammate": true,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "HCY-6",
+      "team": "HCY",
+      "x": 11.5,
+      "y": 22.0,
+      "teammate": true,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "HCY-7",
+      "team": "HCY",
+      "x": 7.5,
+      "y": 47.5,
+      "teammate": true,
+      "keeper": false,
+      "actor": true
+     },
+     {
+      "player_id": "HCY-8",
+      "team": "HCY",
+      "x": 30.3,
+      "y": 32.31,
+      "teammate": true,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "HCY-9",
+      "team": "HCY",
+      "x": 11.0,
+      "y": 31.5,
+      "teammate": true,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "NBR-1",
+      "team": "NBR",
+      "x": 1.8,
+      "y": 36.4,
+      "teammate": false,
+      "keeper": true,
+      "actor": false
+     },
+     {
+      "player_id": "NBR-10",
+      "team": "NBR",
+      "x": 24.18,
+      "y": 46.28,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "NBR-2",
+      "team": "NBR",
+      "x": 5.4,
+      "y": 44.6,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "NBR-3",
+      "team": "NBR",
+      "x": 8.7,
+      "y": 48.6,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "NBR-5",
+      "team": "NBR",
+      "x": 3.0,
+      "y": 38.8,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "NBR-6",
+      "team": "NBR",
+      "x": 12.5,
+      "y": 21.0,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "NBR-7",
+      "team": "NBR",
+      "x": 34.76,
+      "y": 19.34,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "NBR-8",
+      "team": "NBR",
+      "x": 22.29,
+      "y": 28.62,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     }
+    ],
+    "shot_end": {
+     "x": 5.4,
+     "y": 44.6
+    },
+    "clock": "78:56",
+    "outcome": "blocked",
+    "event_id": "MM-DEMO-001-01687",
+    "shooter": "Mateo Rios",
+    "teammate": "Ivan Petrov"
+   },
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/matchmind-engine/backend/data/matches/MM-DEMO-001.jsonl#L1688"
+  },
+  {
+   "id": "crew.analyst",
+   "text": "34:16 Asante shot from 15.4 m: chance 5%. Square ball to Kerrigan, 16.4 m: 83% to arrive, then 24%. Value 0.20 vs 0.05: 4.0x.",
+   "value": null,
+   "source": "crew draft (replace with crew API output)",
+   "draft": true
+  },
+  {
+   "id": "crew.fan.en",
+   "text": "Asante went for glory and the keeper said no. Kerrigan was free in the middle. That pass was worth 4.0 times more.",
+   "value": null,
+   "source": "crew draft (replace with crew API output)",
+   "draft": true
+  },
+  {
+   "id": "crew.fan.es",
+   "text": "Asante buscó la gloria y el portero dijo que no. Kerrigan estaba solo en el centro. Ese pase valía 4,0 veces más.",
+   "value": null,
+   "source": "crew draft (replace with crew API output)",
+   "draft": true
+  },
+  {
+   "id": "crew.fan.ar",
+   "text": "سدّد أسانتي فتصدّى الحارس. كان كيريغان حرًّا في الوسط. تلك التمريرة كانت تساوي 4.0 أضعاف.",
+   "value": null,
+   "source": "crew draft (replace with crew API output)",
+   "draft": true
+  },
+  {
+   "id": "crew.factcheck",
+   "text": "Blocked: \"a 40% chance\" is not in the moment's facts. Replaced with 24%.",
+   "value": {
+    "blocked": "40%",
+    "replacement": "24%"
+   },
+   "source": "crew draft (replace with crew API output)",
+   "draft": true
+  },
+  {
+   "id": "crew.fallback",
+   "text": "Model unavailable: Commentator switched to template mode.",
+   "value": null,
+   "source": "crew draft (replace with crew API output)",
+   "draft": true
+  },
+  {
+   "id": "azure.stack",
+   "text": "Azure Container Apps, Azure Event Hubs, Azure OpenAI with managed identity.",
+   "value": null,
+   "source": "crew draft (replace with crew API output)",
+   "draft": true
+  },
+  {
+   "id": "repo.quality",
+   "text": "Tests, CI and secret scanning on every push.",
+   "value": null,
+   "source": "crew draft (replace with crew API output)",
+   "draft": true
+  },
+  {
+   "id": "player.focus",
+   "text": "Adam Kerrigan, #9, ST, Northbridge FC: scored at 23:20, free in the middle at 34:16.",
+   "value": {
+    "name": "Adam Kerrigan",
+    "number": 9,
+    "position": "ST",
+    "goal": "23:20"
+   },
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/matchmind-engine/backend/src/matchmind/simulator/teams.py"
+  },
+  {
+   "id": "score.at.spha",
+   "text": "Score at 34:16: 1-0.",
+   "value": "1-0",
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/matchmind-engine/backend/data/matches/MM-DEMO-001.jsonl#L490"
+  },
+  {
+   "id": "crew.roles",
+   "draft": true,
+   "source": "project goal (PitchPulse brief)",
+   "text": "Spotter finds the moment; Analyst pulls the evidence; Commentator writes it; Producer decides what airs; Fact-checker blocks unproven numbers.",
+   "value": [
+    [
+     "Spotter",
+     "Finds the moment",
+     "Moment"
+    ],
+    [
+     "Analyst",
+     "Pulls the evidence",
+     "Evidence"
+    ],
+    [
+     "Commentator",
+     "Writes it",
+     "Script"
+    ],
+    [
+     "Producer",
+     "Decides what airs",
+     "Rundown"
+    ],
+    [
+     "Fact-checker",
+     "Blocks unproven numbers",
+     "Verified"
+    ]
+   ]
+  }
+ ]
+}

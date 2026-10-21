@@ -1,0 +1,178 @@
+{
+ "voice": "bm_george",
+ "lang": "en-gb",
+ "speed": 1.0,
+ "lines": [
+  {
+   "id": "s1a",
+   "scene": 1,
+   "text": "Every broadcast has a crew.",
+   "cues": [
+    "crew"
+   ],
+   "caption": false
+  },
+  {
+   "id": "s1b",
+   "scene": 1,
+   "text": "So we built one, with AI.",
+   "caption": false
+  },
+  {
+   "id": "s2a",
+   "scene": 2,
+   "text": "PitchPulse streams a fully synthetic match through five stages."
+  },
+  {
+   "id": "s2b",
+   "scene": 2,
+   "text": "Ingest. A deterministic stats engine. An AI studio crew. Broadcast overlays. And a view for every viewer.",
+   "cues": [
+    "Ingest",
+    "stats engine",
+    "studio crew",
+    "overlays",
+    "every viewer"
+   ]
+  },
+  {
+   "id": "s3a",
+   "scene": 3,
+   "text": "The crew is five agents, each with one job.",
+   "cues": [
+    "five agents"
+   ]
+  },
+  {
+   "id": "s3b",
+   "scene": 3,
+   "text": "The Spotter finds the moment. The Analyst pulls the evidence. The Commentator writes it. The Producer decides what goes on air.",
+   "cues": [
+    "Spotter",
+    "Analyst",
+    "Commentator",
+    "Producer"
+   ]
+  },
+  {
+   "id": "s3c",
+   "scene": 3,
+   "text": "And the Fact-checker blocks any number the stats engine can't prove.",
+   "cues": [
+    "Fact-checker",
+    "blocks"
+   ],
+   "gap_before": 0.5
+  },
+  {
+   "id": "s3d",
+   "scene": 3,
+   "text": "If a model fails, the crew falls back on screen, and the show goes on.",
+   "cues": [
+    "falls back",
+    "show goes on"
+   ],
+   "gap_before": 0.8
+  },
+  {
+   "id": "s4a",
+   "scene": 4,
+   "text": "Thirty-four minutes. Asante shoots from fifteen metres. A five per cent chance, and it's saved.",
+   "cues": [
+    "shoots",
+    "five per cent",
+    "saved"
+   ]
+  },
+  {
+   "id": "s4b",
+   "scene": 4,
+   "text": "But the engine saw Kerrigan, free in the middle.",
+   "cues": [
+    "Kerrigan"
+   ],
+   "gap_before": 1.2
+  },
+  {
+   "id": "s4c",
+   "scene": 4,
+   "text": "That pass arrives eighty-three per cent of the time, into a twenty-four per cent chance.",
+   "cues": [
+    "eighty-three",
+    "twenty-four"
+   ],
+   "gap_before": 0.4
+  },
+  {
+   "id": "s4d",
+   "scene": 4,
+   "text": "Four times the value. He should have passed.",
+   "cues": [
+    "Four times",
+    "should have passed"
+   ],
+   "gap_before": 0.6,
+   "caption": false
+  },
+  {
+   "id": "s5a",
+   "scene": 5,
+   "text": "Same moment, two audiences. The analyst gets the evidence trail. The fan gets the story.",
+   "cues": [
+    "two audiences",
+    "analyst",
+    "fan"
+   ]
+  },
+  {
+   "id": "s6a",
+   "scene": 6,
+   "text": "In English, Spanish, or Arabic.",
+   "cues": [
+    "English",
+    "Spanish",
+    "Arabic"
+   ]
+  },
+  {
+   "id": "s6b",
+   "scene": 6,
+   "text": "El pase valía cuatro veces más.",
+   "voice": "ef_dora",
+   "lang": "es",
+   "gap_before": 0.6
+  },
+  {
+   "id": "s7a",
+   "scene": 7,
+   "text": "Drop it straight onto the broadcast, or follow one player all match.",
+   "cues": [
+    "broadcast",
+    "follow one player"
+   ]
+  },
+  {
+   "id": "s8a",
+   "scene": 8,
+   "text": "Built on Azure: Container Apps, Event Hubs, and Azure OpenAI with managed identity. Every number checked.",
+   "cues": [
+    "Azure",
+    "Container Apps",
+    "Event Hubs",
+    "Azure OpenAI",
+    "Every number"
+   ],
+   "caption": false
+  },
+  {
+   "id": "s8b",
+   "scene": 8,
+   "text": "PitchPulse.",
+   "caption": false,
+   "gap_before": 0.8,
+   "cues": [
+    "PitchPulse"
+   ]
+  }
+ ]
+}
