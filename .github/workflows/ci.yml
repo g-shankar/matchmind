@@ -68,7 +68,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - run: pip install "./backend[azure,api]" pip-licenses
+      - run: pip install "./backend[azure]" pip-licenses
       - run: pip-licenses --partial-match --fail-on="GPL;AGPL;SSPL"
       - run: npm ci --no-audit --no-fund
         working-directory: frontend
@@ -98,3 +98,4 @@ jobs:
           test "$(docker run --rm pitchpulse:ci id -u)" = "10001"
           docker run --rm pitchpulse:ci matchmind-sim --help
           docker run --rm pitchpulse:ci test -f static/index.html
+          docker run --rm pitchpulse:ci python -c "import matchmind.api.app"

@@ -17,9 +17,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY backend/ ./backend/
-RUN pip install "./backend[azure,api]" \
+RUN pip install "./backend[azure]" \
     && useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin pitchpulse
 COPY --from=frontend /src/frontend/dist ./static
+
+# The package is installed into site-packages, so point the API at the
+# bundled demo match and the built frontend explicitly.
+ENV MATCHMIND_MATCH_FILE=/app/backend/data/matches/MM-DEMO-001.jsonl \
+    MATCHMIND_STATIC_DIR=/app/static
 
 USER 10001
 EXPOSE 8000

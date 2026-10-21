@@ -90,8 +90,15 @@ jobs:
           image="$LOGIN_SERVER/$IMAGE_REPO:${GITHUB_SHA}"
           az acr login --name "$REGISTRY"
           docker build -f deployment/Dockerfile -t "$image" .
-          # Refuse to ship an image whose web entry point cannot start.
-          docker run --rm "$image" python -c "import matchmind.api.app"
+          # Refuse to ship an image that does not start and serve the app.
+          docker run -d --name smoke -p 8000:8000 "$image"
+          ok=false
+          for _ in $(seq 1 30); do
+            if curl -fsS http://localhost:8000/api/health; then ok=true; break; fi
+            sleep 1
+          done
+          $ok && curl -fsS http://localhost:8000/ | grep -q 'id="root"' || { docker logs smoke; exit 1; }
+          docker rm -f smoke
           docker push "$image"
           echo "ref=$image" >> "$GITHUB_OUTPUT"
 

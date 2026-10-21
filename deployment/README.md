@@ -27,7 +27,7 @@ Runs only from `main`.
 1. Actions -> **deploy** -> Run workflow -> `what-if`. Review the plan.
 2. Run again with `deploy`. The workflow:
    1. deploys the base infrastructure (`deployApps=false`),
-   2. builds `deployment/Dockerfile`, checks the web entry point imports, and pushes it to the registry as `pitchpulse:<commit sha>`,
+   2. builds `deployment/Dockerfile`, starts it and checks `/api/health` and the frontend, and pushes it to the registry as `pitchpulse:<commit sha>`,
    3. deploys the app and simulator job with that image (`deployApps=true`).
 3. The preview URL is in the run summary.
 

@@ -324,12 +324,18 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
           probes: [
             {
               type: 'Liveness'
-              tcpSocket: { port: 8000 }
+              httpGet: {
+                path: '/api/health'
+                port: 8000
+              }
               periodSeconds: 30
             }
             {
               type: 'Readiness'
-              tcpSocket: { port: 8000 }
+              httpGet: {
+                path: '/api/health'
+                port: 8000
+              }
               periodSeconds: 10
             }
           ]
