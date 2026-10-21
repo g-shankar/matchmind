@@ -31,6 +31,7 @@ env:
     deployOpenAi=${{ vars.DEPLOY_OPENAI || 'false' }}
     deployTranslator=${{ vars.DEPLOY_TRANSLATOR || 'false' }}
     aiEnabled=${{ vars.MATCHMIND_AI_ENABLED || 'false' }}
+    deployObservability=${{ vars.DEPLOY_OBSERVABILITY || 'false' }}
 
 jobs:
   azure:

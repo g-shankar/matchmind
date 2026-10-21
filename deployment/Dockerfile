@@ -17,7 +17,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY backend/ ./backend/
-RUN pip install "./backend[azure]" \
+RUN pip install "./backend[azure,ai,observability]" \
     && useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin pitchpulse
 COPY --from=frontend /src/frontend/dist ./static
 

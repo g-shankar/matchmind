@@ -17,14 +17,19 @@ Things only the owners can do. Everything else the team handles.
    az group create -n rg-pitchpulse -l <region>
    RG=/subscriptions/<subId>/resourceGroups/rg-pitchpulse
    az role assignment create --assignee <appId> --role Contributor --scope $RG
-   # May grant only the five roles the template uses, nothing else.
-   ROLES="7f951dda-4ed3-4680-a7ca-43fe172d538d, 5e0bd9bd-7b93-4f28-af87-19fc36ad61bd, a97b65f3-24c7-4388-baec-2e87135dc908, 2b629674-e913-4c01-ae53-ef4638d8f975, a638d3c7-ab3a-418d-83e6-5f17a39d4fde"
+   # May grant only the six roles the template uses, nothing else.
+   # The sixth, Monitoring Metrics Publisher (3913510d-...), is only used with
+   # DEPLOY_OBSERVABILITY=true (crew tracing).
+   ROLES="7f951dda-4ed3-4680-a7ca-43fe172d538d, 5e0bd9bd-7b93-4f28-af87-19fc36ad61bd, a97b65f3-24c7-4388-baec-2e87135dc908, 2b629674-e913-4c01-ae53-ef4638d8f975, a638d3c7-ab3a-418d-83e6-5f17a39d4fde, 3913510d-42f4-4e42-8a64-420c390055eb"
    az role assignment create --assignee <appId> \
      --role "Role Based Access Control Administrator" --scope $RG \
      --condition-version 2.0 --condition "((!(ActionMatches{'Microsoft.Authorization/roleAssignments/write'})) OR (@Request[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {$ROLES})) AND ((!(ActionMatches{'Microsoft.Authorization/roleAssignments/delete'})) OR (@Resource[Microsoft.Authorization/roleAssignments:RoleDefinitionId] ForAnyOfAnyValues:GuidEquals {$ROLES}))"
    ```
    The deploy identity can manage resources in this one resource group and
-   hand out only the five roles the app and simulator need.
+   hand out only the six roles the app and simulator need. If you already ran
+   this with five roles, run the `az role assignment create ... --condition`
+   line again with the new `ROLES` (or edit the condition in the portal)
+   before setting `DEPLOY_OBSERVABILITY=true`.
 3. **GitHub settings**: Settings -> Environments -> new environment
    `production`, add yourself as required reviewer and set deployment
    branches to `main` only. Settings -> Secrets and
@@ -35,7 +40,11 @@ Things only the owners can do. Everything else the team handles.
    then `deploy` (see `deployment/README.md`).
 5. **Approve Azure AI spend**, then set repo variables `DEPLOY_OPENAI=true`
    and `MATCHMIND_AI_ENABLED=true` (and `DEPLOY_TRANSLATOR=true` for
-   Translator) and redeploy. Unset means off.
+   Translator) and redeploy. Unset means off. Optional, small cost: set
+   `DEPLOY_OBSERVABILITY=true` for crew traces in Application Insights and the
+   Foundry Tracing page (needs the sixth role above). Optional, paid: run
+   Foundry's Groundedness and Relevance evaluators on a sample of the
+   evaluation set (`docs/EVALUATION.md`).
 6. **GitHub**: turn on secret scanning and push protection
    (Settings -> Code security). Review and merge the engine branch.
 7. **Hackathon registration**: make sure both builders are listed as team

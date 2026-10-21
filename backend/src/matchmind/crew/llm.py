@@ -23,7 +23,10 @@ from typing import Any, Protocol, runtime_checkable
 from pydantic import BaseModel, ValidationError
 
 DEFAULT_API_VERSION = "2024-10-21"
+DEFAULT_DEPLOYMENT = "gpt-4o-mini"
 TOKEN_SCOPE = "https://cognitiveservices.azure.com/.default"
+TEMPERATURE = 0.3
+MAX_TOKENS = 400
 
 
 class LLMError(RuntimeError):
@@ -76,7 +79,7 @@ class AzureOpenAILLM:
         client: Any | None = None,
     ) -> None:
         self.endpoint = endpoint or os.environ.get("AZURE_OPENAI_ENDPOINT", "")
-        self.model = deployment or os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini")
+        self.model = deployment or os.environ.get("AZURE_OPENAI_DEPLOYMENT", DEFAULT_DEPLOYMENT)
         self.api_version = api_version or os.environ.get("AZURE_OPENAI_API_VERSION", DEFAULT_API_VERSION)
         self._client = client
 
@@ -107,8 +110,8 @@ class AzureOpenAILLM:
                     {"role": "user", "content": json.dumps(user, ensure_ascii=False)},
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.3,
-                max_tokens=400,
+                temperature=TEMPERATURE,
+                max_tokens=MAX_TOKENS,
                 timeout=timeout_s,
             )
             raw = response.choices[0].message.content
