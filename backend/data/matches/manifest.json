@@ -1,0 +1,52 @@
+[
+  {
+    "match_id": "MM-DEMO-001",
+    "file": "MM-DEMO-001.jsonl",
+    "seed": 100,
+    "home": "NBR",
+    "away": "HCY",
+    "score": "2-3",
+    "events": 2069,
+    "scripted": true
+  },
+  {
+    "match_id": "MM-SYN-001",
+    "file": "MM-SYN-001.jsonl",
+    "seed": 101,
+    "home": "NBR",
+    "away": "HCY",
+    "score": "3-1",
+    "events": 2162,
+    "scripted": false
+  },
+  {
+    "match_id": "MM-SYN-002",
+    "file": "MM-SYN-002.jsonl",
+    "seed": 102,
+    "home": "HCY",
+    "away": "NBR",
+    "score": "0-1",
+    "events": 2109,
+    "scripted": false
+  },
+  {
+    "match_id": "MM-SYN-003",
+    "file": "MM-SYN-003.jsonl",
+    "seed": 103,
+    "home": "NBR",
+    "away": "HCY",
+    "score": "1-0",
+    "events": 2087,
+    "scripted": false
+  },
+  {
+    "match_id": "MM-SYN-004",
+    "file": "MM-SYN-004.jsonl",
+    "seed": 104,
+    "home": "HCY",
+    "away": "NBR",
+    "score": "1-2",
+    "events": 2006,
+    "scripted": false
+  }
+]

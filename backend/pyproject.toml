@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "matchmind"
+version = "0.1.0"
+description = "Multi-agent match intelligence on synthetic football data (Microsoft x Premier League 'Inside the Game' hackathon)."
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = [
+    "pydantic>=2.7",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+azure = [
+    "azure-eventhub>=5.11",
+    "azure-identity>=1.17",
+]
+dev = [
+    "pytest>=8.2",
+    "ruff>=0.5",
+]
+
+[project.scripts]
+matchmind-sim = "matchmind.simulator.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/matchmind"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+src = ["src", "tests"]
+extend-exclude = ["docs"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["SIM115"]

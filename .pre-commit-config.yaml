@@ -1,0 +1,13 @@
+# Optional local guard: `pip install pre-commit && pre-commit install`
+# blocks a commit on your machine if it contains a secret, before it ever
+# reaches GitHub.
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+      - id: ruff-format
