@@ -3,7 +3,7 @@
  "bpm": 120,
  "beat": 0.5,
  "bar": 2.0,
- "duration": 112.0,
+ "duration": 114.0,
  "beats": [
   0.0,
   0.5,
@@ -229,7 +229,11 @@
   110.5,
   111.0,
   111.5,
-  112.0
+  112.0,
+  112.5,
+  113.0,
+  113.5,
+  114.0
  ],
  "scenes": [
   {
@@ -260,25 +264,25 @@
    "n": 5,
    "name": "split",
    "start": 68.0,
-   "duration": 12.0
+   "duration": 10.0
   },
   {
    "n": 6,
    "name": "languages",
-   "start": 80.0,
-   "duration": 10.0
+   "start": 78.0,
+   "duration": 14.0
   },
   {
    "n": 7,
    "name": "overlay",
-   "start": 90.0,
-   "duration": 8.0
+   "start": 92.0,
+   "duration": 10.0
   },
   {
    "n": 8,
    "name": "azure",
-   "start": 98.0,
-   "duration": 14.0
+   "start": 102.0,
+   "duration": 12.0
   }
  ],
  "lines": [
@@ -286,296 +290,308 @@
    "id": "s1a",
    "scene": 1,
    "start": 0.5,
-   "end": 2.655,
+   "end": 2.569,
    "speech": [
-    0.528,
-    2.572
+    0.539,
+    2.488
    ],
    "text": "Every broadcast has a crew.",
-   "caption": false
+   "caption": null
   },
   {
    "id": "s1b",
    "scene": 1,
-   "start": 2.955,
-   "end": 5.109,
+   "start": 2.869,
+   "end": 4.96,
    "speech": [
-    2.986,
-    5.023
+    2.917,
+    4.859
    ],
    "text": "So we built one, with AI.",
-   "caption": false
+   "caption": null
   },
   {
    "id": "s2a",
    "scene": 2,
    "start": 6.5,
-   "end": 10.745,
+   "end": 10.575,
    "speech": [
-    6.529,
-    10.655
+    6.537,
+    10.471
    ],
    "text": "PitchPulse streams a fully synthetic match through five stages.",
-   "caption": true
+   "caption": "PitchPulse streams a fully synthetic match through five stages."
   },
   {
    "id": "s2b",
    "scene": 2,
-   "start": 11.045,
-   "end": 19.045,
+   "start": 10.875,
+   "end": 18.661,
    "speech": [
-    11.072,
-    18.952
+    10.914,
+    18.577
    ],
    "text": "Ingest. A deterministic stats engine. An AI studio crew. Broadcast overlays. And a view for every viewer.",
-   "caption": true
+   "caption": "Ingest. A deterministic stats engine. An AI studio crew. Broadcast overlays. And a view for every viewer."
   },
   {
    "id": "s3a",
    "scene": 3,
    "start": 20.5,
-   "end": 23.764,
+   "end": 23.615,
    "speech": [
-    20.54,
-    23.662
+    20.547,
+    23.519
    ],
    "text": "The crew is five agents, each with one job.",
-   "caption": true
+   "caption": "The crew is five agents, each with one job."
   },
   {
    "id": "s3b",
    "scene": 3,
-   "start": 24.064,
-   "end": 32.32,
+   "start": 23.915,
+   "end": 31.936,
    "speech": [
-    24.117,
-    32.236
+    23.95,
+    31.841
    ],
    "text": "The Spotter finds the moment. The Analyst pulls the evidence. The Commentator writes it. The Producer decides what goes on air.",
-   "caption": true
+   "caption": "The Spotter finds the moment. The Analyst pulls the evidence. The Commentator writes it. The Producer decides what goes on air."
   },
   {
    "id": "s3c",
    "scene": 3,
-   "start": 32.82,
-   "end": 37.257,
+   "start": 32.436,
+   "end": 36.66,
    "speech": [
-    32.858,
-    37.139
+    32.476,
+    36.552
    ],
    "text": "And the Fact-checker blocks any number the stats engine can't prove.",
-   "caption": true
+   "caption": "And the Fact-checker blocks any number the stats engine can't prove."
   },
   {
    "id": "s3d",
    "scene": 3,
-   "start": 38.057,
-   "end": 42.708,
+   "start": 37.46,
+   "end": 42.345,
    "speech": [
-    38.101,
-    42.604
+    37.487,
+    42.263
    ],
-   "text": "If a model fails, the crew falls back on screen, and the show goes on.",
-   "caption": true
+   "text": "If a model fails, the crew falls back to templates, and says so on screen.",
+   "caption": "If a model fails, the crew falls back to templates, and says so on screen."
   },
   {
    "id": "s4a",
    "scene": 4,
    "start": 45.0,
-   "end": 51.357,
+   "end": 51.933,
    "speech": [
-    45.064,
-    51.266
+    45.052,
+    51.82
    ],
-   "text": "Thirty-four minutes. Asante shoots from fifteen metres. A five per cent chance, and it's saved.",
-   "caption": true
+   "text": "Thirty-four minutes. Asante shoots from fifteen point four metres. A five per cent chance, and it's saved.",
+   "caption": "34:16. Asante shoots from 15.4 m. A 5% chance, and it's saved."
   },
   {
    "id": "s4b",
    "scene": 4,
-   "start": 52.557,
-   "end": 55.437,
+   "start": 53.133,
+   "end": 55.864,
    "speech": [
-    52.592,
-    55.327
+    53.168,
+    55.756
    ],
    "text": "But the engine saw Kerrigan, free in the middle.",
-   "caption": true
+   "caption": "But the engine saw Kerrigan, free in the middle."
   },
   {
    "id": "s4c",
    "scene": 4,
-   "start": 55.837,
-   "end": 61.256,
+   "start": 56.264,
+   "end": 61.512,
    "speech": [
-    55.871,
-    61.165
+    56.296,
+    61.437
    ],
    "text": "That pass arrives eighty-three per cent of the time, into a twenty-four per cent chance.",
-   "caption": true
+   "caption": "That pass arrives 83% of the time, into a 24% chance."
   },
   {
    "id": "s4d",
    "scene": 4,
-   "start": 61.856,
-   "end": 64.651,
+   "start": 62.112,
+   "end": 64.757,
    "speech": [
-    61.914,
-    64.525
+    62.162,
+    64.655
    ],
    "text": "Four times the value. He should have passed.",
-   "caption": false
+   "caption": null
   },
   {
    "id": "s5a",
    "scene": 5,
    "start": 68.8,
-   "end": 74.965,
+   "end": 74.624,
    "speech": [
-    68.839,
-    74.863
+    68.84,
+    74.538
    ],
    "text": "Same moment, two audiences. The analyst gets the evidence trail. The fan gets the story.",
-   "caption": true
+   "caption": "Same moment, two audiences. The analyst gets the evidence trail. The fan gets the story."
   },
   {
    "id": "s6a",
    "scene": 6,
-   "start": 80.5,
-   "end": 82.953,
+   "start": 78.5,
+   "end": 80.825,
    "speech": [
-    80.536,
-    82.82
+    78.524,
+    80.694
    ],
    "text": "In English, Spanish, or Arabic.",
-   "caption": true
+   "caption": "In English, Spanish, or Arabic."
   },
   {
    "id": "s6b",
    "scene": 6,
-   "start": 83.553,
-   "end": 85.58,
+   "start": 83.625,
+   "end": 86.057,
    "speech": [
-    83.591,
-    85.525
+    83.66,
+    85.998
    ],
-   "text": "El pase val\u00eda cuatro veces m\u00e1s.",
-   "caption": true
+   "text": "El pase val\u00eda cuatro veces m\u00e1s que el tiro.",
+   "caption": "El pase val\u00eda 4 veces m\u00e1s que el tiro."
   },
   {
    "id": "s7a",
    "scene": 7,
-   "start": 90.6,
-   "end": 94.696,
+   "start": 92.6,
+   "end": 94.84,
    "speech": [
-    90.64,
-    94.615
+    92.624,
+    94.741
    ],
-   "text": "Drop it straight onto the broadcast, or follow one player all match.",
-   "caption": true
+   "text": "Drop it straight onto the broadcast.",
+   "caption": "Drop it straight onto the broadcast."
+  },
+  {
+   "id": "s7b",
+   "scene": 7,
+   "start": 96.84,
+   "end": 99.144,
+   "speech": [
+    96.866,
+    99.047
+   ],
+   "text": "Or follow one player, all match.",
+   "caption": "Or follow one player, all match."
   },
   {
    "id": "s8a",
    "scene": 8,
-   "start": 98.6,
-   "end": 106.344,
+   "start": 102.6,
+   "end": 108.445,
    "speech": [
-    98.624,
-    106.258
+    102.636,
+    108.349
    ],
-   "text": "Built on Azure: Container Apps, Event Hubs, and Azure OpenAI with managed identity. Every number checked.",
-   "caption": false
+   "text": "Built on Azure: Container Apps, Event Hubs and Azure OpenAI. Every number checked.",
+   "caption": null
   },
   {
    "id": "s8b",
    "scene": 8,
-   "start": 107.144,
-   "end": 108.168,
+   "start": 109.245,
+   "end": 110.227,
    "speech": [
-    107.187,
-    108.063
+    109.286,
+    110.135
    ],
    "text": "PitchPulse.",
-   "caption": false
+   "caption": null
   }
  ],
  "cues_raw": {
-  "s1a.crew": 2.193,
-  "s2b.ingest": 11.072,
-  "s2b.stats-engine": 12.873,
-  "s2b.studio-crew": 14.374,
-  "s2b.overlays": 16.1,
-  "s2b.every-viewer": 17.977,
-  "s3a.five-agents": 21.411,
-  "s3b.spotter": 24.373,
-  "s3b.analyst": 26.291,
-  "s3b.commentator": 28.336,
-  "s3b.producer": 30.062,
-  "s3c.fact-checker": 33.362,
-  "s3c.blocks": 34.18,
-  "s3d.falls-back": 39.838,
-  "s3d.show-goes-on": 41.768,
-  "s4a.shoots": 46.892,
-  "s4a.five-per-cent": 48.85,
-  "s4a.saved": 50.874,
-  "s4b.kerrigan": 53.674,
-  "s4c.eighty-three": 56.954,
-  "s4c.twenty-four": 59.481,
-  "s4d.four-times": 61.914,
-  "s4d.should-have-passed": 63.398,
-  "s5a.two-audiences": 69.729,
-  "s5a.analyst": 71.03,
-  "s5a.fan": 73.562,
-  "s6a.english": 80.757,
-  "s6a.spanish": 81.42,
-  "s6a.arabic": 82.304,
-  "s7a.broadcast": 92.16,
-  "s7a.follow-one-player": 92.978,
-  "s8a.azure": 99.278,
-  "s8a.container-apps": 99.787,
-  "s8a.event-hubs": 100.95,
-  "s8a.azure-openai": 102.114,
-  "s8a.every-number": 104.731,
-  "s8b.pitchpulse": 107.187
+  "s1a.crew": 2.127,
+  "s2b.ingest": 10.914,
+  "s2b.stats-engine": 12.665,
+  "s2b.studio-crew": 14.125,
+  "s2b.overlays": 15.803,
+  "s2b.every-viewer": 17.628,
+  "s3a.five-agents": 21.376,
+  "s3b.spotter": 24.199,
+  "s3b.analyst": 26.063,
+  "s3b.commentator": 28.051,
+  "s3b.producer": 29.728,
+  "s3c.fact-checker": 32.955,
+  "s3c.blocks": 33.735,
+  "s3d.fails": 38.197,
+  "s3d.templates": 40.133,
+  "s4a.shoots": 46.84,
+  "s4a.five-per-cent": 49.457,
+  "s4a.saved": 51.437,
+  "s4b.kerrigan": 54.192,
+  "s4c.eighty-three": 57.347,
+  "s4c.twenty-four": 59.801,
+  "s4d.four-times": 62.162,
+  "s4d.should-have-passed": 63.578,
+  "s5a.two-audiences": 69.682,
+  "s5a.analyst": 70.912,
+  "s5a.fan": 73.307,
+  "s6a.english": 78.734,
+  "s6a.spanish": 79.364,
+  "s6a.arabic": 80.204,
+  "s7a.broadcast": 94.153,
+  "s7b.follow-one-player": 97.07,
+  "s8a.azure": 103.263,
+  "s8a.container-apps": 103.75,
+  "s8a.event-hubs": 104.865,
+  "s8a.azure-openai": 105.911,
+  "s8a.every-number": 106.886,
+  "s8b.pitchpulse": 109.286
  },
  "cues": {
   "s1a.crew": 2.0,
   "s2b.ingest": 11.0,
-  "s2b.stats-engine": 13.0,
-  "s2b.studio-crew": 14.5,
+  "s2b.stats-engine": 12.5,
+  "s2b.studio-crew": 14.0,
   "s2b.overlays": 16.0,
-  "s2b.every-viewer": 18.0,
+  "s2b.every-viewer": 17.5,
   "s3a.five-agents": 21.5,
-  "s3b.spotter": 24.5,
-  "s3b.analyst": 26.5,
-  "s3b.commentator": 28.5,
-  "s3b.producer": 30.0,
-  "s3c.fact-checker": 33.5,
-  "s3c.blocks": 34.0,
-  "s3d.falls-back": 40.0,
-  "s3d.show-goes-on": 42.0,
+  "s3b.spotter": 24.0,
+  "s3b.analyst": 26.0,
+  "s3b.commentator": 28.0,
+  "s3b.producer": 29.5,
+  "s3c.fact-checker": 33.0,
+  "s3c.blocks": 33.5,
+  "s3d.fails": 38.0,
+  "s3d.templates": 40.0,
   "s4a.shoots": 47.0,
-  "s4a.five-per-cent": 49.0,
-  "s4a.saved": 51.0,
-  "s4b.kerrigan": 53.5,
-  "s4c.eighty-three": 57.0,
-  "s4c.twenty-four": 59.5,
+  "s4a.five-per-cent": 49.5,
+  "s4a.saved": 51.5,
+  "s4b.kerrigan": 54.0,
+  "s4c.eighty-three": 57.5,
+  "s4c.twenty-four": 60.0,
   "s4d.four-times": 62.0,
   "s4d.should-have-passed": 63.5,
   "s5a.two-audiences": 69.5,
   "s5a.analyst": 71.0,
   "s5a.fan": 73.5,
-  "s6a.english": 81.0,
-  "s6a.spanish": 81.5,
-  "s6a.arabic": 82.5,
-  "s7a.broadcast": 92.0,
-  "s7a.follow-one-player": 93.0,
-  "s8a.azure": 99.5,
-  "s8a.container-apps": 100.0,
-  "s8a.event-hubs": 101.0,
-  "s8a.azure-openai": 102.0,
-  "s8a.every-number": 104.5,
-  "s8b.pitchpulse": 107.0
+  "s6a.english": 78.5,
+  "s6a.spanish": 79.5,
+  "s6a.arabic": 80.0,
+  "s7a.broadcast": 94.0,
+  "s7b.follow-one-player": 97.0,
+  "s8a.azure": 103.5,
+  "s8a.container-apps": 104.0,
+  "s8a.event-hubs": 105.0,
+  "s8a.azure-openai": 106.0,
+  "s8a.every-number": 107.0,
+  "s8b.pitchpulse": 109.5
  },
  "sfx": [
   {
@@ -591,11 +607,11 @@
    "kind": "click"
   },
   {
-   "t": 13.0,
+   "t": 12.5,
    "kind": "click"
   },
   {
-   "t": 14.5,
+   "t": 14.0,
    "kind": "click"
   },
   {
@@ -603,7 +619,7 @@
    "kind": "click"
   },
   {
-   "t": 18.0,
+   "t": 17.5,
    "kind": "click"
   },
   {
@@ -611,23 +627,23 @@
    "kind": "swish"
   },
   {
-   "t": 24.5,
+   "t": 24.0,
    "kind": "click"
   },
   {
-   "t": 26.5,
+   "t": 26.0,
    "kind": "click"
   },
   {
-   "t": 28.5,
+   "t": 28.0,
    "kind": "click"
   },
   {
-   "t": 30.0,
+   "t": 29.5,
    "kind": "click"
   },
   {
-   "t": 34.0,
+   "t": 33.5,
    "kind": "buzz"
   },
   {
@@ -639,19 +655,19 @@
    "kind": "swish"
   },
   {
-   "t": 51.0,
+   "t": 51.5,
    "kind": "hit"
   },
   {
-   "t": 53.5,
+   "t": 54.0,
    "kind": "click"
   },
   {
-   "t": 57.0,
+   "t": 57.5,
    "kind": "click"
   },
   {
-   "t": 59.5,
+   "t": 60.0,
    "kind": "click"
   },
   {
@@ -663,43 +679,43 @@
    "kind": "swish"
   },
   {
+   "t": 78.0,
+   "kind": "swish"
+  },
+  {
+   "t": 78.5,
+   "kind": "click"
+  },
+  {
+   "t": 79.5,
+   "kind": "click"
+  },
+  {
    "t": 80.0,
+   "kind": "click"
+  },
+  {
+   "t": 92.0,
    "kind": "swish"
-  },
-  {
-   "t": 81.0,
-   "kind": "click"
-  },
-  {
-   "t": 81.5,
-   "kind": "click"
-  },
-  {
-   "t": 82.5,
-   "kind": "click"
-  },
-  {
-   "t": 90.0,
-   "kind": "swish"
-  },
-  {
-   "t": 98.0,
-   "kind": "swish"
-  },
-  {
-   "t": 100.0,
-   "kind": "click"
-  },
-  {
-   "t": 101.0,
-   "kind": "click"
   },
   {
    "t": 102.0,
+   "kind": "swish"
+  },
+  {
+   "t": 104.0,
    "kind": "click"
   },
   {
-   "t": 107.0,
+   "t": 105.0,
+   "kind": "click"
+  },
+  {
+   "t": 106.0,
+   "kind": "click"
+  },
+  {
+   "t": 109.5,
    "kind": "hit"
   }
  ]

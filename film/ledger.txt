@@ -7,3 +7,13 @@ Round 0 (first full draft, 2026-10-21, 30 fps draft quality)
 - Facts: "should he have passed" numbers now come from matchmind.stats.better_option.analyse_shot
   (feat/core-engine); same values as the earlier local computation (5%, 83%, 24%, 4.0x).
 - Open: crew lines are drafts (check_facts.py refuses a final render until they are replaced).
+
+Round 1 review (fresh reviewer, 560 frames): "another pass". Fixed:
+- Language cards held 3-4 s each (was 2.2-3.4 s); lower third held ~5 s (was 1.1 s), lifted clear of captions.
+- Empty cards removed: analyst rows and English card arrive with their panels.
+- Crew scene relaid as a vertical relay with checks on the right (was the same 5-card row as the pipeline).
+- Every on-screen line now traces to facts.json: copy entries added; captions use digits and facts wording.
+- Pitch scenes kept above the bottom 8%; inactive stage text raised to 60% (from 35%).
+- Crew lines now real crew output from the API (template mode, produced_by: template);
+  fact-checker line is a real matchmind.crew.fact_checker.check() result.
+- Duration 114.0 s (under 120 s). Remaining draft: azure.stack (waits for the Azure deployment).

@@ -1,7 +1,7 @@
 {
  "voice": "bm_george",
  "lang": "en-gb",
- "speed": 1.0,
+ "speed": 1.06,
  "lines": [
   {
    "id": "s1a",
@@ -67,22 +67,23 @@
   {
    "id": "s3d",
    "scene": 3,
-   "text": "If a model fails, the crew falls back on screen, and the show goes on.",
+   "text": "If a model fails, the crew falls back to templates, and says so on screen.",
    "cues": [
-    "falls back",
-    "show goes on"
+    "fails",
+    "templates"
    ],
    "gap_before": 0.8
   },
   {
    "id": "s4a",
    "scene": 4,
-   "text": "Thirty-four minutes. Asante shoots from fifteen metres. A five per cent chance, and it's saved.",
+   "text": "Thirty-four minutes. Asante shoots from fifteen point four metres. A five per cent chance, and it's saved.",
    "cues": [
     "shoots",
     "five per cent",
     "saved"
-   ]
+   ],
+   "caption": "34:16. Asante shoots from 15.4 m. A 5% chance, and it's saved."
   },
   {
    "id": "s4b",
@@ -101,7 +102,8 @@
     "eighty-three",
     "twenty-four"
    ],
-   "gap_before": 0.4
+   "gap_before": 0.4,
+   "caption": "That pass arrives 83% of the time, into a 24% chance."
   },
   {
    "id": "s4d",
@@ -137,24 +139,33 @@
   {
    "id": "s6b",
    "scene": 6,
-   "text": "El pase valía cuatro veces más.",
+   "text": "El pase valía cuatro veces más que el tiro.",
    "voice": "ef_dora",
    "lang": "es",
-   "gap_before": 0.6
+   "gap_before": 2.8,
+   "caption": "El pase valía 4 veces más que el tiro."
   },
   {
    "id": "s7a",
    "scene": 7,
-   "text": "Drop it straight onto the broadcast, or follow one player all match.",
+   "text": "Drop it straight onto the broadcast.",
    "cues": [
-    "broadcast",
+    "broadcast"
+   ]
+  },
+  {
+   "id": "s7b",
+   "scene": 7,
+   "text": "Or follow one player, all match.",
+   "gap_before": 2.0,
+   "cues": [
     "follow one player"
    ]
   },
   {
    "id": "s8a",
    "scene": 8,
-   "text": "Built on Azure: Container Apps, Event Hubs, and Azure OpenAI with managed identity. Every number checked.",
+   "text": "Built on Azure: Container Apps, Event Hubs and Azure OpenAI. Every number checked.",
    "cues": [
     "Azure",
     "Container Apps",

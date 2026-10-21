@@ -70,30 +70,30 @@
       #s2 .stage .t { margin-top: 14px; font-size: 38px; font-weight: 800; line-height: 1.12; }
       #s2 .glow { position: absolute; inset: -2px; border-radius: 28px; border: 4px solid var(--red); opacity: 0; }
       #s2 .ev { position: absolute; top: 692px; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); opacity: 0; }
-      #s2 .count { position: absolute; left: 140px; top: 760px; font-size: 40px; }
-      #s2 .count b { font-family: "JetBrains Mono", monospace; font-weight: 500; font-size: 64px; color: var(--ink); }
+      #s2 .count { position: absolute; left: 140px; top: 740px; font-size: 40px; }
+      #s2 .count b { display: block; font-family: "JetBrains Mono", monospace; font-weight: 500; font-size: 110px; color: var(--ink); }
 
       /* 3 crew */
       #s3 .head { position: absolute; left: 140px; top: 100px; }
-      #s3 .agent { position: absolute; top: 300px; width: 310px; height: 300px; padding: 28px; }
-      #s3 .agent .i { width: 64px; height: 64px; border-radius: 18px; background: rgba(238, 243, 239, 0.1); }
-      #s3 .agent .nm { margin-top: 26px; font-size: 36px; font-weight: 800; }
-      #s3 .agent .jb { margin-top: 10px; font-size: 30px; line-height: 1.3; }
+      #s3 .agent { position: absolute; left: 140px; width: 820px; height: 104px; padding: 0 30px; display: flex; align-items: center; }
+      #s3 .agent .i { width: 48px; height: 48px; border-radius: 14px; background: rgba(238, 243, 239, 0.1); flex: none; }
+      #s3 .agent .nm { margin-left: 22px; width: 272px; font-size: 36px; font-weight: 800; flex: none; }
+      #s3 .agent .jb { flex: 1; padding-right: 170px; font-size: 28px; line-height: 1.15; }
       #s3 .agent .on { position: absolute; inset: -2px; border-radius: 28px; border: 4px solid var(--ink); opacity: 0; }
-      #s3 .chip { position: absolute; top: 640px; width: 300px; text-align: center; opacity: 0; }
+      #s3 .chip { position: absolute; right: 26px; top: 26px; opacity: 0; }
       #s3 .chip span { background: var(--ink); color: var(--bg); }
-      #s3 .fc { position: absolute; left: 140px; top: 690px; width: 1000px; height: 190px; padding: 30px 40px; opacity: 0; }
+      #s3 .fc { position: absolute; left: 1020px; top: 270px; width: 760px; height: 330px; padding: 36px 40px; opacity: 0; }
       #s3 .fc .row { font-size: 40px; }
       #s3 .fc .bad { position: relative; color: var(--red); font-weight: 800; }
       #s3 .fc .strike { position: absolute; left: -6px; right: -6px; top: 26px; height: 6px; background: var(--red); }
       #s3 .fc .good { font-weight: 800; opacity: 0; }
-      #s3 .fc .why { margin-top: 16px; font-size: 30px; }
-      #s3 .fb { position: absolute; left: 1180px; top: 690px; width: 600px; height: 190px; padding: 30px; opacity: 0; }
+      #s3 .fc .why { margin-top: 26px; font-size: 32px; line-height: 1.35; }
+      #s3 .fb { position: absolute; left: 1020px; top: 630px; width: 760px; height: 236px; padding: 32px 40px; opacity: 0; }
       #s3 .fb .badge { background: var(--orange); color: var(--bg); }
-      #s3 .fb .txt { margin-top: 18px; font-size: 30px; line-height: 1.3; }
+      #s3 .fb .txt { margin-top: 18px; font-size: 32px; line-height: 1.3; }
 
       /* 4 should he have passed */
-      #s4 .pitchwrap { position: absolute; left: 90px; top: 60px; width: 900px; height: 960px; }
+      #s4 .pitchwrap { position: absolute; left: 90px; top: 40px; width: 900px; height: 860px; }
       #s4 .side { position: absolute; left: 1060px; top: 110px; width: 760px; }
       #s4 .stat { margin-top: 22px; padding: 18px 30px; opacity: 0; }
       #s4 .stat .k { font-size: 30px; }
@@ -120,19 +120,19 @@
 
       /* 7 overlay */
       #s7 .feed { position: absolute; inset: 0; }
-      #s7 .l3 { position: absolute; left: 140px; top: 760px; width: 1640px; height: 150px; display: flex; border-radius: 20px; overflow: hidden; opacity: 0; }
-      #s7 .l3 .a { background: var(--red); color: var(--bg); padding: 0 40px; display: flex; align-items: center; font-size: 36px; font-weight: 800; width: 470px; }
+      #s7 .l3 { position: absolute; left: 140px; top: 690px; width: 1640px; height: 150px; display: flex; border-radius: 20px; overflow: hidden; opacity: 0; }
+      #s7 .l3 .a { background: var(--red); color: var(--bg); padding: 0 40px; display: flex; align-items: center; font-size: 38px; font-weight: 800; width: 560px; flex: none; }
       #s7 .l3 .b { background: rgba(11, 20, 16, 0.94); flex: 1; padding: 0 40px; display: flex; align-items: center; font-size: 38px; font-weight: 600; }
       #s7 .focus { position: absolute; left: 140px; top: 200px; width: 570px; padding: 40px; opacity: 0; }
       #s7 .focus .nm { font-size: 52px; font-weight: 800; }
       #s7 .focus .ln { margin-top: 12px; font-size: 32px; }
 
       /* 8 azure + end */
-      #s8 .tiles { position: absolute; left: 140px; top: 250px; width: 1640px; display: flex; gap: 40px; }
+      #s8 .tiles { position: absolute; left: 140px; top: 330px; width: 1640px; display: flex; gap: 40px; }
       #s8 .tile { flex: 1; height: 300px; padding: 44px; opacity: 0; }
       #s8 .tile .t { font-size: 54px; font-weight: 800; line-height: 1.15; }
       #s8 .tile .d { margin-top: 18px; font-size: 34px; }
-      #s8 .q { position: absolute; left: 140px; top: 620px; font-size: 40px; opacity: 0; }
+      #s8 .q { position: absolute; left: 140px; top: 700px; font-size: 40px; opacity: 0; }
       #s8 .end { position: absolute; left: 0; right: 0; top: 330px; text-align: center; opacity: 0; }
       #s8 .end .mark { font-size: 150px; font-weight: 800; letter-spacing: -0.045em; }
       #s8 .end .url { margin-top: 20px; font-size: 48px; font-family: "JetBrains Mono", monospace; font-weight: 500; }
@@ -140,8 +140,8 @@
     </style>
   </head>
   <body>
-    <div id="root" data-composition-id="main" data-start="0" data-duration="112" data-width="1920" data-height="1080">
-      <div id="stage" class="clip" data-start="0" data-duration="112" data-track-index="0">
+    <div id="root" data-composition-id="main" data-start="0" data-duration="114" data-width="1920" data-height="1080">
+      <div id="stage" class="clip" data-start="0" data-duration="114" data-track-index="0">
 
         <!-- 1 title -->
         <div id="s1" class="scene"><div class="cam" id="c1">
@@ -159,7 +159,7 @@
         <div id="s2" class="scene"><div class="cam" id="c2">
           <div class="head">
             <div class="kicker muted" id="s2k"></div>
-            <div class="h1" id="s2h" style="margin-top: 18px;">One synthetic match. Five stages.</div>
+            <div class="h1" id="s2h" style="margin-top: 18px;"></div>
           </div>
           <div class="rail"></div>
           <div id="s2stages"></div>
@@ -175,8 +175,8 @@
           </div>
           <div id="s3agents"></div>
           <div class="fc panel" id="s3fc">
-            <div class="row">"…into a <span class="bad" id="s3bad">40%<span class="strike" id="s3strike"></span></span>
-              <span class="good" id="s3good"></span> chance"</div>
+            <div class="row">“<span id="s3who"></span> had a <span class="bad" id="s3bad">40%<span class="strike" id="s3strike"></span></span>
+              <span class="good" id="s3good"></span> chance”</div>
             <div class="why muted" id="s3why"></div>
           </div>
           <div class="fb panel" id="s3fb">
@@ -187,7 +187,7 @@
 
         <!-- 4 should he have passed -->
         <div id="s4" class="scene"><div class="cam" id="c4">
-          <div class="pitchwrap"><svg id="s4pitch" width="900" height="960"></svg></div>
+          <div class="pitchwrap"><svg id="s4pitch" width="900" height="860"></svg></div>
           <div class="replay" id="s4replay"><span class="pill">Replay</span></div>
           <div class="side">
             <div class="kicker muted" id="s4k"></div>
@@ -226,8 +226,8 @@
 
         <!-- 7 overlay + player focus -->
         <div id="s7" class="scene"><div class="cam" id="c7">
-          <svg class="feed" id="s7pitch" width="1920" height="1080"></svg>
-          <div class="bug" id="s7bug" style="left: 80px; top: 70px;"></div>
+          <svg class="feed" id="s7pitch" width="1920" height="820" style="top: 130px;"></svg>
+          <div class="bug" id="s7bug" style="left: 80px; top: 40px;"></div>
           <div class="l3" id="s7l3"><div class="a">Should he have passed?</div><div class="b" id="s7l3b"></div></div>
           <div class="focus panel" id="s7focus">
             <span class="pill" style="background: var(--ink); color: var(--bg);">Player focus</span>
@@ -241,9 +241,9 @@
         <div id="s8" class="scene"><div class="cam" id="c8">
           <div id="s8h" style="position: absolute; left: 140px; top: 100px;"><div class="h1">Built on Azure</div></div>
           <div class="tiles">
-            <div class="tile panel" id="s8a"><div class="t">Container Apps</div><div class="d muted">The engine and the crew API</div></div>
-            <div class="tile panel" id="s8b"><div class="t">Event Hubs</div><div class="d muted">The live event stream</div></div>
-            <div class="tile panel" id="s8c"><div class="t">Azure OpenAI</div><div class="d muted">Managed identity, no keys</div></div>
+            <div class="tile panel" id="s8a"><div class="t">Container Apps</div><div class="d muted" id="s8ad"></div></div>
+            <div class="tile panel" id="s8b"><div class="t">Event Hubs</div><div class="d muted" id="s8bd"></div></div>
+            <div class="tile panel" id="s8c"><div class="t">Azure OpenAI</div><div class="d muted" id="s8cd"></div></div>
           </div>
           <div class="q muted" id="s8q"></div>
           <div class="end" id="s8end">
@@ -356,21 +356,21 @@
       ROLES.forEach(([nm, job, out], i) => {
         const d = html("div", "agent panel", null, $("s3agents"));
         d.id = "s3a" + i;
-        d.style.left = 140 + i * 335 + "px";
+        d.style.top = 270 + i * 120 + "px";
         const ic = html("div", "i", null, d);
         if (i === 4) ic.style.background = "rgba(255, 92, 92, 0.35)";
         html("div", "nm", nm, d);
         html("div", "jb muted", job, d);
         const on = html("div", "on", null, d);
         on.id = "s3o" + i;
-        const c = html("div", "chip", null, $("s3agents"));
+        const c = html("div", "chip", null, d);
         c.id = "s3c" + i;
-        c.style.left = 140 + i * 335 + "px";
         const p = html("span", "pill", out, c);
       });
       const fcv = v("crew.factcheck");
       $("s3good").textContent = fcv.replacement;
-      $("s3why").textContent = "Fact-checker: “40%” is not in the moment’s facts.";
+      $("s3who").textContent = surname(bo.shooter);
+      $("s3why").textContent = F["crew.factcheck"].text;
       $("s3fbt").textContent = F["crew.fallback"].text;
 
       // scene 4 pitch: attacking half, from the shot's freeze frame
@@ -418,7 +418,7 @@
         html("span", "muted", k, r);
         html("b", null, val, r);
       });
-      $("s5src").textContent = `source: event ${bo.event_id} · stats engine`;
+      $("s5src").textContent = `event ${bo.event_id} · produced_by ${v("crew.analyst").produced_by}`;
       $("s5story").textContent = F["crew.fan.en"].text;
 
       $("s6l0").textContent = F["crew.fan.en"].text;
@@ -439,6 +439,11 @@
       $("s7l2").textContent = `Goal ${pf.goal} · free in the middle at ${bo.clock}`;
 
       $("s8q").textContent = F["repo.quality"].text;
+      const az = v("azure.stack");
+      $("s8ad").textContent = az[0];
+      $("s8bd").textContent = az[1];
+      $("s8cd").textContent = az[2];
+      $("s2h").textContent = F["copy.pipeline"].text;
       const fin = v("match.final");
       $("s8fine").textContent = `Demo match: ${teams.NBR.name} ${fin.NBR}–${fin.HCY} ${teams.HCY.name}. Fully synthetic.`;
 
@@ -446,7 +451,7 @@
       for (const l of T.lines.filter((l) => l.caption)) {
         const c = html("div", "cap", null, $("caps"));
         c.id = "cap-" + l.id;
-        html("span", null, l.text, c);
+        html("span", null, l.caption, c);
       }
 
       // ---------- timeline ----------
@@ -477,7 +482,7 @@
       rise("#s2h", s2.start + 0.1);
       const stageCues = ["s2b.ingest", "s2b.stats-engine", "s2b.studio-crew", "s2b.overlays", "s2b.every-viewer"];
       stageCues.forEach((k, i) => {
-        tl.set("#s2s" + i, { opacity: 0.35 }, s2.start);
+        tl.set("#s2s" + i, { opacity: 0.6 }, s2.start);
         tl.to("#s2s" + i, { opacity: 1, duration: 0.3, ease: "power2.out" }, cue(k));
         tl.fromTo("#s2g" + i, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power2.out" }, cue(k));
         if (i < 4) tl.to("#s2g" + i, { opacity: 0, duration: 0.4, ease: "power2.in" }, cue(stageCues[i + 1]));
@@ -492,21 +497,21 @@
 
       // 3 crew
       const s3 = S(3);
-      ROLES.forEach((_, i) => tl.fromTo("#s3a" + i, { opacity: 0, y: 40 }, { ...IN }, s3.start + 0.2 + i * 0.12));
+      ROLES.forEach((_, i) => tl.fromTo("#s3a" + i, { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, s3.start + 0.2 + i * 0.12));
       const agentCues = ["s3b.spotter", "s3b.analyst", "s3b.commentator", "s3b.producer", "s3c.fact-checker"];
       agentCues.forEach((k, i) => {
         tl.fromTo("#s3o" + i, { opacity: 0 }, { opacity: 1, duration: 0.25 }, cue(k));
-        rise("#s3c" + i, cue(k), 16);
+        tl.fromTo("#s3c" + i, { opacity: 0, x: -24 }, { opacity: 1, x: 0, duration: 0.4, ease: "power3.out" }, cue(k));
         if (i < 4) tl.to("#s3o" + i, { opacity: 0, duration: 0.3 }, cue(agentCues[i + 1]));
       });
       rise("#s3fc", cue("s3c.fact-checker"));
       tl.fromTo("#s3strike", { scaleX: 0 }, { scaleX: 1, duration: 0.3, ease: "power2.out", transformOrigin: "left center" }, cue("s3c.blocks"));
       tl.to("#s3bad", { opacity: 0.45, duration: 0.3 }, cue("s3c.blocks") + 0.3);
       tl.fromTo("#s3good", { opacity: 0, y: -16 }, { ...IN }, cue("s3c.blocks") + 0.5);
-      rise("#s3fb", cue("s3d.falls-back"));
-      tl.to("#s3o4", { opacity: 0, duration: 0.3 }, cue("s3d.falls-back"));
-      tl.fromTo("#s3o2", { opacity: 0 }, { opacity: 1, duration: 0.25 }, cue("s3d.falls-back"));
-      tl.to("#s3o2", { borderColor: "#f08a24", duration: 0.1 }, cue("s3d.falls-back"));
+      rise("#s3fb", cue("s3d.templates"));
+      tl.to("#s3o4", { opacity: 0, duration: 0.3 }, cue("s3d.templates"));
+      tl.fromTo("#s3o2", { opacity: 0 }, { opacity: 1, duration: 0.25 }, cue("s3d.templates"));
+      tl.to("#s3o2", { borderColor: "#f08a24", duration: 0.1 }, cue("s3d.templates"));
 
       // 4 should he have passed
       const s4 = S(4);
@@ -539,9 +544,9 @@
       const s5 = S(5);
       tl.fromTo("#s5l", { opacity: 0, x: -60 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, s5.start + 0.1);
       tl.fromTo("#s5r", { opacity: 0, x: 60 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, s5.start + 0.1);
-      rows.forEach((_, i) => rise("#s5r" + i, cue("s5a.analyst") + i * 0.35, 12));
-      rise("#s5src", cue("s5a.analyst") + rows.length * 0.35, 12);
-      rise("#s5story", cue("s5a.fan"));
+      rows.forEach((_, i) => rise("#s5r" + i, s5.start + 0.4 + i * 0.45, 12));
+      rise("#s5src", s5.start + 0.4 + rows.length * 0.45, 12);
+      rise("#s5story", Math.min(cue("s5a.fan"), s5.start + 1.2));
 
       // 6 languages
       const langCues = ["s6a.english", "s6a.spanish", "s6a.arabic"];
@@ -549,7 +554,7 @@
       const s6end = s6.start + s6.duration;
       // English, then Spanish over the Spanish line, then Arabic holds to the end
       const sp = T.lines.find((l) => l.id === "s6b");
-      const langAt = [cue("s6a.english"), sp.start, sp.end + 0.5];
+      const langAt = [s6.start + 0.1, sp.start - 0.2, sp.end + 2.6];
       langAt.forEach((t, i) => {
         rise("#s6l" + i, t, 20);
         tl.fromTo("#s6t" + i, { backgroundColor: "#14241c", color: "#eef3ef" }, { backgroundColor: "#eef3ef", color: "#0b1410", duration: 0.2 }, t);
@@ -561,8 +566,8 @@
 
       // 7 overlay, then player focus
       const s7 = S(7);
-      tl.fromTo("#s7l3", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, cue("s7a.broadcast"));
-      const tF = cue("s7a.follow-one-player");
+      tl.fromTo("#s7l3", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, s7.start + 0.3);
+      const tF = cue("s7b.follow-one-player");
       for (const pid in fp) if (pid !== bo.teammate_id) tl.to(fp[pid].g, { opacity: 0.25, duration: 0.4 }, tF);
       tl.fromTo(focusRing, { opacity: 0, attr: { r: 6 } }, { opacity: 1, attr: { r: 3 }, duration: 0.5, ease: "power3.out" }, tF);
       tl.to("#s7l3", { opacity: 0, duration: 0.3 }, tF);

@@ -131,7 +131,7 @@ def sfx_events(timing):
     ev = [{"t": s["start"], "kind": "swish"} for s in timing["scenes"][1:]]
     ev.append({"t": c["s1a.crew"], "kind": "hit"})
     ev += [{"t": c[k], "kind": "click"} for k in c if k.startswith("s2b.") or k.startswith("s3b.")]
-    ev += [{"t": c["s3c.blocks"], "kind": "buzz"}, {"t": c["s3d.falls-back"], "kind": "click"},
+    ev += [{"t": c["s3c.blocks"], "kind": "buzz"}, {"t": c["s3d.templates"], "kind": "click"},
            {"t": c["s4a.saved"], "kind": "hit"}, {"t": c["s4b.kerrigan"], "kind": "click"},
            {"t": c["s4c.eighty-three"], "kind": "click"}, {"t": c["s4c.twenty-four"], "kind": "click"},
            {"t": c["s4d.four-times"], "kind": "hit"}]

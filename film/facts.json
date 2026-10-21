@@ -449,60 +449,81 @@
   },
   {
    "id": "crew.analyst",
-   "text": "34:16 Asante shot from 15.4 m: chance 5%. Square ball to Kerrigan, 16.4 m: 83% to arrive, then 24%. Value 0.20 vs 0.05: 4.0x.",
-   "value": null,
-   "source": "crew draft (replace with crew API output)",
-   "draft": true
+   "text": "Shot selection: Asante ignored Kerrigan. Shot at 0.05 xG; the 16 m pass had 83% success odds and a 0.24 xG chance behind it. Expected value 0.2, 4x the shot.",
+   "value": {
+    "headline": "Shot selection: Asante ignored Kerrigan",
+    "body": "Shot at 0.05 xG; the 16 m pass had 83% success odds and a 0.24 xG chance behind it. Expected value 0.2, 4x the shot.",
+    "produced_by": "template"
+   },
+   "source": "crew API: GET /api/match/moment/better_option-MM-DEMO-001-00717?persona=tactical&lang=en"
   },
   {
    "id": "crew.fan.en",
-   "text": "Asante went for glory and the keeper said no. Kerrigan was free in the middle. That pass was worth 4.0 times more.",
-   "value": null,
-   "source": "crew draft (replace with crew API output)",
-   "draft": true
+   "text": "Should Asante have passed? Asante went for goal, but Kerrigan was free. The pass was worth 4x more than the shot.",
+   "value": {
+    "headline": "Should Asante have passed?",
+    "body": "Asante went for goal, but Kerrigan was free. The pass was worth 4x more than the shot.",
+    "rtl": false,
+    "produced_by": "template"
+   },
+   "source": "crew API: GET /api/match/moment/better_option-MM-DEMO-001-00717?persona=casual&lang=en"
   },
   {
    "id": "crew.fan.es",
-   "text": "Asante buscó la gloria y el portero dijo que no. Kerrigan estaba solo en el centro. Ese pase valía 4,0 veces más.",
-   "value": null,
-   "source": "crew draft (replace with crew API output)",
-   "draft": true
+   "text": "¿Debió pasarla Asante? Asante buscó el gol, pero Kerrigan estaba solo. El pase valía 4 veces más que el tiro.",
+   "value": {
+    "headline": "¿Debió pasarla Asante?",
+    "body": "Asante buscó el gol, pero Kerrigan estaba solo. El pase valía 4 veces más que el tiro.",
+    "rtl": false,
+    "produced_by": "template"
+   },
+   "source": "crew API: GET /api/match/moment/better_option-MM-DEMO-001-00717?persona=casual&lang=es"
   },
   {
    "id": "crew.fan.ar",
-   "text": "سدّد أسانتي فتصدّى الحارس. كان كيريغان حرًّا في الوسط. تلك التمريرة كانت تساوي 4.0 أضعاف.",
-   "value": null,
-   "source": "crew draft (replace with crew API output)",
-   "draft": true
+   "text": "هل كان على Asante أن يمرر؟ Asante سدد، لكن Kerrigan كان حرًا تمامًا. التمريرة كانت تساوي 4 أضعاف التسديدة.",
+   "value": {
+    "headline": "هل كان على Asante أن يمرر؟",
+    "body": "Asante سدد، لكن Kerrigan كان حرًا تمامًا. التمريرة كانت تساوي 4 أضعاف التسديدة.",
+    "rtl": true,
+    "produced_by": "template"
+   },
+   "source": "crew API: GET /api/match/moment/better_option-MM-DEMO-001-00717?persona=casual&lang=ar"
   },
   {
    "id": "crew.factcheck",
-   "text": "Blocked: \"a 40% chance\" is not in the moment's facts. Replaced with 24%.",
+   "text": "Fact-checker on \"Asante had a 40% chance\": number 40 is not in the facts.",
    "value": {
     "blocked": "40%",
-    "replacement": "24%"
+    "replacement": "5%",
+    "ok": false,
+    "reasons": [
+     "number 40 is not in the facts"
+    ]
    },
-   "source": "crew draft (replace with crew API output)",
-   "draft": true
+   "source": "matchmind.crew.fact_checker.check"
   },
   {
    "id": "crew.fallback",
-   "text": "Model unavailable: Commentator switched to template mode.",
-   "value": null,
-   "source": "crew draft (replace with crew API output)",
-   "draft": true
+   "text": "No model connected: the crew runs in template mode, and every card says produced_by: template.",
+   "value": {
+    "mode": "template",
+    "model": null,
+    "breakers_open": [],
+    "moments": 0,
+    "fallbacks": 0,
+    "rejections": 0
+   },
+   "source": "crew API: GET /api/crew/status"
   },
   {
    "id": "azure.stack",
-   "text": "Azure Container Apps, Azure Event Hubs, Azure OpenAI with managed identity.",
-   "value": null,
-   "source": "crew draft (replace with crew API output)",
-   "draft": true
-  },
-  {
-   "id": "repo.quality",
-   "text": "Tests, CI and secret scanning on every push.",
-   "value": null,
+   "text": "Container Apps runs the engine and crew API; Event Hubs carries the live event stream; Azure OpenAI is reached with managed identity, no keys.",
+   "value": [
+    "Runs the engine and crew API",
+    "Carries the live event stream",
+    "Managed identity, no keys"
+   ],
    "source": "crew draft (replace with crew API output)",
    "draft": true
   },
@@ -524,9 +545,14 @@
    "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/data/matches/MM-DEMO-001.jsonl#L490"
   },
   {
+   "id": "repo.quality",
+   "text": "Tests, CI and secret scanning on every push.",
+   "value": null,
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/.github/workflows/ci.yml"
+  },
+  {
    "id": "crew.roles",
-   "draft": true,
-   "source": "project goal (PitchPulse brief)",
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/src/matchmind/crew/__init__.py",
    "text": "Spotter finds the moment; Analyst pulls the evidence; Commentator writes it; Producer decides what airs; Fact-checker blocks unproven numbers.",
    "value": [
     [
@@ -555,6 +581,60 @@
      "Verified"
     ]
    ]
+  },
+  {
+   "id": "engine.deterministic",
+   "text": "Deterministic football metrics. No randomness, no models: same event in, same number out.",
+   "value": null,
+   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/src/matchmind/stats/metrics.py#L1"
+  },
+  {
+   "id": "copy.tagline",
+   "text": "Every broadcast has a crew. So we built one, with AI.",
+   "value": null,
+   "source": "film copy (storyboard.md)"
+  },
+  {
+   "id": "copy.byline",
+   "text": "powered by the Matchmind engine",
+   "value": null,
+   "source": "film copy (storyboard.md)"
+  },
+  {
+   "id": "copy.pipeline",
+   "text": "One synthetic match. Five stages.",
+   "value": null,
+   "source": "film copy (storyboard.md)"
+  },
+  {
+   "id": "copy.crew",
+   "text": "Five agents. One job each.",
+   "value": null,
+   "source": "film copy (storyboard.md)"
+  },
+  {
+   "id": "copy.spha",
+   "text": "Should he have passed?",
+   "value": null,
+   "source": "film copy (storyboard.md)"
+  },
+  {
+   "id": "copy.split",
+   "text": "Same moment, two audiences. The analyst gets the evidence trail. The fan gets the story.",
+   "value": null,
+   "source": "film copy (storyboard.md)"
+  },
+  {
+   "id": "copy.overlay",
+   "text": "Drop it straight onto the broadcast. Or follow one player, all match.",
+   "value": null,
+   "source": "film copy (storyboard.md)"
+  },
+  {
+   "id": "copy.azure",
+   "text": "Built on Azure",
+   "value": null,
+   "source": "film copy (storyboard.md)"
   }
  ]
 }

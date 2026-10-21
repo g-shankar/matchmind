@@ -4,6 +4,7 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 mode=${1:-draft}
+# needs the API running for real crew lines: (cd ../backend && python -m matchmind.api &)
 python3 scripts/facts.py
 python3 scripts/voice.py
 python3 scripts/timing.py

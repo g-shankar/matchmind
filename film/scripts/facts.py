@@ -132,8 +132,49 @@ def drafts(add, bo: dict) -> None:
     add("crew.factcheck", f"Blocked: \"a 40% chance\" is not in the moment's facts. Replaced with {p(bo['alt_chance_quality'])}.",
         {"blocked": "40%", "replacement": p(bo["alt_chance_quality"])})
     add("crew.fallback", "Model unavailable: Commentator switched to template mode.")
-    add("azure.stack", "Azure Container Apps, Azure Event Hubs, Azure OpenAI with managed identity.")
-    add("repo.quality", "Tests, CI and secret scanning on every push.")
+    add("azure.stack", "Container Apps runs the engine and crew API; Event Hubs carries the live event stream; "
+        "Azure OpenAI is reached with managed identity, no keys.",
+        ["Runs the engine and crew API", "Carries the live event stream", "Managed identity, no keys"])
+
+
+API = os.environ.get("MATCHMIND_API", "http://127.0.0.1:8000")
+
+
+def _get(path: str):
+    import urllib.request
+
+    with urllib.request.urlopen(API + path, timeout=10) as r:
+        return json.loads(r.read())
+
+
+def crew_lines(add, bo: dict) -> bool:
+    """Real crew output for the moment, from the running API (python -m matchmind.api).
+    Returns False when the API is not reachable, so the drafts are used instead."""
+    try:
+        marks = _get("/api/match/bookmarks")
+    except OSError:
+        return False
+    mid = next(m["moment_id"] for m in marks if m["moment_id"].endswith(bo["event_id"]))
+    src = f"crew API: GET /api/match/moment/{mid}"
+    tac = _get(f"/api/match/moment/{mid}?persona=tactical&lang=en")
+    add("crew.analyst", f"{tac['headline']}. {tac['body']}", {"headline": tac["headline"], "body": tac["body"],
+        "produced_by": tac["produced_by"]}, path=None, src=src + "?persona=tactical&lang=en")
+    for lang in ("en", "es", "ar"):
+        c = _get(f"/api/match/moment/{mid}?persona=casual&lang={lang}")
+        add(f"crew.fan.{lang}", f"{c['headline']} {c['body']}", {"headline": c["headline"], "body": c["body"],
+            "rtl": c["rtl"], "produced_by": c["produced_by"]}, path=None, src=src + f"?persona=casual&lang={lang}")
+    from matchmind.crew.fact_checker import check
+
+    facts = {e["label"]: e["value"] for e in tac["evidence"]}
+    wrong = f"{bo['shooter'].split()[-1]} had a 40% chance"
+    res = check(wrong, facts, "en")
+    add("crew.factcheck", f"Fact-checker on \"{wrong}\": {'; '.join(res.reasons)}.",
+        {"blocked": "40%", "replacement": f"{bo['shot_chance_quality']:.0%}", "ok": res.ok, "reasons": res.reasons},
+        path=None, src="matchmind.crew.fact_checker.check")
+    st = _get("/api/crew/status")
+    add("crew.fallback", f"No model connected: the crew runs in {st['mode']} mode, and every card says produced_by: "
+        f"{tac['produced_by']}.", st, path=None, src="crew API: GET /api/crew/status")
+    return True
 
 
 def main() -> None:
@@ -145,8 +186,8 @@ def main() -> None:
     dpath = str(DATA.relative_to(ROOT))
     facts: list[dict] = []
 
-    def add(fid, text, value, path=dpath, line=None):
-        facts.append({"id": fid, "text": text, "value": value, "source": link(b, path, line)})
+    def add(fid, text, value, path=dpath, line=None, src=None):
+        facts.append({"id": fid, "text": text, "value": value, "source": src or link(b, path, line)})
 
     start = rows[0]
     home, away = TEAMS["NBR"], TEAMS["HCY"]
@@ -185,7 +226,8 @@ def main() -> None:
             f"{bo['teammate']} ({bo['pass_success']:.0%} to arrive, chance {bo['alt_chance_quality']:.0%}) "
             f"was worth {bo['times_better']}x more. Outcome: {s['outcome']}.", bo, line=line)
 
-    drafts(add_draft := lambda fid, text, value=None: facts.append(
+    live = crew_lines(add, next(f["value"] for f in facts if f["id"] == "spha.NBR"))
+    drafts(add_draft := lambda fid, text, value=None: None if live and fid.startswith("crew.") else facts.append(
         {"id": fid, "text": text, "value": value, "source": "crew draft (replace with crew API output)",
          "draft": True}), next(f["value"] for f in facts if f["id"] == "spha.NBR"))
 
@@ -199,12 +241,26 @@ def main() -> None:
     before = [g for g in timeline if g["clock"] < bo["clock"] and "+" not in g["clock"]]
     add("score.at.spha", f"Score at {bo['clock']}: {before[-1]['score'] if before else '0-0'}.",
         before[-1]["score"] if before else "0-0", line=before[-1]["line"] if before else None)
-    facts.append({"id": "crew.roles", "draft": True, "source": "project goal (PitchPulse brief)",
+    add("repo.quality", "Tests, CI and secret scanning on every push.", None, path=".github/workflows/ci.yml")
+    facts.append({"id": "crew.roles", "source": link(b, "backend/src/matchmind/crew/__init__.py"),
                   "text": "Spotter finds the moment; Analyst pulls the evidence; Commentator writes it; "
                           "Producer decides what airs; Fact-checker blocks unproven numbers.",
                   "value": [["Spotter", "Finds the moment", "Moment"], ["Analyst", "Pulls the evidence", "Evidence"],
                             ["Commentator", "Writes it", "Script"], ["Producer", "Decides what airs", "Rundown"],
                             ["Fact-checker", "Blocks unproven numbers", "Verified"]]})
+
+    add("engine.deterministic", "Deterministic football metrics. No randomness, no models: same event in, "
+        "same number out.", None, path="backend/src/matchmind/stats/metrics.py", line=1)
+    # Headings and voice lines that carry no data; listed so every on-screen line traces here.
+    for cid, text in [("copy.tagline", "Every broadcast has a crew. So we built one, with AI."),
+                      ("copy.byline", "powered by the Matchmind engine"),
+                      ("copy.pipeline", "One synthetic match. Five stages."),
+                      ("copy.crew", "Five agents. One job each."),
+                      ("copy.spha", "Should he have passed?"),
+                      ("copy.split", "Same moment, two audiences. The analyst gets the evidence trail. The fan gets the story."),
+                      ("copy.overlay", "Drop it straight onto the broadcast. Or follow one player, all match."),
+                      ("copy.azure", "Built on Azure")]:
+        facts.append({"id": cid, "text": text, "value": None, "source": "film copy (storyboard.md)"})
 
     out = FILM / "facts.json"
     out.write_text(json.dumps({"branch": b, "facts": facts}, indent=1, ensure_ascii=False) + "\n")

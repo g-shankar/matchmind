@@ -21,7 +21,7 @@ BEAT = 60 / BPM
 BAR = 4 * BEAT
 FPS = 30
 LEAD = {1: 0.5, 2: 0.5, 3: 0.5, 4: 1.0, 5: 0.8, 6: 0.5, 7: 0.6, 8: 0.6}
-TAIL = {1: 0.8, 2: 0.6, 3: 0.6, 4: 1.6, 5: 3.4, 6: 2.6, 7: 2.4, 8: 3.2}
+TAIL = {1: 0.8, 2: 0.6, 3: 0.6, 4: 1.6, 5: 3.0, 6: 4.4, 7: 1.2, 8: 2.8}
 SCENES = {1: "title", 2: "pipeline", 3: "crew", 4: "should-he-have-passed", 5: "split", 6: "languages",
           7: "overlay", 8: "azure"}
 
@@ -54,7 +54,7 @@ def main() -> None:
             on, off, total = speech_span(FILM / "out/vo" / f"{line['id']}.wav")
             entry = {"id": line["id"], "scene": n, "start": round(cur, 3), "end": round(cur + total, 3),
                      "speech": [round(cur + on, 3), round(cur + off, 3)], "text": line["text"],
-                     "caption": line.get("caption", True)}
+                     "caption": line["text"] if line.get("caption", True) is True else (line["caption"] or None)}
             lines.append(entry)
             low = line["text"].lower()
             for cue in line.get("cues", []):
