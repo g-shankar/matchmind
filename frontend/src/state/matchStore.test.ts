@@ -31,7 +31,7 @@ describe('matchReducer', () => {
         data: {
           match_id: 'T-1', clock: '00:50', period: 1, home_score: 0, away_score: 0, teams: f.teams, state: state(50),
           control_chaos: f.ticks[0].control_chaos, profile: DEFAULT_PROFILE,
-          playback: { is_running: true, speed_multiplier: 10, clock_s: 50, ended: false },
+          playback: { is_running: true, speed_multiplier: 10, clock_s: 50, match_clock: '00:50', period: 1, ended: false },
           recent_cards: [], bookmarks: [], players: [], crew: f.crew, auto_eventing: null,
         },
       },

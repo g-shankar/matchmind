@@ -23,9 +23,9 @@ describe('MockMatchServer', () => {
 
   it('plays ticks on the match clock and attaches the goal card', async () => {
     const { server, messages } = await start();
-    server.step(1.5); // 15 s of match clock at 10x
+    server.step(0.15); // 15 s of match clock at 10x
     expect(messages.filter((m) => m.type === 'MATCH_TICK')).toHaveLength(2);
-    server.step(0.6);
+    server.step(0.06);
     const goal = messages.find((m) => m.type === 'MATCH_TICK' && m.data.event.seq === 2);
     expect(goal?.type === 'MATCH_TICK' && goal.data.cards[0].kind).toBe('goal');
     server.close();
@@ -33,7 +33,7 @@ describe('MockMatchServer', () => {
 
   it('does not wait out the half-time clock jump', async () => {
     const { server, messages } = await start();
-    server.step(10); // 100 s of virtual time is enough because period 2 restarts at 2700
+    server.step(1); // 100 s of virtual time is enough because period 2 restarts at 2700
     expect(messages.filter((m) => m.type === 'MATCH_TICK')).toHaveLength(4);
     expect(messages.some((m) => m.type === 'PLAYBACK_CONTROL' && m.data.ended)).toBe(true);
     server.close();
@@ -42,7 +42,7 @@ describe('MockMatchServer', () => {
   it('pauses, rejects bad speeds and keeps viewer choices per connection', async () => {
     const { server, messages } = await start();
     server.send({ action: 'toggle_pause' });
-    server.step(5);
+    server.step(0.5);
     expect(messages.filter((m) => m.type === 'MATCH_TICK')).toHaveLength(0);
     server.send({ action: 'set_speed', speed_multiplier: 7 as never });
     expect(messages.at(-1)?.type).toBe('ERROR');
@@ -65,7 +65,7 @@ describe('MockMatchServer', () => {
 
   it('sends a metric alert only for the focus metric', async () => {
     const { server, messages } = await start({ focus_metric: 'pressure' });
-    server.step(2.5);
+    server.step(0.25);
     const cards = messages.flatMap((m) => (m.type === 'MATCH_TICK' ? m.data.cards : []));
     const alert = cards.find((c) => c.slot === 'metric_alert');
     expect(alert?.evidence[0].value).toBe(75);

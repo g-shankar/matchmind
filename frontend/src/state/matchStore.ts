@@ -74,7 +74,7 @@ export const initialMatchState = (profile: ViewerProfile = DEFAULT_PROFILE): Mat
   state: null,
   controlChaos: null,
   profile,
-  playback: { is_running: false, speed_multiplier: 10, clock_s: 0, ended: false },
+  playback: { is_running: false, speed_multiplier: 10, clock_s: 0, match_clock: '00:00', period: 1, ended: false },
   events: [],
   lastEvent: null,
   cards: [],
@@ -198,7 +198,7 @@ function applyMessage(state: MatchViewState, m: ServerMessage): MatchViewState {
         positions,
         trails,
         history: [...state.history, sample(d.state)].slice(-MAX_HISTORY),
-        playback: { ...state.playback, clock_s: d.event.clock_s },
+        playback: { ...state.playback, clock_s: d.event.clock_s, match_clock: d.clock, period: d.period },
       };
     }
     case 'PLAYBACK_CONTROL':

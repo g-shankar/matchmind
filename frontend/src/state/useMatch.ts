@@ -112,6 +112,7 @@ export function useMatch() {
 
   const setView = useCallback(
     (changes: Partial<ViewerProfile>) => {
+      // The server rejects unknown fields, so send profile fields only.
       const next = { ...profileRef.current, ...changes };
       dispatch({ type: 'profile', changes });
       saveProfile(next);
@@ -135,7 +136,7 @@ export function useMatch() {
     togglePause: () => send({ action: 'toggle_pause' }),
     setSpeed: (speed_multiplier: SpeedMultiplier) => send({ action: 'set_speed', speed_multiplier }),
     reset: () => send({ action: 'reset' }),
-    seek: (clock_s: number) => send({ action: 'seek', clock_s }),
+    seek: (clock_s: number, period?: number) => send({ action: 'seek', clock_s, ...(period ? { period } : {}) }),
     setView,
     clearError: () => dispatch({ type: 'clearError' }),
     getMoment: (momentId: string, persona: ViewerProfile['persona'], language: ViewerProfile['language']) =>

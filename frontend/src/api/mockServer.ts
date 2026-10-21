@@ -82,6 +82,7 @@ export const DEFAULT_PROFILE: ViewerProfile = {
 };
 
 const STEP_MS = 100;
+const MATCH_SECONDS_PER_REAL_SECOND = 10; // per unit of speed, as on the server
 const SPEEDS: SpeedMultiplier[] = [1, 10, 60];
 const BOOKMARK_KINDS: MomentKind[] = [
   'goal',
@@ -225,8 +226,8 @@ export function findPlayerName(teams: Teams, playerId: string): string | null {
 
 // Index of the tick to resume from for a seek target in match-clock seconds.
 // Period 2 restarts at 2700 s, so targets from 2700 prefer second-half ticks.
-export function seekIndex(ticks: FixtureTick[], clockS: number): number {
-  const wantPeriod = clockS >= 2700 ? 2 : 1;
+export function seekIndex(ticks: FixtureTick[], clockS: number, period?: number): number {
+  const wantPeriod = period ?? (clockS >= 2700 ? 2 : 1);
   const idx = ticks.findIndex((t) => t.event.period === wantPeriod && t.event.clock_s >= clockS);
   if (idx >= 0) return idx;
   const any = ticks.findIndex((t) => t.event.clock_s >= clockS && t.event.period >= wantPeriod);
@@ -252,7 +253,7 @@ export class MockMatchServer implements MatchTransport {
     options: { profile?: Partial<ViewerProfile>; speed?: SpeedMultiplier; autoplay?: boolean } = {},
   ) {
     this.profile = { ...DEFAULT_PROFILE, ...options.profile };
-    this.speed = options.speed ?? 10;
+    this.speed = options.speed ?? 1;
     this.running = options.autoplay ?? true;
     let acc = 0;
     this.vtimes = fixture.ticks.map((t, i) => {
@@ -275,7 +276,7 @@ export class MockMatchServer implements MatchTransport {
   // Advances playback by `seconds` of wall time. Public so tests can drive it.
   step(seconds: number) {
     if (!this.running || this.ended) return;
-    this.vclock += seconds * this.speed;
+    this.vclock += seconds * this.speed * MATCH_SECONDS_PER_REAL_SECOND;
     while (this.next < this.fixture.ticks.length && this.vtimes[this.next] <= this.vclock) {
       this.playTick(this.next);
       this.next += 1;
@@ -283,9 +284,9 @@ export class MockMatchServer implements MatchTransport {
     if (this.next >= this.fixture.ticks.length && !this.ended) {
       this.ended = true;
       this.running = false;
-      this.emit({ type: 'PLAYBACK_CONTROL', data: this.playback() });
       const recap = this.recapFor(this.profile.persona, this.profile.language);
       if (recap) this.emit({ type: 'MATCH_END', data: { recap } });
+      this.emit({ type: 'PLAYBACK_CONTROL', data: this.playback() });
     }
   }
 
@@ -311,13 +312,16 @@ export class MockMatchServer implements MatchTransport {
         this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
         return;
       case 'seek':
-        this.jumpTo(seekIndex(this.fixture.ticks, Math.max(0, action.clock_s)));
+        this.jumpTo(seekIndex(this.fixture.ticks, Math.max(0, action.clock_s), action.period));
         this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
         return;
       case 'set_persona':
       case 'set_view': {
-        const { action: _a, ...changes } = action;
-        this.profile = { ...this.profile, ...changes };
+        const changes =
+          action.action === 'set_persona'
+            ? { persona: action.persona, ...(action.spotlight_player_id !== undefined ? { focus_player_id: action.spotlight_player_id } : {}) }
+            : (({ action: _a, ...rest }) => rest)(action);
+        this.profile = { ...this.profile, ...changes } as ViewerProfile;
         this.emit({ type: 'PROFILE_CHANGED', data: this.profile });
         this.emit({ type: 'PERSONA_CHANGED', data: { persona: this.profile.persona } });
         return;
@@ -405,6 +409,8 @@ export class MockMatchServer implements MatchTransport {
       is_running: this.running,
       speed_multiplier: this.speed,
       clock_s: last.event.clock_s,
+      match_clock: last.clock,
+      period: last.period,
       ended: this.ended,
     };
   }
@@ -446,6 +452,7 @@ export class MockMatchServer implements MatchTransport {
         kind: m.kind,
         match_clock: m.match_clock,
         clock_s: m.show_at_s,
+        period: this.fixture.ticks.find((t) => t.event.event_id === m.event_id)?.period ?? 1,
         title: pickText(m, this.profile.persona, this.profile.language).text.headline,
       }));
   }

@@ -246,6 +246,7 @@ export interface Bookmark {
   kind: MomentKind;
   match_clock: string;
   clock_s: number;
+  period: number;
   title: string;
 }
 
@@ -296,10 +297,14 @@ export interface AutoEventingStatus {
 
 export type SpeedMultiplier = 1 | 10 | 60;
 
+// Clock is not monotonic: first-half stoppage runs past 2700 s and the second half restarts at 2700 s.
+// 1 real second = 10 x speed_multiplier match seconds.
 export interface Playback {
   is_running: boolean;
   speed_multiplier: SpeedMultiplier;
   clock_s: number;
+  match_clock: string;
+  period: number;
   ended: boolean;
 }
 
@@ -346,6 +351,6 @@ export type ClientAction =
   | { action: 'toggle_pause' }
   | { action: 'set_speed'; speed_multiplier: SpeedMultiplier }
   | { action: 'reset' }
-  | { action: 'seek'; clock_s: number }
-  | ({ action: 'set_view' } & Partial<ViewerProfile>)
-  | { action: 'set_persona'; persona: PersonaType };
+  | { action: 'seek'; clock_s: number; period?: number }
+  | ({ action: 'set_view' } & { [K in keyof ViewerProfile]?: ViewerProfile[K] | null })
+  | { action: 'set_persona'; persona: PersonaType; spotlight_player_id?: string | null };
