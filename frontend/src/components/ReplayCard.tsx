@@ -5,6 +5,8 @@ import { useI18n } from '../i18n';
 import { playerById, shortName } from '../lib/teams';
 import { Pitch2D, decimalsOf, evidenceLabel, fmtFact, fmtUnit, pct, withClock } from './Pitch2D';
 import { Badge, cx } from './ui';
+import { TranslationTag } from './LanguagePicker';
+import { isTranslationReason, textLanguage } from '../lib/languages';
 
 export interface ReplayCardProps {
   card: OverlayCard; // kind better_option or unfound_run, replay set
@@ -91,6 +93,8 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
         {t('produced.template')}
       </Badge>
     );
+  const translated = <TranslationTag item={card} />;
+  const lang = textLanguage(card);
 
   const closeBtn = onClose && (
     <button
@@ -111,6 +115,7 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
         </Badge>
         <span className="ltr-nums text-xs font-semibold text-pp-mute">{clockOf(card.show_at_s)}</span>
         {produced}
+        {translated}
       </div>
       {closeBtn}
     </header>
@@ -123,7 +128,7 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
     return (
       <section dir={dir} className="animate-slide-up overflow-hidden rounded-2xl border border-pp-line/80 bg-pp-panel/95 p-2.5 shadow-2xl shadow-black/50 sm:p-3">
         {header}
-        <h2 className="my-2 font-display text-base font-bold leading-tight text-white sm:text-lg">{card.headline}</h2>
+        <h2 lang={lang} className="my-2 font-display text-base font-bold leading-tight text-white sm:text-lg">{card.headline}</h2>
         {pitch}
         {verdict && (
           <p className="mt-2 text-xs font-semibold text-pp-signal sm:text-sm" data-testid="replay-compact-verdict">
@@ -138,7 +143,7 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
     <section dir={dir} className="animate-slide-up rounded-2xl border border-pp-line/80 bg-pp-panel/95 p-3 shadow-2xl shadow-black/50 sm:p-4" aria-labelledby={`replay-${card.card_id}`}>
       <style>{`@keyframes ppProgress { from { transform: scaleX(0); } to { transform: scaleX(1); } }`}</style>
       {header}
-      <h2 id={`replay-${card.card_id}`} className="mb-3 mt-2 font-display text-xl font-bold leading-tight text-white sm:text-2xl">
+      <h2 id={`replay-${card.card_id}`} lang={lang} className="mb-3 mt-2 font-display text-xl font-bold leading-tight text-white sm:text-2xl">
         {card.headline}
       </h2>
 
@@ -195,14 +200,14 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
 
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="space-y-3">
-          {card.body && <p className="text-sm leading-relaxed text-slate-200">{card.body}</p>}
+          {card.body && <p lang={lang} className="text-sm leading-relaxed text-slate-200">{card.body}</p>}
           {card.why && (
             <div className="rounded-xl border border-pp-gold/30 bg-pp-gold/5 p-3">
               <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wider text-pp-gold">{t('pitch.why')}</h3>
-              <p className="text-sm leading-relaxed text-slate-200">{card.why}</p>
+              <p lang={lang} className="text-sm leading-relaxed text-slate-200">{card.why}</p>
             </div>
           )}
-          {card.fallback_reason && (
+          {card.fallback_reason && !isTranslationReason(card.fallback_reason) && (
             <p className="text-xs text-pp-mute" data-testid="replay-fallback">
               {t('pitch.fallback', { reason: card.fallback_reason })}
             </p>

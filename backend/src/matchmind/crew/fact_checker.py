@@ -12,6 +12,10 @@
   unless it matches a numeric fact. Templates are exempt: they use articles
   such as "un"/"une" and words such as "premier" by design.
 
+Machine-translated text (world languages, `translated=True`) gets the same
+number and name checks with slightly roomier length rules; the translator's
+own protection check makes sure every number and name came back unchanged.
+
 String facts (names, clocks such as "67:28") are removed from the text before
 numbers are read, so the digits inside a clock never need their own fact.
 
@@ -38,6 +42,10 @@ BODY_MAX_SENTENCES = 2
 WHY_MAX_CHARS = 320
 PARAGRAPH_MAX_CHARS = 700
 TEXT_MAX_CHARS = 1200
+# Machine-translated text (world languages) may run this much longer than English.
+TRANSLATED_STRETCH = 1.3
+TRANSLATED_HEADLINE_MAX_WORDS = 12
+TRANSLATED_HEADLINE_MAX_CJK_UNITS = 26
 
 # Real top-flight English clubs, famous players and competition or broadcaster
 # brands. Generated text must never contain them (case-insensitive, whole word).
@@ -180,7 +188,7 @@ _BANNED_RE = [
     for name in BANNED_NAMES
 ]
 
-_SENTENCE_END = re.compile(r"[。！？]+|[.!?؟]+(?=\s|$|[\"'”’)])")
+_SENTENCE_END = re.compile(r"[。！？]+|[.!?؟।]+(?=\s|$|[\"'”’)])")
 _CJK = re.compile(r"[぀-ヿ㐀-鿿ｦ-ﾟ]")
 
 
@@ -238,36 +246,45 @@ def sentence_count(text: str) -> int:
         return 0
     ends = len(_SENTENCE_END.findall(stripped))
     last = stripped.rstrip("\"'”’)")[-1:]
-    trailing = 0 if last and last in ".!?。！？؟" else 1
+    trailing = 0 if last and last in ".!?。！？؟।" else 1
     return ends + trailing
 
 
-def length_problems(text: str, field: Field) -> list[str]:
+def length_problems(text: str, field: Field, translated: bool = False) -> list[str]:
+    """`translated=True` (machine-translated studio text) allows a little more
+    room: translations run longer than the English they come from."""
     reasons: list[str] = []
     if not text.strip():
         return ["empty text"]
+    stretch = TRANSLATED_STRETCH if translated else 1.0
+    max_words = TRANSLATED_HEADLINE_MAX_WORDS if translated else HEADLINE_MAX_WORDS
+    max_cjk = TRANSLATED_HEADLINE_MAX_CJK_UNITS if translated else HEADLINE_MAX_CJK_UNITS
+
+    def limit(n: int) -> int:
+        return int(n * stretch)
+
     if field == "headline":
-        if len(text) > HEADLINE_MAX_CHARS:
-            reasons.append(f"headline longer than {HEADLINE_MAX_CHARS} characters")
+        if len(text) > limit(HEADLINE_MAX_CHARS):
+            reasons.append(f"headline longer than {limit(HEADLINE_MAX_CHARS)} characters")
         if _CJK.search(text):
             units = len(_CJK.findall(text)) + _word_count(_CJK.sub(" ", text))
-            if units > HEADLINE_MAX_CJK_UNITS:
-                reasons.append(f"headline longer than {HEADLINE_MAX_CJK_UNITS} characters")
-        elif _word_count(text) > HEADLINE_MAX_WORDS:
-            reasons.append(f"headline longer than {HEADLINE_MAX_WORDS} words")
+            if units > max_cjk:
+                reasons.append(f"headline longer than {max_cjk} characters")
+        elif _word_count(text) > max_words:
+            reasons.append(f"headline longer than {max_words} words")
     elif field == "body":
-        if len(text) > BODY_MAX_CHARS:
-            reasons.append(f"body longer than {BODY_MAX_CHARS} characters")
+        if len(text) > limit(BODY_MAX_CHARS):
+            reasons.append(f"body longer than {limit(BODY_MAX_CHARS)} characters")
         if sentence_count(text) > BODY_MAX_SENTENCES:
             reasons.append(f"body longer than {BODY_MAX_SENTENCES} sentences")
     elif field == "why":
-        if len(text) > WHY_MAX_CHARS:
-            reasons.append(f"explanation longer than {WHY_MAX_CHARS} characters")
+        if len(text) > limit(WHY_MAX_CHARS):
+            reasons.append(f"explanation longer than {limit(WHY_MAX_CHARS)} characters")
     elif field == "paragraph":
-        if len(text) > PARAGRAPH_MAX_CHARS:
-            reasons.append(f"paragraph longer than {PARAGRAPH_MAX_CHARS} characters")
-    elif len(text) > TEXT_MAX_CHARS:
-        reasons.append(f"text longer than {TEXT_MAX_CHARS} characters")
+        if len(text) > limit(PARAGRAPH_MAX_CHARS):
+            reasons.append(f"paragraph longer than {limit(PARAGRAPH_MAX_CHARS)} characters")
+    elif len(text) > limit(TEXT_MAX_CHARS):
+        reasons.append(f"text longer than {limit(TEXT_MAX_CHARS)} characters")
     return reasons
 
 
@@ -410,9 +427,11 @@ def check(
     language: str = "en",
     field: Field = "text",
     strict_words: bool = False,
+    translated: bool = False,
 ) -> FactCheck:
-    """`strict_words=True` (model text) also rejects number words not in the facts."""
-    reasons = length_problems(text, field)
+    """`strict_words=True` (model text) also rejects number words not in the facts.
+    `translated=True` (world languages) relaxes the length rules a little."""
+    reasons = length_problems(text, field, translated)
     if banned_names_in(text):
         reasons.append("real name not allowed")
 
@@ -435,11 +454,12 @@ def check_all(
     facts: Mapping[str, FactValue],
     language: str,
     strict_words: bool = False,
+    translated: bool = False,
 ) -> FactCheck:
     """Check several fields at once; reasons are prefixed with the field."""
     reasons: list[str] = []
     for field, value in parts.items():
         for text in value if isinstance(value, list) else [value]:
-            result = check(text, facts, language, field, strict_words)
+            result = check(text, facts, language, field, strict_words, translated)
             reasons.extend(f"{field}: {r}" for r in result.reasons)
     return FactCheck(ok=not reasons, reasons=reasons)

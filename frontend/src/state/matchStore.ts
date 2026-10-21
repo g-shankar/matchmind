@@ -5,6 +5,7 @@ import type {
   Bookmark,
   ControlChaosState,
   CrewStatus,
+  LanguageInfo,
   MatchEvent,
   MatchState,
   OverlayCard,
@@ -17,6 +18,7 @@ import type {
   XY,
 } from '../api/contract';
 import { DEFAULT_PROFILE } from '../api/mockServer';
+import { defaultLanguages } from '../lib/languages';
 
 export type ConnectionStatus = 'connecting' | 'live' | 'reconnecting' | 'demo';
 
@@ -54,6 +56,8 @@ export interface MatchViewState {
   history: MetricSample[];
   bookmarks: Bookmark[];
   crew: CrewStatus | null;
+  /** Languages the viewer can pick and whether each can be shown now (from the server). */
+  languages: LanguageInfo[];
   autoEventing: AutoEventingStatus | null;
   recap: Recap | null;
   error: string | null;
@@ -86,6 +90,7 @@ export const initialMatchState = (profile: ViewerProfile = DEFAULT_PROFILE): Mat
   history: [],
   bookmarks: [],
   crew: null,
+  languages: defaultLanguages(),
   autoEventing: null,
   recap: null,
   error: null,
@@ -184,6 +189,7 @@ function applyMessage(state: MatchViewState, m: ServerMessage): MatchViewState {
         history: [...history, sample(d.state)].slice(-MAX_HISTORY),
         bookmarks: d.bookmarks.slice(0, MAX_BOOKMARKS),
         crew: d.crew,
+        languages: d.languages?.length ? d.languages : state.languages,
         autoEventing: d.auto_eventing,
         recap: d.playback.ended ? state.recap : null,
       };
@@ -217,6 +223,7 @@ function applyMessage(state: MatchViewState, m: ServerMessage): MatchViewState {
         teams: state.teams,
         bookmarks: state.bookmarks,
         crew: state.crew,
+        languages: state.languages,
       };
     case 'PROFILE_CHANGED':
       return { ...state, profile: m.data };

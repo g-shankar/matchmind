@@ -21,7 +21,9 @@ import {
 } from 'lucide-react';
 import type { Evidence, FactValue, MatchEvent, MomentKind, OverlayCard, Teams } from '../api/contract';
 import { useI18n } from '../i18n';
+import { isTranslationReason, textLanguage } from '../lib/languages';
 import type { MatchViewState } from '../state/matchStore';
+import { TranslationTag } from './LanguagePicker';
 import type { ViewProps } from '../views/types';
 import { playerName, shortName, teamById } from '../lib/teams';
 import { Badge, Panel, TeamDot, cx } from './ui';
@@ -101,9 +103,10 @@ export const ProducedBadge: React.FC<{ card: OverlayCard }> = ({ card }) => {
       <Badge tone={card.produced_by === 'ai' ? 'signal' : 'mute'} title={t(`studio.feed.producedHint.${card.produced_by}`)}>
         {t(`produced.${card.produced_by}`)}
       </Badge>
-      {card.fallback_reason && (
+      {card.fallback_reason && !isTranslationReason(card.fallback_reason) && (
         <span className="text-[10px] text-pp-gold">{t('studio.feed.fallback', { reason: card.fallback_reason })}</span>
       )}
+      <TranslationTag item={card} />
     </span>
   );
 };
@@ -239,6 +242,7 @@ const StoryCard: React.FC<{
   return (
     <article
       dir={card.rtl ? 'rtl' : undefined}
+      lang={textLanguage(card)}
       className={cx(
         'animate-slide-up rounded-xl border bg-pp-raised/60 p-3.5',
         special ? 'border-pp-signal bg-pp-raised border-s-4' : 'border-pp-line/80',
@@ -318,6 +322,7 @@ const AlertRow: React.FC<{ card: OverlayCard; match: MatchViewState }> = ({ card
   return (
     <div
       dir={card.rtl ? 'rtl' : undefined}
+      lang={textLanguage(card)}
       className="flex items-center gap-2 rounded-lg border border-pp-line/60 bg-pp-deep/70 px-2.5 py-1.5 text-xs"
       title={t('studio.feed.alert')}
     >

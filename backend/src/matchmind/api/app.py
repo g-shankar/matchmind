@@ -33,7 +33,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from matchmind.crew.contracts import FocusMetric, Language, Persona, ViewerProfile
+from matchmind.crew.contracts import LANGUAGES, FocusMetric, Language, Persona, ViewerProfile
 from matchmind.crew.producer import ViewerState
 
 from . import view
@@ -115,7 +115,8 @@ ACTION_HELP: dict[str, str] = {
     "seek": "Seek needs clock_s, a time in seconds from kick-off (and optionally period 1 or 2).",
     "set_view": (
         "That view setting is not valid. Persona: casual, tactical, fantasy or player_spotlight; "
-        "language: en, es, fr, ar or ja; focus metric: pressure, xg, pass_difficulty, top_speed or momentum."
+        f"language: {', '.join(LANGUAGES[:-1])} or {LANGUAGES[-1]}; "
+        "focus metric: pressure, xg, pass_difficulty, top_speed or momentum."
     ),
     "set_persona": "Persona must be casual, tactical, fantasy or player_spotlight.",
 }
@@ -553,6 +554,11 @@ def create_app(
     @app.get("/api/crew/status")
     async def crew_status() -> dict[str, Any]:
         return (await hub.run(hub.session.crew_status)).model_dump()
+
+    @app.get("/api/languages")
+    async def languages() -> dict[str, Any]:
+        status = await hub.run(hub.session.crew_status)
+        return {"languages": view.languages_payload(status), "translator": status.translator.model_dump()}
 
     @app.get("/api/crew/trace")
     async def crew_trace(limit: int = Query(default=20, ge=1, le=100)) -> list[dict[str, Any]]:

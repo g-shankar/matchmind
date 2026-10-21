@@ -21,7 +21,11 @@ Rules:
 ## Shared types
 
 ```ts
-type Language = 'en' | 'es' | 'fr' | 'ar' | 'ja';          // 'ar' is right-to-left
+// Studio languages: hand-written packs. World languages: English text translated by
+// Azure AI Translator and fact-checked again, or English when it is off (docs/LANGUAGES.md).
+type StudioLanguage = 'en' | 'es' | 'fr' | 'ar' | 'ja';    // 'ar' is right-to-left
+type WorldLanguage = 'pt' | 'de' | 'hi' | 'zh-Hans' | 'sw' | 'id' | 'tr' | 'ko';
+type Language = StudioLanguage | WorldLanguage;
 type PersonaType = 'casual' | 'tactical' | 'fantasy' | 'player_spotlight';
 type FocusMetric = 'pressure' | 'xg' | 'pass_difficulty' | 'top_speed' | 'momentum';
 type MomentKind =
@@ -51,6 +55,15 @@ interface ViewerProfile {
 }
 
 interface Evidence { label: string; value: FactValue; unit: string | null; label_key: string | null; source_event_id: string | null }
+
+interface LanguageInfo {
+  code: Language; name: string;             // the language's own name, e.g. 'Português'
+  english_name: string;
+  source: 'studio' | 'translator';
+  available: boolean;                       // false: shown in English (world languages while Translator is off)
+  rtl: boolean;
+  reason: 'translator_off' | null;
+}
 ```
 
 ## Events and stats
@@ -132,6 +145,9 @@ interface OverlayCard {
   favourite_side: boolean | null;
   produced_by: 'ai' | 'template'; fallback_reason: string | null;
   replay: BetterOptionReplay | UnfoundRunReplay | null;
+  text_language: Language;                   // what the text is really in: `language`, or 'en' when a
+                                             // world language was not translated (see fallback_reason)
+  translated_by: 'azure_ai_translator' | null;
 }
 
 // "Should he have passed?" drawing
@@ -160,11 +176,19 @@ interface Recap {
   player_of_the_match_id: string | null; player_of_the_match: string | null;
   stats: Record<string, FactValue>; generated_at_clock: string;
   produced_by: 'ai' | 'template'; fact_check: { ok: boolean; reasons: string[] };
+  text_language: Language; translated_by: 'azure_ai_translator' | null;
+  fallback_reason: string | null;            // world languages only: why the recap is in English
 }
 
 interface CrewStatus {
   mode: 'ai' | 'template'; model: string | null; breakers_open: string[];
   moments: number; fallbacks: number; rejections: number;
+  translator: TranslatorStatus;
+}
+interface TranslatorStatus {
+  mode: 'azure' | 'off'; available: boolean; breaker_open: boolean;
+  requests: number; cache_hits: number; characters_sent: number; character_budget: number;
+  translated: number; fallbacks: number; rejections: number;
 }
 interface CrewTrace {
   moment_id: string; match_clock: string;
@@ -183,7 +207,7 @@ Server -> client. Every message is `{ "type": ..., "data": ... }`.
 
 | type | data | when |
 |---|---|---|
-| `INITIAL_SNAPSHOT` | `{ match_id, clock, period, home_score, away_score, teams: { home: TeamInfo, away: TeamInfo }, state: MatchState, control_chaos: ControlChaosState, profile: ViewerProfile, playback: Playback, recent_cards: OverlayCard[], bookmarks: Bookmark[], players: PlayerStats[], crew: CrewStatus, auto_eventing: AutoEventingStatus \| null }` | on connect, after `MATCH_RESET`, after a seek |
+| `INITIAL_SNAPSHOT` | `{ match_id, clock, period, home_score, away_score, teams: { home: TeamInfo, away: TeamInfo }, state: MatchState, control_chaos: ControlChaosState, profile: ViewerProfile, playback: Playback, recent_cards: OverlayCard[], bookmarks: Bookmark[], players: PlayerStats[], crew: CrewStatus, languages: LanguageInfo[], auto_eventing: AutoEventingStatus \| null }` | on connect, after `MATCH_RESET`, after a seek |
 | `MATCH_TICK` | `{ event: MatchEvent, clock, period, score: { home, away }, state: MatchState, control_chaos: ControlChaosState, cards: OverlayCard[], players_changed: PlayerStats[] }` | every event as it is played |
 | `PLAYBACK_CONTROL` | `Playback` | play, pause, speed change |
 | `MATCH_RESET` | `{}` | reset (followed by `INITIAL_SNAPSHOT`) |
@@ -261,6 +285,7 @@ the focus metric (one place in `MatchSession.cards_for`).
 | `POST /api/match/speed` `{ speed_multiplier }` | `Playback` |
 | `POST /api/match/reset` | `Playback` |
 | `GET /api/crew/status` | `CrewStatus` |
+| `GET /api/languages` | `{ languages: LanguageInfo[], translator: TranslatorStatus }`: every language, its source (studio pack or Azure AI Translator) and whether it can be shown now |
 | `GET /api/crew/trace?limit=20` | `CrewTrace[]` (newest first) |
 | `GET /api/auto-eventing` | `AutoEventingStatus` or 404 until built |
 
@@ -281,6 +306,9 @@ API responses carry `Cache-Control: no-store`.
 | `MATCHMIND_AI_ENABLED` | `false` | `true`, `1` or `yes` (any case): live crew uses the paid model client; the whole-match bookmark pass always uses templates. Model recaps are only made at full time, once per persona, language and favourite club |
 | `MATCHMIND_AI_BUDGET` | `300` | most paid model calls per process; then templates with `fallback_reason: 'budget'` |
 | `MATCHMIND_AI_RATE_PER_MIN` | `30` | most paid model calls in any 60 s; then templates with `fallback_reason: 'budget'` |
+| `MATCHMIND_TRANSLATOR_ENABLED` | `false` | with `MATCHMIND_AI_ENABLED` also on: world languages are translated by Azure AI Translator (keyless, `AZURE_TRANSLATOR_ENDPOINT` custom subdomain); otherwise they are English with `fallback_reason: 'translator_off'` |
+| `MATCHMIND_TRANSLATOR_CHAR_BUDGET` | `200000` | most characters sent to Translator per process; then English with `fallback_reason: 'translator_budget'` |
+| `MATCHMIND_TRANSLATOR_CHARS_PER_MIN` | `20000` | most characters sent to Translator in any 60 s |
 | `MATCHMIND_PUBLIC_ORIGIN` | (none) | this server's own public origin (e.g. `https://pitchpulse.example`), allowed for the WebSocket only when the built frontend is served from `MATCHMIND_STATIC_DIR` |
 | `MATCHMIND_MAX_CONNECTIONS` | `200` | most open WebSockets |
 | `MATCHMIND_MAX_CONN_PER_IP` | `20` | most open WebSockets from one client IP |

@@ -5,6 +5,7 @@ import { UI_LANGUAGES, useI18n, type UiLanguage } from '../i18n';
 import { Pitch2D } from '../components/Pitch2D';
 import { ReplayCard } from '../components/ReplayCard';
 import { EvidenceTable, KIND_ICON, ProducedBadge, cardClock } from '../components/NarrativeFeed';
+import { textLanguage } from '../lib/languages';
 import { Badge, Panel, cx } from '../components/ui';
 import { compareMoments } from '../components/MomentsList';
 import type { ViewProps } from './types';
@@ -148,7 +149,7 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
                   <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-pp-mute">{t(`lang.${o.lang}`)}</span>
                   {!ready ? (
                     <Skeleton lines={1} />
-                  ) : o.card && o.card.language === o.lang ? (
+                  ) : o.card && textLanguage(o.card) === o.lang ? (
                     <span className="font-display text-sm font-semibold text-white">{o.card.headline}</span>
                   ) : (
                     <span className="text-xs text-pp-mute">{t('studio.split.missing')}</span>
@@ -198,7 +199,7 @@ const VoiceColumn: React.FC<{ persona: 'casual' | 'tactical'; card: OverlayCard 
       ) : !card ? (
         <p className="text-sm text-pp-mute">{t('studio.split.missing')}</p>
       ) : (
-        <div dir={card.rtl ? 'rtl' : 'ltr'} lang={card.language}>
+        <div dir={card.rtl ? 'rtl' : 'ltr'} lang={textLanguage(card)}>
           <h3 className="font-display text-xl font-bold leading-tight text-white">{card.headline}</h3>
           {card.body && <p className="mt-2 text-sm leading-relaxed text-slate-200">{card.body}</p>}
           {card.why && (

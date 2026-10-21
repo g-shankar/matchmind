@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { FileText, Pause, Play, RotateCcw, X } from 'lucide-react';
 import type { Language, OverlayCard, PersonaType, SpeedMultiplier } from './api/contract';
-import { I18nProvider, UI_LANGUAGES, useI18n } from './i18n';
+import { I18nProvider, useI18n } from './i18n';
 import { useMatch } from './state/useMatch';
 import { activeCards } from './state/matchStore';
 import type { ViewProps } from './views/types';
@@ -13,6 +13,7 @@ import { NarrativeFeed } from './components/NarrativeFeed';
 import { MomentsList } from './components/MomentsList';
 import { BroadcastOverlay } from './components/BroadcastOverlay';
 import { RecapModal } from './components/RecapModal';
+import { LanguagePicker } from './components/LanguagePicker';
 import { SplitView } from './views/SplitView';
 import { PlayerFocus } from './views/PlayerFocus';
 import { MyMatch } from './views/MyMatch';
@@ -171,11 +172,10 @@ const Shell: React.FC<ViewProps> = ({ match, actions }) => {
             <Scoreline match={match} />
             <div className="flex items-center gap-2 text-xs text-pp-mute">
               <span className="font-semibold">{t('lang.label')}</span>
-              <Segmented
-                label={t('lang.label')}
+              <LanguagePicker
                 value={profile.language}
+                languages={match.languages}
                 onChange={(language: Language) => actions.setView({ language })}
-                options={UI_LANGUAGES.map((l) => ({ value: l as Language, label: t(`lang.${l}`) }))}
               />
             </div>
           </div>

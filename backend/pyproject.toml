@@ -19,10 +19,12 @@ dependencies = [
 azure = [
     "azure-eventhub>=5.11",
     "azure-identity>=1.17",
+    "httpx>=0.27",  # Azure AI Translator (REST)
 ]
 ai = [
     "openai>=1.40",
     "azure-identity>=1.17",
+    "httpx>=0.27",  # Azure AI Translator (REST)
 ]
 dev = [
     "pytest>=8.2",

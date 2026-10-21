@@ -28,6 +28,7 @@ SNAPSHOT_KEYS = {
     "bookmarks",
     "players",
     "crew",
+    "languages",
     "auto_eventing",
 }
 STATE_KEYS = {
@@ -536,3 +537,42 @@ def test_demo_match_with_real_stats_engine(clock):
         pump(c, clock, 100)
         assert recv(ws, "MATCH_TICK")["state"]["period"] == 2
     assert s.ended and s.score == (2, 3)
+
+
+# --- Languages -------------------------------------------------------------------------------
+
+
+def test_languages_route_lists_studio_and_world_languages(client):
+    data = client.get("/api/languages").json()
+    assert data["translator"]["mode"] == "off" and data["translator"]["available"] is False
+    by_code = {lang["code"]: lang for lang in data["languages"]}
+    assert list(by_code)[:5] == ["en", "es", "fr", "ar", "ja"] and len(by_code) == 13
+    assert by_code["es"] == {
+        "code": "es",
+        "name": "Español",
+        "english_name": "Spanish",
+        "source": "studio",
+        "available": True,
+        "rtl": False,
+        "reason": None,
+    }
+    assert by_code["zh-Hans"]["source"] == "translator" and by_code["zh-Hans"]["available"] is False
+    assert by_code["zh-Hans"]["reason"] == "translator_off"
+    snapshot = client.get("/api/match/snapshot").json()
+    assert snapshot["languages"] == data["languages"]
+    assert snapshot["crew"]["translator"]["mode"] == "off"
+
+
+def test_world_language_is_accepted_in_rest_and_set_view(client):
+    r = client.get("/api/match/moment/goal-MM-TEST-001-00007?lang=zh-Hans")
+    assert r.status_code == 200 and r.json()["language"] == "zh-Hans"
+    assert client.get("/api/match/recap?lang=sw").status_code == 200
+    assert client.get("/api/match/recap?lang=xx").status_code == 400
+    with client.websocket_connect("/ws/match") as ws:
+        recv(ws, "INITIAL_SNAPSHOT")
+        ws.send_json({"action": "set_view", "language": "pt"})
+        assert recv(ws, "PROFILE_CHANGED")["language"] == "pt"
+        recv(ws, "PERSONA_CHANGED")
+        ws.send_json({"action": "set_view", "language": "klingon"})
+        message = recv(ws, "ERROR")["message"]
+        assert "zh-Hans" in message and "ko" in message

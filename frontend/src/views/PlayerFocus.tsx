@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { Activity, Crosshair, Maximize2, Navigation, Search, UserCheck, Video, ZoomIn } from 'lucide-react';
 import type { EventMetrics, MatchEvent, OverlayCard, PlayerStats, Teams } from '../api/contract';
 import { Pitch2D } from '../components/Pitch2D';
+import { TranslationTag } from '../components/LanguagePicker';
+import { isTranslationReason, textLanguage } from '../lib/languages';
 import { Badge, Panel, Segmented, TeamDot, cx } from '../components/ui';
 import { useI18n } from '../i18n';
 import { activeCards } from '../state/matchStore';
@@ -44,6 +46,7 @@ export const CardItem: React.FC<{ card: OverlayCard; muted?: boolean; highlight?
   return (
     <article
       dir={card.rtl ? 'rtl' : undefined}
+      lang={textLanguage(card)}
       className={cx('rounded-xl border bg-pp-deep/70 p-3 transition', muted ? 'border-pp-line/50 opacity-60' : 'border-pp-line')}
       style={highlight ? { borderColor: highlight, borderInlineStartWidth: 4 } : undefined}
     >
@@ -54,6 +57,7 @@ export const CardItem: React.FC<{ card: OverlayCard; muted?: boolean; highlight?
         <Badge tone={card.produced_by === 'ai' ? 'signal' : 'mute'} className="ms-auto" title={card.fallback_reason ?? undefined}>
           {t(`produced.${card.produced_by}`)}
         </Badge>
+        <TranslationTag item={card} />
       </div>
       <h3 className="font-display text-sm font-bold text-white">{card.headline}</h3>
       {card.body && <p className="mt-1 text-xs leading-relaxed text-slate-300">{card.body}</p>}
@@ -70,7 +74,7 @@ export const CardItem: React.FC<{ card: OverlayCard; muted?: boolean; highlight?
           ))}
         </dl>
       )}
-      {card.fallback_reason && (
+      {card.fallback_reason && !isTranslationReason(card.fallback_reason) && (
         <p className="mt-1 text-[10px] text-pp-mute">{t('fan.follow.fallback', { reason: card.fallback_reason })}</p>
       )}
     </article>
