@@ -19,9 +19,9 @@ const Dial: React.FC<{ value: number; label: string }> = ({ value, label }) => {
       <svg viewBox="0 0 120 70" role="img" aria-label={label} className="w-full">
         <defs>
           <linearGradient id="cc-arc" x1="0" x2="1" y1="0" y2="0">
-            <stop offset="0%" stopColor="#ff4d6d" />
-            <stop offset="50%" stopColor="#fbbf24" />
-            <stop offset="100%" stopColor="#22d3ee" />
+            <stop offset="0%" stopColor="#ff3b2f" />
+            <stop offset="50%" stopColor="#ff9f1c" />
+            <stop offset="100%" stopColor="#f2efe8" />
           </linearGradient>
         </defs>
         <path d="M10 60 A50 50 0 0 1 110 60" fill="none" stroke="#24324f" strokeWidth="10" strokeLinecap="round" />

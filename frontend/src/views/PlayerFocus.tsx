@@ -281,7 +281,7 @@ export const PlayerFocus: React.FC<ViewProps> = ({ match, actions }) => {
 
       <div className="order-1 space-y-4 lg:order-2 lg:col-span-8">
         <section
-          className="rounded-2xl border bg-gradient-to-br from-pp-panel via-pp-deep to-pp-night p-4"
+          className="rounded-2xl border bg-pp-panel p-4"
           style={{ borderColor: `${color}88` }}
           aria-label={player.name}
         >
@@ -382,14 +382,14 @@ export const PlayerFocus: React.FC<ViewProps> = ({ match, actions }) => {
             label={t('fan.stat.topSpeed')}
             value={stats ? num(stats.top_speed_kmh, 1) : '–'}
             unit={t('unit.kmh')}
-            color="#22d3ee"
+            color="#ffd400"
           />
           <BigTile
             icon={<Navigation className="h-4 w-4 text-pp-gold" aria-hidden />}
             label={t('fan.stat.distance')}
             value={stats ? num(stats.distance_km, 2) : '–'}
             unit={t('unit.km')}
-            color="#fbbf24"
+            color="#ff9f1c"
           />
           <div className="rounded-xl border border-pp-line bg-pp-deep/70 p-3">
             <div className="mb-1 flex items-center justify-between text-[11px] text-pp-mute">

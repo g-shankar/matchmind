@@ -53,12 +53,12 @@ const C = {
   turf: '#0f2a1d',
   turfDark: '#0c2418',
   line: '#3c7a57',
-  white: '#e2e8f0',
-  pulse: '#ff4d6d',
-  pulseSoft: '#ff8fa3',
-  signal: '#22d3ee',
-  gold: '#fbbf24',
-  mute: '#8b9bb8',
+  white: '#f2efe8',
+  pulse: '#ff3b2f',
+  pulseSoft: '#ff8a80',
+  signal: '#ffd400',
+  gold: '#ff9f1c',
+  mute: '#a19c8f',
 };
 
 interface VB {
@@ -84,7 +84,7 @@ export function inkOn(hex: string): string {
     const s = c / 255;
     return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
   });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? '#0c1222' : '#ffffff';
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? '#0c0c0b' : '#ffffff';
 }
 
 /** Decimal places a payload number carries (capped), so displays match the evidence exactly. */

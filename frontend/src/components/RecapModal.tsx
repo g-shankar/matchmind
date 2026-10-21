@@ -42,7 +42,7 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
   const { t } = i18n;
   const potm = playerById(teams, recap.player_of_the_match_id);
   const potmName = recap.player_of_the_match ?? potm?.name ?? null;
-  const potmColor = potm?.team.primary_color ?? '#fbbf24';
+  const potmColor = potm?.team.primary_color ?? '#ff9f1c';
   const stats = Object.entries(recap.stats);
 
   return (
@@ -189,7 +189,7 @@ export const RecapModal: React.FC<RecapModalProps> = ({ open, onClose, recap, lo
         onClick={(e) => e.stopPropagation()}
         className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-pp-line bg-pp-panel shadow-2xl"
       >
-        <header className="flex items-center justify-between gap-3 border-b border-pp-line bg-gradient-to-r from-pp-pulse/20 via-pp-raised to-pp-panel px-4 py-3 sm:px-6">
+        <header className="flex items-center justify-between gap-3 border-b border-pp-line to-pp-panel px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-center gap-2">
             <FileText className="h-5 w-5 shrink-0 text-pp-pulse" aria-hidden />
             <h2 id="recap-title" className="truncate font-display text-lg font-bold uppercase tracking-wider text-white">

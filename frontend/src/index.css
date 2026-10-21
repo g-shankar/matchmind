@@ -3,16 +3,29 @@
 @tailwind utilities;
 
 :root {
-  font-family: 'Inter', 'Noto Sans Arabic', system-ui, sans-serif;
+  font-family: 'Barlow', 'IBM Plex Sans Arabic', sans-serif;
   color-scheme: dark;
 }
 
+body {
+  background-color: #0c0c0b;
+  /* Fine floodlight grain behind everything, so panels sit on a surface, not a flat fill. */
+  background-image: radial-gradient(rgba(242, 239, 232, 0.035) 1px, transparent 1px);
+  background-size: 4px 4px;
+}
+
 [dir='rtl'] body {
-  font-family: 'Noto Sans Arabic', 'Inter', system-ui, sans-serif;
+  font-family: 'IBM Plex Sans Arabic', 'Barlow', sans-serif;
 }
 
 .font-display {
-  font-family: 'Oswald', 'Noto Kufi Arabic', sans-serif;
+  font-family: 'Barlow Condensed', 'Cairo', sans-serif;
+  letter-spacing: 0.02em;
+}
+
+[dir='rtl'] .font-display {
+  font-family: 'Cairo', 'Barlow Condensed', sans-serif;
+  letter-spacing: 0;
 }
 
 /* Numbers and clocks keep left-to-right order inside right-to-left text. */
@@ -20,6 +33,14 @@
   direction: ltr;
   unicode-bidi: isolate;
   font-variant-numeric: tabular-nums;
+}
+
+/* Slanted broadcast tab used for section titles and the live badge. */
+.pp-slant {
+  clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%);
+}
+[dir='rtl'] .pp-slant {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -37,9 +58,8 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(12, 18, 34, 0.6);
+  background: #121210;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(36, 50, 79, 0.9);
-  border-radius: 3px;
+  background: #34332d;
 }

@@ -241,7 +241,7 @@ const StoryCard: React.FC<{
       dir={card.rtl ? 'rtl' : undefined}
       className={cx(
         'animate-slide-up rounded-xl border bg-pp-raised/60 p-3.5',
-        special ? 'border-pp-gold/60 bg-gradient-to-br from-pp-raised/80 to-pp-gold/10' : 'border-pp-line/80',
+        special ? 'border-pp-signal bg-pp-raised border-s-4' : 'border-pp-line/80',
         isTop && 'ring-1 ring-pp-pulse/40',
         favouriteColor && 'border-s-4',
       )}

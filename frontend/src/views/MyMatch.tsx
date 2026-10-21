@@ -160,7 +160,7 @@ const MetricDisplay: React.FC<{ metric: FocusMetric; match: MatchViewState }> = 
   const trend = (sel: (h: MetricSample) => number[], opts: { zero?: boolean; min?: number; max?: number } = {}) => {
     const cols = [hc, ac];
     const width = history.length ? sel(history[0]).length : 0;
-    const series = Array.from({ length: width }, (_, i) => ({ values: history.map((h) => sel(h)[i]), color: width === 1 ? '#ff4d6d' : cols[i] }));
+    const series = Array.from({ length: width }, (_, i) => ({ values: history.map((h) => sel(h)[i]), color: width === 1 ? '#ff3b2f' : cols[i] }));
     return <Sparkline series={series} label={t('fan.metric.trend', { metric: t(`metric.${metric}`) })} {...opts} />;
   };
 
@@ -205,7 +205,7 @@ const MetricDisplay: React.FC<{ metric: FocusMetric; match: MatchViewState }> = 
       const team = teamById(teams, p.team);
       return (
         <div className="rounded-xl bg-pp-deep/70 p-3 text-center" data-testid="metric-top-speed">
-          <p className={big} style={{ color: team?.primary_color ?? '#22d3ee' }}>
+          <p className={big} style={{ color: team?.primary_color ?? '#ffd400' }}>
             {num(p.top_speed_kmh, 1)}
             <span className="ms-1 text-base font-semibold text-pp-mute">{t('unit.kmh')}</span>
           </p>
@@ -222,7 +222,7 @@ const MetricDisplay: React.FC<{ metric: FocusMetric; match: MatchViewState }> = 
       const team = teamById(teams, e.team);
       return (
         <div className="rounded-xl bg-pp-deep/70 p-3 text-center">
-          <p className={big} style={{ color: team?.primary_color ?? '#fbbf24' }}>
+          <p className={big} style={{ color: team?.primary_color ?? '#ff9f1c' }}>
             {num(e.metrics.pass_difficulty)}
           </p>
           <p className="mt-1 flex flex-wrap items-center justify-center gap-1.5 text-sm text-white">
@@ -262,7 +262,7 @@ export const MyMatch: React.FC<ViewProps> = ({ match, actions }) => {
 
   if (!teams || !us || !them) return <p className="p-6 text-center text-pp-mute">{t('common.loading')}</p>;
 
-  const theme = side ? us.primary_color : '#ff4d6d';
+  const theme = side ? us.primary_color : '#ff3b2f';
   const share = (a: number, b: number) => (a + b > 0 ? (a / (a + b)) * 100 : 50);
   const nums = state
     ? [

@@ -1,45 +1,86 @@
 /** @type {import('tailwindcss').Config} */
+
+// PitchPulse graphics package: matchday ink, chalk-white type, a red "pulse"
+// and a floodlight yellow. Square-cut corners and condensed type, like a
+// stadium scoreboard rather than an app template.
+const warm = {
+  50: '#f6f4ef',
+  100: '#ece9e1',
+  200: '#d9d5ca',
+  300: '#bdb8ab',
+  400: '#9b9688',
+  500: '#7a7569',
+  600: '#5c5850',
+  700: '#43403a',
+  800: '#2b2925',
+  900: '#1b1a17',
+  950: '#100f0d',
+};
+
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
+    borderRadius: {
+      none: '0',
+      sm: '1px',
+      DEFAULT: '2px',
+      md: '2px',
+      lg: '3px',
+      xl: '3px',
+      '2xl': '4px',
+      '3xl': '4px',
+      full: '9999px',
+    },
+    boxShadow: {
+      none: 'none',
+      sm: 'none',
+      DEFAULT: 'none',
+      md: 'none',
+      lg: '0 0 0 1px rgba(242,239,232,0.04)',
+      xl: '0 0 0 1px rgba(242,239,232,0.06)',
+      '2xl': '0 0 0 1px rgba(242,239,232,0.08)',
+      inner: 'none',
+    },
     extend: {
       colors: {
-        // PitchPulse palette: night studio, heartbeat pulse, signal cyan.
+        slate: warm,
         pp: {
-          night: '#070b14',
-          deep: '#0c1222',
-          panel: '#111a2e',
-          raised: '#18233b',
-          line: '#24324f',
-          mute: '#8b9bb8',
-          pulse: '#ff4d6d',
-          pulseSoft: '#ff8fa3',
-          signal: '#22d3ee',
-          gold: '#fbbf24',
-          turf: '#0f2a1d',
-          turfLine: '#3c7a57',
+          night: '#0c0c0b',
+          deep: '#121210',
+          panel: '#181815',
+          raised: '#22221e',
+          line: '#34332d',
+          mute: '#a19c8f',
+          chalk: '#f2efe8',
+          pulse: '#ff3b2f',
+          pulseSoft: '#ff8a80',
+          signal: '#ffd400',
+          gold: '#ff9f1c',
+          turf: '#14301f',
+          turfLine: '#5f9a72',
         },
       },
       fontFamily: {
-        display: ['Oswald', 'Noto Kufi Arabic', 'sans-serif'],
-        sans: ['Inter', 'Noto Sans Arabic', 'system-ui', 'sans-serif'],
+        display: ['"Barlow Condensed"', 'Cairo', 'sans-serif'],
+        sans: ['Barlow', '"IBM Plex Sans Arabic"', 'sans-serif'],
       },
+      letterSpacing: { broadcast: '0.06em' },
       animation: {
-        'fade-in': 'fadeIn 0.3s ease-out forwards',
-        'slide-up': 'slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'fade-in': 'fadeIn 0.25s ease-out forwards',
+        'slide-up': 'wipeIn 0.35s cubic-bezier(0.2, 0.9, 0.2, 1) forwards',
         'draw-line': 'drawLine 1.2s ease-out forwards',
         heartbeat: 'heartbeat 1.6s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
-        slideUp: {
-          '0%': { transform: 'translateY(16px)', opacity: '0' },
-          '100%': { transform: 'translateY(0)', opacity: '1' },
+        wipeIn: {
+          '0%': { clipPath: 'inset(0 100% 0 0)', opacity: '0.4' },
+          '100%': { clipPath: 'inset(0 0 0 0)', opacity: '1' },
         },
         drawLine: { '0%': { strokeDashoffset: '120' }, '100%': { strokeDashoffset: '0' } },
         heartbeat: {
           '0%, 100%': { transform: 'scale(1)', opacity: '1' },
-          '15%': { transform: 'scale(1.25)', opacity: '0.85' },
+          '15%': { transform: 'scale(1.35)', opacity: '0.8' },
           '30%': { transform: 'scale(1)', opacity: '1' },
         },
       },

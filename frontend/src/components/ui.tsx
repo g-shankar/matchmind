@@ -9,14 +9,20 @@ export const Panel: React.FC<{ title?: React.ReactNode; actions?: React.ReactNod
   className,
   children,
 }) => (
-  <section className={cx('rounded-2xl border border-pp-line/70 bg-pp-panel/80 p-4 shadow-lg shadow-black/30', className)}>
+  <section className={cx('flex flex-col border border-pp-line bg-pp-panel/95', className)}>
     {(title || actions) && (
-      <header className="mb-3 flex items-center justify-between gap-3">
-        {title && <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-slate-200">{title}</h2>}
-        {actions}
+      <header className="flex items-stretch justify-between gap-3 border-b border-pp-line">
+        {title ? (
+          <h2 className="pp-slant flex items-center bg-pp-chalk py-1.5 pe-6 ps-3 font-display text-sm font-extrabold uppercase italic tracking-broadcast text-pp-night [&_svg]:text-pp-pulse">
+            {title}
+          </h2>
+        ) : (
+          <span />
+        )}
+        {actions && <div className="flex items-center px-3 py-1.5">{actions}</div>}
       </header>
     )}
-    {children}
+    <div className="flex min-h-0 flex-1 flex-col p-4">{children}</div>
   </section>
 );
 
@@ -27,13 +33,20 @@ export const Badge: React.FC<{ tone?: 'pulse' | 'signal' | 'gold' | 'mute'; clas
   children,
 }) => {
   const tones = {
-    pulse: 'border-pp-pulse/50 bg-pp-pulse/15 text-pp-pulseSoft',
-    signal: 'border-pp-signal/50 bg-pp-signal/10 text-pp-signal',
-    gold: 'border-pp-gold/50 bg-pp-gold/10 text-pp-gold',
-    mute: 'border-pp-line bg-pp-deep text-pp-mute',
+    pulse: 'bg-pp-pulse text-white',
+    signal: 'bg-pp-signal text-pp-night',
+    gold: 'bg-pp-gold text-pp-night',
+    mute: 'border border-pp-line bg-pp-deep text-pp-mute',
   };
   return (
-    <span title={title} className={cx('inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold', tones[tone], className)}>
+    <span
+      title={title}
+      className={cx(
+        'inline-flex items-center gap-1 px-1.5 py-0.5 font-display text-[12px] font-bold uppercase tracking-broadcast',
+        tones[tone],
+        className,
+      )}
+    >
       {children}
     </span>
   );
@@ -53,7 +66,7 @@ export function Segmented<T extends string | number>({
   className?: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className={cx('flex items-center gap-1 rounded-xl border border-pp-line bg-pp-deep p-1', className)}>
+    <div role="radiogroup" aria-label={label} className={cx('flex items-stretch border border-pp-line bg-pp-deep', className)}>
       {options.map((o) => (
         <button
           key={String(o.value)}
@@ -63,8 +76,8 @@ export function Segmented<T extends string | number>({
           title={o.title}
           onClick={() => onChange(o.value)}
           className={cx(
-            'min-h-[32px] rounded-lg px-2.5 text-xs font-semibold transition',
-            value === o.value ? 'bg-pp-pulse text-white shadow' : 'text-pp-mute hover:text-white',
+            'min-h-[32px] border-b-2 px-2.5 font-display text-[13px] font-bold uppercase tracking-broadcast transition',
+            value === o.value ? 'border-pp-pulse bg-pp-chalk text-pp-night' : 'border-transparent text-pp-mute hover:text-pp-chalk',
           )}
         >
           {o.label}
@@ -82,16 +95,11 @@ export const TeamDot: React.FC<{ team: TeamInfo | null; size?: number }> = ({ te
   />
 );
 
+// Wordmark mark: a heartbeat trace cut through a pitch's halfway line.
 export const Logo: React.FC = () => (
-  <svg viewBox="0 0 64 64" className="h-9 w-9" aria-hidden>
-    <rect width="64" height="64" rx="14" fill="#18233b" />
-    <path
-      d="M8 34h12l5-12 8 24 6-16 4 4h13"
-      fill="none"
-      stroke="#ff4d6d"
-      strokeWidth="5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
+  <svg viewBox="0 0 40 40" className="h-9 w-9 shrink-0" aria-hidden>
+    <rect width="40" height="40" fill="#ff3b2f" />
+    <path d="M20 4v32" stroke="#0c0c0b" strokeWidth="1.5" opacity="0.35" />
+    <path d="M3 22h9l3-8 5 15 4-11 3 4h10" fill="none" stroke="#f2efe8" strokeWidth="3.2" strokeLinecap="square" strokeLinejoin="miter" />
   </svg>
 );

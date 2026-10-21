@@ -81,7 +81,7 @@ const LowerThird: React.FC<{ card: OverlayCard; teams: Teams | null; favourite: 
     <div
       data-testid="lower-third"
       className="pointer-events-auto w-full max-w-3xl animate-slide-up rounded-xl border border-white/10 border-s-4 bg-pp-deep/90 px-[clamp(8px,2vw,18px)] py-[clamp(4px,1.2vw,12px)] shadow-2xl backdrop-blur"
-      style={{ borderInlineStartColor: accent ?? '#ff4d6d', boxShadow: accent ? `0 0 0 1px ${accent}55, 0 20px 40px rgba(0,0,0,.5)` : undefined }}
+      style={{ borderInlineStartColor: accent ?? '#ff3b2f', boxShadow: accent ? `0 0 0 1px ${accent}55, 0 20px 40px rgba(0,0,0,.5)` : undefined }}
     >
       <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         <Badge tone="pulse" className="text-[clamp(8px,1vw,11px)] uppercase tracking-wider">
@@ -109,7 +109,7 @@ const SideCard: React.FC<{ card: OverlayCard; teams: Teams | null; favourite: st
   return (
     <div
       className="animate-fade-in rounded-lg border border-white/10 border-s-4 bg-pp-deep/85 p-[clamp(6px,1vw,10px)] shadow-xl backdrop-blur"
-      style={{ borderInlineStartColor: accent ?? '#22d3ee' }}
+      style={{ borderInlineStartColor: accent ?? '#ffd400' }}
     >
       <p className="text-[clamp(8px,0.9vw,10px)] font-bold uppercase tracking-wider text-pp-signal">{t(`kind.${card.kind}`)}</p>
       <p className="font-display text-[clamp(10px,1.3vw,14px)] font-semibold leading-tight text-white">{card.headline}</p>
@@ -332,7 +332,7 @@ export const BroadcastOverlay: React.FC<ViewProps> = ({ match, actions }) => {
 
         {nothingOnAir && !playback.ended && (
           <p className="absolute inset-x-[10%] bottom-[5%] text-center text-[clamp(9px,1.2vw,13px)] text-slate-300/80">
-            {match.events.length ? t('broadcast.idle') : t('common.waiting')}
+            {match.events.length || match.playback.clock_s > 0 ? t('broadcast.idle') : t('common.waiting')}
           </p>
         )}
       </section>

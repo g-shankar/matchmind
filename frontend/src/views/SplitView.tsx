@@ -180,7 +180,7 @@ const VoiceColumn: React.FC<{ persona: 'casual' | 'tactical'; card: OverlayCard 
       aria-busy={loading}
       className={cx(
         'rounded-2xl border p-4 shadow-lg shadow-black/30',
-        persona === 'casual' ? 'border-pp-pulse/40 bg-gradient-to-b from-pp-pulse/10 to-pp-panel/80' : 'border-pp-signal/40 bg-gradient-to-b from-pp-signal/10 to-pp-panel/80',
+        persona === 'casual' ? 'border-pp-line border-t-4 border-t-pp-pulse bg-pp-panel' : 'border-pp-line border-t-4 border-t-pp-signal bg-pp-panel',
       )}
     >
       <header className="mb-3 flex items-center justify-between gap-2">

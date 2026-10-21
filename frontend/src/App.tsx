@@ -74,12 +74,12 @@ const Shell: React.FC<ViewProps> = ({ match, actions }) => {
 
   return (
     <div dir={dir} className="flex min-h-screen flex-col bg-pp-night text-slate-100">
-      <header className="sticky top-0 z-40 border-b border-pp-line/70 bg-pp-deep/95 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b-2 border-pp-pulse bg-pp-night/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">
             <Logo />
             <div>
-              <h1 className="font-display text-xl font-bold tracking-wide text-white">
+              <h1 className="font-display text-2xl font-extrabold uppercase italic leading-none tracking-broadcast text-pp-chalk">
                 Pitch<span className="text-pp-pulse">Pulse</span>
               </h1>
               <p className="hidden text-[11px] text-pp-mute sm:block">{t('app.tagline')}</p>
@@ -103,7 +103,7 @@ const Shell: React.FC<ViewProps> = ({ match, actions }) => {
             )}
           </div>
 
-          <nav aria-label="Views" className="flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-pp-line bg-pp-night p-1">
+          <nav aria-label="Views" className="flex max-w-full items-stretch overflow-x-auto border border-pp-line bg-pp-deep">
             {VIEWS.map((v) => (
               <button
                 key={v}
@@ -111,8 +111,8 @@ const Shell: React.FC<ViewProps> = ({ match, actions }) => {
                 onClick={() => goTo(v)}
                 aria-current={view === v ? 'page' : undefined}
                 className={cx(
-                  'min-h-[34px] whitespace-nowrap rounded-lg px-3 text-xs font-bold transition',
-                  view === v ? 'bg-pp-raised text-white ring-1 ring-pp-pulse/60' : 'text-pp-mute hover:text-white',
+                  'min-h-[36px] whitespace-nowrap border-b-2 px-3 font-display text-sm font-bold uppercase tracking-broadcast transition',
+                  view === v ? 'border-pp-pulse bg-pp-pulse text-white' : 'border-transparent text-pp-mute hover:text-pp-chalk',
                 )}
               >
                 {t(`view.${v}`)}
@@ -149,7 +149,7 @@ const Shell: React.FC<ViewProps> = ({ match, actions }) => {
             <button
               type="button"
               onClick={openRecap}
-              className="flex h-9 items-center gap-1.5 rounded-lg bg-pp-pulse px-3 text-xs font-bold text-white hover:bg-pp-pulse/85"
+              className="flex h-9 items-center gap-1.5 bg-pp-signal px-3 font-display text-sm font-extrabold uppercase italic tracking-broadcast text-pp-night hover:bg-pp-chalk"
             >
               <FileText className="h-4 w-4" />
               {t('play.recap')}
@@ -251,7 +251,7 @@ const ConnectionBadge: React.FC<{ status: ViewProps['match']['status'] }> = ({ s
   if (status === 'live') {
     return (
       <Badge tone="pulse">
-        <span className="h-2 w-2 animate-heartbeat rounded-full bg-pp-pulse" />
+        <span className="h-2 w-2 animate-heartbeat rounded-full bg-white" />
         {t('conn.live')}
       </Badge>
     );
@@ -265,19 +265,18 @@ const Scoreline: React.FC<{ match: ViewProps['match'] }> = ({ match }) => {
   const { teams, score, clock, playback } = match;
   if (!teams) return null;
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-pp-line bg-pp-deep px-3 py-1 font-display text-sm">
-      <span className="flex items-center gap-1.5">
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: teams.home.primary_color }} />
+    // Scoreboard strip: team colour blocks either side of a white score panel.
+    <div className="flex items-stretch font-display text-base font-bold uppercase tracking-broadcast">
+      <span className="flex items-center px-2.5 text-white" style={{ background: teams.home.primary_color }}>
         {teams.home.short_name}
       </span>
-      <span className="ltr-nums text-lg font-bold text-white">
-        {score.home} - {score.away}
+      <span className="ltr-nums flex items-center bg-pp-chalk px-2.5 text-xl font-extrabold text-pp-night">
+        {score.home}-{score.away}
       </span>
-      <span className="flex items-center gap-1.5">
+      <span className="flex items-center px-2.5 text-white" style={{ background: teams.away.primary_color }}>
         {teams.away.short_name}
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: teams.away.primary_color }} />
       </span>
-      <span className="ltr-nums rounded bg-pp-raised px-2 text-xs text-pp-signal">{playback.ended ? t('play.ended') : clock}</span>
+      <span className="ltr-nums flex items-center bg-pp-night px-2.5 text-pp-signal">{playback.ended ? t('play.ended') : clock}</span>
     </div>
   );
 };
