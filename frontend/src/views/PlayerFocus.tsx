@@ -5,7 +5,7 @@ import { Pitch2D } from '../components/Pitch2D';
 import { Badge, Panel, Segmented, TeamDot, cx } from '../components/ui';
 import { useI18n } from '../i18n';
 import { activeCards } from '../state/matchStore';
-import { playerById, type PlayerRef } from '../lib/teams';
+import { playerById, shortName, type PlayerRef } from '../lib/teams';
 import type { ViewProps } from './types';
 
 const LINE_ORDER = { GK: 0, DEF: 1, MID: 2, FWD: 3 } as const;
@@ -246,7 +246,7 @@ const BigTile: React.FC<{ icon: React.ReactNode; label: string; value: string; u
 );
 
 export const PlayerFocus: React.FC<ViewProps> = ({ match, actions }) => {
-  const { t, num } = useI18n();
+  const { t, num, dir } = useI18n();
   const [zoom, setZoom] = useState(true);
   const { teams, profile } = match;
   const focusId = defaultFocusId(teams, profile.focus_player_id);
@@ -354,7 +354,15 @@ export const PlayerFocus: React.FC<ViewProps> = ({ match, actions }) => {
             />
           }
         >
-          <div dir="ltr">
+          <div dir="ltr" className="relative">
+            {!match.positions[focusId] && (
+              <p
+                dir={dir}
+                className="absolute inset-x-0 top-3 z-20 mx-auto w-fit rounded-full border border-pp-line bg-pp-deep/90 px-3 py-1 text-xs text-pp-mute"
+              >
+                {t('fan.follow.waitingTouch', { name: player ? shortName(player.name) : '' })}
+              </p>
+            )}
             <Pitch2D
               teams={teams}
               event={pitchEvent}

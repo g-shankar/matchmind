@@ -58,6 +58,9 @@ const Shell: React.FC<ViewProps> = ({ match, actions }) => {
     setView(v);
   };
 
+  // A replay opened on one screen does not follow the viewer to the next.
+  useEffect(() => setReplay(null), [view]);
+
   const openRecap = async () => {
     setRecapOpen(true);
     setRecapLoading(true);
