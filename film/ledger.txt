@@ -38,3 +38,8 @@ Round 4 review (first 60 fps final, restyled): "another pass", 2 major. Fixed:
 - Crew list spaced below the headline; pitch opens with markers settling and a slow slide;
   overlapping markers nudged apart on screen (display only, actors never move); broadcast pitch clears the focus card.
 - Mastering ceiling lowered to -2 dBTP (was landing at -1.0).
+
+Round 5 review (final, 60 fps): "ship". 118.0 s, 1920x1080 60 fps, H.264 High yuv420p, AAC 48 kHz,
+-14.0 LUFS, true peak -1.7 dBTP, no silences, no frozen holds outside the end card.
+Minor items left as is: some analyst labels are assembled from facts values rather than verbatim strings;
+overlay-scene marker numbers are small at 1080p.
