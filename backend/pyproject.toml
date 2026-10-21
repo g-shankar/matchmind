@@ -29,6 +29,7 @@ dev = [
 [project.scripts]
 matchmind-sim = "matchmind.simulator.cli:main"
 matchmind-api = "matchmind.api.__main__:main"
+matchmind-autoevent = "matchmind.autoevent.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/matchmind"]
