@@ -1,3 +1,4 @@
+import type { MomentKind } from '../api/contract';
 import React, { useMemo } from 'react';
 import { Award, Clock, History } from 'lucide-react';
 import { useI18n } from '../i18n';
@@ -7,6 +8,9 @@ import { KIND_ICON, isSpecialKind } from './NarrativeFeed';
 
 /** Where a jump lands: a few seconds of build-up before the moment. */
 export const seekTarget = (clockS: number) => Math.max(0, clockS - 8);
+
+// Small on-pitch tags stay on the pitch; the jump list keeps the story moments.
+const MINOR_KINDS = new Set<MomentKind>(['speed_burst', 'rocket_shot', 'distance_milestone', 'hard_pass']);
 
 type WithPeriod = { period?: number; clock_s: number };
 
@@ -19,7 +23,10 @@ export const compareMoments = (a: WithPeriod, b: WithPeriod) => periodOf(a) - pe
 export const MomentsList: React.FC<ViewProps> = ({ match, actions }) => {
   const { t } = useI18n();
   const now: WithPeriod = { clock_s: match.playback.clock_s, period: match.playback.period };
-  const bookmarks = useMemo(() => match.bookmarks.slice().sort(compareMoments), [match.bookmarks]);
+  const bookmarks = useMemo(
+    () => match.bookmarks.filter((b) => !MINOR_KINDS.has(b.kind)).sort(compareMoments),
+    [match.bookmarks],
+  );
 
   return (
     <Panel

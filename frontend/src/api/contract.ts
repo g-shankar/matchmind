@@ -59,6 +59,8 @@ export interface ViewerProfile {
 }
 
 export interface Evidence {
+  /** Stable fact key, e.g. times_better (the label itself is already in the card's language). */
+  label_key?: string;
   label: string;
   value: FactValue;
   unit: string | null;

@@ -46,8 +46,19 @@ export function useMatch() {
     let disposed = false;
     let retries = 0;
     let timers: ReturnType<typeof setTimeout>[] = [];
+    // Deep links: `?t=2050&p=1` starts at a match moment, `&pause=1` holds it there.
+    const q = new URLSearchParams(window.location.search);
+    let startAt = q.has('t') ? { clock_s: Number(q.get('t')), period: Number(q.get('p') ?? 0) || undefined } : null;
+    const pauseAtStart = q.get('pause') === '1';
     const onMessage = (message: ServerMessage) => {
-      if (!disposed) dispatch({ type: 'message', message });
+      if (disposed) return;
+      dispatch({ type: 'message', message });
+      if (message.type === 'INITIAL_SNAPSHOT' && startAt && Number.isFinite(startAt.clock_s)) {
+        const target = startAt;
+        startAt = null;
+        transportRef.current?.send({ action: 'seek', clock_s: target.clock_s, ...(target.period ? { period: target.period } : {}) });
+        if (pauseAtStart && message.data.playback.is_running) transportRef.current?.send({ action: 'toggle_pause' });
+      }
     };
 
     const startDemo = async () => {

@@ -66,9 +66,8 @@ export function cardClock(card: OverlayCard, match: Pick<MatchViewState, 'events
 export function formatFact(value: FactValue, num: (v: number, d?: number) => string, t: (k: string) => string) {
   if (typeof value === 'boolean') return t(value ? 'studio.feed.yes' : 'studio.feed.no');
   if (typeof value === 'number') {
-    // As in the payload, at most two decimals, without padding 9.2 to 9.20.
-    const oneDecimal = Math.abs(Math.round(value * 10) - value * 10) < 1e-9;
-    return num(value, Number.isInteger(value) ? 0 : oneDecimal ? 1 : 2);
+    // Exactly as in the payload (up to three decimals), so it matches the fact-checked text.
+    return num(value, Math.min(3, String(value).split('.')[1]?.length ?? 0));
   }
   return value;
 }

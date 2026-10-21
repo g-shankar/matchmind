@@ -19,10 +19,10 @@ export function factLabel(t: I18n['t'], key: string): string {
   return text === k ? key.replace(/_/g, ' ') : text;
 }
 
-// Shows a payload value as sent: numbers keep their own decimals (at most 2), booleans become yes/no.
+// Shows a payload value as sent: numbers keep their own decimals (at most 3), booleans become yes/no.
 export function factValue(i18n: Pick<I18n, 't' | 'num'>, value: FactValue): string {
   if (typeof value === 'number') {
-    const decimals = Number.isInteger(value) ? 0 : Math.min(2, String(value).split('.')[1]?.length ?? 0);
+    const decimals = Number.isInteger(value) ? 0 : Math.min(3, String(value).split('.')[1]?.length ?? 0);
     return i18n.num(value, decimals);
   }
   if (typeof value === 'boolean') return i18n.t(value ? 'broadcast.recap.yes' : 'broadcast.recap.no');
@@ -126,7 +126,8 @@ const Scorebug: React.FC<ViewProps> = ({ match }) => {
   if (!teams) return null;
   const homePct = controlChaos?.home_control_pct ?? null;
   const awayPct = controlChaos?.away_control_pct ?? null;
-  const tempo = controlChaos ? t(`tempo.${controlChaos.current_tempo}`) : '';
+  const tempoKey = controlChaos ? `tempo.${controlChaos.current_tempo}` : '';
+  const tempo = controlChaos ? (t(tempoKey) === tempoKey ? controlChaos.current_tempo : t(tempoKey)) : '';
   return (
     <div data-testid="scorebug" className="pointer-events-auto overflow-hidden rounded-lg border border-white/15 bg-pp-deep/90 shadow-2xl backdrop-blur">
       <div className="flex items-stretch font-display text-[clamp(11px,1.8vw,18px)] font-bold text-white">
