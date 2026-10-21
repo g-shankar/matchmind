@@ -70,7 +70,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - run: pip install "./backend[azure,analytics]" pip-licenses
+      - run: pip install "./backend[azure,ai,observability,analytics]" pip-licenses
       - run: pip-licenses --partial-match --fail-on="GPL;AGPL;SSPL"
       - run: npm ci --no-audit --no-fund
         working-directory: frontend
@@ -86,8 +86,13 @@ jobs:
       - run: az bicep lint --file deployment/azure_bicep/main.bicep
       - run: az bicep build --file deployment/azure_bicep/main.bicep --stdout > /dev/null
       - name: Template outputs no keys
+        # The Application Insights ingestion string (properties.ConnectionString) is
+        # allowed inside the template: local auth is off, so it cannot write telemetry
+        # without an Entra ID token. It must still never be an output.
         run: |
-          ! grep -nE "listKeys|listConnectionStrings|primaryKey|connectionString" deployment/azure_bicep/main.bicep
+          # `if` rather than `! grep`: bash -e ignores a negated command that is not the last line.
+          if grep -nE "listKeys|listConnectionStrings|primaryKey|connectionString" deployment/azure_bicep/main.bicep; then exit 1; fi
+          if grep -niE "^output .*(key|connectionstring|secret|password)" deployment/azure_bicep/main.bicep; then exit 1; fi
 
   image:
     name: Container image build

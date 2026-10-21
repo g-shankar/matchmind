@@ -2,8 +2,9 @@
 //
 // Everything authenticates with Microsoft Entra ID through user-assigned
 // managed identities (one for the web app, one for the simulator job, each
-// with only the roles it needs): Azure OpenAI, Translator and Event Hubs have local (key)
-// auth switched off, the registry has its admin user switched off, and this
+// with only the roles it needs): Microsoft Foundry (Azure AI Services),
+// Translator, Event Hubs and Application Insights have local (key) auth
+// switched off, the registry has its admin user switched off, and this
 // template outputs names and endpoints only.
 //
 // Deploy in two passes (the deploy workflow does this):
@@ -26,8 +27,11 @@ param deployApps bool = false
 @description('Full image reference, e.g. <registry>.azurecr.io/pitchpulse:<sha>.')
 param containerImage string = ''
 
-@description('Create Azure OpenAI. Paid per token; off until the owner approves AI spend.')
+@description('Create the Microsoft Foundry resource (Azure AI Services) with a project and the model deployment. Paid per token; off until the owner approves AI spend.')
 param deployOpenAi bool = false
+
+@description('Create Application Insights for crew tracing (Foundry tracing view). Billed per GB ingested; off by default. The deploy identity must be allowed to grant Monitoring Metrics Publisher (setup/owner-todo.md).')
+param deployObservability bool = false
 
 @description('Create Azure AI Translator. Paid per character; off by default.')
 param deployTranslator bool = false
@@ -35,7 +39,7 @@ param deployTranslator bool = false
 @description('Turns the AI crew on. Stays false until the owner approves the spend.')
 param aiEnabled bool = false
 
-@description('Azure OpenAI model and version for the crew.')
+@description('Model and version for the crew, deployed on the Foundry resource.')
 param openAiModelName string = 'gpt-4o-mini'
 param openAiModelVersion string = '2024-07-18'
 
@@ -53,7 +57,9 @@ var names = {
   logs: 'log-${namePrefix}-${suffix}'
   registry: take('cr${namePrefix}${suffix}', 50)
   eventHubs: 'evh-${namePrefix}-${suffix}'
-  openAi: 'oai-${namePrefix}-${suffix}'
+  foundry: 'aif-${namePrefix}-${suffix}'
+  foundryProject: 'proj-${namePrefix}'
+  appInsights: 'appi-${namePrefix}-${suffix}'
   translator: 'trl-${namePrefix}-${suffix}'
   environment: 'cae-${namePrefix}'
   app: 'ca-${namePrefix}'
@@ -68,6 +74,7 @@ var roles = {
   cognitiveServicesUser: 'a97b65f3-24c7-4388-baec-2e87135dc908'
   eventHubsDataSender: '2b629674-e913-4c01-ae53-ef4638d8f975'
   eventHubsDataReceiver: 'a638d3c7-ab3a-418d-83e6-5f17a39d4fde'
+  monitoringMetricsPublisher: '3913510d-42f4-4e42-8a64-420c390055eb'
 }
 
 // ---------------------------------------------------------------- identity --
@@ -171,22 +178,42 @@ resource eventHubsReceiver 'Microsoft.Authorization/roleAssignments@2022-04-01' 
   }
 }
 
-// ------------------------------------------------------------ azure openai --
+// ------------------------------------------------------- microsoft foundry --
+//
+// An Azure AI Services account with project management on is a Microsoft
+// Foundry resource: it hosts the model deployment and the Foundry project
+// (agents, evaluations and tracing in the Foundry portal). The crew calls the
+// deployment through the resource's Azure OpenAI endpoint with Entra ID.
 
-resource openAi 'Microsoft.CognitiveServices/accounts@2024-10-01' = if (deployOpenAi) {
-  name: names.openAi
+resource foundry 'Microsoft.CognitiveServices/accounts@2025-06-01' = if (deployOpenAi) {
+  name: names.foundry
   location: location
-  kind: 'OpenAI'
+  kind: 'AIServices'
   sku: { name: 'S0' }
+  // Projects need a managed identity on the resource; it is given no roles here.
+  identity: { type: 'SystemAssigned' }
   properties: {
-    customSubDomainName: names.openAi
+    allowProjectManagement: true
+    customSubDomainName: names.foundry
     disableLocalAuth: true
     publicNetworkAccess: 'Enabled'
   }
 }
 
-resource openAiDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024-10-01' = if (deployOpenAi) {
-  parent: openAi
+resource foundryProject 'Microsoft.CognitiveServices/accounts/projects@2025-06-01' = if (deployOpenAi) {
+  parent: foundry
+  name: names.foundryProject
+  location: location
+  identity: { type: 'SystemAssigned' }
+  properties: {
+    displayName: 'PitchPulse studio crew'
+    description: 'Spotter, Analyst, Commentator, Fact-checker and Producer: evaluations and traces.'
+  }
+}
+
+// Deployments live on the Foundry resource and are shared by its projects.
+resource modelDeployment 'Microsoft.CognitiveServices/accounts/deployments@2025-06-01' = if (deployOpenAi) {
+  parent: foundry
   name: openAiModelName
   sku: {
     name: 'GlobalStandard'
@@ -201,13 +228,68 @@ resource openAiDeployment 'Microsoft.CognitiveServices/accounts/deployments@2024
   }
 }
 
+// Inference only: the app identity cannot manage the resource, its
+// deployments or the project.
 resource openAiUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployOpenAi) {
-  scope: openAi
-  name: guid(resourceId('Microsoft.CognitiveServices/accounts', names.openAi), appIdentity.id, roles.cognitiveServicesOpenAiUser)
+  scope: foundry
+  name: guid(resourceId('Microsoft.CognitiveServices/accounts', names.foundry), appIdentity.id, roles.cognitiveServicesOpenAiUser)
   properties: {
     principalId: appIdentity.properties.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.cognitiveServicesOpenAiUser)
+  }
+}
+
+// ------------------------------------------------------------ observability --
+//
+// Workspace-based Application Insights on the same Log Analytics workspace.
+// Local auth is off, so ingestion needs an Entra ID token: the ingestion
+// string the app receives identifies the resource but cannot write to it on
+// its own. The app identity gets Monitoring Metrics Publisher (write
+// telemetry, read nothing).
+
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = if (deployObservability) {
+  name: names.appInsights
+  location: location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: logs.id
+    IngestionMode: 'LogAnalytics'
+    DisableLocalAuth: true
+    RetentionInDays: 30
+  }
+}
+
+resource appTelemetryPublisher 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployObservability) {
+  scope: appInsights
+  name: guid(resourceId('Microsoft.Insights/components', names.appInsights), appIdentity.id, roles.monitoringMetricsPublisher)
+  properties: {
+    principalId: appIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.monitoringMetricsPublisher)
+  }
+}
+
+// Connects the Foundry project to Application Insights, so the project's
+// Tracing page reads the crew's spans. Foundry keeps the ingestion string as
+// this connection's credential (the AppInsights connection format); it is
+// never output.
+resource foundryTracing 'Microsoft.CognitiveServices/accounts/projects/connections@2025-06-01' = if (deployOpenAi && deployObservability) {
+  parent: foundryProject
+  name: 'app-insights'
+  properties: {
+    category: 'AppInsights'
+    target: appInsights.id
+    authType: 'ApiKey'
+    isSharedToAll: false
+    credentials: {
+      key: appInsights!.properties.ConnectionString
+    }
+    metadata: {
+      ApiType: 'Azure'
+      ResourceId: appInsights.id
+    }
   }
 }
 
@@ -276,10 +358,25 @@ var eventHubEnv = [
   { name: 'EVENTHUB_NAME', value: eventHubName }
 ]
 
+var foundryOpenAiEndpoint = 'https://${names.foundry}.openai.azure.com/'
+var foundryProjectEndpoint = 'https://${names.foundry}.services.ai.azure.com/api/projects/${names.foundryProject}'
+
+// Tracing is on only when Application Insights exists. The exporter signs in
+// as the app identity (Entra ID); with local auth off, the ingestion string
+// alone cannot write telemetry.
+var telemetryEnv = deployObservability
+  ? [
+      { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsights!.properties.ConnectionString }
+      { name: 'APPLICATIONINSIGHTS_AUTHENTICATION_STRING', value: 'Authorization=AAD;ClientId=${appIdentity.properties.clientId}' }
+      { name: 'OTEL_SERVICE_NAME', value: 'pitchpulse-crew' }
+    ]
+  : []
+
 var appEnv = [
   { name: 'AZURE_CLIENT_ID', value: appIdentity.properties.clientId }
   { name: 'MATCHMIND_AI_ENABLED', value: string(aiEnabled) }
-  { name: 'AZURE_OPENAI_ENDPOINT', value: deployOpenAi ? openAi!.properties.endpoint : '' }
+  { name: 'AZURE_OPENAI_ENDPOINT', value: deployOpenAi ? foundryOpenAiEndpoint : '' }
+  { name: 'AZURE_AI_PROJECT_ENDPOINT', value: deployOpenAi ? foundryProjectEndpoint : '' }
   { name: 'AZURE_OPENAI_DEPLOYMENT', value: openAiModelName }
   { name: 'AZURE_OPENAI_API_VERSION', value: '2024-10-21' }
   { name: 'MATCHMIND_TRANSLATOR_ENABLED', value: string(deployTranslator && aiEnabled) }
@@ -297,7 +394,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
     type: 'UserAssigned'
     userAssignedIdentities: { '${appIdentity.id}': {} }
   }
-  dependsOn: [appRegistryPull]
+  dependsOn: [appRegistryPull, appTelemetryPublisher]
   properties: {
     environmentId: environment.id
     workloadProfileName: 'Consumption'
@@ -320,7 +417,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
             cpu: json('0.5')
             memory: '1Gi'
           }
-          env: concat(appEnv, eventHubEnv, [
+          env: concat(appEnv, eventHubEnv, telemetryEnv, [
             { name: 'MATCHMIND_ALLOWED_ORIGINS', value: allowedOrigins }
             { name: 'MATCHMIND_PUBLIC_ORIGIN', value: 'https://${appFqdn}' }
           ])
@@ -413,7 +510,10 @@ output registryLoginServer string = registry.properties.loginServer
 output appIdentityClientId string = appIdentity.properties.clientId
 output eventHubsNamespace string = '${eventHubs.name}.servicebus.windows.net'
 output eventHubName string = eventHubName
-output openAiEndpoint string = deployOpenAi ? openAi!.properties.endpoint : ''
+output openAiEndpoint string = deployOpenAi ? foundryOpenAiEndpoint : ''
+output foundryName string = deployOpenAi ? names.foundry : ''
+output foundryProjectEndpoint string = deployOpenAi ? foundryProjectEndpoint : ''
+output appInsightsName string = deployObservability ? names.appInsights : ''
 output appName string = names.app
 output simulatorJobName string = names.simulatorJob
 output appUrl string = deployApps ? 'https://${app!.properties.configuration.ingress.fqdn}' : ''

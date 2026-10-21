@@ -207,3 +207,4 @@ Every linked acceptance criterion has evidence; format/lint, typecheck, unit, in
 - Never trust the Host header for origin checks; only listed origins.
 - Pass `TemplateLLM()` explicitly wherever paid model calls are not allowed; `llm=None` follows the AI switch.
 - When the roster in `teams.py` changes, regenerate `backend/data/matches` or the dataset check fails.
+- In a multi-line CI `run:` block, `! grep ...` fails the step only on the last line (bash -e ignores negated commands); use `if grep ...; then exit 1; fi`.

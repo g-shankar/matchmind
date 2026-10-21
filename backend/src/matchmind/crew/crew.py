@@ -25,7 +25,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from matchmind.crew import analyst, commentator
+from matchmind.crew import analyst, commentator, telemetry
 from matchmind.crew import recap as recap_mod
 from matchmind.crew.alerts import AlertWatcher
 from matchmind.crew.contracts import (
@@ -462,6 +462,7 @@ class Crew:
                 )
             )
             self._store_trace(trace)
+        self._span("recap", trace.steps[0].ms, status, reason or produced_by, trace_id, "recap")
         return out
 
     def _ai_recap(
@@ -558,6 +559,21 @@ class Crew:
                 self._store_trace(trace)
             if len(trace.steps) < TRACE_STEPS_LIMIT:
                 trace.steps.append(AgentStep(agent=agent, ms=round(ms, 2), status=status, detail=detail))
+        self._span(agent, ms, status, detail, moment.moment_id, moment.kind.value)
+
+    def _span(
+        self, agent: str, ms: float, status: str, detail: str | None, moment_id: str, kind: str | None
+    ) -> None:
+        """OpenTelemetry span for one step (a no-op unless tracing is configured)."""
+        telemetry.record_step(
+            agent=agent,
+            status=status,
+            ms=ms,
+            moment_id=moment_id,
+            moment_kind=kind,
+            detail=detail,
+            model=self.llm.model if self.llm.enabled else None,
+        )
 
     def _store_trace(self, trace: CrewTrace) -> None:
         self._traces[trace.moment_id] = trace
