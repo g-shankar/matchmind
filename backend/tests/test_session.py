@@ -172,7 +172,9 @@ def test_build_session_says_what_is_missing(monkeypatch):
 
 def test_build_session_with_injected_engines():
     s = build_session(engines=FAKE_ENGINES)
-    assert s.match_id == "MM-DEMO-001" and s.auto_eventing is None
+    assert s.match_id == "MM-DEMO-001"
+    assert s.auto_eventing["source"] == "synthetic_tracking"
+    assert s.auto_eventing["passes_detected_pct"] > 90
 
 
 def test_paid_ai_stays_off_unless_switched_on(monkeypatch):
