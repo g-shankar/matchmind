@@ -105,6 +105,22 @@ def test_routes_that_can_call_the_translator_are_limited_per_ip(client, clock, p
     assert client.get(path).status_code == 200
 
 
+def test_spoofed_forwarded_for_does_not_buy_a_fresh_bucket(client, clock, monkeypatch):
+    # Behind the ingress the real caller is the last X-Forwarded-For entry; a caller
+    # rotating the entries to its left must still share one bucket.
+    monkeypatch.setattr(app_mod, "TRUST_FORWARDED_FOR", True)
+    codes = [
+        client.get(
+            "/api/match/recap?lang=pt", headers={"X-Forwarded-For": f"10.0.0.{i}, 203.0.113.9"}
+        ).status_code
+        for i in range(app_mod.GET_BURST + 10)
+    ]
+    assert codes[: app_mod.GET_BURST] == [200] * app_mod.GET_BURST
+    assert set(codes[app_mod.GET_BURST :]) == {429}
+    other = client.get("/api/match/recap?lang=pt", headers={"X-Forwarded-For": "203.0.113.10"})
+    assert other.status_code == 200  # a different real caller has its own bucket
+
+
 def test_world_language_recap_is_translated_without_the_crew_lock(client):
     hub = client.app.state.hub
     seen: list[bool] = []

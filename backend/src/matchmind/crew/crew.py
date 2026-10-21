@@ -68,7 +68,6 @@ PROCESSED_LIMIT = 50_000
 RECAP_AI_LIMIT = 256
 # A world-language recap is translated at most once per audience in this many seconds
 # before full time (the last translation is reused in between), and once at full time.
-RECAP_TRANSLATE_EVERY_S = 60.0
 AI_AGENTS = ("analyst", "commentator", "recap")
 
 
@@ -116,7 +115,7 @@ class Crew:
         self._traces: OrderedDict[str, CrewTrace] = OrderedDict()
         self._recap_ai: OrderedDict[tuple, tuple[Any | None, str | None]] = OrderedDict()
         # (match, persona, language, club, focus) -> (when, translated recap, made at full time)
-        self._recap_translated: OrderedDict[tuple, tuple[float, Recap, bool]] = OrderedDict()
+        self._recap_translated: OrderedDict[tuple, Recap] = OrderedDict()
         self._generation = getattr(self, "_generation", 0) + 1  # changes on every reset
         self._fallbacks = 0
         self._rejections = 0
@@ -549,11 +548,11 @@ class Crew:
     def translate_recap(
         self, english: Recap, moments: list[Moment], profile: ViewerProfile, snapshot: MatchStateSnapshot
     ) -> Recap:
-        """The English recap in the viewer's world language, paced: before full time at
-        most one translation per audience every RECAP_TRANSLATE_EVERY_S (the last one,
-        with its own `generated_at_clock`, is reused in between); at full time once.
-        Safe to call without the caller's crew lock: a reset while the request is out
-        means the answer is returned but not kept."""
+        """The English recap in the viewer's world language. Before full time it stays
+        in English (`fallback_reason` "recap_at_full_time"), so recap requests can never
+        spend the translation budget live cards need; at full time it is translated once
+        per audience and kept. Safe to call without the caller's crew lock: a reset
+        while the request is out means the answer is returned but not kept."""
         t0 = time.perf_counter()
         key = (
             snapshot.match_id,
@@ -562,21 +561,27 @@ class Crew:
             profile.favourite_team,
             profile.focus_player_id,
         )
-        full_time = recap_mod.is_full_time(moments)
+        if not recap_mod.is_full_time(moments):
+            return english.model_copy(
+                update={
+                    "language": profile.language,
+                    "rtl": False,
+                    "text_language": "en",
+                    "translated_by": None,
+                    "fallback_reason": "recap_at_full_time",
+                }
+            )
         with self._lock:
             generation = self._generation
-            last = self._recap_translated.get(key)
-            if last is not None:
-                made_at, previous, made_at_full_time = last
-                fresh = self.clock() - made_at < RECAP_TRANSLATE_EVERY_S
-                if made_at_full_time or (fresh and not full_time):
-                    self._recap_translated.move_to_end(key)
-                    return previous.model_copy(deep=True)
+            previous = self._recap_translated.get(key)
+            if previous is not None:
+                self._recap_translated.move_to_end(key)
+                return previous.model_copy(deep=True)
         out = self._translate_recap(english, moments, profile.language, snapshot, t0)
         if out.translated_by is not None:
             with self._lock:
                 if generation == self._generation:
-                    self._recap_translated[key] = (self.clock(), out, full_time)
+                    self._recap_translated[key] = out
                     self._recap_translated.move_to_end(key)
                     while len(self._recap_translated) > RECAP_AI_LIMIT:
                         self._recap_translated.popitem(last=False)

@@ -60,5 +60,5 @@ Thumbs.db
 # Temp scratch scripts
 test_ws.py
 
-# Local agent worktrees
+# Local worktrees
 .claude/worktrees/

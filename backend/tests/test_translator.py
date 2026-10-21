@@ -370,35 +370,28 @@ def test_recap_in_a_world_language_is_one_request_and_checked(moments):  # noqa:
     assert recap.stats == english.stats  # numbers come from the engine, untouched
 
 
-def test_live_recap_is_translated_at_most_once_a_minute_then_once_at_full_time(moments):  # noqa: F811
+def test_live_recap_stays_in_english_and_full_time_recap_is_translated_once(moments):  # noqa: F811
     fake = FakeAzure()
-    now = [0.0]
-    crew = Crew(TEAMS, llm=TemplateLLM(), translator=service(fake), clock=lambda: now[0])
+    crew = Crew(TEAMS, llm=TemplateLLM(), translator=service(fake))
     live = [m for m in moments if m.facts.get("phase") != "full_time"]
     profile = ViewerProfile(language="de")
-    first = crew.recap(snap(3000.0, period=2), players(), profile, live)
-    assert first.translated_by == "azure_ai_translator" and len(fake.requests) == 1
-    # Every match minute changes the English text; a caller hammering the route
-    # within the window gets the last translation (with its own clock), not a new bill.
-    for minute in range(1, 30):
-        now[0] += 1.0
-        again = crew.recap(snap(3000.0 + 60 * minute, period=2), players(), profile, live)
-        assert again.generated_at_clock == first.generated_at_clock
-    assert len(fake.requests) == 1
-    now[0] += 61.0
-    later = crew.recap(snap(5000.0, period=2), players(), profile, live)
-    assert later.generated_at_clock != first.generated_at_clock and len(fake.requests) == 2
-    # Full time: translated once at once, then reused for good.
+    # A caller hammering the recap route before full time never spends: the live
+    # cards keep the whole translation budget.
+    for minute in range(30):
+        early = crew.recap(snap(3000.0 + 60 * minute, period=2), players(), profile, live)
+        assert early.translated_by is None and early.fallback_reason == "recap_at_full_time"
+        assert early.language == "de" and early.text_language == "en"
+    assert fake.requests == []
+    # Full time: translated once, then reused for good.
     final = crew.recap(snap(5500.0, period=2), players(), profile, moments)
-    assert final.translated_by == "azure_ai_translator" and len(fake.requests) == 3
+    assert final.translated_by == "azure_ai_translator" and len(fake.requests) == 1
     for _ in range(5):
-        now[0] += 120.0
         crew.recap(snap(5500.0, period=2), players(), profile, moments)
-    assert len(fake.requests) == 3
+    assert len(fake.requests) == 1
     # Each audience is its own entry (personas and languages are not mixed up).
     crew.recap(snap(5500.0, period=2), players(), ViewerProfile(language="ko"), moments)
     crew.recap(snap(5500.0, period=2), players(), ViewerProfile(language="de", persona="tactical"), moments)
-    assert len(fake.requests) == 5
+    assert len(fake.requests) == 3
 
 
 def test_reset_while_a_recap_is_being_translated_keeps_nothing_stale(moments):  # noqa: F811

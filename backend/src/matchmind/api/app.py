@@ -58,6 +58,13 @@ POST_BURST, POST_PER_SECOND = 10, 2.0  # per client IP on the POST routes
 # Room for the app's own bursts: re-voicing 12 cards after a language switch, 4 per split view.
 GET_BURST, GET_PER_SECOND = 30, 3.0
 IP_LIMITERS_MAX = 10_000
+# Behind the Container Apps ingress the caller's address is the LAST X-Forwarded-For
+# entry (the ingress appends what it saw); anything to its left is client-supplied.
+TRUST_FORWARDED_FOR = os.environ.get("MATCHMIND_TRUST_FORWARDED_FOR", "false").strip().lower() in (
+    "true",
+    "1",
+    "yes",
+)
 CLOSE_TRY_AGAIN = 1013  # WebSocket "try again later"
 DEFAULT_ORIGINS = "http://localhost:5173,http://localhost:3000"
 OOPS = "Something went wrong on our side. Please try again."
@@ -412,6 +419,16 @@ class Hub:
 # --- App -------------------------------------------------------------------------------------
 
 
+def client_ip(conn: Request | WebSocket) -> str:
+    """The address limits and connection caps are keyed by. Never the leftmost
+    X-Forwarded-For entry: a caller can put anything there."""
+    if TRUST_FORWARDED_FOR:
+        last = conn.headers.get("x-forwarded-for", "").split(",")[-1].strip()
+        if last:
+            return last[:64]
+    return conn.client.host if conn.client else "unknown"
+
+
 def create_app(
     session: MatchSession | None = None,
     session_factory: Callable[[], MatchSession] = build_session,
@@ -502,7 +519,7 @@ def create_app(
         ip_limiters: OrderedDict[str, RateLimiter] = OrderedDict()
 
         def check(request: Request) -> None:
-            ip = request.client.host if request.client else "unknown"
+            ip = client_ip(request)
             limiter = ip_limiters.get(ip)
             if limiter is None:
                 limiter = ip_limiters[ip] = RateLimiter(burst=burst, per_second=per_second, clock=clock)
@@ -605,7 +622,7 @@ def create_app(
         if not _origin_ok(ws) or hub._session is None:
             await ws.close(code=1008)
             return
-        ip = ws.client.host if ws.client else "unknown"
+        ip = client_ip(ws)
         if not hub.reserve(ip):
             await ws.close(code=1008)
             return

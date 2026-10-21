@@ -35,6 +35,7 @@ says so in plain words ("Shown in English: Azure AI Translator is off").
 | `translator_off` | The switch is off (the default) |
 | `translation_rejected` | A protected number or name changed, or the fact-checker refused the translation |
 | `translator_budget` | The character budget or per-minute rate is spent |
+| `recap_at_full_time` | A recap before full time; world-language recaps are translated once the match ends |
 | `translator_circuit_open` | Three failures in a row: Translator is paused for 60 s |
 | `translator_timeout` | No answer within 2.5 s |
 | `translator_error` | Any other failure (network, sign-in, HTTP error). Provider text is never shown or logged |
@@ -90,14 +91,16 @@ only when the translator is used.
   request tries again.
 - **The whole-match bookmark pass never translates**, so loading a match costs
   nothing.
-- **Recaps are paced.** Before full time a world-language recap is translated
-  at most once a minute per audience (persona, language, club, focus player);
-  in between, the last translation is reused, with its own "generated at"
-  clock. At full time it is translated once and then reused. A seek or reset
-  throws the kept translations away.
+- **Recaps are translated at full time only.** Before full time a
+  world-language recap is shown in English (`recap_at_full_time`), so recap
+  requests can never spend the characters live cards need. At full time it is
+  translated once per audience (persona, language, club, focus player) and
+  reused. A seek or reset throws the kept translations away.
 - **Rate limits.** `GET /api/match/moment` and `GET /api/match/recap` (the
   routes that can spend characters) allow about 3 requests a second per client
-  IP, bursts of 30; beyond that, 429.
+  IP, bursts of 30; beyond that, 429. Behind the Container Apps ingress the
+  client IP is the last `X-Forwarded-For` entry (`MATCHMIND_TRUST_FORWARDED_FOR`),
+  never a caller-supplied one.
 - **No lock during the call.** The recap route builds the English recap under
   the crew lock, then calls Translator with no lock held, so a slow translator
   never stalls playback. The moment route holds no lock. Live tick cards are
