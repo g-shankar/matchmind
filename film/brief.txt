@@ -31,3 +31,7 @@ Decision log
 - 2026-10-21 Azure scene says "Built for Azure" (not "on"): nothing is deployed yet and Azure OpenAI is
   off by default (paid). Wording from the Azure deployment thread (PR #2). If the app is deployed and AI
   spend approved before the final render, switch copy.azure back to "Built on Azure" in facts.py and vo.json.
+- 2026-10-21 Restyled to the app's new look (frontend PR #5): Barlow / Barlow Condensed italic caps,
+  Cairo and IBM Plex Sans Arabic, chalk-on-black with pulse red and floodlight yellow, 2 px corners,
+  slanted chalk section tabs, red heartbeat logo, turf-green pitch. Gowri asked for no default look.
+- 2026-10-21 Final at 60 fps, high quality.
