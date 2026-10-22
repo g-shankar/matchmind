@@ -244,3 +244,31 @@ def test_ec6_ask_refuses_bodies_a_cross_site_form_could_send(client, media):
         "/api/ask", content=b'{"chip": "score"}', headers={"content-type": "application/json; charset=utf-8"}
     )
     assert ok.status_code == 200
+
+
+# --- EC-7 and held up: names from feeds in any script ------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["Amá Kofi", "Zoë Angélique", "محمد العلي", "李 小龙", "O’Neil", "Zoë Ångström"],
+)
+def test_ec7_invented_names_in_other_scripts_and_decomposed_accents_are_accepted(name):
+    """Before: 'Amá' typed as a + combining accent was refused while the same name with a
+    single 'á' passed."""
+    import unicodedata
+
+    from matchmind.ingest.roster import check_name
+
+    assert check_name(name, "Player name") == unicodedata.normalize("NFC", name)
+
+
+@pytest.mark.parametrize(
+    "name",
+    ["Ama‮evil", "Jo​hn", "A" * 41, "Robert<script>", "x", "Name‏"],
+)
+def test_held_up_bidi_zero_width_markup_and_huge_names_are_refused(name):
+    from matchmind.ingest.roster import check_name
+
+    with pytest.raises(ValueError):
+        check_name(name, "Player name")
