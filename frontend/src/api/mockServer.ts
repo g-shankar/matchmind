@@ -16,6 +16,7 @@ import type {
   MomentKind,
   OverlayCard,
   PersonaType,
+  PlayerIdentity,
   Playback,
   PlayerStats,
   Recap,
@@ -58,6 +59,8 @@ export interface FixtureMoment {
   match_clock: string;
   team: string | null;
   player_ids: string[];
+  /** Identity of each player in player_ids (newer fixtures). */
+  players?: PlayerIdentity[];
   evidence: Evidence[];
   /** Evidence labels in other languages, same order as `evidence`. */
   evidence_labels?: Partial<Record<Language, string[]>>;
@@ -155,6 +158,7 @@ export function cardForMoment(m: FixtureMoment, profile: ViewerProfile): Overlay
     tactical_tag: m.tactical_tag,
     evidence: localEvidence(m, shown),
     player_ids: m.player_ids,
+    ...(m.players ? { players: m.players } : {}),
     team: m.team,
     favourite_side,
     produced_by: 'template',
