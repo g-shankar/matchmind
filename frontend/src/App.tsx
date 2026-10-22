@@ -28,6 +28,14 @@ const viewFromHash = (): ViewMode => {
   return VIEWS.includes(v) ? v : 'studio';
 };
 
+export const isCapture = () => {
+  try {
+    return new URLSearchParams(window.location.search).get('capture') === '1';
+  } catch {
+    return false;
+  }
+};
+
 export const App: React.FC = () => {
   const { state, actions } = useMatch();
   return (
@@ -71,7 +79,16 @@ const Shell: React.FC<ViewProps> = ({ match, actions }) => {
 
   const { profile, playback, teams } = match;
   const clockS = playback.clock_s;
-  const liveReplay = activeCards(match.cards, clockS, 'full_screen').find((c) => c.replay);
+  const liveReplay = activeCards(match.cards, clockS, 'full_screen', match.cue.ruledOut).find((c) => c.replay);
+
+  // OBS / vMix Browser Source: ?capture=1#overlay renders only the graphics, transparent (docs/OBS.md).
+  if (view === 'overlay' && isCapture()) {
+    return (
+      <div dir={dir} className="h-screen w-screen overflow-hidden bg-transparent">
+        <BroadcastOverlay match={match} actions={actions} capture />
+      </div>
+    );
+  }
 
   return (
     <div dir={dir} className="flex min-h-screen flex-col bg-pp-night text-slate-100">
@@ -205,7 +222,7 @@ const Shell: React.FC<ViewProps> = ({ match, actions }) => {
                       recentEvents={match.events.slice(-6)}
                       positions={match.positions}
                       showTags
-                      pitchTags={activeCards(match.cards, clockS, 'pitch_tag')}
+                      pitchTags={activeCards(match.cards, clockS, 'pitch_tag', match.cue.ruledOut)}
                     />
                   )}
                   <ControlChaosGauge match={match} actions={actions} />

@@ -30,6 +30,7 @@ SNAPSHOT_KEYS = {
     "crew",
     "languages",
     "auto_eventing",
+    "cue_sheet",
 }
 STATE_KEYS = {
     "match_id",
@@ -155,7 +156,11 @@ def pump(client: TestClient, clock: FakeClock | None = None, seconds: float = 0.
 
 
 def recv(ws, type_: str) -> dict:
+    """The next message of `type_`. CUES (the cue sheet stream that follows each
+    tick) is skipped unless asked for; tests/test_cues.py covers it."""
     msg = ws.receive_json()
+    while msg["type"] == "CUES" and type_ != "CUES":
+        msg = ws.receive_json()
     assert msg["type"] == type_, msg
     return msg["data"]
 
@@ -209,7 +214,7 @@ def test_teams_route(client):
 def test_bookmarks_route(client):
     data = client.get("/api/match/bookmarks").json()
     assert [b["match_clock"] for b in data] == ["01:00", "46:40"]
-    assert set(data[0]) == {"moment_id", "kind", "match_clock", "clock_s", "period", "title"}
+    assert set(data[0]) == {"moment_id", "kind", "match_clock", "clock_s", "period", "title", "ruled_out"}
 
 
 def test_moment_route_and_404(client):

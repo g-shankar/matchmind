@@ -39,6 +39,7 @@ PACK = {
         "shots_home": "Tirs domicile",
         "shots_away": "Tirs extérieur",
         "appearance_n": "Matchs avec le club",
+        "ruled_out_clock": "But refusé (marqué à)",
         "xt_stopped": "Menace stoppée (xT)",
         "own_goal_distance_m": "Distance de son but",
         "p_tackles_won": "Tacles gagnés",
@@ -63,6 +64,7 @@ PACK = {
     "card_name": {"yellow": "carton jaune", "red": "carton rouge"},
     "card_name_cap": {"yellow": "Carton jaune", "red": "Carton rouge"},
     "card_action": {"yellow": "est averti", "red": "est exclu"},
+    "var_reason": {"offside": "hors-jeu", "handball": "main", "foul": "faute"},
     "fav_goal": {
         "for": "BUT pour votre équipe ! {player_short} marque",
         "against": "{player_short} marque contre votre équipe",
@@ -415,6 +417,32 @@ PACK = {
                 )
             ],
         },
+        "correction": {
+            "casual": [
+                (
+                    "But refusé à {player_short} par la VAR",
+                    "Le but de {player} à {ruled_out_clock} est refusé pour {reason_phrase} après la revue vidéo. Le score reste {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+            "tactical": [
+                (
+                    "VAR : but de {player_short} refusé",
+                    "Décision renversée pour {reason_phrase} après revue. Retour à {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+            "fantasy": [
+                (
+                    "But refusé : {player_short}",
+                    "La VAR retire le but pour {reason_phrase} ; la frappe compte toujours. {player_short} aujourd'hui : {p_goals|but|buts} et {p_xg} xG en {p_shots|tir|tirs}.",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "But refusé à {player_short} par la VAR",
+                    "Le but de {player} à {ruled_out_clock} est refusé pour {reason_phrase} après la revue vidéo. Le score reste {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+        },
         "milestone.kick_off": {
             "casual": [
                 (
@@ -537,6 +565,9 @@ PACK = {
         ],
         "key_tackle": [
             "Gagné à {own_goal_distance_m} m du but, ce tacle retire à {opp} une menace de {xt_stopped} xT."
+        ],
+        "correction": [
+            "La VAR a refusé le but de {ruled_out_clock} pour {reason_phrase} : le score revient à {home} {score_home}-{score_away} {away}."
         ],
         "milestone.kick_off": ["Le match est lancé."],
         "milestone.half_time": ["À la pause, les buts attendus sont de {xg_home} à {xg_away}."],

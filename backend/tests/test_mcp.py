@@ -149,12 +149,21 @@ def parity_cases(session: MatchSession) -> list[tuple[str, dict, Any]]:
     async def players(http):
         return {"players": await _get(http, "/api/match/players")}
 
+    async def cue_sheet(http):
+        return await _get(http, "/api/match/cue-sheet", persona="tactical", lang="es", since_seq=2, limit=5)
+
     async def one_player(http):
         rows = await _get(http, "/api/match/players")
         return {"players": [r for r in rows if r["player_id"] == player_id]}
 
     async def teams(http):
         return await _get(http, "/api/teams")
+
+    async def basic_stats(http):
+        return await _get(http, "/api/match/stats/basic")
+
+    async def metric_registry(http):
+        return await _get(http, "/api/metrics")
 
     async def crew(http):
         return {
@@ -179,9 +188,12 @@ def parity_cases(session: MatchSession) -> list[tuple[str, dict, Any]]:
         ("get_moment", {"moment_id": first.moment_id}, moment),
         ("get_overlay_card", {"moment_id": first.moment_id, "persona": "tactical", "language": "es"}, card),
         ("get_recap", {"persona": "fantasy", "language": "fr"}, recap),
+        ("get_cue_sheet", {"persona": "tactical", "language": "es", "since_seq": 2, "limit": 5}, cue_sheet),
         ("get_player_stats", {}, players),
         ("get_player_stats", {"player_id": player_id}, one_player),
         ("get_team_rosters", {}, teams),
+        ("get_basic_stats", {}, basic_stats),
+        ("get_metric_registry", {}, metric_registry),
         ("get_crew_status", {"trace_limit": 5}, crew),
         ("get_auto_eventing", {}, auto_eventing),
         ("get_recent_events", {"limit": 3}, events),
@@ -272,7 +284,7 @@ def test_output_schema_lists_every_top_level_field(real_session):
 def test_player_identity_reaches_mcp_outputs(real_session):
     """Players carry name, number and position; moments carry the identity of each player."""
     app = create_app(session=real_session, tick_interval=None, allowed_origins=[ALLOWED])
-    tackle = next(m for m in real_session.moments_so_far() if m.kind == "key_tackle")
+    tackle = next(m for m in real_session.moments_so_far() if len(m.player_ids) >= 1 and m.kind != "goal")
 
     async def go():
         async with connected(app) as (client, _):

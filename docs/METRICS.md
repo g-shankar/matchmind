@@ -184,8 +184,8 @@ shots.
 | Touches | Passes, carries, dribbles, shots, interceptions, tackles, clearances and recoveries by the player. |
 | Passes, completed, accuracy | Every pass attempt; accuracy = completed / attempted x 100. |
 | Key passes, xA | A completed pass whose receiver shoots in the same possession before anyone else receives a pass. xA adds that shot's xG. |
-| Assists | Key passes whose shot was a goal. |
-| Goals, shots, shots on target, xG | From the player's shots. On target = goals plus saved shots. |
+| Assists | Key passes whose shot was a goal (a goal VAR ruled out does not count). |
+| Goals, shots, shots on target, xG | From the player's shots. On target = goals plus saved shots. A goal VAR ruled out comes off goals (team and player); the shot, its xG and its on-target count stay. |
 | Tackles won | Tackle events by the player. |
 | Tackles lost | Times the player was dribbled past (a successful dribble names him as the opponent). |
 | Tackles attempted, tackle success | Won plus lost; success = won / attempted x 100. |
@@ -285,6 +285,26 @@ marked last-ditch. At most one every 5 minutes of match clock. The moment's
 facts carry the threat stopped (xT), the distance from the tackler's own goal,
 his tackles won so far and, when the tackle ended a failed dribble, the player
 he dispossessed. The demo match has three (47:36, 64:46 last-ditch, 72:20).
+
+## Corrections (VAR)
+
+A `var_review` event names the goal it decided on (`reviewed_event_id`) and
+why (`review_reason`: offside, handball or foul). When the outcome is
+`overturned`:
+
+| Stat | Effect |
+|---|---|
+| Score (`score_home` / `score_away`) | The goal comes off, from the review event on. |
+| Scorer's goals, assister's assists | The goal and its assist come off. |
+| Shots and xG (team and player) | **Unchanged.** The shot was taken; only the goal is ruled out. |
+| Key passes, xA | **Unchanged**, for the same reason. |
+| Recap goals and key moments | The ruled-out goal is left out. |
+
+An `overturned` review of a shot that is not a counted goal, or a second
+review of the same goal, changes nothing. A `stands` review changes no stat and
+makes no moment. Nothing is recomputed backwards: the snapshot before the
+review still shows the goal, because that was true at the time; seeking back
+before the review shows it again, and seeking past it never does.
 
 ## Delivery safety
 

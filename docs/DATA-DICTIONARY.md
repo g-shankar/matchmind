@@ -62,6 +62,8 @@ Schema version: `1.0`.
 | `freeze_frame` | array of `FramePlayer` or null |  | default `null` | metres, absolute frame | Shots only: everyone in or around the box (final 35 m) at the moment of the shot. |
 | `tracking` | array of `TrackingFrame` or null |  | default `null` | every 0.5 s, metres, absolute frame | Runs only: runner, ball carrier, back line and keeper every 0.5 s for 3 s. |
 | `lineups` | array of `LineupPlayer` or null |  | default `null` | both squads | match_start only. |
+| `reviewed_event_id` | string or null |  | default `null` |  | var_review only: the earlier event under review (e.g. the goal's shot). Outcome `overturned` reverses its on-field decision; `stands` keeps it. |
+| `review_reason` | enum `ReviewReason` or null |  | default `null` |  | var_review only. |
 | `details` | object of string or integer or number or boolean |  | optional | see 'Details by event type' | Type-specific extras. |
 | `labels` | array of string |  | optional | `prefix:value`; strip before anything reaches a model | Ground-truth labels for evaluation (scripted beats, pressure spells). Consumers must strip these before anything reaches an agent. |
 
@@ -136,6 +138,7 @@ Positions at one instant inside a run window (every 0.5 s).
 | `foul` | A foul; `details.fouled_id` is the player fouled. |
 | `card` | A booking; `details.card` is yellow or red. |
 | `milestone` | A scripted personal milestone (`details.label`). |
+| `var_review` | A video review of a decision (synthetic). |
 | `period_end` | End of a half, with the score. |
 | `match_end` | Last event, with the final score. |
 
@@ -153,6 +156,16 @@ Positions at one instant inside a run window (every 0.5 s).
 | `off_target` | Shot missed the target. |
 | `found` | Run was picked out by a pass. |
 | `not_found` | Run was not picked out. |
+| `overturned` | VAR review: the reviewed goal is ruled out (`reviewed_event_id`). |
+| `stands` | VAR review: the reviewed goal stands. |
+
+### `ReviewReason`
+
+| value | meaning |
+|---|---|
+| `offside` | Offside in the build-up. |
+| `handball` | Handball in the build-up. |
+| `foul` | Foul in the build-up. |
 
 ## Details by event type
 
@@ -169,14 +182,15 @@ Positions at one instant inside a run window (every 0.5 s).
 | `foul` | `fouled_id` |
 | `card` | `card` |
 | `milestone` | `label` |
+| `var_review` | `score_away`, `score_home` |
 | `period_end` | `score_away`, `score_home` |
 | `match_end` | `score_away`, `score_home` |
 
 Label prefixes seen (events carrying each):
 
 - `better_option`: 2
-- `pressure_spell`: 333
-- `scripted`: 36
+- `pressure_spell`: 353
+- `scripted`: 40
 
 ## Export files
 
@@ -252,27 +266,28 @@ added. One row per object per frame (the ball, then every player). It is not vid
 |---|---:|---:|---:|---:|---:|---:|---:|
 | `match_start` | 1 | 1 | 1 | 1 | 1 | 5 | 0.0% |
 | `period_start` | 2 | 2 | 2 | 2 | 2 | 10 | 0.1% |
-| `pass` | 1286 | 1341 | 1316 | 1285 | 1225 | 6453 | 61.9% |
-| `carry` | 274 | 262 | 268 | 252 | 276 | 1332 | 12.8% |
-| `dribble` | 139 | 144 | 126 | 143 | 136 | 688 | 6.6% |
-| `shot` | 34 | 28 | 28 | 32 | 37 | 159 | 1.5% |
-| `run` | 26 | 26 | 25 | 31 | 18 | 126 | 1.2% |
-| `interception` | 216 | 240 | 240 | 228 | 202 | 1126 | 10.8% |
-| `tackle` | 50 | 68 | 57 | 62 | 59 | 296 | 2.8% |
-| `clearance` | 7 | 9 | 11 | 9 | 12 | 48 | 0.5% |
-| `recovery` | 12 | 11 | 12 | 9 | 13 | 57 | 0.5% |
-| `foul` | 15 | 25 | 20 | 26 | 19 | 105 | 1.0% |
+| `pass` | 1332 | 1341 | 1316 | 1285 | 1225 | 6499 | 61.9% |
+| `carry` | 286 | 262 | 268 | 252 | 276 | 1344 | 12.8% |
+| `dribble` | 136 | 144 | 126 | 143 | 136 | 685 | 6.5% |
+| `shot` | 32 | 28 | 28 | 32 | 37 | 157 | 1.5% |
+| `run` | 21 | 26 | 25 | 31 | 18 | 121 | 1.2% |
+| `interception` | 234 | 240 | 240 | 228 | 202 | 1144 | 10.9% |
+| `tackle` | 59 | 68 | 57 | 62 | 59 | 305 | 2.9% |
+| `clearance` | 6 | 9 | 11 | 9 | 12 | 47 | 0.4% |
+| `recovery` | 9 | 11 | 12 | 9 | 13 | 54 | 0.5% |
+| `foul` | 16 | 25 | 20 | 26 | 19 | 106 | 1.0% |
 | `card` | 3 | 2 | 0 | 4 | 3 | 12 | 0.1% |
 | `milestone` | 1 | 0 | 0 | 0 | 0 | 1 | 0.0% |
+| `var_review` | 1 | 0 | 0 | 0 | 0 | 1 | 0.0% |
 | `period_end` | 2 | 2 | 2 | 2 | 2 | 10 | 0.1% |
 | `match_end` | 1 | 1 | 1 | 1 | 1 | 5 | 0.0% |
-| **all events** | 2069 | 2162 | 2109 | 2087 | 2006 | 10433 | 100.0% |
+| **all events** | 2142 | 2162 | 2109 | 2087 | 2006 | 10506 | 100.0% |
 
 ### Per match
 
 | match | goals | shots | passes | pass completion | cards | runs found / all | last clock |
 |---|---:|---:|---:|---:|---:|---:|---|
-| `MM-DEMO-001` | 5 | 34 | 1286 | 81.1% | 3 | 9 / 26 | 90+5:31 |
+| `MM-DEMO-001` | 6 | 32 | 1332 | 80.8% | 3 | 8 / 21 | 90+5:19 |
 | `MM-SYN-001` | 4 | 28 | 1341 | 80.0% | 2 | 14 / 26 | 90+4:23 |
 | `MM-SYN-002` | 1 | 28 | 1316 | 79.6% | 0 | 13 / 25 | 90+5:29 |
 | `MM-SYN-003` | 1 | 32 | 1285 | 80.1% | 4 | 14 / 31 | 90+6:29 |
@@ -282,18 +297,18 @@ added. One row per object per frame (the ball, then every player). It is not vid
 
 | outcome | count | share |
 |---|---:|---:|
-| `complete` | 5192 | 80.5% |
-| `incomplete` | 1126 | 17.4% |
-| `out` | 135 | 2.1% |
+| `complete` | 5225 | 80.4% |
+| `incomplete` | 1144 | 17.6% |
+| `out` | 130 | 2.0% |
 
 ### Shot outcomes (all bundled matches)
 
 | outcome | count | share |
 |---|---:|---:|
-| `saved` | 71 | 44.7% |
-| `off_target` | 69 | 43.4% |
-| `goal` | 14 | 8.8% |
-| `blocked` | 5 | 3.1% |
+| `saved` | 69 | 43.9% |
+| `off_target` | 68 | 43.3% |
+| `goal` | 15 | 9.6% |
+| `blocked` | 5 | 3.2% |
 
 ## Scenarios and seeds
 
@@ -307,7 +322,7 @@ Same scenario + same seed = byte-identical events.
 
 | match | scenario | seed | home | away | score | events |
 |---|---|---:|---|---|---|---:|
-| `MM-DEMO-001` | `demo_storyline` | 100 | NBR | HCY | 2-3 | 2069 |
+| `MM-DEMO-001` | `demo_storyline` | 100 | NBR | HCY | 2-3 | 2142 |
 | `MM-SYN-001` | `chance_model` | 101 | NBR | HCY | 3-1 | 2162 |
 | `MM-SYN-002` | `chance_model` | 102 | HCY | NBR | 0-1 | 2109 |
 | `MM-SYN-003` | `chance_model` | 103 | NBR | HCY | 1-0 | 2087 |

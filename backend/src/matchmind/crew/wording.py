@@ -46,6 +46,8 @@ def variables(moment: Moment, language: str, favourite_name: str | None = None) 
     v["card_name"] = p["card_name"].get(card, p["card_name"]["yellow"])
     v["card_name_cap"] = p["card_name_cap"].get(card, p["card_name_cap"]["yellow"])
     v["card_action"] = p["card_action"].get(card, p["card_action"]["yellow"])
+    reason = str(moment.facts.get("reason", "offside"))
+    v["reason_phrase"] = p["var_reason"].get(reason, p["var_reason"]["offside"])
     n = moment.facts.get("appearance_n")
     if isinstance(n, int) and not isinstance(n, bool):
         v["appearance_nth"] = ordinal_en(n)

@@ -116,6 +116,12 @@ POLICY: tuple[HeartRule, ...] = (
     HeartRule(MomentKind.DISTANCE_MILESTONE, _own(), DROP, "Rival distance tags are dropped."),
     HeartRule(MomentKind.HARD_PASS, _own(), DROP, "Rival hard-pass tags are dropped."),
     HeartRule(MomentKind.MILESTONE, _own(), DROP, "Rival player milestones are dropped."),
+    HeartRule(
+        MomentKind.CORRECTION,
+        _own(),
+        _rival(),
+        "A VAR decision is always shown, in its own neutral wording: the score must be right for every fan.",
+    ),
 )
 RULES: dict[MomentKind, HeartRule] = {rule.kind: rule for rule in POLICY}
 

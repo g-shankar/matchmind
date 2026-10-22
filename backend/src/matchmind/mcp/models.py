@@ -29,8 +29,10 @@ from matchmind.crew.contracts import (
     Recap,  # noqa: F401 - a tool output as-is
     ViewerProfile,
 )
+from matchmind.crew.cues import Cue, CueTime
 from matchmind.simulator.teams import TEAMS
 from matchmind.stats.models import MatchStateSnapshot, PlayerStats
+from matchmind.stats.registry import MetricDef, NotComputed
 
 MOMENT_ID = r"^[A-Za-z0-9_.:+-]{1,80}$"
 TEAM_ID = r"^[A-Z]{2,5}$"
@@ -83,6 +85,16 @@ class CardIn(_In):
 class RecapIn(_In):
     persona: Persona = Field(default="casual", description="Audience the recap is written for.")
     language: Language = Field(default="en", description="Language of the recap text.")
+
+
+class CueSheetIn(_In):
+    persona: Persona = Field(default="casual", description="Audience the cue text is voiced for.")
+    language: Language = Field(default="en", description="Language of the cue text.")
+    favourite_team: str | None = Field(
+        default=None, pattern=TEAM_ID, description="Viewer's club id (its moments rank higher)."
+    )
+    since_seq: int = Field(default=0, ge=0, le=1_000_000, description="Only cues numbered after this.")
+    limit: int = Field(default=100, ge=1, le=500, description="Most cues to return in one page.")
 
 
 class PlayerStatsIn(_In):
@@ -157,6 +169,29 @@ class BookmarkOut(BaseModel):
     clock_s: float
     period: int
     title: str
+    ruled_out: bool = Field(default=False, description="A goal VAR later ruled out")
+
+
+class CueSheetStateOut(BaseModel):
+    sheet_id: str
+    last_seq: int
+    active: list[Cue]
+
+
+class CueSheetOut(BaseModel):
+    """One page of a compiled cue sheet (docs/CUE-SHEET.md, backend/schema/cue.schema.json)."""
+
+    schema_version: Literal["1.0"]
+    match_id: str
+    sheet_id: str
+    persona: Persona
+    language: Language
+    position: CueTime | None
+    last_seq: int
+    since_seq: int
+    has_more: bool
+    next_since_seq: int
+    cues: list[Cue]
 
 
 class PlayerStatsOut(PlayerStats):
@@ -186,6 +221,9 @@ class SnapshotOut(BaseModel):
     crew: CrewStatus
     languages: list[LanguageInfo]
     auto_eventing: AutoEventingStatus | None
+    cue_sheet: CueSheetStateOut | None = Field(
+        default=None, description="This viewer's cue sheet: what is on air now (null on the REST snapshot)"
+    )
 
 
 class MomentsOut(BaseModel):
@@ -270,3 +308,65 @@ class SimulationOut(BaseModel):
     events: int
     goals: list[GoalOut]
     final_state: MatchStateSnapshot
+
+
+class MetricRegistryOut(BaseModel):
+    """GET /api/metrics."""
+
+    quality_flags: dict[str, str] = Field(description="What each quality flag means")
+    metrics: list[MetricDef]
+    not_computed: list[NotComputed] = Field(description="Metrics we do not compute, and why")
+
+
+class BasicTeamOut(BaseModel):
+    team_id: str
+    name: str = Field(description="Fictional club name")
+    possession_pct: float | None
+    passes_completed: int
+    passes_attempted: int
+    pass_accuracy_pct: float | None
+    shots: int
+    shots_on_target: int
+    goals: int
+    tackles_won: int
+    tackles_attempted: int
+    interceptions: int
+    fouls: int
+    ppda: float | None
+    ppda_opponent_passes: int
+    ppda_defensive_actions: int
+    distance_km: float
+    top_speed_kmh: float
+
+
+class BasicPlayerOut(BaseModel):
+    player_id: str
+    team: str
+    name: str | None = Field(description="Fictional name")
+    number: int | None
+    position: str | None
+    passes_completed: int
+    passes_attempted: int
+    pass_accuracy_pct: float | None
+    shots: int
+    shots_on_target: int
+    goals: int
+    tackles_won: int
+    tackles_attempted: int
+    interceptions: int
+    distance_km: float
+    sprints: int
+    top_speed_kmh: float
+
+
+class BasicStatsOut(BaseModel):
+    """GET /api/match/stats/basic."""
+
+    match_id: str
+    clock: str
+    period: int
+    pass_accuracy_denominator: str
+    physical_source: Literal["synthetic_tracking", "event_estimate"]
+    physical_label: str
+    teams: dict[str, BasicTeamOut]
+    players: list[BasicPlayerOut]

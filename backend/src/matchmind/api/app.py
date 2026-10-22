@@ -48,10 +48,9 @@ from matchmind.dataset.dictionary import cached_dictionary
 from matchmind.dataset.export import FORMATS as DATASET_FORMATS
 from matchmind.dataset.export import TRACKING_HZ, TRACKING_MAX_WINDOW_S, TrackingWindow, export_parts
 from matchmind.schema import PITCH_LENGTH_M, PITCH_WIDTH_M, SCHEMA_VERSION, Event
-from matchmind.stats.registry import registry_payload
 
 from . import reads, view
-from .session import MatchSession, SessionError, Tick, build_session
+from .session import CUE_PAGE_MAX, MatchSession, SessionError, Tick, build_session
 
 logger = logging.getLogger("pitchpulse.api")
 
@@ -364,8 +363,17 @@ class Hub:
 
     # --- broadcasting ------------------------------------------------------------------------
 
-    def _snapshot_messages(self, conns: list[Connection], profiles: list[ViewerProfile]) -> list[dict]:
-        return [view.message("INITIAL_SNAPSHOT", view.snapshot_payload(self.session, p)) for p in profiles]
+    def _snapshot_messages(self, profiles: list[ViewerProfile]) -> tuple[list[ViewerState], list[dict]]:
+        """Fresh producer memory and cue sheet per viewer (compiled up to now, shared
+        between viewers with the same profile), and their INITIAL_SNAPSHOT."""
+        states = [self.session.viewer_state(p) for p in profiles]
+        messages = []
+        for profile, state in zip(profiles, states, strict=True):
+            messages.append(
+                view.message("INITIAL_SNAPSHOT", view.snapshot_payload(self.session, profile, state))
+            )
+            state.cue_active = None  # the snapshot carried it
+        return states, messages
 
     async def send_snapshots(self, conns: list[Connection]) -> None:
         async with self._crew_lock:
@@ -377,8 +385,9 @@ class Hub:
         profiles = [c.profile.model_copy() for c in conns]
         for conn in conns:
             conn.view_state = ViewerState()
-        messages = await asyncio.to_thread(self._snapshot_messages, conns, profiles)
-        for conn, msg in zip(conns, messages, strict=True):
+        states, messages = await asyncio.to_thread(self._snapshot_messages, profiles)
+        for conn, state, msg in zip(conns, states, messages, strict=True):
+            conn.view_state = state
             conn.send(msg)
 
     def broadcast(self, payload: dict[str, Any]) -> None:
@@ -391,13 +400,20 @@ class Hub:
         """Crew work for ticks already played: moments, then cards and recaps per viewer."""
         session = self.session
         out: list[list[dict]] = [[] for _ in conns]
+        for i, profile in enumerate(profiles):
+            if conns[i].view_state.cues is None:  # new profile: start its sheet where these ticks begin
+                conns[i].view_state = session.viewer_state(profile, ticks[0].index)
         for tick in ticks:
             tick = session.crew_tick(tick)
             shared = view.tick_shared(tick)
             for i, profile in enumerate(profiles):
-                cards = session.cards_for(tick.bundles, profile, conns[i].view_state, tick)
+                state = conns[i].view_state
+                cards = session.cards_for(tick.bundles, profile, state, tick)
                 data = dict(shared, cards=[view.card_payload(c) for c in cards])
                 out[i].append(view.message("MATCH_TICK", data))
+                cues = view.cues_message(state, session.tick_cues(tick, cards, state))
+                if cues is not None:
+                    out[i].append(cues)
             if tick.is_last:
                 for i, profile in enumerate(profiles):
                     recap = session.recap(profile)
@@ -640,6 +656,16 @@ def create_app(
     async def recap(persona: Persona = "casual", lang: Language = "en") -> dict[str, Any]:
         return await reads.recap(hub, persona, lang)
 
+    @app.get("/api/match/cue-sheet", dependencies=limited_get)
+    async def cue_sheet(
+        persona: Persona = "casual",
+        lang: Language = "en",
+        favourite_team: str | None = Query(default=None, max_length=32),
+        since_seq: int = Query(default=0, ge=0, le=1_000_000),
+        limit: int = Query(default=CUE_PAGE_MAX, ge=1, le=CUE_PAGE_MAX),
+    ) -> dict[str, Any]:
+        return await reads.cue_sheet(hub, persona, lang, favourite_team, since_seq, limit)
+
     @app.post("/api/match/seek", dependencies=limited)
     async def seek(body: SeekBody) -> dict[str, Any]:
         if not math.isfinite(body.clock_s):
@@ -670,11 +696,11 @@ def create_app(
 
     @app.get("/api/metrics")
     async def metric_registry() -> dict[str, Any]:
-        return registry_payload()
+        return reads.metric_registry()
 
     @app.get("/api/match/stats/basic")
     async def basic_stats() -> dict[str, Any]:
-        return await hub.run(view.basic_stats_payload, hub.session)
+        return await reads.basic_stats(hub)
 
     # --- end metric registry and basic stats ----------------------------------------------------
 

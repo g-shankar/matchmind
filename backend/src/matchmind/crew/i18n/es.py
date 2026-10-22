@@ -39,6 +39,7 @@ PACK = {
         "shots_home": "Disparos local",
         "shots_away": "Disparos visitante",
         "appearance_n": "Partidos con el club",
+        "ruled_out_clock": "Gol anulado (marcado en)",
         "xt_stopped": "Amenaza frenada (xT)",
         "own_goal_distance_m": "Distancia a su portería",
         "p_tackles_won": "Entradas ganadas",
@@ -63,6 +64,7 @@ PACK = {
     "card_name": {"yellow": "tarjeta amarilla", "red": "tarjeta roja"},
     "card_name_cap": {"yellow": "Tarjeta amarilla", "red": "Tarjeta roja"},
     "card_action": {"yellow": "ve la amarilla", "red": "es expulsado"},
+    "var_reason": {"offside": "fuera de juego", "handball": "mano", "foul": "falta"},
     "fav_goal": {
         "for": "¡GOL de tu equipo! Marca {player_short}",
         "against": "{player_short} marca contra tu equipo",
@@ -415,6 +417,32 @@ PACK = {
                 )
             ],
         },
+        "correction": {
+            "casual": [
+                (
+                    "Gol anulado a {player_short} por el VAR",
+                    "El gol de {player} en el {ruled_out_clock} queda anulado por {reason_phrase} tras la revisión del VAR. Sigue {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+            "tactical": [
+                (
+                    "VAR: anulado el gol de {player_short}",
+                    "Decisión revertida por {reason_phrase} tras la revisión. El marcador vuelve a {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+            "fantasy": [
+                (
+                    "Gol anulado: {player_short}",
+                    "El VAR quita el gol por {reason_phrase}; el tiro sigue contando. {player_short} hoy: {p_goals|gol|goles} y {p_xg} xG en {p_shots|tiro|tiros}.",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "Gol anulado a {player_short} por el VAR",
+                    "El gol de {player} en el {ruled_out_clock} queda anulado por {reason_phrase} tras la revisión del VAR. Sigue {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+        },
         "milestone.kick_off": {
             "casual": [
                 (
@@ -534,6 +562,9 @@ PACK = {
         ],
         "key_tackle": [
             "Ganada a {own_goal_distance_m} m de la portería, la entrada le quita a {opp} una amenaza de {xt_stopped} xT."
+        ],
+        "correction": [
+            "El VAR anuló el gol del {ruled_out_clock} por {reason_phrase}: el marcador vuelve a {home} {score_home}-{score_away} {away}."
         ],
         "milestone.kick_off": ["Comienza el partido."],
         "milestone.half_time": ["Al descanso, los goles esperados van {xg_home} a {xg_away}."],

@@ -133,6 +133,13 @@ ENUM_MEANINGS: dict[str, dict[str, str]] = {
         "off_target": "Shot missed the target.",
         "found": "Run was picked out by a pass.",
         "not_found": "Run was not picked out.",
+        "overturned": "VAR review: the reviewed goal is ruled out (`reviewed_event_id`).",
+        "stands": "VAR review: the reviewed goal stands.",
+    },
+    "ReviewReason": {
+        "offside": "Offside in the build-up.",
+        "handball": "Handball in the build-up.",
+        "foul": "Foul in the build-up.",
     },
     "BodyPart": {
         "right_foot": "Right foot.",

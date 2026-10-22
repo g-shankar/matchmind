@@ -50,6 +50,7 @@ class MomentKind(StrEnum):
     HARD_PASS = "hard_pass"  # completed pass with high difficulty
     KEY_TACKLE = "key_tackle"  # tackle won in the own third that stops a dangerous attack
     MILESTONE = "milestone"  # kick-off, half-time, full-time
+    CORRECTION = "correction"  # a VAR review ruled an earlier goal out (supersedes it)
 
 
 FactValue = str | int | float | bool
@@ -84,6 +85,21 @@ class Moment(BaseModel):
     )
     source_event_ids: list[str]
     priority: int = Field(ge=0, le=100)
+    retracts: list[str] = Field(
+        default_factory=list,
+        description="Moment ids this moment rules out (a correction): they no longer count anywhere.",
+    )
+
+
+def retracted_ids(moments: list[Moment]) -> set[str]:
+    """Moment ids ruled out by the corrections in `moments`."""
+    return {mid for m in moments for mid in m.retracts}
+
+
+def without_retracted(moments: list[Moment]) -> list[Moment]:
+    """The moments that still stand: anything a correction ruled out is dropped."""
+    gone = retracted_ids(moments)
+    return [m for m in moments if m.moment_id not in gone]
 
 
 class Evidence(BaseModel):
@@ -218,6 +234,10 @@ class OverlayCard(BaseModel):
         "could not be translated",
     )
     translated_by: TranslatedBy | None = None
+    retracts: list[str] = Field(
+        default_factory=list,
+        description="Correction cards only: moment ids this card rules out (their cards come down)",
+    )
     claims: list[Claim] = Field(
         default_factory=list, description="Each sentence of headline, body and why, tied to its facts"
     )
@@ -387,3 +407,7 @@ class MomentAudit(BaseModel):
     parity: FactParity
     trace: list[AgentStep] = Field(default_factory=list)
     not_checked: list[str] = Field(default_factory=list)
+    retracts: list[str] = Field(default_factory=list, description="A correction: the moment ids it rules out")
+    ruled_out_by: str | None = Field(
+        default=None, description="Set when a later correction (VAR) ruled this moment out: that moment's id"
+    )

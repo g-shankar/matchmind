@@ -95,6 +95,19 @@ def test_receiver_and_details_ids_are_checked(demo):
     _reject([*demo[:i], bad, *demo[i + 1 :]], "details.fouled_id")
 
 
+def test_var_review_must_name_an_earlier_goal(demo):
+    events, _ = validate_events(demo)  # the demo's own review passes, its reference intact
+    review = next(e for e in events if e.type == EventType.VAR_REVIEW)
+    goal = next(e for e in events if e.event_id == review.reviewed_event_id)
+    assert goal.type == EventType.SHOT and goal.outcome == "goal" and goal.seq < review.seq
+    i = next(i for i, e in enumerate(demo) if e.type == EventType.VAR_REVIEW)
+    not_a_goal = next(e for e in demo[:i] if e.type == EventType.PASS).event_id
+    later_goal = next(e for e in demo[i:] if e.type == EventType.SHOT and e.outcome == "goal").event_id
+    for target in ("MM-OTHER-001-00001", not_a_goal, later_goal):
+        bad = demo[i].model_copy(update={"reviewed_event_id": target})
+        _reject([*demo[:i], bad, *demo[i + 1 :]], "Event")
+
+
 def test_clock_running_backwards_is_refused(demo):
     i = 500
     bad = demo[i].model_copy(update={"clock_s": demo[i - 1].clock_s - 30})

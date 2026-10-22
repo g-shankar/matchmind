@@ -20,7 +20,15 @@ from matchmind.simulator.script import HALF_S, format_clock
 
 from . import metrics
 from .better_option import analyse_run, analyse_shot, shot_chance_quality
-from .models import EventMetrics, MatchStateSnapshot, PlayerStats, SprintTag, TeamTotals, TeamWindow
+from .models import (
+    EventMetrics,
+    MatchStateSnapshot,
+    PlayerStats,
+    SprintTag,
+    TeamTotals,
+    TeamWindow,
+    VarDecision,
+)
 from .physical import PhysicalTimeline
 
 WINDOW_S = 300.0  # rolling window: the last five minutes of match clock
@@ -104,6 +112,9 @@ class StatsEngine:
         self._totals = {home_id: TeamTotals(team=home_id), away_id: TeamTotals(team=away_id)}
         self._physical: PhysicalTimeline | None = None
         self._efforts_after: tuple[int, float] | None = None
+        # Counted goals by shot event id: (team, scorer, assist or None, clock, period, clock_s).
+        self._goals: dict[str, tuple[str, str, str | None, str, int, float]] = {}
+        self._overturned: dict[str, str] = {}  # goal shot event id -> review event id
 
     @classmethod
     def replay(cls, events: Iterable[Event], physical: PhysicalTimeline | None = None) -> StatsEngine:
@@ -167,6 +178,8 @@ class StatsEngine:
                 self._player(p.player_id, p.team)
 
         m = self._event_metrics(event)
+        if event.type == EventType.VAR_REVIEW:
+            m.var_decision = self._apply_review(event)
         self._count_players(event, m)
         self._count_team(event)
         if self._physical is not None:
@@ -190,6 +203,10 @@ class StatsEngine:
     def team_totals(self) -> dict[str, TeamTotals]:
         """Whole-match counting stats per team so far (copies)."""
         return {team: t.model_copy() for team, t in self._totals.items()}
+
+    def overturned_goals(self) -> dict[str, str]:
+        """Goals a VAR review ruled out: shot event id -> review event id."""
+        return dict(self._overturned)
 
     def changed_players(self) -> list[PlayerStats]:
         """Players whose stats the last processed event changed."""
@@ -387,6 +404,7 @@ class StatsEngine:
         if goal:
             shooter.goals += 1
             self._score[team] = self._score.get(team, 0) + 1
+        assist: str | None = None
         # Key pass: the last completed pass of this possession went to the shooter.
         poss = e.possession_id
         last = self._last_pass_in_poss.get(poss) if poss is not None else None
@@ -396,8 +414,52 @@ class StatsEngine:
             passer.xa = round(passer.xa + xg, 3)
             if goal:
                 passer.assists += 1
+                assist = passer.player_id
             self._changed.add(passer.player_id)
             del self._last_pass_in_poss[poss]  # one shot per pass
+        if goal:
+            self._goals[e.event_id] = (team, shooter.player_id, assist, e.match_clock, e.period, e.clock_s)
+
+    def _apply_review(self, e: Event) -> VarDecision:
+        """A VAR review of an earlier event. `overturned` on a counted goal takes
+        it off the score, the scorer's goals and the assister's assists; the shot,
+        its xG, the key pass and xA all stay (the chance still happened). A review
+        of an unknown event, of something that is not a counted goal, or of a goal
+        already ruled out changes nothing (`goal_removed` is False)."""
+        target = e.reviewed_event_id or ""
+        outcome = "overturned" if e.outcome == Outcome.OVERTURNED else "stands"
+        goal = self._goals.get(target)
+        removed = False
+        if goal is not None and outcome == "overturned" and target not in self._overturned:
+            team, scorer, assist, *_ = goal
+            self._score[team] = max(0, self._score.get(team, 0) - 1)
+            if team in self._totals:
+                self._totals[team].goals = max(0, self._totals[team].goals - 1)
+            shooter = self._player(scorer, team)
+            shooter.goals = max(0, shooter.goals - 1)
+            self._changed.add(scorer)
+            if assist is not None:
+                passer = self._player(assist, team)
+                passer.assists = max(0, passer.assists - 1)
+                self._changed.add(assist)
+            self._overturned[target] = e.event_id
+            removed = True
+        team, scorer, assist, clock, period, clock_s = goal or (None, None, None, None, None, None)
+        return VarDecision(
+            review_event_id=e.event_id,
+            reviewed_event_id=target,
+            outcome=outcome,
+            reason=str(e.review_reason) if e.review_reason is not None else None,
+            team=team,
+            player_id=scorer,
+            assist_id=assist if removed else None,
+            reviewed_clock=clock,
+            reviewed_period=period,
+            reviewed_clock_s=clock_s,
+            goal_removed=removed,
+            score_home=self._score[self.home_id],
+            score_away=self._score[self.away_id],
+        )
 
     # ------------------------------------------- tracking (stats.physical)
 

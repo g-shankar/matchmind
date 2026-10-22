@@ -248,7 +248,11 @@ def public_event(ev: dict, metrics: dict) -> dict[str, Any]:
         "under_pressure": bool(ev.get("under_pressure")),
         "details": dict(ev.get("details") or {}),
         "metrics": metrics,
-    }
+    } | (
+        {"reviewed_event_id": ev["reviewed_event_id"], "review_reason": ev.get("review_reason")}
+        if ev.get("reviewed_event_id")
+        else {}
+    )
 
 
 # ------------------------------------------------- better option / run
@@ -406,6 +410,7 @@ class StateEngine:
         self.xg = {ctx.home_id: 0.0, ctx.away_id: 0.0}
         self.shots = {ctx.home_id: 0, ctx.away_id: 0}
         self.prev_poss: tuple[int, str] | None = None
+        self.goal_team: dict[str, str] = {}  # counted goals: shot event id -> team
 
     def start_period(self, period: int, clock: float) -> None:
         self.window.clear()
@@ -423,6 +428,12 @@ class StateEngine:
             self.xg[team] += cq or 0.0
             if ev.get("outcome") == "goal":
                 self.score[team] += 1
+                self.goal_team[ev["event_id"]] = team
+        elif t == "var_review" and ev.get("outcome") == "overturned":
+            # The goal comes off the score; the shot and its xG still count (docs/METRICS.md).
+            scored = self.goal_team.pop(ev.get("reviewed_event_id") or "", None)
+            if scored is not None:
+                self.score[scored] -= 1
         if team and t in ON_BALL:
             rec = {"clock": clock, "team": team, "pass": t == "pass", "ft": False, "box": False}
             rec.update(
@@ -570,6 +581,7 @@ class PlayerBook:
             }
 
         self.last_pass: dict[Any, tuple[str, str]] = {}
+        self.goal_by: dict[str, tuple[str, str | None]] = {}  # counted goal -> (scorer, assist)
 
     def track(self, period: int, clock_s: float) -> None:
         """Copy each player's tracking numbers at this clock. Same rule as the
@@ -602,6 +614,14 @@ class PlayerBook:
             beaten = ev.get("details", {}).get("opponent_id")
             if beaten in self.s:
                 self.s[beaten]["tackles_lost"] += 1
+        if t == "var_review":
+            if ev.get("outcome") == "overturned":
+                scorer, assist = self.goal_by.pop(ev.get("reviewed_event_id") or "", (None, None))
+                if scorer is not None:
+                    self.s[scorer]["goals"] -= 1
+                if assist is not None:
+                    self.s[assist]["assists"] -= 1
+            return
         if pid not in self.s:
             return
         st = self.s[pid]
@@ -629,6 +649,7 @@ class PlayerBook:
                 assist = ev.get("details", {}).get("assist_id")
                 if assist in self.s:
                     self.s[assist]["assists"] += 1
+                self.goal_by[ev["event_id"]] = (pid, assist if assist in self.s else None)
         elif t == "tackle" and ev.get("outcome") == "won":
             st["tackles_won"] += 1
         elif t == "interception":
@@ -763,6 +784,16 @@ MILESTONE_LABELS = {
     }
 }
 
+VAR_REASON: dict[str, dict[str, str]] = {
+    "offside": {
+        "en": "offside in the build-up",
+        "es": "fuera de juego en la jugada",
+        "ar": "تسلل في بناء الهجمة",
+    },
+    "handball": {"en": "a handball", "es": "una mano", "ar": "لمسة يد"},
+    "foul": {"en": "a foul in the build-up", "es": "una falta en la jugada", "ar": "خطأ في بناء الهجمة"},
+}
+
 # kind -> persona -> lang -> (headline, body, why)
 T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
     "goal": {
@@ -802,19 +833,72 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
         },
         "fantasy": {
             "en": (
-                "Goal for {p}: fantasy points banked",
+                "Goal for {p}: the stat line grows",
                 "{p} has {pxg} xG from {pshots} this match.{extra}",
                 "Shots and xG show how often he reaches scoring spots.",
             ),
             "es": (
-                "Gol de {p}: puntos fantasy asegurados",
+                "Gol de {p}: crecen sus números",
                 "{p} suma {pxg} xG con {pshots} en el partido.{extra}",
                 "Los tiros y el xG muestran cuántas veces pisa zonas de gol.",
             ),
             "ar": (
-                "هدف من {p}: نقاط مضمونة في الفانتازي",
+                "هدف من {p}: أرقامه ترتفع",
                 "رصيد {p} في المباراة {pxg} xG من {pshots}.{extra}",
                 "التسديدات وقيمة xG تبيّن كم مرة يصل إلى مناطق التسجيل.",
+            ),
+        },
+    },
+    "correction": {
+        "casual": {
+            "en": (
+                "No goal! VAR rules out {p}",
+                "The goal at {clk} is ruled out for {why_r}. It stays {H} {sh}-{sa} {A}.",
+                "VAR checked the goal and ruled it out for {why_r}.",
+            ),
+            "es": (
+                "¡No hay gol! El VAR anula a {p}",
+                "El gol del {clk} queda anulado por {why_r}. Sigue {H} {sh}-{sa} {A}.",
+                "El VAR revisó el gol y lo anuló por {why_r}.",
+            ),
+            "ar": (
+                "لا هدف! الفار يلغي هدف {p}",
+                "أُلغي هدف الدقيقة {clk} بسبب {why_r}. النتيجة تبقى {H} {sh}-{sa} {A}.",
+                "راجع الفار الهدف وألغاه بسبب {why_r}.",
+            ),
+        },
+        "tactical": {
+            "en": (
+                "VAR overturns the {t} goal",
+                "{p}'s finish at {clk} is chalked off for {why_r}. Score: {H} {sh}-{sa} {A}.",
+                "The shot still counts in the shot and xG totals; only the goal is removed.",
+            ),
+            "es": (
+                "El VAR anula el gol de {t}",
+                "El remate de {p} del {clk} se anula por {why_r}. Marcador: {H} {sh}-{sa} {A}.",
+                "El tiro sigue contando en tiros y xG; solo se retira el gol.",
+            ),
+            "ar": (
+                "الفار يلغي هدف {t}",
+                "أُلغيت تسديدة {p} في الدقيقة {clk} بسبب {why_r}. النتيجة: {H} {sh}-{sa} {A}.",
+                "التسديدة تبقى محسوبة في التسديدات وxG؛ الهدف وحده أُلغي.",
+            ),
+        },
+        "fantasy": {
+            "en": (
+                "Goal ruled out: {p}",
+                "VAR rules out the goal at {clk} for {why_r}. {p} keeps {pxg} xG from {pshots}.",
+                "Goal and assist counts follow the official score, so this one comes off.",
+            ),
+            "es": (
+                "Gol anulado: {p}",
+                "El VAR anula el gol del {clk} por {why_r}. {p} mantiene {pxg} xG con {pshots}.",
+                "Los goles y asistencias siguen el marcador oficial, así que este se retira.",
+            ),
+            "ar": (
+                "هدف ملغى: {p}",
+                "الفار يلغي هدف الدقيقة {clk} بسبب {why_r}. يحتفظ {p} بـ {pxg} xG من {pshots}.",
+                "الأهداف والتمريرات الحاسمة تتبع النتيجة الرسمية، لذلك يُسحب هذا الهدف.",
             ),
         },
     },
@@ -855,19 +939,19 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
         },
         "fantasy": {
             "en": (
-                "Red card: fantasy hit for {p}",
+                "Red card: {p} is off",
                 "{p} leaves with {pxg} xG from {pshots}.",
-                "A red card costs fantasy points, whatever the underlying numbers.",
+                "A red card ends his output for the day, whatever the underlying numbers.",
             ),
             "es": (
-                "Roja: golpe fantasy para {p}",
+                "Roja: {p} se va a la calle",
                 "{p} se marcha con {pxg} xG en {pshots}.",
-                "Una roja resta puntos fantasy, sean cuales sean sus números.",
+                "Una roja corta su producción del día, sean cuales sean sus números.",
             ),
             "ar": (
-                "حمراء تكلّف {p} نقاطًا في الفانتازي",
+                "بطاقة حمراء: {p} خارج الملعب",
                 "يغادر {p} برصيد {pxg} xG من {pshots}.",
-                "البطاقة الحمراء تخصم نقاط الفانتازي مهما كانت أرقامه.",
+                "البطاقة الحمراء تنهي إنتاجه في هذه المباراة مهما كانت أرقامه.",
             ),
         },
     },
@@ -908,19 +992,19 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
         },
         "fantasy": {
             "en": (
-                "Yellow card dents {p} score",
+                "Yellow card for {p}",
                 "{p} has {pxg} xG from {pshots} so far.",
-                "A booking costs fantasy points, so his attacking output must make up for it.",
+                "A booking means he must defend with care for the rest of the match.",
             ),
             "es": (
-                "La amarilla resta puntos a {p}",
+                "Amarilla para {p}",
                 "{p} lleva {pxg} xG en {pshots}.",
-                "La tarjeta resta puntos fantasy, y su producción ofensiva tendrá que compensarlo.",
+                "Con la amarilla tendrá que defender con cuidado el resto del partido.",
             ),
             "ar": (
-                "الإنذار يكلّف {p} نقاطًا",
+                "إنذار لـ{p}",
                 "رصيد {p} حتى الآن {pxg} xG من {pshots}.",
-                "البطاقة تخصم نقاطًا في الفانتازي، وعلى إنتاجه الهجومي أن يعوّضها.",
+                "بعد الإنذار عليه أن يدافع بحذر حتى نهاية المباراة.",
             ),
         },
     },
@@ -963,17 +1047,17 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
             "en": (
                 "{p} milestone: check his numbers",
                 "{p} has {pxg} xG, {pxa} xA and {pkp} so far.",
-                "A milestone earns no points; his xG and xA do.",
+                "A milestone is a landmark; his xG and xA show today's output.",
             ),
             "es": (
                 "Hito de {p}: mira sus números",
                 "{p} lleva {pxg} xG, {pxa} xA y {pkp}.",
-                "El hito no da puntos; su xG y su xA sí.",
+                "El hito es una marca; su xG y su xA muestran su aporte de hoy.",
             ),
             "ar": (
                 "إنجاز {p}: ماذا تقول أرقامه؟",
                 "سجّل {p} حتى الآن {pxg} xG و{pxa} xA وصنع {pkp}.",
-                "الإنجاز لا يمنح نقاطًا، أما xG وxA فيمنحانها.",
+                "الإنجاز علامة فارقة، أما xG وxA فيُظهران إنتاجه اليوم.",
             ),
         },
     },
@@ -1021,12 +1105,12 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
             "es": (
                 "{p}: gran ocasión, sin premio",
                 "{p} acumula {pxg} xG en {pshots}.",
-                "Mucho xG sin gol sugiere que los puntos pueden llegar.",
+                "Mucho xG sin gol sugiere que el gol puede llegar.",
             ),
             "ar": (
-                "{p}: فرصة كبيرة بلا نقاط",
+                "{p}: فرصة كبيرة بلا هدف",
                 "رصيد {p} {pxg} xG من {pshots}.",
-                "ارتفاع xG دون أهداف يوحي بأن النقاط قد تأتي لاحقًا.",
+                "ارتفاع xG دون أهداف يوحي بأن الهدف قد يأتي لاحقًا.",
             ),
         },
     },
@@ -1175,17 +1259,17 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
             "en": (
                 "{t} attackers are getting looks",
                 "{t} have {wshots} and {wxg} xG in the last five minutes.",
-                "Sustained pressure creates shots, and shots drive fantasy points.",
+                "Sustained pressure creates shots, and shots build xG.",
             ),
             "es": (
                 "Los atacantes de {t} tienen ocasiones",
                 "{t} suma {wshots} y {wxg} xG en los últimos cinco minutos.",
-                "La presión sostenida genera tiros, y los tiros dan puntos fantasy.",
+                "La presión sostenida genera tiros, y los tiros suman xG.",
             ),
             "ar": (
                 "مهاجمو {t} يحصلون على الفرص",
                 "سجّل {t} في آخر خمس دقائق {wxg} xG من {wshots}.",
-                "الضغط المتواصل يصنع التسديدات، والتسديدات تصنع نقاط الفانتازي.",
+                "الضغط المتواصل يصنع التسديدات، والتسديدات ترفع xG.",
             ),
         },
     },
@@ -1228,17 +1312,17 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
             "en": (
                 "{t} attackers worth watching now",
                 "{t} have {wshots} and {wxg} xG in the last five minutes.",
-                "The side on top usually takes more shots, and shots drive points.",
+                "The side on top usually takes more shots, and shots build xG.",
             ),
             "es": (
                 "Atentos a los atacantes de {t}",
                 "{t} suma {wshots} y {wxg} xG en los últimos cinco minutos.",
-                "El equipo dominante suele tirar más, y los tiros dan puntos.",
+                "El equipo dominante suele tirar más, y los tiros suman xG.",
             ),
             "ar": (
                 "راقبوا مهاجمي {t} الآن",
                 "سجّل {t} في آخر خمس دقائق {wxg} xG من {wshots}.",
-                "الفريق المسيطر يسدد أكثر عادةً، والتسديدات تصنع النقاط.",
+                "الفريق المسيطر يسدد أكثر عادةً، والتسديدات ترفع xG.",
             ),
         },
     },
@@ -1528,6 +1612,7 @@ SPRINTS = (
 
 TACTICAL_TAG = {
     "goal": "Finishing",
+    "correction": "Officiating",
     "card_red": "Numerical disadvantage",
     "card_yellow": "Discipline",
     "milestone": "Squad continuity",
@@ -1571,6 +1656,7 @@ LABELS_FIXED: dict[str, tuple[str, str]] = {
     "Chance quality": ("Calidad de la ocasión", "جودة الفرصة"),
     "Distance to goal": ("Distancia a la portería", "المسافة إلى المرمى"),
     "Scorer": ("Goleador", "المسجّل"),
+    "Goal ruled out (scored at)": ("Gol anulado (marcado en)", "هدف ملغى (سُجّل في)"),
     "Assist": ("Asistente", "صاحب التمريرة الحاسمة"),
     "Card": ("Tarjeta", "البطاقة"),
     "Player": ("Jugador", "اللاعب"),
@@ -1745,6 +1831,7 @@ class Spotter:
         player_ids: list[str],
         replay: dict | None = None,
         suffix: str = "",
+        extra: dict | None = None,
     ) -> None:
         self.moments.append(
             {
@@ -1768,6 +1855,7 @@ class Spotter:
                 "replay": replay,
                 "texts": render(key, base, per),
             }
+            | (extra or {})
         )
 
     # -- per event --------------------------------------------------------
@@ -1784,6 +1872,8 @@ class Spotter:
                 self.big_chance(ev, shot)
             if better is not None:
                 self.better_option(ev, better)
+        elif t == "var_review" and ev.get("outcome") == "overturned":
+            self.correction(ev, state)
         elif t == "card":
             self.card(ev)
         elif t == "milestone" and pid:
@@ -1879,6 +1969,50 @@ class Spotter:
                     "fantasy": {"extra": ""},
                 }
         self.add(ev, "goal", "lower_third", 95, "goal", base, merge(pp, per), evidence, team, players)
+
+    def correction(self, ev: dict, state: dict) -> None:
+        """VAR overturned a goal: a supersede card that rules the goal moment out."""
+        ctx, src, team = self.ctx, ev["event_id"], ev.get("team")
+        shot_id = ev.get("reviewed_event_id")
+        goal = next((m for m in self.moments if m["event_id"] == shot_id and m["kind"] == "goal"), None)
+        pid = ev.get("player_id")
+        if goal is None or team is None or pid not in ctx.players:
+            return
+        reason = str(ev.get("review_reason") or "offside")
+        H, A = ctx.short(ctx.home_id), ctx.short(ctx.away_id)
+        base: dict[str, Any] = {
+            "p": ctx.surname(pid),
+            "t": ctx.short(team),
+            "H": H,
+            "A": A,
+            "sh": state["score_home"],
+            "sa": state["score_away"],
+            "clk": goal["match_clock"],
+        }
+        pb, pp = player_vars(self.book, pid)
+        base.update(pb)
+        per = {lang: {"why_r": VAR_REASON[reason][lang]} for lang in LANGS}
+        evidence = [
+            ev_item(f"{H} goals", state["score_home"], None, src),
+            ev_item(f"{A} goals", state["score_away"], None, src),
+            ev_item("Goal ruled out (scored at)", goal["match_clock"], None, shot_id),
+            ev_item("Scorer", ctx.players[pid].name, None, shot_id),
+        ] + player_evidence(self.book, pid, src, ctx)
+        extra = {"retracts": [goal["moment_id"]], "reason": f"var_{reason}"}
+        self.add(
+            ev,
+            "correction",
+            "full_screen",
+            95,
+            "correction",
+            base,
+            merge(pp, per),
+            evidence,
+            team,
+            [pid],
+            None,
+            extra,
+        )
 
     def card(self, ev: dict) -> None:
         ctx, src, pid, team = self.ctx, ev["event_id"], ev.get("player_id"), ev.get("team")
@@ -2438,22 +2572,22 @@ R: dict[str, dict[str, dict[str, Any]]] = {
     },
     "fantasy": {
         "en": {
-            "title": "Fantasy review: {H} {sh}-{sa} {A}",
-            "headline": "{potm} leads the fantasy numbers",
+            "title": "Stats scout review: {H} {sh}-{sa} {A}",
+            "headline": "{potm} leads the numbers",
             "p1": "{potm} tops the match with {pxg} xG, {pxa} xA, {pkp} and {pshots}.",
             "p2": "Top xG for {H}: {txh} with {txhv}. Top xG for {A}: {txa} with {txav}. Top xA: {tax} with {taxv}.",
             "p3": "Team totals: {H} {xgh} xG from {shh}, {A} {xga} xG from {sha}.",
         },
         "es": {
-            "title": "Repaso fantasy: {H} {sh}-{sa} {A}",
-            "headline": "{potm} lidera los números fantasy",
+            "title": "Repaso del ojeador de datos: {H} {sh}-{sa} {A}",
+            "headline": "{potm} lidera los números",
             "p1": "{potm} encabeza el partido con {pxg} xG, {pxa} xA, {pkp} y {pshots}.",
             "p2": "Máximo xG de {H}: {txh} con {txhv}. Máximo xG de {A}: {txa} con {txav}. Máximo xA: {tax} con {taxv}.",
             "p3": "Totales: {H} {xgh} xG con {shh}, {A} {xga} xG con {sha}.",
         },
         "ar": {
-            "title": "مراجعة الفانتازي: {H} {sh}-{sa} {A}",
-            "headline": "{potm} يتصدر أرقام الفانتازي",
+            "title": "مراجعة كشّاف الأرقام: {H} {sh}-{sa} {A}",
+            "headline": "{potm} يتصدر الأرقام",
             "p1": "يتصدر {potm} المباراة برصيد {pxg} xG و{pxa} xA و{pkp} و{pshots}.",
             "p2": "الأعلى في xG لـ{H}: {txh} برصيد {txhv}. الأعلى في xG لـ{A}: {txa} برصيد {txav}. الأعلى في xA: {tax} برصيد {taxv}.",
             "p3": "حصيلة الفريقين: {H} {xgh} xG من {shh}، و{A} {xga} xG من {sha}.",
@@ -2553,7 +2687,10 @@ def build_recaps(
             }
         )
     key_kinds = ("goal", "better_option", "unfound_run")
-    key_moments = [m for m in moments if m["kind"] in key_kinds or m in reds]
+    ruled_out = {mid for m in moments for mid in m.get("retracts", [])}
+    key_moments = [
+        m for m in moments if (m["kind"] in key_kinds or m in reds) and m["moment_id"] not in ruled_out
+    ]
     recaps: dict[str, dict] = {}
     for persona in PERSONAS:
         recaps[persona] = {}
@@ -2786,12 +2923,15 @@ def build(path: Path) -> tuple[dict, list[dict]]:
         if ev["type"] == "shot" and ev.get("outcome") == "goal":
             goals.append(
                 {
+                    "event_id": ev["event_id"],
                     "clock_s": ev["clock_s"],
                     "period": ev["period"],
                     "match_clock": ev["match_clock"],
                     "score": {ctx.home_id: state["score_home"], ctx.away_id: state["score_away"]},
                 }
             )
+        if ev["type"] == "var_review" and ev.get("outcome") == "overturned":
+            goals = [g for g in goals if g["event_id"] != ev.get("reviewed_event_id")]
         spotter.process(ev, metrics, shot, better, run, state)
         now_players = book.views()
         changed = [now_players[p] for p in now_players if now_players[p] != prev_players[p]]

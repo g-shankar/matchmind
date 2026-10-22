@@ -11,13 +11,17 @@ Deterministic rules:
 - moments about the focus player are always kept and boosted;
 - de-duplicated by moment id per viewer;
 - at most one lower third per 8 s of match clock (extra ones move to the
-  side panel, or are dropped when minor).
+  side panel, or are dropped when minor);
+- corrections: a card that rules earlier moments out (`retracts`) is always
+  kept, and a card for a moment already ruled out is never shown, even if it
+  arrives late or twice (out-of-order or repeated delivery).
 Per-viewer memory lives in `ViewerState`, one per connection.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from matchmind.crew import club_heart
 from matchmind.crew.contracts import (
@@ -34,6 +38,9 @@ from matchmind.crew.contracts import (
 )
 from matchmind.crew.i18n import pack
 
+if TYPE_CHECKING:
+    from matchmind.crew.cues import Cue, CueCompiler
+
 LOWER_THIRD_GAP_S = 8.0
 FAVOURITE_BOOST = club_heart.OWN_BOOST
 FOCUS_BOOST = 20
@@ -42,6 +49,7 @@ SEEN_LIMIT = 5000
 
 SLOT_BY_KIND: dict[MomentKind, Slot] = {
     MomentKind.GOAL: "full_screen",
+    MomentKind.CORRECTION: "full_screen",
     MomentKind.BETTER_OPTION: "side_panel",
     MomentKind.UNFOUND_RUN: "side_panel",
     MomentKind.SPEED_BURST: "pitch_tag",
@@ -70,9 +78,10 @@ PERSONA_KINDS: dict[str, frozenset[MomentKind]] = {
             MomentKind.ROCKET_SHOT,
             MomentKind.KEY_TACKLE,
             MomentKind.MILESTONE,
+            MomentKind.CORRECTION,
         }
     ),
-    "player_spotlight": frozenset({MomentKind.GOAL, MomentKind.MILESTONE}),
+    "player_spotlight": frozenset({MomentKind.GOAL, MomentKind.MILESTONE, MomentKind.CORRECTION}),
 }
 ALWAYS_SHOW_PRIORITY = 80  # big moments reach every audience
 
@@ -85,11 +94,32 @@ class ViewerState:
     seen: dict[str, None] = field(default_factory=dict)
     metric_baseline: dict[str, float] = field(default_factory=dict)
     last_metric_alert: dict[str, tuple[int, float]] = field(default_factory=dict)
+    ruled_out: dict[str, None] = field(default_factory=dict)  # moment ids a correction retracted
+    cues: CueCompiler | None = None  # this viewer's cue sheet, from where they joined
+    cue_active: list[Cue] | None = None  # what was on air when the sheet was (re)started, sent once
+
+    def fork(self) -> ViewerState:
+        """An independent copy (a new viewer joining at a compiled position)."""
+        return ViewerState(
+            last_lower_third_s=self.last_lower_third_s,
+            seen=dict(self.seen),
+            metric_baseline=dict(self.metric_baseline),
+            last_metric_alert=dict(self.last_metric_alert),
+            ruled_out=dict(self.ruled_out),
+            cues=self.cues.fork() if self.cues is not None else None,
+            cue_active=list(self.cue_active) if self.cue_active is not None else None,
+        )
 
     def remember(self, moment_id: str) -> None:
         self.seen[moment_id] = None
         while len(self.seen) > SEEN_LIMIT:
             self.seen.pop(next(iter(self.seen)))
+
+    def rule_out(self, moment_ids: list[str]) -> None:
+        for mid in moment_ids:
+            self.ruled_out[mid] = None
+        while len(self.ruled_out) > SEEN_LIMIT:
+            self.ruled_out.pop(next(iter(self.ruled_out)))
 
     def reset(self) -> None:
         self.__init__()  # type: ignore[misc]
@@ -166,6 +196,7 @@ def build_card(
         produced_by=produced_by,
         fallback_reason=reason,
         replay=bundle.replay,
+        retracts=list(m.retracts),
         claims=list(claims or []),
     )
 
@@ -189,9 +220,14 @@ def select(cards: list[OverlayCard], profile: ViewerProfile, state: ViewerState)
     """Filter, de-duplicate and time cards for one viewer; highest priority first."""
     out: list[OverlayCard] = []
     batch: set[str] = set()
+    for card in cards:
+        if card.retracts:
+            state.rule_out(card.retracts)
     for card in sorted(cards, key=lambda c: (-c.priority, c.show_at_s, c.card_id)):
         key = card.moment_id
-        if key in state.seen or key in batch or not wanted(card, profile):
+        if key in state.seen or key in batch or key in state.ruled_out:
+            continue
+        if not card.retracts and not wanted(card, profile):
             continue
         if card.slot == "lower_third":
             last = state.last_lower_third_s

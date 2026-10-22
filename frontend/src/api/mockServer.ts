@@ -6,6 +6,8 @@ import type {
   Bookmark,
   ClientAction,
   ControlChaosState,
+  CueReason,
+  CueTime,
   CrewStatus,
   Evidence,
   FocusMetric,
@@ -30,6 +32,7 @@ import type {
 } from './contract';
 import type { MatchTransport, MessageHandler } from './transport';
 import { metricAlertText } from './mockText';
+import { DemoCueSheet, type DemoCueMoment } from './mockCues';
 import { defaultLanguages, isWorldLanguage } from '../lib/languages';
 
 export interface FixtureTick {
@@ -67,6 +70,9 @@ export interface FixtureMoment {
   tactical_tag: string;
   replay: Replay | null;
   texts: Partial<Record<PersonaType, Partial<Record<Language, MomentText>>>>;
+  /** A VAR correction: the moment ids it rules out, and why. */
+  retracts?: string[];
+  reason?: CueReason | null;
 }
 
 export interface DemoFixture {
@@ -100,6 +106,7 @@ const BOOKMARK_KINDS: MomentKind[] = [
   'pressure_spell',
   'momentum_swing',
   'milestone',
+  'correction',
 ];
 
 const textPersona = (p: PersonaType): PersonaType => (p === 'player_spotlight' ? 'casual' : p);
@@ -166,6 +173,7 @@ export function cardForMoment(m: FixtureMoment, profile: ViewerProfile): Overlay
     replay: m.replay,
     text_language: shown,
     translated_by: null,
+    ...(m.retracts?.length ? { retracts: [...m.retracts] } : {}),
   };
 }
 
@@ -281,6 +289,10 @@ export class MockMatchServer implements MatchTransport {
   private momentsByEvent = new Map<string, FixtureMoment[]>();
   private timer: ReturnType<typeof setInterval> | null = null;
   private ended = false;
+  private sheet: DemoCueSheet;
+  private newSheet = false; // the next CUES carries `active` (profile changed)
+  /** Every moment id a correction in the recording rules out. */
+  private readonly retractable: Set<string>;
 
   constructor(
     private readonly fixture: DemoFixture,
@@ -302,6 +314,8 @@ export class MockMatchServer implements MatchTransport {
       list.push(m);
       this.momentsByEvent.set(m.event_id, list);
     }
+    this.retractable = new Set(fixture.moments.flatMap((m) => m.retracts ?? []));
+    this.sheet = new DemoCueSheet(fixture.match_id, this.profile, fixture.teams);
     queueMicrotask(() => {
       this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
       this.timer = setInterval(() => this.step(STEP_MS / 1000), STEP_MS);
@@ -357,6 +371,8 @@ export class MockMatchServer implements MatchTransport {
             ? { persona: action.persona, ...(action.spotlight_player_id !== undefined ? { focus_player_id: action.spotlight_player_id } : {}) }
             : (({ action: _a, ...rest }) => rest)(action);
         this.profile = { ...this.profile, ...changes } as ViewerProfile;
+        this.rebuildSheet(this.next);
+        this.newSheet = true;
         this.emit({ type: 'PROFILE_CHANGED', data: this.profile });
         this.emit({ type: 'PERSONA_CHANGED', data: { persona: this.profile.persona } });
         return;
@@ -402,21 +418,48 @@ export class MockMatchServer implements MatchTransport {
     this.vclock = index > 0 ? this.vtimes[index - 1] : 0;
     this.ended = index >= this.fixture.ticks.length;
     if (this.ended) this.running = false;
+    this.rebuildSheet(index);
+    this.newSheet = false; // the snapshot that follows carries the sheet
   }
 
-  private applyPlayers(tick: FixtureTick) {
-    for (const p of tick.players_changed) this.players.set(p.player_id, p);
+  // Replays the cue sheet silently up to `index`, so a seek, reset or profile change
+  // starts from the same cues an uninterrupted run would have produced.
+  private rebuildSheet(index: number) {
+    this.sheet = new DemoCueSheet(this.fixture.match_id, this.profile, this.fixture.teams);
+    for (let i = 0; i < index; i++) this.feedSheet(i, this.cardsFor(i, false));
   }
 
-  private playTick(i: number) {
+  private cueTime(i: number): CueTime {
+    const e = this.fixture.ticks[i].event;
+    return { period: e.period, clock_s: e.clock_s, match_clock: e.match_clock, t_s: Math.round(this.vtimes[i] * 100) / 100 };
+  }
+
+  private feedSheet(i: number, cards: OverlayCard[]) {
     const tick = this.fixture.ticks[i];
-    this.applyPlayers(tick);
+    const moments: DemoCueMoment[] = (this.momentsByEvent.get(tick.event.event_id) ?? []).map((m) => ({
+      moment_id: m.moment_id,
+      kind: m.kind,
+      team: m.team,
+      player_ids: m.player_ids,
+      event_id: m.event_id,
+      retracts: m.retracts,
+      reason: m.reason ?? null,
+      score: m.kind === 'goal' || m.kind === 'correction' ? tick.score : null,
+    }));
+    if (i === 0) {
+      moments.unshift({ moment_id: 'kick-off', kind: 'milestone', team: null, player_ids: [], event_id: tick.event.event_id, score: { home: 0, away: 0 } });
+    }
+    return this.sheet.feed(this.cueTime(i), tick.event.type, moments, cards.filter((c) => c.slot !== 'metric_alert'));
+  }
+
+  private cardsFor(i: number, withAlerts: boolean): OverlayCard[] {
+    const tick = this.fixture.ticks[i];
     const cards: OverlayCard[] = [];
     for (const m of this.momentsByEvent.get(tick.event.event_id) ?? []) {
       const card = cardForMoment(m, this.profile);
       if (card) cards.push(card);
     }
-    if (this.profile.focus_metric) {
+    if (withAlerts && this.profile.focus_metric) {
       const alert = metricAlert(
         this.profile.focus_metric,
         i > 0 ? this.fixture.ticks[i - 1] : null,
@@ -427,6 +470,28 @@ export class MockMatchServer implements MatchTransport {
       if (alert) cards.push(alert);
     }
     cards.sort((a, b) => b.priority - a.priority);
+    return cards;
+  }
+
+  /** Moment ids ruled out by corrections played so far. */
+  private ruledOutSoFar(): Set<string> {
+    const out = new Set<string>();
+    for (let i = 0; i < this.next; i++) {
+      for (const m of this.momentsByEvent.get(this.fixture.ticks[i].event.event_id) ?? []) {
+        for (const id of m.retracts ?? []) out.add(id);
+      }
+    }
+    return out;
+  }
+
+  private applyPlayers(tick: FixtureTick) {
+    for (const p of tick.players_changed) this.players.set(p.player_id, p);
+  }
+
+  private playTick(i: number) {
+    const tick = this.fixture.ticks[i];
+    this.applyPlayers(tick);
+    const cards = this.cardsFor(i, true);
     this.emit({
       type: 'MATCH_TICK',
       data: {
@@ -440,6 +505,12 @@ export class MockMatchServer implements MatchTransport {
         players_changed: tick.players_changed,
       },
     });
+    const cues = this.feedSheet(i, cards);
+    if (cues.length || this.newSheet) {
+      const active = this.newSheet ? this.sheet.active(this.vtimes[i]) : undefined;
+      this.newSheet = false;
+      this.emit({ type: 'CUES', data: { sheet_id: this.sheet.sheetId, cues, ...(active ? { active } : {}) } });
+    }
   }
 
   private playback(): Playback {
@@ -459,8 +530,10 @@ export class MockMatchServer implements MatchTransport {
     const last = this.next > 0 ? ticks[this.next - 1] : ticks[0];
     const recent: OverlayCard[] = [];
     const playedIds = new Set(ticks.slice(0, this.next).map((t) => t.event.event_id));
+    const ruledOut = this.ruledOutSoFar();
     for (const m of this.fixture.moments) {
-      if (m.slot === 'pitch_tag' || !playedIds.has(m.event_id)) continue;
+      // A goal VAR has already ruled out never comes back as a live card (seek, reconnect).
+      if (m.slot === 'pitch_tag' || !playedIds.has(m.event_id) || ruledOut.has(m.moment_id)) continue;
       const card = cardForMoment(m, this.profile);
       if (card) recent.push(card);
     }
@@ -481,6 +554,11 @@ export class MockMatchServer implements MatchTransport {
       crew: this.fixture.crew,
       languages: demoLanguages(),
       auto_eventing: null,
+      cue_sheet: {
+        sheet_id: this.sheet.sheetId,
+        last_seq: this.sheet.seq,
+        active: this.next > 0 ? this.sheet.active(this.vtimes[this.next - 1]) : [],
+      },
     };
   }
 
@@ -494,6 +572,7 @@ export class MockMatchServer implements MatchTransport {
         clock_s: m.show_at_s,
         period: this.fixture.ticks.find((t) => t.event.event_id === m.event_id)?.period ?? 1,
         title: pickText(m, this.profile.persona, this.profile.language).text.headline,
+        ruled_out: this.retractable.has(m.moment_id),
       }));
   }
 }

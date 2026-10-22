@@ -45,7 +45,8 @@ export type MomentKind =
   | 'distance_milestone'
   | 'hard_pass'
   | 'key_tackle'
-  | 'milestone';
+  | 'milestone'
+  | 'correction';
 export type Slot = 'lower_third' | 'side_panel' | 'pitch_tag' | 'metric_alert' | 'full_screen';
 export type FactValue = string | number | boolean;
 export type ProducedBy = 'ai' | 'template';
@@ -118,6 +119,7 @@ export type EventType =
   | 'foul'
   | 'card'
   | 'milestone'
+  | 'var_review'
   | 'match_start'
   | 'period_start'
   | 'period_end'
@@ -153,6 +155,9 @@ export interface MatchEvent {
   under_pressure: boolean;
   details: Record<string, FactValue>;
   metrics: EventMetrics;
+  /** var_review only: the event the review decided on (a goal) and why. */
+  reviewed_event_id?: string;
+  review_reason?: 'offside' | 'handball' | 'foul' | null;
 }
 
 export interface TeamWindow {
@@ -402,6 +407,8 @@ export interface OverlayCard {
   /** Language the text is really in: `language`, or 'en' when a world language could not be translated. */
   text_language?: Language | null;
   translated_by?: TranslatedBy | null;
+  /** Correction cards only: moment ids this card rules out (their cards come down). */
+  retracts?: string[];
   /** Each sentence of headline, body and why, tied to its facts and source events. */
   claims?: Claim[];
 }
@@ -413,6 +420,8 @@ export interface Bookmark {
   clock_s: number;
   period: number;
   title: string;
+  /** True when a later correction (a VAR review) ruled this moment out. */
+  ruled_out?: boolean;
 }
 
 export interface Recap {
@@ -538,6 +547,101 @@ export interface PixelPathRow {
   speed_mae_kmh_pixels: number | null;
 }
 
+// --- Cue sheet (docs/CUE-SHEET.md, backend/schema/cue.schema.json) ---------------------------
+
+export type CueOp = 'show' | 'update' | 'retract' | 'supersede' | 'clear';
+export type CueLayer = Slot | 'scorebug' | 'momentum_ribbon' | 'telestration';
+export type CueCollision = 'replace' | 'queue' | 'stack' | 'latest';
+export type CueReason = 'var_offside' | 'var_handball' | 'var_foul' | 'period_end' | 'full_time';
+
+/** One instant on the engine's period-aware match clock. */
+export interface CueTime {
+  period: number;
+  /** Period 2 starts at 2700; first-half stoppage runs past 2700 while period is still 1. */
+  clock_s: number;
+  match_clock: string;
+  /** Seconds of play since kick-off, halves joined end to end: always increases. */
+  t_s: number;
+}
+
+export interface CueShape {
+  kind: 'arrow' | 'line' | 'polyline' | 'circle' | 'marker';
+  role:
+    | 'shooter'
+    | 'shot_taken'
+    | 'pass_on'
+    | 'open_player'
+    | 'defender'
+    | 'keeper'
+    | 'carrier'
+    | 'runner_path'
+    | 'through_ball'
+    | 'target';
+  points: XY[];
+  radius_m?: number | null;
+  dashed?: boolean;
+}
+
+export interface Cue {
+  schema_version: '1.0';
+  cue_id: string;
+  seq: number;
+  op: CueOp;
+  layer: CueLayer | 'all';
+  moment_id: string | null;
+  kind: MomentKind | null;
+  retracts: string[];
+  supersedes: string[];
+  clears: CueLayer[];
+  reason: CueReason | null;
+  start: CueTime;
+  duration_s: number | null;
+  end: CueTime | null;
+  priority: number;
+  collision: CueCollision;
+  persona: PersonaType;
+  language: Language;
+  rtl: boolean;
+  text: { headline: string; body: string; why: string; text_language: Language; claims?: Claim[] } | null;
+  evidence: Evidence[];
+  source_event_ids: string[];
+  team: string | null;
+  player_ids: string[];
+  produced_by: ProducedBy | null;
+  scorebug: { home_id: string; away_id: string; score_home: number; score_away: number } | null;
+  ribbon: { momentum: number; pressure_home: number; pressure_away: number } | null;
+  telestration: { frame: 'pitch_105x68'; shapes: CueShape[] } | null;
+}
+
+/** Where a viewer's cue sheet stands when a snapshot is sent: start local cue state from `active`. */
+export interface CueSheetState {
+  sheet_id: string;
+  last_seq: number;
+  active: Cue[];
+}
+
+export interface CuesData {
+  sheet_id: string;
+  cues: Cue[];
+  /** Present when the server started a new sheet for this viewer: replace local cue state with it. */
+  active?: Cue[];
+}
+
+/** GET /api/match/cue-sheet */
+export interface CueSheetPage {
+  schema_version: '1.0';
+  match_id: string;
+  sheet_id: string;
+  persona: PersonaType;
+  language: Language;
+  position: CueTime | null;
+  last_seq: number;
+  since_seq: number;
+  has_more: boolean;
+  next_since_seq: number;
+  cues: Cue[];
+}
+
 export type SpeedMultiplier = 1 | 10 | 60;
 
 // Clock is not monotonic: first-half stoppage runs past 2700 s and the second half restarts at 2700 s.
@@ -569,6 +673,8 @@ export interface SnapshotData {
   /** Every language the viewer can pick, and whether it can be shown now. */
   languages?: LanguageInfo[];
   auto_eventing: AutoEventingStatus | null;
+  /** This viewer's cue sheet: what is on air now (null on the REST snapshot). */
+  cue_sheet?: CueSheetState | null;
 }
 
 export interface TickData {
@@ -585,6 +691,7 @@ export interface TickData {
 export type ServerMessage =
   | { type: 'INITIAL_SNAPSHOT'; data: SnapshotData }
   | { type: 'MATCH_TICK'; data: TickData }
+  | { type: 'CUES'; data: CuesData }
   | { type: 'PLAYBACK_CONTROL'; data: Playback }
   | { type: 'MATCH_RESET'; data: Record<string, never> }
   | { type: 'PROFILE_CHANGED'; data: ViewerProfile }
@@ -649,4 +756,8 @@ export interface MomentAudit {
   parity: FactParity;
   trace: CrewTrace['steps'];
   not_checked: string[];
+  /** A correction: the moment ids it rules out. */
+  retracts?: string[];
+  /** A goal VAR later ruled out: the correction's moment id. */
+  ruled_out_by?: string | null;
 }

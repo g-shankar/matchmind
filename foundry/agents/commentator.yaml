@@ -275,6 +275,12 @@ contract:
             minimum: 0
             title: Priority
             type: integer
+          retracts:
+            description: 'Moment ids this moment rules out (a correction): they no longer count anywhere.'
+            items:
+              type: string
+            title: Retracts
+            type: array
         required:
         - moment_id
         - kind
@@ -300,6 +306,7 @@ contract:
         - hard_pass
         - key_tackle
         - milestone
+        - correction
         title: MomentKind
         type: string
       PlayerRef:

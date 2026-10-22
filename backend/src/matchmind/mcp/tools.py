@@ -77,6 +77,10 @@ async def _recap(ctx: ToolContext, a: m.RecapIn) -> dict[str, Any]:
     return await reads.recap(ctx.hub, a.persona, a.language)
 
 
+async def _cue_sheet(ctx: ToolContext, a: m.CueSheetIn) -> dict[str, Any]:
+    return await reads.cue_sheet(ctx.hub, a.persona, a.language, a.favourite_team, a.since_seq, a.limit)
+
+
 async def _players(ctx: ToolContext, a: m.PlayerStatsIn) -> dict[str, Any]:
     if a.player_id is None:
         return {"players": await reads.players(ctx.hub)}
@@ -100,6 +104,14 @@ async def _auto_eventing(ctx: ToolContext, a: m.NoInput) -> dict[str, Any]:
 async def _events(ctx: ToolContext, a: m.EventsIn) -> dict[str, Any]:
     events = await reads.recent_events(ctx.hub, a.limit)
     return {"count": len(events), "events": events}
+
+
+async def _metric_registry(ctx: ToolContext, a: m.NoInput) -> dict[str, Any]:
+    return reads.metric_registry()
+
+
+async def _basic_stats(ctx: ToolContext, a: m.NoInput) -> dict[str, Any]:
+    return await reads.basic_stats(ctx.hub)
 
 
 async def _simulate(ctx: ToolContext, a: m.SimulateIn) -> dict[str, Any]:
@@ -143,10 +155,31 @@ register(ToolSpec(
     m.RecapIn, m.Recap, _recap,
 ))  # fmt: skip
 register(ToolSpec(
+    "get_cue_sheet", "Cue sheet",
+    "The broadcast cue sheet so far for a persona and language: numbered show, update, retract, "
+    "supersede and clear cues per graphics layer, including VAR corrections. Page with since_seq. "
+    "Same payload as GET /api/match/cue-sheet.",
+    m.CueSheetIn, m.CueSheetOut, _cue_sheet,
+))  # fmt: skip
+register(ToolSpec(
     "get_player_stats", "Player stats",
     "Stats engine numbers so far for one fictional player (by id, e.g. NBR-9) or for everyone "
     "involved, home side first. Same rows as GET /api/match/players.",
     m.PlayerStatsIn, m.PlayersOut, _players,
+))  # fmt: skip
+register(ToolSpec(
+    "get_basic_stats", "Basic match stats",
+    "Counting stats so far per team and per fictional player: possession, pass accuracy with its "
+    "denominator, shots and on target, tackles, interceptions, PPDA, and distance and top speed "
+    "estimated from synthetic tracking. Same payload as GET /api/match/stats/basic.",
+    m.NoInput, m.BasicStatsOut, _basic_stats,
+))  # fmt: skip
+register(ToolSpec(
+    "get_metric_registry", "Metric registry",
+    "Every metric the stats engine computes: formula, units, source events, window, range, "
+    "quality flag and limitations, plus the metrics it does not compute. Same payload as "
+    "GET /api/metrics.",
+    m.NoInput, m.MetricRegistryOut, _metric_registry,
 ))  # fmt: skip
 register(ToolSpec(
     "get_team_rosters", "Team rosters",
@@ -180,5 +213,5 @@ register(ToolSpec(
 ))  # fmt: skip
 
 # Planned (not built here; each will be one register(...) line when its accessor lands):
-# get_cue_sheet, get_metric_registry, export_dataset, audit_claims. See docs/MCP.md.
-PLANNED_TOOLS: tuple[str, ...] = ("get_cue_sheet", "get_metric_registry", "export_dataset", "audit_claims")
+# export_dataset, audit_claims. See docs/MCP.md.
+PLANNED_TOOLS: tuple[str, ...] = ("export_dataset", "audit_claims")

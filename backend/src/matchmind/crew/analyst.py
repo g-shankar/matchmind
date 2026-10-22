@@ -29,6 +29,7 @@ TacticalTag = Literal[
     "line_breaking",
     "defending",
     "game_state",
+    "officiating",
 ]
 
 TAGS: dict[str, TacticalTag] = {
@@ -45,6 +46,7 @@ TAGS: dict[str, TacticalTag] = {
     "hard_pass": "line_breaking",
     "key_tackle": "defending",
     "milestone": "game_state",
+    "correction": "officiating",
 }
 
 EVIDENCE_KEYS: dict[str, tuple[str, ...]] = {
@@ -84,7 +86,11 @@ EVIDENCE_KEYS: dict[str, tuple[str, ...]] = {
     "milestone.half_time": ("score_home", "score_away", "xg_home", "xg_away", "shots_home", "shots_away"),
     "milestone.full_time": ("score_home", "score_away", "xg_home", "xg_away", "shots_home", "shots_away"),
     "milestone.player": ("appearance_n",),
+    "correction": ("score_home", "score_away", "ruled_out_clock"),
 }
+# Evidence that points at another source event than the moment's first one
+# (the correction's ruled-out clock points at the goal's own shot).
+EVIDENCE_SOURCE: dict[str, int] = {"ruled_out_clock": 1}
 
 LABELS: dict[str, str] = {
     "xg": "Chance quality (xG)",
@@ -129,6 +135,7 @@ LABELS: dict[str, str] = {
     "last_ditch": "Last-ditch (own box)",
     "distance_km": "Distance so far (tracking est.)",
     "sprint_m": "Sprint length",
+    "ruled_out_clock": "Goal ruled out (scored at)",
 }
 
 
@@ -157,13 +164,15 @@ def evidence(moment: Moment) -> list[Evidence]:
     out: list[Evidence] = []
     for key in EVIDENCE_KEYS.get(template_key(moment), ()):
         if key in moment.facts:
+            index = EVIDENCE_SOURCE.get(key, 0)
+            src = moment.source_event_ids[index] if index < len(moment.source_event_ids) else source
             out.append(
                 Evidence(
                     label=LABELS.get(key, key.replace("_", " ").capitalize()),
                     label_key=key,
                     value=moment.facts[key],
                     unit=unit_for(key),
-                    source_event_id=source,
+                    source_event_id=src,
                 )
             )
     return out

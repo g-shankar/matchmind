@@ -309,6 +309,7 @@ def card_claims(
 # the anchor groups (who or what the moment is about) every rendering must state.
 KEY_FACTS: dict[str, tuple[str, ...]] = {
     "goal": ("player", "team", "score_home", "score_away"),
+    "correction": ("player", "score_home", "score_away", "ruled_out_clock"),
     "card": ("player", "card"),
     "big_chance": ("player", "xg"),
     "better_option": ("player", "teammate", "times_better"),
@@ -327,6 +328,7 @@ KEY_FACTS: dict[str, tuple[str, ...]] = {
 }
 ANCHORS: dict[str, tuple[tuple[str, ...], ...]] = {
     "goal": (("player", "team"),),
+    "correction": (("player",),),
     "card": (("player",),),
     "big_chance": (("player", "team"),),
     "better_option": (("player", "teammate"),),

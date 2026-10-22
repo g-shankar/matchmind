@@ -67,6 +67,7 @@ model_steps:
           - line_breaking
           - defending
           - game_state
+          - officiating
           type: string
         title: Allowed Tactical Tags
         type: array
@@ -105,6 +106,7 @@ model_steps:
         - line_breaking
         - defending
         - game_state
+        - officiating
         title: Tactical Tag
         type: string
     required:
@@ -152,6 +154,7 @@ contract:
         - hard_pass
         - key_tackle
         - milestone
+        - correction
         title: MomentKind
         type: string
       PlayerRef:
@@ -235,6 +238,12 @@ contract:
         minimum: 0
         title: Priority
         type: integer
+      retracts:
+        description: 'Moment ids this moment rules out (a correction): they no longer count anywhere.'
+        items:
+          type: string
+        title: Retracts
+        type: array
     required:
     - moment_id
     - kind

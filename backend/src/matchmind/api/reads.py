@@ -23,7 +23,7 @@ from fastapi import HTTPException
 from matchmind.crew.contracts import Language, Persona, ViewerProfile, is_world_language
 
 from . import view
-from .session import MatchSession
+from .session import CUE_PAGE_MAX, MatchSession
 
 T = TypeVar("T")
 
@@ -123,6 +123,20 @@ def profile_for(hub: HubLike, persona: Persona, lang: Language, favourite_team: 
     return ViewerProfile(persona=persona, language=lang, favourite_team=favourite_team)
 
 
+async def cue_sheet(
+    hub: HubLike,
+    persona: Persona,
+    lang: Language,
+    favourite_team: str | None,
+    since_seq: int = 0,
+    limit: int = CUE_PAGE_MAX,
+) -> dict[str, Any]:
+    """The compiled cue sheet so far for one audience (docs/CUE-SHEET.md). Template text only,
+    so it never calls a paid service; compiled off the event loop and cached per position."""
+    profile = profile_for(hub, persona, lang, favourite_team)
+    return await asyncio.to_thread(hub.session.cue_sheet, profile, since_seq, limit)
+
+
 async def moment_detail(hub: HubLike, moment_id: str) -> dict[str, Any]:
     """A moment with its facts, evidence and source event ids (no persona, no model call)."""
     _check_moment_id(moment_id)
@@ -181,6 +195,21 @@ async def crew_traces(hub: HubLike, limit: int) -> list[dict[str, Any]]:
 async def languages(hub: HubLike) -> dict[str, Any]:
     status = await hub.run(hub.session.crew_status)
     return {"languages": view.languages_payload(status), "translator": status.translator.model_dump()}
+
+
+# --- Metric registry and basic stats ------------------------------------------------------------
+
+
+def metric_registry() -> dict[str, Any]:
+    """GET /api/metrics: every metric we compute, how, and the ones we do not."""
+    from matchmind.stats.registry import registry_payload
+
+    return registry_payload()
+
+
+async def basic_stats(hub: HubLike) -> dict[str, Any]:
+    """GET /api/match/stats/basic: counting stats per team and per player, match so far."""
+    return await hub.run(view.basic_stats_payload, hub.session)
 
 
 def auto_eventing(hub: HubLike) -> dict[str, Any]:

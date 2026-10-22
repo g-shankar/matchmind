@@ -42,6 +42,7 @@ PACK = {
         "shots_home": "Home shots",
         "shots_away": "Away shots",
         "appearance_n": "Club appearances",
+        "ruled_out_clock": "Goal ruled out (scored at)",
         "xt_stopped": "Threat stopped (xT)",
         "own_goal_distance_m": "Distance from own goal",
         "p_tackles_won": "Tackles won",
@@ -66,6 +67,7 @@ PACK = {
     "card_name": {"yellow": "yellow card", "red": "red card"},
     "card_name_cap": {"yellow": "Yellow card", "red": "Red card"},
     "card_action": {"yellow": "is booked", "red": "is sent off"},
+    "var_reason": {"offside": "offside", "handball": "handball", "foul": "a foul"},
     "fav_goal": {
         "for": "GOAL for your team! {player_short} scores",
         "against": "{player_short} scores against your team",
@@ -417,6 +419,32 @@ PACK = {
                 )
             ],
         },
+        "correction": {
+            "casual": [
+                (
+                    "No goal! VAR rules out {player_short}",
+                    "{player}'s goal at {ruled_out_clock} is ruled out for {reason_phrase} after a VAR review. It stays {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+            "tactical": [
+                (
+                    "VAR: {player_short} goal ruled out",
+                    "Overturned for {reason_phrase} on review. The score goes back to {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+            "fantasy": [
+                (
+                    "Goal ruled out: {player_short}",
+                    "VAR takes the goal off for {reason_phrase}; the shot still counts. {player_short} today: {p_goals|goal|goals} and {p_xg} xG from {p_shots|shot|shots}.",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "No goal! VAR rules out {player_short}",
+                    "{player}'s goal at {ruled_out_clock} is ruled out for {reason_phrase} after a VAR review. It stays {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+        },
         "milestone.kick_off": {
             "casual": [
                 (
@@ -534,6 +562,9 @@ PACK = {
         ],
         "key_tackle": [
             "Won {own_goal_distance_m} m from goal, the tackle took away a {xt_stopped} xT threat from {opp}."
+        ],
+        "correction": [
+            "VAR ruled out the goal from {ruled_out_clock} for {reason_phrase}: the score goes back to {home} {score_home}-{score_away} {away}."
         ],
         "milestone.kick_off": ["The match is under way."],
         "milestone.half_time": ["At the break expected goals read {xg_home} to {xg_away}."],
