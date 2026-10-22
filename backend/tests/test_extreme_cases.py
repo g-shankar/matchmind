@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -18,6 +19,7 @@ from matchmind.api.app import SEND_QUEUE_SHARE_BYTES, Connection, Hub, SendBudge
 from matchmind.api.session import Engines, MatchSession
 
 ALLOWED = "http://localhost:5173"
+DEMO = Path(__file__).resolve().parents[1] / "data" / "matches" / "MM-DEMO-001.jsonl"
 
 
 @pytest.fixture
@@ -194,3 +196,35 @@ def test_ec4_only_an_unknown_club_changes_nothing(client):
         assert ws.receive_json()["type"] == "ERROR"
         ws.send_json({"action": "set_view", "persona": "tactical"})
         assert ws.receive_json()["data"]["persona"] == "tactical"  # no stray PROFILE_CHANGED before it
+
+
+# --- EC-5: restart or seek before a live match has its second event ---------------------------
+
+
+def _live_session_with_only_kick_off(clock: FakeClock):
+    from matchmind.ingest.live import LiveFeed
+    from matchmind.ingest.stream import StreamValidator
+    from matchmind.simulator.publisher import read_jsonl
+
+    demo = read_jsonl(DEMO)
+    feed = LiveFeed(StreamValidator())
+    feed.put(demo[0].model_dump_json())
+    start = feed.wait_for_start(1)
+    assert start is not None
+    s = MatchSession([start], engines=Engines(stats=FakeStats, crew=FakeCrew), clock=clock, live_feed=feed)
+    return s, feed, demo
+
+
+def test_ec5_reset_and_seek_work_on_a_live_match_with_only_its_kick_off(clock):
+    """Before: max() of an empty sequence, a 500 for REST and 'Something went wrong' on the
+    WebSocket for anyone pressing restart right after a live match started."""
+    s, feed, demo = _live_session_with_only_kick_off(clock)
+    s.reset()
+    s.seek(0)
+    assert s.playback()["clock_s"] == 0.0 and not s.ended and s.next_index == 0
+    for e in demo[1:40]:
+        feed.put(e.model_dump_json())
+    for _ in range(50):
+        clock.t += 10
+        s.advance()
+    assert s.next_index == 40  # the match plays on as the stream arrives
