@@ -560,7 +560,10 @@ Errors: `{ "detail": "plain words" }` with 400 or 404 (429 for a seek or reset
 inside the 0.5 s throttle, a speed change inside the 0.3 s playback throttle, or more than about 2 POSTs a second, bursts of 10,
 from one client IP, or more than about 3 `GET /api/match/moment` and
 `GET /api/match/recap` requests a second, bursts of 30, from one client IP, a bucket the
-moment audit shares; 503 while the match is still loading, 500 with a generic
+moment audit shares, or more than about 10 requests a second, bursts of 60, from one client
+IP across the other read routes: teams, snapshot, players, bookmarks, crew status and
+trace, languages, metrics, basic stats, auto-eventing and source; `/api/health` is never
+limited; 503 while the match is still loading, 500 with a generic
 message if something breaks on our side).
 `GET /api/dataset/export` allows about one request every 5 s per client IP
 (bursts of 6) and at most two exports built at once (429 "Downloads are busy");

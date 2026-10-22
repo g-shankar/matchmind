@@ -16,5 +16,5 @@ image:
 	docker build -f deployment/Dockerfile -t pitchpulse:local .
 
 licence-check:
-	cd backend && pip install --quiet pip-licenses && pip-licenses --partial-match --fail-on="GPL;AGPL;SSPL"
-	cd frontend && npx --yes license-checker --production --failOn "GPL;AGPL;SSPL"
+	cd backend && pip install --quiet pip-licenses && pip-licenses --partial-match --fail-on="GPL;AGPL;SSPL;UNKNOWN;NonCommercial;CC-BY-NC;BUSL;Commons Clause"
+	cd frontend && npx --yes license-checker --production --excludePrivatePackages --failOn "GPL;AGPL;SSPL;UNKNOWN;UNLICENSED;CC-BY-NC-4.0;BUSL-1.1"

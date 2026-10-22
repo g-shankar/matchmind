@@ -1,0 +1,15 @@
+{
+ "one_ip_25": {
+  "accepted_handshake": 20,
+  "closed_after_accept": 0
+ },
+ "oversize": {
+  "message": "That message is too big. Actions must be under 4 KB.",
+  "code": "other"
+ },
+ "unknown_action": {
+  "message": "Unknown action. Use toggle_pause, set_speed, reset, seek, set_view or set_persona.",
+  "code": "other"
+ },
+ "evil_origin": "InvalidStatus server rejected WebSocket connection: HTTP 403"
+}

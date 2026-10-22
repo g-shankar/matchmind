@@ -86,6 +86,11 @@ POST_BURST, POST_PER_SECOND = 10, 2.0  # per client IP on the POST routes
 # Per client IP on the GET routes that may call a paid service (moment cards and recaps).
 # Room for the app's own bursts: re-voicing 12 cards after a language switch, 4 per split view.
 GET_BURST, GET_PER_SECOND = 30, 3.0
+# Per client IP on the other read routes (snapshot, players, stats, crew status...). Each
+# builds a JSON payload; one address looping on them slowed every viewer on a single core
+# (launch checks LC-1). The app polls these every few seconds, so this leaves wide room.
+# /api/health stays open for the platform's probes.
+READ_BURST, READ_PER_SECOND = 60, 10.0
 IP_LIMITERS_MAX = 10_000
 # Behind the Container Apps ingress the caller's address is the LAST X-Forwarded-For
 # entry (the ingress appends what it saw); anything to its left is client-supplied.
@@ -844,10 +849,6 @@ def create_app(
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/api/teams")
-    async def teams() -> dict[str, Any]:
-        return await reads.teams(hub)
-
     def ip_limit(burst: int, per_second: float) -> Callable[[Request], None]:
         """A simple per-client-IP token bucket (its own table per route group)."""
         ip_limiters: OrderedDict[str, RateLimiter] = OrderedDict()
@@ -870,16 +871,21 @@ def create_app(
     # recaps) and for MCP, so the REST routes and the MCP tools cannot double the burst.
     get_limit = ip_limit(GET_BURST, GET_PER_SECOND)
     limited_get = [Depends(get_limit)]
+    limited_read = [Depends(ip_limit(READ_BURST, READ_PER_SECOND))]
 
-    @app.get("/api/match/snapshot")
+    @app.get("/api/teams", dependencies=limited_read)
+    async def teams() -> dict[str, Any]:
+        return await reads.teams(hub)
+
+    @app.get("/api/match/snapshot", dependencies=limited_read)
     async def snapshot(spoilers: bool = True) -> dict[str, Any]:
         return await reads.snapshot(hub, spoilers)
 
-    @app.get("/api/match/players")
+    @app.get("/api/match/players", dependencies=limited_read)
     async def players() -> list[dict[str, Any]]:
         return await reads.players(hub)
 
-    @app.get("/api/match/bookmarks")
+    @app.get("/api/match/bookmarks", dependencies=limited_read)
     async def bookmarks() -> list[dict[str, Any]]:
         return reads.bookmarks(hub)
 
@@ -965,31 +971,31 @@ def create_app(
     async def reset() -> dict[str, Any]:
         return await hub.reset()
 
-    @app.get("/api/crew/status")
+    @app.get("/api/crew/status", dependencies=limited_read)
     async def crew_status() -> dict[str, Any]:
         return await reads.crew_status(hub)
 
-    @app.get("/api/languages")
+    @app.get("/api/languages", dependencies=limited_read)
     async def languages() -> dict[str, Any]:
         return await reads.languages(hub)
 
-    @app.get("/api/crew/trace")
+    @app.get("/api/crew/trace", dependencies=limited_read)
     async def crew_trace(limit: int = Query(default=20, ge=1, le=100)) -> list[dict[str, Any]]:
         return await reads.crew_traces(hub, limit)
 
     # --- Metric registry and basic stats (docs/METRICS.md) -----------------------------------
 
-    @app.get("/api/metrics")
+    @app.get("/api/metrics", dependencies=limited_read)
     async def metric_registry() -> dict[str, Any]:
         return reads.metric_registry()
 
-    @app.get("/api/match/stats/basic")
+    @app.get("/api/match/stats/basic", dependencies=limited_read)
     async def basic_stats(spoilers: bool = True) -> dict[str, Any]:
         return await reads.basic_stats(hub, spoilers)
 
     # --- end metric registry and basic stats ----------------------------------------------------
 
-    @app.get("/api/auto-eventing")
+    @app.get("/api/auto-eventing", dependencies=limited_read)
     async def auto_eventing() -> dict[str, Any]:
         return reads.auto_eventing(hub)
 
@@ -1057,7 +1063,7 @@ def create_app(
             },
         )
 
-    @app.get("/api/source")
+    @app.get("/api/source", dependencies=limited_read)
     async def source() -> dict[str, Any]:
         return await hub.run(hub.session.source_status)
 

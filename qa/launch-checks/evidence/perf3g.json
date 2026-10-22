@@ -1,0 +1,146 @@
+[
+ {
+  "run": "live",
+  "throttled": false,
+  "app_shell_s": 0.2,
+  "match_data_s": 0.3,
+  "first_crew_card_s": 0.4,
+  "fcp_ms": 104,
+  "bytes_total_kb": 284,
+  "largest": [
+   [
+    "/assets/index-DOHfYfGS.js",
+    126022,
+    66
+   ],
+   [
+    "/assets/barlow-condensed-latin-800-italic-BaEn-VSx.woff2",
+    23116,
+    58
+   ],
+   [
+    "/assets/barlow-latin-600-normal-DMnFtVx9.woff2",
+    22096,
+    59
+   ],
+   [
+    "/assets/barlow-latin-700-normal-Bku5AOSK.woff2",
+    22024,
+    48
+   ],
+   [
+    "/assets/barlow-condensed-latin-800-normal-jAD-BpyZ.woff2",
+    21752,
+    46
+   ]
+  ]
+ },
+ {
+  "run": "live",
+  "throttled": true,
+  "app_shell_s": 3.9,
+  "match_data_s": 7.6,
+  "first_crew_card_s": 7.7,
+  "fcp_ms": 1536,
+  "bytes_total_kb": 241,
+  "largest": [
+   [
+    "/assets/index-DOHfYfGS.js",
+    126022,
+    3217
+   ],
+   [
+    "/assets/barlow-condensed-latin-800-italic-BaEn-VSx.woff2",
+    23116,
+    3061
+   ],
+   [
+    "/assets/barlow-latin-600-normal-DMnFtVx9.woff2",
+    22096,
+    2972
+   ],
+   [
+    "/assets/barlow-condensed-latin-700-normal-B9NQhHK3.woff2",
+    21740,
+    2914
+   ],
+   [
+    "/assets/barlow-latin-400-normal-CtwdMZP0.woff2",
+    21444,
+    2943
+   ]
+  ]
+ },
+ {
+  "run": "offline-demo",
+  "throttled": false,
+  "app_shell_s": 0.1,
+  "match_data_s": 0.6,
+  "first_crew_card_s": 0.6,
+  "fcp_ms": 92,
+  "bytes_total_kb": 640,
+  "largest": [
+   [
+    "/demo/demo-match.json",
+    357317,
+    214
+   ],
+   [
+    "/assets/index-DOHfYfGS.js",
+    126022,
+    44
+   ],
+   [
+    "/assets/barlow-condensed-latin-800-italic-BaEn-VSx.woff2",
+    23116,
+    42
+   ],
+   [
+    "/assets/barlow-latin-600-normal-DMnFtVx9.woff2",
+    22096,
+    42
+   ],
+   [
+    "/assets/barlow-latin-700-normal-Bku5AOSK.woff2",
+    22024,
+    21
+   ]
+  ]
+ },
+ {
+  "run": "offline-demo",
+  "throttled": true,
+  "app_shell_s": 3.9,
+  "match_data_s": 14.3,
+  "first_crew_card_s": 14.4,
+  "fcp_ms": 1564,
+  "bytes_total_kb": 597,
+  "largest": [
+   [
+    "/demo/demo-match.json",
+    357317,
+    8224
+   ],
+   [
+    "/assets/index-DOHfYfGS.js",
+    126022,
+    3214
+   ],
+   [
+    "/assets/barlow-condensed-latin-800-italic-BaEn-VSx.woff2",
+    23116,
+    2848
+   ],
+   [
+    "/assets/barlow-latin-600-normal-DMnFtVx9.woff2",
+    22096,
+    2700
+   ],
+   [
+    "/assets/barlow-condensed-latin-700-normal-B9NQhHK3.woff2",
+    21740,
+    2818
+   ]
+  ]
+ }
+]

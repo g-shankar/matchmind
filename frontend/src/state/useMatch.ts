@@ -12,6 +12,7 @@ type ControlAction = Extract<ClientAction, { action: 'toggle_pause' | 'set_speed
 const PROFILE_KEY = 'pitchpulse.profile';
 const LIVE_TIMEOUT_MS = 2500;
 const RETRY_MS = 2000;
+const MAX_RETRY_MS = 10000;
 const MAX_RETRIES = 3;
 
 const PERSONAS = ['casual', 'tactical', 'fantasy', 'player_spotlight'];
@@ -101,6 +102,10 @@ export function useMatch() {
   useEffect(() => {
     let disposed = false;
     let retries = 0;
+    // Once this page has been live, a dropped connection is a server restart, not a missing
+    // server: keep trying the live server (backing off to 10 s) instead of switching to the
+    // offline demo, whose files come from the same server (launch checks LC-2).
+    let everLive = false;
     let timers: ReturnType<typeof setTimeout>[] = [];
     // Deep links: `?t=2050&p=1` starts at a match moment, `&pause=1` holds it there.
     // Playback is shared by everyone on the match, so the seek and pause apply to all viewers.
@@ -144,6 +149,7 @@ export function useMatch() {
         onMessage,
         onOpen: () => {
           opened = true;
+          everLive = true;
           retries = 0;
           dispatch({ type: 'status', status: 'live' });
           // Viewer choices are per connection, so restate them after every (re)connect.
@@ -152,18 +158,19 @@ export function useMatch() {
         },
         onClose: (everOpened) => {
           if (disposed) return;
-          if (!everOpened && mode === 'auto') return void startDemo();
+          const toDemo = mode === 'auto' && !everLive;
+          if (!everOpened && toDemo) return void startDemo();
           dispatch({ type: 'status', status: 'reconnecting' });
           retries += 1;
-          if (mode === 'auto' && retries > MAX_RETRIES) return void startDemo();
-          timers.push(setTimeout(startLive, RETRY_MS));
+          if (toDemo && retries > MAX_RETRIES) return void startDemo();
+          timers.push(setTimeout(startLive, Math.min(RETRY_MS * 2 ** (retries - 1), MAX_RETRY_MS)));
         },
       });
       transportRef.current = live;
       if (mode === 'auto') {
         timers.push(
           setTimeout(() => {
-            if (!opened && !disposed && transportRef.current === live) void startDemo();
+            if (!opened && !disposed && !everLive && transportRef.current === live) void startDemo();
           }, LIVE_TIMEOUT_MS),
         );
       }
