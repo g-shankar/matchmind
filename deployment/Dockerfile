@@ -2,7 +2,7 @@
 # match simulator job. Build from the repo root:
 #   docker build -f deployment/Dockerfile -t pitchpulse .
 
-FROM node:20-slim AS frontend
+FROM node:25-slim AS frontend
 WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund
