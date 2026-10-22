@@ -1070,13 +1070,17 @@ def create_app(
 
     def _set_view(conn: Connection, changes: dict[str, Any]) -> None:
         session = hub.session
+        # An unknown club or player (e.g. a choice saved during another match) is left out
+        # with a message; the rest still applies, so catch-up mode is never lost with it.
         team = changes.get("favourite_team")
         if team is not None and not session.is_known_team(team):
             conn.error("That club is not in this match.")
-            return
+            changes.pop("favourite_team")
         player = changes.get("focus_player_id")
         if player is not None and not session.is_known_player(player):
             conn.error("That player is not in this match.")
+            changes.pop("focus_player_id")
+        if not changes:
             return
         for key in ("persona", "language", "spoilers"):
             if key in changes and changes[key] is None:

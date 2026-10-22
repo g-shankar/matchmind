@@ -166,3 +166,31 @@ def test_ec2_rest_speed_shares_the_throttle_and_a_retry_is_a_no_op(client, clock
     # The same request again (a network retry) answers 200 and changes nothing.
     again = client.post("/api/match/speed", json={"speed_multiplier": 60})
     assert again.status_code == 200 and session.speed == 60
+
+
+# --- EC-4: a stale club in a saved profile must not cancel catch-up ---------------------------
+
+
+def test_ec4_unknown_club_is_left_out_and_the_rest_of_the_view_applies(client):
+    """Before: a saved club from another match made the server refuse the whole set_view,
+    so spoilers=false never applied and the catch-up viewer saw the score."""
+    with client.websocket_connect("/ws/match") as ws:
+        ws.receive_json()
+        ws.send_json({"action": "set_view", "favourite_team": "OLD", "spoilers": False, "language": "es"})
+        assert ws.receive_json() == {"type": "ERROR", "data": {"message": "That club is not in this match."}}
+        changed = ws.receive_json()
+        assert changed["type"] == "PROFILE_CHANGED"
+        assert changed["data"]["spoilers"] is False and changed["data"]["language"] == "es"
+        assert changed["data"]["favourite_team"] is None
+        assert ws.receive_json()["type"] == "PERSONA_CHANGED"
+        snap = ws.receive_json()
+        assert snap["type"] == "INITIAL_SNAPSHOT" and snap["data"]["home_score"] is None
+
+
+def test_ec4_only_an_unknown_club_changes_nothing(client):
+    with client.websocket_connect("/ws/match") as ws:
+        ws.receive_json()
+        ws.send_json({"action": "set_view", "favourite_team": "OLD"})
+        assert ws.receive_json()["type"] == "ERROR"
+        ws.send_json({"action": "set_view", "persona": "tactical"})
+        assert ws.receive_json()["data"]["persona"] == "tactical"  # no stray PROFILE_CHANGED before it

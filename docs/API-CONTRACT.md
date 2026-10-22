@@ -414,7 +414,7 @@ once that is spent, viewers more than 256 KB behind are disconnected the same wa
 | `set_speed` | `speed_multiplier: 1 \| 10 \| 60` | shared |
 | `reset` | | shared |
 | `seek` | `clock_s: number`, `period?: 1 \| 2` | shared; replays stats to that point (no cards on the way), then `INITIAL_SNAPSHOT` with the moments before that point as `recent_cards` |
-| `set_view` | any subset of `ViewerProfile` | this connection only; `PROFILE_CHANGED`, cards from now on follow it. `null` clears `favourite_team`, `focus_player_id` or `focus_metric`; the club and player must be in this match |
+| `set_view` | any subset of `ViewerProfile` | this connection only; `PROFILE_CHANGED`, cards from now on follow it. `null` clears `favourite_team`, `focus_player_id` or `focus_metric`; the club and player must be in this match (an unknown one gets `ERROR` and is left out; the other fields still apply) |
 | `set_persona` | `persona`, `spotlight_player_id?` | old alias for `set_view` (`spotlight_player_id` sets `focus_player_id`) |
 
 ### Catch-up mode (`spoilers: false`)
