@@ -514,6 +514,56 @@ def test_public_origin_from_env(monkeypatch, session, clock, tmp_path):
         recv(ws, "INITIAL_SNAPSHOT")
 
 
+def _static_app(session, clock, tmp_path, public_origin, origins=()):
+    static = tmp_path / "static"
+    static.mkdir(exist_ok=True)
+    (static / "index.html").write_text("<!doctype html><title>PitchPulse</title>")
+    return create_app(
+        session=session,
+        tick_interval=None,
+        allowed_origins=list(origins),
+        static_dir=static,
+        clock=clock,
+        public_origin=public_origin,
+    )
+
+
+def test_pages_carry_a_content_security_policy_and_api_routes_do_not(session, clock, tmp_path):
+    app = _static_app(
+        session, clock, tmp_path, "", origins=["https://api.pitchpulse.example", "bad; script-src *"]
+    )
+    with TestClient(app) as c:
+        page = c.get("/")
+        api = c.get("/api/health")
+    csp = page.headers["content-security-policy"]
+    directives = dict(d.strip().split(" ", 1) for d in csp.split(";"))
+    assert directives["default-src"] == "'self'"
+    assert directives["script-src"] == "'self'"
+    assert directives["frame-ancestors"] == "'none'"
+    assert directives["img-src"] == "'self' data:"
+    assert directives["media-src"] == "'self'"
+    assert directives["style-src"] == "'self' 'unsafe-inline'"
+    connect = directives["connect-src"].split()
+    assert connect[:3] == ["'self'", "ws:", "wss:"]
+    assert "https://api.pitchpulse.example" in connect and "wss://api.pitchpulse.example" in connect
+    assert "*" not in csp and "bad" not in csp  # a malformed origin never widens the policy
+    assert "content-security-policy" not in api.headers
+    assert page.headers["x-content-type-options"] == "nosniff"
+
+
+def test_hsts_only_when_the_public_origin_is_https(session, clock, tmp_path):
+    for own, expected in (
+        ("https://pitchpulse.example", True),
+        ("http://localhost:8000", False),
+        ("", False),
+    ):
+        app = _static_app(session, clock, tmp_path, own)
+        with TestClient(app) as c:
+            for path in ("/", "/api/health"):
+                hsts = c.get(path).headers.get("strict-transport-security")
+                assert (hsts == "max-age=31536000; includeSubDomains") if expected else hsts is None
+
+
 def test_ws_rate_limit(client):
     with client.websocket_connect("/ws/match") as ws:
         recv(ws, "INITIAL_SNAPSHOT")

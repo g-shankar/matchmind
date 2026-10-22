@@ -28,3 +28,31 @@ describe('urlProfile', () => {
     expect(urlProfile(base, '')).toEqual(base);
   });
 });
+
+describe('link-pinned profile', () => {
+  it('ignores an invalid club instead of clearing the saved one', async () => {
+    const { urlProfile } = await import('./useMatch');
+    const { DEFAULT_PROFILE } = await import('../api/mockServer');
+    const base = { ...DEFAULT_PROFILE, favourite_team: 'HCY' };
+    expect(urlProfile(base, '?club=<script>').favourite_team).toBe('HCY');
+    expect(urlProfile(base, '?club=').favourite_team).toBe('HCY');
+    expect(urlProfile(base, '?club=NBR').favourite_team).toBe('NBR');
+    expect(urlProfile(base, '?persona=boss&lang=xx')).toEqual(base);
+  });
+
+  it('saves only the viewer\'s own changes, never the values a link pinned', async () => {
+    const { saveProfileChanges } = await import('./useMatch');
+    localStorage.setItem('pitchpulse.profile', JSON.stringify({ persona: 'casual', language: 'en', favourite_team: 'HCY' }));
+    window.history.replaceState(null, '', '/?persona=tactical&lang=es&club=NBR#overlay');
+    try {
+      saveProfileChanges({ focus_metric: 'xg' });
+      const saved = JSON.parse(localStorage.getItem('pitchpulse.profile') ?? '{}');
+      expect(saved).toMatchObject({ persona: 'casual', language: 'en', favourite_team: 'HCY', focus_metric: 'xg' });
+      saveProfileChanges({ language: 'ar' });
+      expect(JSON.parse(localStorage.getItem('pitchpulse.profile') ?? '{}').language).toBe('ar');
+    } finally {
+      window.history.replaceState(null, '', '/');
+      localStorage.clear();
+    }
+  });
+});

@@ -19,6 +19,12 @@ same cues, so what an operator sees in OBS or vMix matches the studio.
 | WebSocket `CUES` message | New cues for this connection, right after the `MATCH_TICK` that caused them |
 | `INITIAL_SNAPSHOT.cue_sheet` | `{ sheet_id, last_seq, active }`: what is on air now (connect, reconnect, seek, reset) |
 
+The server builds each audience's sheet incrementally and keeps the most recent
+32 audiences. A tick builds new sheets only up to a fixed amount of work; an
+audience past that gets `cue_sheet: null` and its sheet starts on a following
+tick, as a `CUES` message with `active`. A connection may change its view about
+once a second (bursts of 3).
+
 A **sheet** is one audience: `sheet_id = "<match>/<persona>/<language>[/club=X][/focus=P][/metric=M]"`.
 Each sheet numbers its cues `seq = 1, 2, 3...` with no gaps. Cue ids are stable:
 compiling the same match to the same point always gives the same cues, byte for
