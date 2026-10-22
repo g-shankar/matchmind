@@ -483,6 +483,7 @@ class Hub:
             states[i] = session.viewer_state(profiles[i], ticks[0].index)
             if conns[i].profile == profiles[i] and conns[i].view_state.cues is None:
                 conns[i].view_state = states[i]
+        held: list[list[dict]] = [[] for _ in conns]  # catch-up cards from a withheld tick
         for tick in ticks:
             tick = session.crew_tick(tick)
             shared = view.tick_shared(tick)
@@ -492,7 +493,14 @@ class Hub:
                 data = dict(shared, cards=[view.card_payload(c) for c in cards])
                 cues = view.cues_message(state, session.tick_cues(tick, cards, state))
                 if not profile.spoilers:  # catch-up mode: no result, no cue sheet (docs/PERSONALISATION.md)
-                    out[i].append(view.message("MATCH_TICK", view.spoiler_free_tick(session, data)))
+                    if held[i]:
+                        data["cards"] = held[i] + data["cards"]
+                        held[i] = []
+                    free = view.spoiler_free_tick(session, data)
+                    if free is None:  # a withheld event (VAR review): its other cards ride the next tick
+                        held[i] = view.spoiler_free_cards(session, data["cards"])
+                        continue
+                    out[i].append(view.message("MATCH_TICK", free))
                     continue
                 out[i].append(view.message("MATCH_TICK", data))
                 if cues is not None:

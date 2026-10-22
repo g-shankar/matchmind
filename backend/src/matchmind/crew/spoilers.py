@@ -9,6 +9,10 @@ studio). A viewer with `ViewerProfile.spoilers == False` never receives:
   carry the score), or any moment whose facts hold a score or a scored shot;
 - shot and VAR-review outcomes on events (with them, a goal is one inference
   away), player goals and assists;
+- outcome geometry: where a shot ended (every goal ends in the goal mouth), who
+  blocked it, and the centre-spot start of a kick-off pass (a restart follows a goal);
+- VAR review events themselves: in this engine a review always looks at a goal, so
+  the event is withheld from the stream, not just its outcome;
 - the cue sheet (its scorebug layer is the score).
 
 Pressure, momentum, xG, shots, chances and "should he have passed" moments
@@ -51,10 +55,14 @@ SPOILER_FACT_KEYS: frozenset[str] = frozenset(
     }
 )
 # Event detail keys and player fields hidden in spoiler-free payloads.
-SPOILER_DETAIL_KEYS: frozenset[str] = frozenset({"score_home", "score_away", "assist_id"})
+SPOILER_DETAIL_KEYS: frozenset[str] = frozenset({"score_home", "score_away", "assist_id", "blocked_by"})
 SPOILER_PLAYER_FIELDS: tuple[str, ...] = ("goals", "assists")
 # Events whose outcome is hidden (a goal is a shot outcome; a VAR overturn says one was scored).
 OUTCOME_HIDDEN_EVENTS: frozenset[str] = frozenset({"shot", "var_review"})
+# Events whose end point is the outcome (a goal ends in the goal mouth).
+END_HIDDEN_EVENTS: frozenset[str] = frozenset({"shot"})
+# Events withheld from a spoiler-free stream altogether.
+WITHHELD_EVENTS: frozenset[str] = frozenset({"var_review"})
 
 
 def is_spoiler_facts(facts: Mapping[str, FactValue]) -> bool:
@@ -80,13 +88,27 @@ def scrub_facts(facts: Mapping[str, FactValue]) -> dict[str, FactValue]:
 # --- JSON payloads (api/view.py) ----------------------------------------------------------------
 
 
+def is_withheld_event(payload: Mapping[str, Any]) -> bool:
+    """An event a spoiler-free viewer never receives (its existence gives a goal away)."""
+    return payload.get("type") in WITHHELD_EVENTS
+
+
 def scrub_event(payload: dict[str, Any]) -> dict[str, Any]:
     out = dict(payload)
-    out["details"] = {k: v for k, v in payload.get("details", {}).items() if k not in SPOILER_DETAIL_KEYS}
+    details = {k: v for k, v in payload.get("details", {}).items() if k not in SPOILER_DETAIL_KEYS}
+    if details.get("pass_type") == "kickoff":
+        # Every restart is a kick-off from the centre spot: drop the label and the spot.
+        del details["pass_type"]
+        out["start"] = None
+    out["details"] = details
     if out.get("type") in OUTCOME_HIDDEN_EVENTS:
         out["outcome"] = None
+    if out.get("type") in END_HIDDEN_EVENTS:
+        out["end"] = None
     if "reviewed_event_id" in out:
         out["reviewed_event_id"] = None
+    if "review_reason" in out:
+        out["review_reason"] = None
     return out
 
 

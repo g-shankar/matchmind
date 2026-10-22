@@ -21,6 +21,14 @@ from matchmind.crew.spoilers import SPOILER_FACT_KEYS, SPOILER_KINDS
 ALLOWED = "http://localhost:5173"
 SCORE_KEYS = {"score_home", "score_away", "home_score", "away_score", "goals", "assists"}
 SCORELINE = re.compile(r"\b\d+\s?[-–]\s?\d+\b")
+GOAL_POSTS_Y = (30.34, 37.66)  # the goal mouth on a 68 m wide pitch
+
+
+def in_goal_mouth(point: Any) -> bool:
+    if not isinstance(point, dict):
+        return False
+    x, y = point.get("x"), point.get("y")
+    return x is not None and (x <= 0.5 or x >= 104.5) and GOAL_POSTS_Y[0] <= y <= GOAL_POSTS_Y[1]
 
 
 def leaks(payload: Any, path: str = "") -> list[str]:
@@ -41,6 +49,19 @@ def leaks(payload: Any, path: str = "") -> list[str]:
                 found.append(here)
             if key == "scorebug" and value:
                 found.append(here)
+            # A VAR review in this engine always reviews a goal: the event itself is the spoiler.
+            if key == "type" and value == "var_review":
+                found.append(f"{here}={value}")
+            if key == "review_reason" and value is not None:
+                found.append(f"{here}={value!r}")
+            # Outcome geometry: where a shot ended says whether it went in.
+            if key == "end" and payload.get("type") == "shot" and value is not None:
+                found.append(f"{here}={value!r}" + (" (goal mouth)" if in_goal_mouth(value) else ""))
+            if key == "details" and isinstance(value, dict):
+                if "blocked_by" in value:
+                    found.append(f"{here}.blocked_by")
+                if value.get("pass_type") == "kickoff":  # a restart from the centre spot follows a goal
+                    found.append(f"{here}.pass_type=kickoff")
             if (
                 key in ("fact_keys", "label_key")
                 and set(value if isinstance(value, list) else [value]) & SPOILER_FACT_KEYS
@@ -185,3 +206,67 @@ def test_full_match_through_the_websocket_never_leaks(real):
     assert not problems, problems[:10]
     recap = seen[-1]["data"]["recap"]
     assert recap["spoiler_free"] is True and recap["language"] == "es"
+
+
+def test_scrub_event_hides_outcome_geometry():
+    from matchmind.crew.spoilers import is_withheld_event, scrub_event
+
+    goal = {
+        "type": "shot",
+        "start": {"x": 93.2, "y": 35.6},
+        "end": {"x": 105.0, "y": 34.4},
+        "outcome": "goal",
+        "details": {"score_home": 1, "assist_id": "NBR-7"},
+    }
+    blocked = {
+        **goal,
+        "end": {"x": 96.0, "y": 30.0},
+        "outcome": "blocked",
+        "details": {"blocked_by": "HCY-4"},
+    }
+    for shot in (goal, blocked):
+        out = scrub_event(shot)
+        assert out["end"] is None and out["outcome"] is None and out["details"] == {}
+        assert out["start"] == shot["start"]  # where it was taken from stays: that is the chance
+    kickoff = {
+        "type": "pass",
+        "start": {"x": 52.5, "y": 34.0},
+        "end": {"x": 61.0, "y": 30.1},
+        "outcome": "complete",
+        "details": {"pass_type": "kickoff"},
+    }
+    out = scrub_event(kickoff)
+    assert out["start"] is None and "pass_type" not in out["details"] and out["end"] == kickoff["end"]
+    review = {
+        "type": "var_review",
+        "outcome": "overturned",
+        "reviewed_event_id": "E-1",
+        "review_reason": "offside",
+    }
+    assert is_withheld_event(review) and not is_withheld_event(kickoff)
+    out = scrub_event(review)
+    assert out["review_reason"] is None and out["reviewed_event_id"] is None and out["outcome"] is None
+    assert not leaks({"event": scrub_event(goal)}) and not leaks({"event": scrub_event(blocked)})
+
+
+def test_full_match_catch_up_has_no_var_review_and_no_shot_end(real):
+    """Every shot in the demo ends inside the goal mouth iff it went in, so `end` must go."""
+    session, clock = real
+    session.reset()
+    app = create_app(session=session, tick_interval=None, allowed_origins=[ALLOWED], clock=clock)
+    with TestClient(app) as client, client.websocket_connect("/ws/match") as ws:
+        ws.receive_json()
+        ws.send_json({"action": "set_view", "spoilers": False})
+        recv_all(ws, "INITIAL_SNAPSHOT")
+        for _ in range(400):
+            clock.t += 30
+            client.portal.call(client.app.state.hub.pump)
+            if session.ended:
+                break
+        seen = recv_all(ws, "MATCH_END")
+    events = [m["data"]["event"] for m in seen if m["type"] == "MATCH_TICK"]
+    shots = [e for e in events if e["type"] == "shot"]
+    assert len(shots) > 20 and all(e["end"] is None and e["outcome"] is None for e in shots)
+    assert not any(in_goal_mouth(e["end"]) for e in shots)
+    assert not [e for e in events if e["type"] == "var_review"]
+    assert not [e for e in events if e["details"].get("pass_type") == "kickoff"]

@@ -292,8 +292,11 @@ def spoiler_free_snapshot(session: MatchSession, data: dict[str, Any]) -> dict[s
     return out
 
 
-def spoiler_free_tick(session: MatchSession, data: dict[str, Any]) -> dict[str, Any]:
-    """MATCH_TICK.data for a spoiler-safe viewer."""
+def spoiler_free_tick(session: MatchSession, data: dict[str, Any]) -> dict[str, Any] | None:
+    """MATCH_TICK.data for a spoiler-safe viewer, or None when the tick's event is withheld
+    (a VAR review): the caller holds back that tick and passes its cards on with the next."""
+    if spoilers.is_withheld_event(data["event"]):
+        return None
     return {
         **data,
         "event": spoilers.scrub_event(data["event"]),

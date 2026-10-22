@@ -132,3 +132,18 @@ describe('VAR correction in the offline demo', () => {
     expect(cuesMsg.data.active!.map((c) => c.moment_id)).not.toContain(goalId);
   });
 });
+
+describe('the recorded demo in catch-up mode', () => {
+  it('never sends the VAR review, a shot end point or a kick-off spot', async () => {
+    const { s, messages } = await connect({ spoilers: false });
+    playThrough(s, 0, ticks.length - 1);
+    const events = messages.flatMap((m) => (m.type === 'MATCH_TICK' ? [m.data.event] : []));
+    const shots = events.filter((e) => e.type === 'shot');
+    expect(shots.length).toBeGreaterThan(20);
+    // In the recording every goal ends inside the goal mouth; nothing tells them apart now.
+    expect(shots.every((e) => e.end === null && e.outcome === null)).toBe(true);
+    expect(events.some((e) => e.type === 'var_review')).toBe(false);
+    expect(events.some((e) => e.details.pass_type === 'kickoff' || 'blocked_by' in e.details)).toBe(false);
+    expect(events.length).toBe(ticks.length - 1);
+  });
+});

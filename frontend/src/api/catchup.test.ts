@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AskAnswer, ServerMessage } from './contract';
 import { MockMatchServer, type DemoAsk, type DemoFixture } from './mockServer';
-import { isSpoilerCard, scrubEvent, spoilerFreeBookmarks } from './spoilers';
+import { isSpoilerCard, scrubEvent, spoilerFreeBookmarks, spoilerFreeTick } from './spoilers';
 import { event, makeFixture } from '../test/fixture';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -175,6 +175,28 @@ describe('spoiler scrub helpers', () => {
     expect(shot.details).toEqual({ body_part: 'foot' });
     const pass = scrubEvent(event(2, 11));
     expect(pass.outcome).toBe('complete');
+  });
+
+  it('hide outcome geometry: shot end points, blockers and the kick-off spot', () => {
+    // Every goal ends inside the goal mouth, so the end point alone would give it away.
+    const goal = scrubEvent(event(1, 10, { type: 'shot', outcome: 'goal', start: { x: 93, y: 35 }, end: { x: 105, y: 34.4 } }));
+    expect(goal.end).toBeNull();
+    expect(goal.start).toEqual({ x: 93, y: 35 });
+    const blocked = scrubEvent(event(1, 11, { type: 'shot', outcome: 'blocked', end: { x: 96, y: 30 }, details: { blocked_by: 'BBB-4' } }));
+    expect(blocked.end).toBeNull();
+    expect(blocked.details).toEqual({});
+    const kickoff = scrubEvent(event(2, 12, { start: { x: 52.5, y: 34 }, end: { x: 61, y: 30 }, details: { pass_type: 'kickoff' } }));
+    expect(kickoff.start).toBeNull();
+    expect(kickoff.details).toEqual({});
+    expect(kickoff.end).toEqual({ x: 61, y: 30 });
+  });
+
+  it('withhold VAR review ticks altogether', () => {
+    const f = makeFixture();
+    const tick = { ...f.ticks[1], cards: [] };
+    const review = { ...tick, event: { ...tick.event, type: 'var_review' as const, outcome: 'overturned', reviewed_event_id: 'x', review_reason: 'offside' as const } };
+    expect(spoilerFreeTick(review)).toBeNull();
+    expect(spoilerFreeTick(tick)).not.toBeNull();
   });
 
   it('spot spoiler cards by kind, retraction or result evidence', () => {
