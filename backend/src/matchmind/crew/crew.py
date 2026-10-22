@@ -27,21 +27,24 @@ from collections import OrderedDict
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeout
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from pydantic import BaseModel
 
 from matchmind.crew import analyst, commentator, telemetry
+from matchmind.crew import claims as claims_mod
 from matchmind.crew import recap as recap_mod
 from matchmind.crew.alerts import AlertWatcher
 from matchmind.crew.breaker import CircuitBreaker
 from matchmind.crew.contracts import (
     AgentStep,
+    Claim,
     CrewStatus,
     CrewTrace,
     Evidence,
     Explanation,
+    FactCheck,
     Moment,
     MomentBundle,
     Narrative,
@@ -51,7 +54,7 @@ from matchmind.crew.contracts import (
     is_world_language,
 )
 from matchmind.crew.fact_checker import banned_names_in, check, check_all
-from matchmind.crew.i18n import MissingFact, fill_first, pack
+from matchmind.crew.i18n import MissingFact, fill_first_with_template, pack
 from matchmind.crew.llm import LLM, LLMSchemaError, ModelBudget, default_budget, make_llm, provider_of
 from matchmind.crew.orchestration import make_workflows
 from matchmind.crew.producer import ViewerState, build_card, select
@@ -103,6 +106,9 @@ class CommentatorDraft:
     result: Any | None
     reason: str | None
     ms: float
+    # Template text per field and the explanation's template, for exact claims.
+    templates: dict[str, str] = field(default_factory=dict)
+    why_template: str | None = None
 
 
 class Crew:
@@ -138,6 +144,15 @@ class Crew:
                 | {t.short_name for t in teams.values() if t.short_name}
             )
         )
+        # Squad and club names -> player or club id, for the claims.
+        self.roster_ids: dict[str, str] = {}
+        for t in teams.values():
+            for name in (t.name, t.short_name):
+                if name:
+                    self.roster_ids.setdefault(name, t.team_id)
+            for p in t.players:
+                self.roster_ids.setdefault(p.name, p.player_id)
+                self.roster_ids.setdefault(surname(p.name), p.player_id)
         self.breakers = {agent: CircuitBreaker(clock) for agent in AI_AGENTS}
         self._pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="crew-llm")
         self._lock = threading.RLock()
@@ -157,6 +172,7 @@ class Crew:
         self._fallbacks = 0
         self._rejections = 0
         self._match_id: str | None = None
+        self._health = telemetry.HealthTracker(self.clock)
 
     # ------------------------------------------------------------ public
 
@@ -204,12 +220,30 @@ class Crew:
                 fallbacks=self._fallbacks,
                 rejections=self._rejections,
                 translator=self.translation.status(),
+                health=self._health.snapshot(),
             )
 
     def traces(self, limit: int = 20) -> list[CrewTrace]:
         with self._lock:
             items = list(self._traces.values())[-max(0, limit) :] if limit > 0 else []
             return [t.model_copy(deep=True) for t in reversed(items)]
+
+    def trace_for(self, moment_id: str) -> CrewTrace | None:
+        """The trace of one moment (bounded to TRACE_STEPS_LIMIT steps), or None."""
+        with self._lock:
+            trace = self._traces.get(moment_id)
+            return trace.model_copy(deep=True) if trace is not None else None
+
+    def cached_cards(self, moment_id: str, limit: int = 32) -> list[OverlayCard]:
+        """Cards already rendered for one moment (any audience), newest last. Never
+        renders, so it never calls a model or the translator."""
+        with self._lock:
+            found = [c for k, c in self._cards.items() if k[0] == moment_id]
+            return [c.model_copy(deep=True) for c in found[-limit:]]
+
+    def _checked(self, verdict: FactCheck) -> FactCheck:
+        self._health.verdict(verdict.ok)
+        return verdict
 
     # ----------------------------------------------------------- process
 
@@ -255,6 +289,7 @@ class Crew:
             moments = self.spotter.spot(event, metrics, snapshot, players)
             spot_ms = (time.perf_counter() - t0) * 1000
             self._processed[event.event_id] = [m.moment_id for m in moments]
+            self._health.moments(len(moments))
             while len(self._processed) > PROCESSED_LIMIT:
                 self._processed.popitem(last=False)
         return Spotted(moments, spot_ms)
@@ -275,7 +310,9 @@ class Crew:
         fact, otherwise the template explanation (which must pass too)."""
         result, reason, ms = draft.result, draft.reason, draft.ms
         if result is not None:
-            verdict = check(result.why, moment.facts, "en", "why", strict_words=True)
+            verdict = self._checked(
+                check(result.why, moment.facts, "en", "why", strict_words=True, roster=self.protected_names)
+            )
             self._trace(
                 moment, "fact_checker", 0.0, "ok" if verdict.ok else "rejected", _short(verdict.reasons)
             )
@@ -291,7 +328,11 @@ class Crew:
             reason = "fact_check: " + verdict.reasons[0]
             self._rejected("analyst")
         explanation = analyst.template_explanation(moment, fallback_reason=reason)
-        verdict = check(explanation.why, moment.facts, "en", "why") if explanation.why else None
+        verdict = (
+            self._checked(check(explanation.why, moment.facts, "en", "why", roster=self.protected_names))
+            if explanation.why
+            else None
+        )
         if verdict is not None and not verdict.ok:
             explanation = explanation.model_copy(update={"why": ""})
             self._trace(moment, "fact_checker", 0.0, "rejected", _short(verdict.reasons))
@@ -360,15 +401,16 @@ class Crew:
         fav_name = self.team_name(profile.favourite_team)
         lang = profile.language
         why = bundle.explanation.why
+        why_template: str | None = None
         if bundle.explanation.produced_by != "ai" or lang != "en":
-            why = analyst.why_text(m, lang, fav_name)
-        if why and not check(why, m.facts, lang, "why").ok:
+            why, why_template = analyst.why_text_with_template(m, lang, fav_name)
+        if why and not self._checked(check(why, m.facts, lang, "why", roster=self.protected_names)).ok:
             why = ""
 
         detail = f"{profile.persona}/{lang}"
         t0 = time.perf_counter()
         try:
-            template = commentator.template_narrative(
+            template, templates = commentator.template_narrative_with_templates(
                 m, profile.persona, lang, fav_name, profile.focus_player_id
             )
         except MissingFact as exc:
@@ -379,7 +421,7 @@ class Crew:
             "commentator", commentator.COMMENTATOR_SYSTEM, payload, commentator.CommentatorOut
         )
         ms = (time.perf_counter() - t0) * 1000
-        return CommentatorDraft(bundle, profile, why, template, result, reason, ms)
+        return CommentatorDraft(bundle, profile, why, template, result, reason, ms, templates, why_template)
 
     def fact_check_narrative(self, draft: CommentatorDraft) -> Narrative | None:
         """Fact-checker on the Commentator's draft: the model text if it checks
@@ -390,8 +432,14 @@ class Crew:
         result, reason, ms = draft.result, draft.reason, draft.ms
         narrative: Narrative = template
         if result is not None:
-            verdict = check_all(
-                {"headline": result.headline, "body": result.body}, m.facts, lang, strict_words=True
+            verdict = self._checked(
+                check_all(
+                    {"headline": result.headline, "body": result.body},
+                    m.facts,
+                    lang,
+                    strict_words=True,
+                    roster=self.protected_names,
+                )
             )
             if verdict.ok:
                 narrative = Narrative(
@@ -408,7 +456,14 @@ class Crew:
                 self._rejected("commentator")
                 self._trace(m, "fact_checker", 0.0, "rejected", f"{detail}: {_short(verdict.reasons)}")
         if narrative is template:
-            verdict = check_all({"headline": template.headline, "body": template.body}, m.facts, lang)
+            verdict = self._checked(
+                check_all(
+                    {"headline": template.headline, "body": template.body},
+                    m.facts,
+                    lang,
+                    roster=self.protected_names,
+                )
+            )
             if not verdict.ok:
                 self._trace(
                     m, "fact_checker", 0.0, "rejected", f"{detail} template: {_short(verdict.reasons)}"
@@ -431,8 +486,23 @@ class Crew:
         """Producer: the overlay card for this viewer, kept in the card cache."""
         m, profile = draft.bundle.moment, draft.profile
         t1 = time.perf_counter()
-        card = build_card(draft.bundle, narrative, draft.why, profile)
-        detail = f"{profile.persona}/{profile.language}"
+        lang = profile.language
+        claims = claims_mod.card_claims(
+            m,
+            narrative.headline,
+            narrative.body,
+            draft.why,
+            lang,
+            templates={
+                "headline": draft.templates.get("headline") if narrative.produced_by == "template" else None,
+                "body": draft.templates.get("body") if narrative.produced_by == "template" else None,
+                "why": draft.why_template,
+            },
+            roster=self.roster_ids,
+            favourite_name=self.team_name(profile.favourite_team),
+        )
+        card = build_card(draft.bundle, narrative, draft.why, profile, claims=claims)
+        detail = f"{profile.persona}/{lang}"
         self._trace(m, "producer", (time.perf_counter() - t1) * 1000, "ok", f"{detail}: {card.slot}")
         self._remember_card(key, card)
         return card.model_copy(deep=True)
@@ -466,7 +536,11 @@ class Crew:
             parts: dict = {"headline": headline, "body": body}
             if why:
                 parts["why"] = why
-            reasons = list(check_all(parts, moment.facts, language, translated=True).reasons)
+            reasons = list(
+                self._checked(
+                    check_all(parts, moment.facts, language, translated=True, roster=self.protected_names)
+                ).reasons
+            )
             if any(banned_names_in(label) for label in new_labels):
                 reasons.append("label: real name not allowed")
             if not reasons:
@@ -486,6 +560,9 @@ class Crew:
                         "evidence": evidence,
                         "text_language": language,
                         "translated_by": "azure_ai_translator",
+                        "claims": claims_mod.card_claims(
+                            moment, headline, body, why, language, roster=self.roster_ids
+                        ),
                     }
                 )
             self.translation.note_rejected()
@@ -529,10 +606,15 @@ class Crew:
                 continue
             v = localise_teams(dict(m.facts), lang, fav_name)
             try:
-                headline, body = fill_first(pack(lang)["metric"][alert.template], v, lang)
+                (headline, body), (headline_t, body_t) = fill_first_with_template(
+                    pack(lang)["metric"][alert.template], v, lang
+                )
             except MissingFact:
                 continue
-            if not check_all({"headline": headline, "body": body}, m.facts, lang).ok:
+            verdict = self._checked(
+                check_all({"headline": headline, "body": body}, m.facts, lang, roster=self.protected_names)
+            )
+            if not verdict.ok:
                 with self._lock:
                     self._rejections += 1
                 continue
@@ -556,7 +638,19 @@ class Crew:
                 for k, val in m.facts.items()
                 if isinstance(val, int | float) and not isinstance(val, bool)
             ]
-            card = build_card(bundle, narrative, body, text_profile, slot="metric_alert", evidence=evidence)
+            claims = claims_mod.card_claims(
+                m,
+                headline,
+                body,
+                "",
+                lang,
+                templates={"headline": headline_t, "body": body_t},
+                roster=self.roster_ids,
+                favourite_name=fav_name,
+            )
+            card = build_card(
+                bundle, narrative, body, text_profile, slot="metric_alert", evidence=evidence, claims=claims
+            )
             if world:
                 card = self._translate_card(card, m, profile.language)
             state.remember(m.moment_id)
@@ -586,8 +680,14 @@ class Crew:
         fav_name = self.team_name(profile.favourite_team)
         facts = recap_mod.recap_facts(moments, snapshot, players, profile, self.teams, self.names)
         full_time = recap_mod.is_full_time(moments)
-        title, headline, paragraphs = recap_mod.template_texts(facts, profile, full_time, fav_name)
-        verdict = recap_mod.check_texts(title, headline, paragraphs, facts, profile.language)
+        title, headline, paragraphs, recap_templates = recap_mod.template_texts_with_templates(
+            facts, profile, full_time, fav_name
+        )
+        verdict = self._checked(
+            recap_mod.check_texts(
+                title, headline, paragraphs, facts, profile.language, roster=self.protected_names
+            )
+        )
         produced_by = "template"
         trace_id = f"recap-{snapshot.match_id}-{snapshot.clock_s:.0f}-{profile.persona}-{profile.language}"
 
@@ -595,29 +695,38 @@ class Crew:
         if full_time and self.llm.enabled:
             result, reason = self._ai_recap(snapshot.match_id, profile, facts, fav_name)
         if result is not None:
-            ai_verdict = recap_mod.check_texts(
-                result.title,
-                result.headline,
-                list(result.summary_paragraphs),
-                facts,
-                profile.language,
-                strict_words=True,
+            ai_verdict = self._checked(
+                recap_mod.check_texts(
+                    result.title,
+                    result.headline,
+                    list(result.summary_paragraphs),
+                    facts,
+                    profile.language,
+                    strict_words=True,
+                    roster=self.protected_names,
+                )
             )
             if ai_verdict.ok:
                 title, headline, paragraphs = result.title, result.headline, list(result.summary_paragraphs)
                 verdict, produced_by = ai_verdict, "ai"
+                recap_templates = None
             else:
                 self._rejected("recap")
                 reason = "fact_check: " + ai_verdict.reasons[0]
 
+        headline_templates: dict[str, str] = {}
+
         def headline_for(m: Moment) -> str | None:
             try:
-                n = commentator.template_narrative(
+                n, tpl = commentator.template_narrative_with_templates(
                     m, profile.persona, profile.language, fav_name, profile.focus_player_id
                 )
             except MissingFact:
                 return None
-            return n.headline if check(n.headline, m.facts, profile.language, "headline").ok else None
+            if not check(n.headline, m.facts, profile.language, "headline", roster=self.protected_names).ok:
+                return None
+            headline_templates[m.moment_id] = tpl["headline"]
+            return n.headline
 
         potm = recap_mod.player_of_the_match(players)
         out = recap_mod.build(
@@ -632,6 +741,7 @@ class Crew:
             verdict,
             potm.player_id if potm and "potm" in facts else None,
         )
+        out.claims = self._recap_claims(out, moments, recap_templates, headline_templates)
         status = "fallback" if reason else ("ok" if verdict.ok else "rejected")
         with self._lock:
             trace = CrewTrace(moment_id=trace_id, match_clock=snapshot.match_clock, steps=[])
@@ -648,6 +758,66 @@ class Crew:
         span_id = f"recap-{snapshot.match_id}-{snapshot.clock_s:.0f}"
         self._span("recap", trace.steps[0].ms, status, reason or produced_by, span_id, "recap")
         return out
+
+    def _recap_claims(
+        self,
+        recap: Recap,
+        moments: list[Moment],
+        templates: tuple[str, str, list[str]] | None,
+        headline_templates: dict[str, str] | None = None,
+    ) -> list[Claim]:
+        """Claims for a recap: title, headline and paragraphs against the recap's
+        facts (the goals line points at the goal events), key-moment lines
+        against each moment's own facts and events."""
+        lang = recap.text_language or recap.language
+        goal_sources = [sid for m in moments if m.kind.value == "goal" for sid in m.source_event_ids]
+        key_sources = {"goals_line": goal_sources}
+        title_t, headline_t, paragraph_ts = templates if templates else (None, None, [])
+        out: list[Claim] = []
+        out += claims_mod.text_claims(
+            recap.title,
+            "title",
+            recap.stats,
+            lang,
+            template=title_t,
+            key_sources=key_sources,
+            roster=self.roster_ids,
+        )
+        out += claims_mod.text_claims(
+            recap.headline,
+            "headline",
+            recap.stats,
+            lang,
+            template=headline_t,
+            key_sources=key_sources,
+            roster=self.roster_ids,
+        )
+        for i, paragraph in enumerate(recap.summary_paragraphs):
+            tpl = paragraph_ts[i] if i < len(paragraph_ts) else None
+            out += claims_mod.text_claims(
+                paragraph,
+                "paragraph",
+                recap.stats,
+                lang,
+                template=tpl,
+                key_sources=key_sources,
+                roster=self.roster_ids,
+            )
+        by_id = {m.moment_id: m for m in moments}
+        for k in recap.key_moments:
+            m = by_id.get(k.moment_id)
+            if m is None:
+                continue
+            out += claims_mod.text_claims(
+                k.headline,
+                "key_moment",
+                m.facts,
+                lang,
+                template=(headline_templates or {}).get(k.moment_id),
+                source_event_ids=m.source_event_ids,
+                roster=self.roster_ids,
+            )
+        return out[: claims_mod.MAX_CLAIMS]
 
     def translate_recap(
         self, english: Recap, moments: list[Moment], profile: ViewerProfile, snapshot: MatchStateSnapshot
@@ -709,13 +879,28 @@ class Crew:
             title, headline = result.texts[0], result.texts[1]
             paragraphs = result.texts[2 : 2 + n]
             key_headlines = result.texts[2 + n :]
-            verdict = recap_mod.check_texts(
-                title, headline, paragraphs, english.stats, language, translated=True
+            verdict = self._checked(
+                recap_mod.check_texts(
+                    title,
+                    headline,
+                    paragraphs,
+                    english.stats,
+                    language,
+                    translated=True,
+                    roster=self.protected_names,
+                )
             )
             reasons = list(verdict.reasons)
             facts_by_id = {m.moment_id: m.facts for m in moments}
             for k, text in zip(english.key_moments, key_headlines, strict=True):
-                found = check(text, facts_by_id.get(k.moment_id, {}), language, "headline", translated=True)
+                found = check(
+                    text,
+                    facts_by_id.get(k.moment_id, {}),
+                    language,
+                    "headline",
+                    translated=True,
+                    roster=self.protected_names,
+                )
                 reasons += [f"key moment {k.match_clock}: {r}" for r in found.reasons]
             if not reasons:
                 key_moments = [
@@ -734,6 +919,7 @@ class Crew:
                         "translated_by": "azure_ai_translator",
                     }
                 )
+                out.claims = self._recap_claims(out, moments, None)
             else:
                 self.translation.note_rejected()
                 reason = "translation_rejected"
@@ -752,6 +938,7 @@ class Crew:
             step = AgentStep(
                 agent="translator", ms=(time.perf_counter() - t0) * 1000, status=status, detail=detail
             )
+            self._health.step("translator", step.ms, status)
             with self._lock:
                 trace = CrewTrace(moment_id=trace_id, match_clock=snapshot.match_clock, steps=[step])
                 self._store_trace(trace)
@@ -857,7 +1044,9 @@ class Crew:
     def _span(
         self, agent: str, ms: float, status: str, detail: str | None, moment_id: str, kind: str | None
     ) -> None:
-        """OpenTelemetry span for one step (a no-op unless tracing is configured)."""
+        """OpenTelemetry span for one step (a no-op unless tracing is configured),
+        and the step's latency and status for the rolling service levels."""
+        self._health.step(agent, ms, status)
         telemetry.record_step(
             agent=agent,
             status=status,

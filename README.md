@@ -75,16 +75,26 @@ falls back to its localised templates and says so on the card
 models; the agent cards in `foundry/agents/` are generated from them
 (`matchmind-foundry export`). See [docs/FOUNDRY.md](docs/FOUNDRY.md).
 
-Evaluation over every moment of the five bundled matches, all personas and
-studio languages ([docs/EVALUATION.md](docs/EVALUATION.md)):
+The Fact-checker gives **numeric-claim validation with deterministic
+fallback**: every number and squad name must match a fact (units, per-club
+attribution and simple comparisons included), and text that fails is replaced
+by a fact-checked template. Every card and recap carries per-sentence
+`claims` tied to fact keys and source events, and
+`GET /api/match/moment/{id}/audit` shows the evidence for one moment
+([docs/TRUST.md](docs/TRUST.md)). Tone, causal wording and negation are not
+machine-checked.
 
-| Check | Pass rate |
+Evaluation over every moment of the five bundled matches, all personas and
+studio languages, template mode ([docs/EVALUATION.md](docs/EVALUATION.md)):
+
+| Check | Passed |
 |---|---|
-| Numbers grounded in facts | 100% |
-| Strict grounding (number words too) | 98.2% |
-| Length limits | 100% |
-| Persona vocabulary | 99.2% |
-| Language | 100% |
+| Numbers grounded in facts | 7,260 of 7,260 (100%) |
+| Strict grounding (number words too) | 7,129 of 7,260 (98.2%) |
+| Length limits | 7,260 of 7,260 (100%) |
+| Persona vocabulary | 7,200 of 7,260 (99.2%) |
+| Language | 7,260 of 7,260 (100%) |
+| Same key facts across personas and languages | 358 of 358 moments |
 
 ## Run it
 

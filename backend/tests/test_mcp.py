@@ -193,16 +193,26 @@ def parity_cases(session: MatchSession) -> list[tuple[str, dict, Any]]:
     return cases
 
 
+def _steady(payload):
+    """The payload without the crew's rolling service levels (`health`): wall-clock
+    latency and step counts move between the tool call and the REST call."""
+    if isinstance(payload, dict):
+        return {k: _steady(v) for k, v in payload.items() if k != "health"}
+    if isinstance(payload, list):
+        return [_steady(v) for v in payload]
+    return payload
+
+
 async def _assert_parity(app, session: MatchSession, mode: str = "auto") -> set[str]:
     seen: set[str] = set()
     async with connected(app, mode) as (client, http):
         for name, args, expected_fn in parity_cases(session):
             result = await client.call_tool(name, args)
             assert not result.is_error, (name, result.content)
-            expected = canonical_json(await expected_fn(http))
-            assert canonical_json(result.structured_content) == expected, name
+            expected = canonical_json(_steady(await expected_fn(http)))
+            assert canonical_json(_steady(result.structured_content)) == expected, name
             # The text block is the same JSON, byte for byte, for clients that read text only.
-            assert result.content[0].text == expected, name
+            assert result.content[0].text == canonical_json(result.structured_content), name
             seen.add(name)
     return seen
 
