@@ -204,9 +204,9 @@ const Registry: React.FC<{ registry: MetricRegistry; filter: MetricQuality | 'al
         {shown.map((m) => (
           <li key={m.id} className="border border-pp-line bg-pp-deep/70 p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h4 lang="en" className="font-display text-base font-bold uppercase tracking-broadcast text-pp-chalk">
+              <h3 lang="en" className="font-display text-base font-bold uppercase tracking-broadcast text-pp-chalk">
                 {m.name}
-              </h4>
+              </h3>
               <QualityBadge quality={m.quality} title={registry.quality_flags[m.quality]} />
             </div>
             <p className="mt-0.5 flex flex-wrap gap-x-3 text-[11px] text-pp-mute">
@@ -342,7 +342,7 @@ export const StatsTables: React.FC<{ stats: BasicStats; hideResult?: boolean }> 
           {stats.physical_label}
         </span>
       </p>
-      <div className="relative overflow-x-auto">
+      <div className="relative overflow-x-auto" tabIndex={0} role="region" aria-label={t('lab.stats.teamCaption')}>
         <table className="w-full min-w-[300px] border-collapse text-sm">
           <caption className="sr-only">{t('lab.stats.teamCaption')}</caption>
           <thead>
@@ -496,7 +496,7 @@ const BigStat: React.FC<{ label: string; value: string; note?: string }> = ({ la
 const ClassTable: React.FC<{ rows: BenchmarkClassRow[] }> = ({ rows }) => {
   const { t, num } = useI18n();
   return (
-    <div className="relative overflow-x-auto">
+    <div className="relative overflow-x-auto" tabIndex={0} role="region" aria-label={t('lab.bench.classes')}>
       <table className="w-full min-w-[560px] border-collapse text-xs">
         <caption className="sr-only">{t('lab.bench.classes')}</caption>
         <thead>
@@ -552,7 +552,7 @@ export const Confusion: React.FC<{ confusion: NonNullable<AutoEventingStatus['co
     <div>
       <SubHead>{t('lab.bench.confusion')}</SubHead>
       <p className="mb-2 text-xs text-pp-mute">{t('lab.bench.confusionHint')}</p>
-      <div className="relative overflow-x-auto">
+      <div className="relative overflow-x-auto" tabIndex={0} role="region" aria-label={t('lab.bench.confusion')}>
         <table className="border-collapse text-[11px]">
           <caption className="sr-only">{t('lab.bench.confusion')}</caption>
           <thead>
@@ -753,7 +753,7 @@ export const Dataset: React.FC<{ index: DatasetIndex; demo: boolean; hideResult?
         ))}
       </ul>
       {demo && <p className="border border-dashed border-pp-line px-3 py-2 text-xs text-pp-mute">{t('lab.data.demo')}</p>}
-      <div className="relative overflow-x-auto">
+      <div className="relative overflow-x-auto" tabIndex={0} role="region" aria-label={t('lab.data.title')}>
         <table className="w-full min-w-[560px] border-collapse text-xs">
           <caption className="sr-only">{t('lab.data.title')}</caption>
           <thead>

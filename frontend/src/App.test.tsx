@@ -187,4 +187,22 @@ describe('first visit', () => {
   });
 });
 
+describe('landmarks (LC-6)', () => {
+  it('puts every part of the page inside a landmark', () => {
+    const { container } = shell(matchWith({ status: 'demo' }), actionsMock());
+    const choices = screen.getByRole('region', { name: 'Views and viewing options' });
+    expect(choices.contains(screen.getByRole('navigation', { name: 'Views' }))).toBe(true);
+    expect(choices.contains(screen.getByRole('radiogroup', { name: "I'm a" }))).toBe(true);
+    expect(choices.contains(screen.getByTestId('language-picker'))).toBe(true);
+    const main = screen.getByRole('main');
+    expect(main.textContent).toContain('recorded engine run');
+    expect(screen.getByRole('contentinfo')).toBeTruthy();
+    // Every top-level child of the page is a landmark (or a closed modal that renders nothing).
+    const root = container.firstElementChild!;
+    for (const child of Array.from(root.children)) {
+      expect(['HEADER', 'SECTION', 'MAIN', 'FOOTER']).toContain(child.tagName);
+    }
+  });
+});
+
 export type { React };

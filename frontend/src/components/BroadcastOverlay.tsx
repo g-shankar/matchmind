@@ -333,6 +333,7 @@ export const BroadcastOverlay: React.FC<ViewProps & { capture?: boolean }> = ({ 
               positions={match.positions}
               showTags={false}
               pitchTags={shown.pitch_tag ? tags : []}
+              interactive={false}
               className="h-full w-full"
             />
           </div>

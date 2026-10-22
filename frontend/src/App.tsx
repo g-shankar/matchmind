@@ -265,7 +265,7 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
       </header>
 
       {/* Views and viewer choices: scroll away on phones, stay put under the bar on wide screens. */}
-      <div className="z-30 border-b border-pp-line/60 bg-pp-night/95 backdrop-blur lg:sticky lg:top-16">
+      <section aria-label={t('visit.choices')} className="z-30 border-b border-pp-line/60 bg-pp-night/95 backdrop-blur lg:sticky lg:top-16">
         <div className="mx-auto max-w-7xl px-3 pt-2 sm:px-4">
           <ViewTabs view={view} onPick={goTo} />
         </div>
@@ -288,83 +288,85 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
             </Badge>
           )}
         </div>
-      </div>
+      </section>
 
-      <CatchUpBanner match={match} actions={actions} onStory={openRecap} />
-      <ReadAloudCards match={match} />
+      <main className="w-full flex-1">
+        <CatchUpBanner match={match} actions={actions} onStory={openRecap} />
+        <ReadAloudCards match={match} />
 
-      {match.status === 'demo' && (
-        <div className="border-b border-pp-gold/30 bg-pp-gold/10 px-4 py-1.5 text-center text-xs text-pp-gold">
-          {t(demoRequested() ? 'conn.demoMode' : 'conn.demoHint')}
-        </div>
-      )}
-
-      <main className="mx-auto w-full max-w-7xl flex-1 p-3 sm:p-4">
-        {!teams ? (
-          <StudioSkeleton />
-        ) : (
-          <Suspense fallback={<StudioSkeleton />}>
-            {view === 'studio' && (
-              // Phones: pitch, the crew's story, then the rest. Wide screens: two columns.
-              <div className="flex flex-col gap-4 lg:grid lg:grid-cols-12 lg:items-start">
-                <div className="contents lg:col-span-7 lg:block lg:space-y-4">
-                  <div ref={stageRef} className="order-1 scroll-mt-20 space-y-3 lg:scroll-mt-48">
-                    {showFullTime && (
-                      <FullTimeBanner
-                        onRestart={() => {
-                          actions.reset();
-                          setFtDismissed(true);
-                        }}
-                        onRecap={() => {
-                          setFtDismissed(true);
-                          void openRecap();
-                        }}
-                        onDismiss={() => setFtDismissed(true)}
-                      />
-                    )}
-                    {focus && (
-                      <MomentFocus focus={focus} match={match} onClose={() => setFocus(null)} onOpenReplay={setReplay} />
-                    )}
-                    {liveReplay ? (
-                      <ReplayCard card={liveReplay} teams={teams} />
-                    ) : (
-                      <Pitch2D
-                        teams={teams}
-                        event={match.lastEvent}
-                        recentEvents={match.events.slice(-6)}
-                        positions={match.positions}
-                        showTags
-                        pitchTags={activeCards(match.cards, clockS, 'pitch_tag', match.cue.ruledOut)}
-                      />
-                    )}
-                  </div>
-                  <div className="order-4">
-                    <MomentsList match={match} actions={actions} onJump={jumpTo} />
-                  </div>
-                  <div className="order-5">
-                    <ControlChaosGauge match={match} actions={actions} />
-                  </div>
-                  <div className="order-6">
-                    <CrewHealthDisclosure match={match} />
-                  </div>
-                </div>
-                <div className="contents lg:col-span-5 lg:block lg:space-y-4">
-                  <div className="order-3 lg:order-none">
-                    <AskStudio match={match} actions={actions} onOpenReplay={openReplayFor} onJump={jumpTo} />
-                  </div>
-                  <div className="order-2 lg:order-none">
-                    <NarrativeFeed match={match} actions={actions} onOpenReplay={setReplay} />
-                  </div>
-                </div>
-              </div>
-            )}
-            {view === 'overlay' && <BroadcastOverlay match={match} actions={actions} />}
-            {view === 'split' && <SplitView match={match} actions={actions} />}
-            {view === 'follow' && <PlayerFocus match={match} actions={actions} />}
-            {view === 'fan' && <MyMatch match={match} actions={actions} />}
-            {view === 'lab' && <Lab match={match} actions={actions} />}
-          </Suspense>
+        {match.status === 'demo' && (
+          <div className="border-b border-pp-gold/30 bg-pp-gold/10 px-4 py-1.5 text-center text-xs text-pp-gold">
+            {t(demoRequested() ? 'conn.demoMode' : 'conn.demoHint')}
+          </div>
         )}
+
+        <div className="mx-auto w-full max-w-7xl p-3 sm:p-4">
+          {!teams ? (
+            <StudioSkeleton />
+          ) : (
+            <Suspense fallback={<StudioSkeleton />}>
+              {view === 'studio' && (
+                // Phones: pitch, the crew's story, then the rest. Wide screens: two columns.
+                <div className="flex flex-col gap-4 lg:grid lg:grid-cols-12 lg:items-start">
+                  <div className="contents lg:col-span-7 lg:block lg:space-y-4">
+                    <div ref={stageRef} className="order-1 scroll-mt-20 space-y-3 lg:scroll-mt-48">
+                      {showFullTime && (
+                        <FullTimeBanner
+                          onRestart={() => {
+                            actions.reset();
+                            setFtDismissed(true);
+                          }}
+                          onRecap={() => {
+                            setFtDismissed(true);
+                            void openRecap();
+                          }}
+                          onDismiss={() => setFtDismissed(true)}
+                        />
+                      )}
+                      {focus && (
+                        <MomentFocus focus={focus} match={match} onClose={() => setFocus(null)} onOpenReplay={setReplay} />
+                      )}
+                      {liveReplay ? (
+                        <ReplayCard card={liveReplay} teams={teams} />
+                      ) : (
+                        <Pitch2D
+                          teams={teams}
+                          event={match.lastEvent}
+                          recentEvents={match.events.slice(-6)}
+                          positions={match.positions}
+                          showTags
+                          pitchTags={activeCards(match.cards, clockS, 'pitch_tag', match.cue.ruledOut)}
+                        />
+                      )}
+                    </div>
+                    <div className="order-4">
+                      <MomentsList match={match} actions={actions} onJump={jumpTo} />
+                    </div>
+                    <div className="order-5">
+                      <ControlChaosGauge match={match} actions={actions} />
+                    </div>
+                    <div className="order-6">
+                      <CrewHealthDisclosure match={match} />
+                    </div>
+                  </div>
+                  <div className="contents lg:col-span-5 lg:block lg:space-y-4">
+                    <div className="order-3 lg:order-none">
+                      <AskStudio match={match} actions={actions} onOpenReplay={openReplayFor} onJump={jumpTo} />
+                    </div>
+                    <div className="order-2 lg:order-none">
+                      <NarrativeFeed match={match} actions={actions} onOpenReplay={setReplay} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              {view === 'overlay' && <BroadcastOverlay match={match} actions={actions} />}
+              {view === 'split' && <SplitView match={match} actions={actions} />}
+              {view === 'follow' && <PlayerFocus match={match} actions={actions} />}
+              {view === 'fan' && <MyMatch match={match} actions={actions} />}
+              {view === 'lab' && <Lab match={match} actions={actions} />}
+            </Suspense>
+          )}
+        </div>
       </main>
 
       <AboutFooter match={match} onHow={() => goTo('lab')} />

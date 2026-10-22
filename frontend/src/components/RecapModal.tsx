@@ -82,7 +82,7 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
         <section className="rounded-xl border border-pp-line bg-pp-night/70 p-4">
           <SectionTitle tone="text-pp-gold">{t('broadcast.recap.keyMoments')}</SectionTitle>
           {recap.key_moments.length ? (
-            <ol className="max-h-72 space-y-1.5 overflow-y-auto pe-1">
+            <ol className="max-h-72 space-y-1.5 overflow-y-auto pe-1" tabIndex={0} aria-label={t('broadcast.recap.keyMoments')}>
               {recap.key_moments.map((m) => (
                 <li key={m.moment_id} className="flex items-start gap-2 rounded-lg border border-pp-line/60 bg-pp-deep p-2 text-xs">
                   <span className="ltr-nums shrink-0 rounded bg-pp-raised px-1.5 py-0.5 font-bold text-pp-signal">{m.match_clock}</span>

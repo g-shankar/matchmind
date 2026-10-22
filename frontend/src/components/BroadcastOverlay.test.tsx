@@ -38,6 +38,13 @@ const renderAt = (match: MatchViewState, lang = 'en') =>
   );
 
 describe('BroadcastOverlay', () => {
+  it('keeps the pitch backdrop out of the tab order (LC-6, aria-hidden-focus)', () => {
+    const { container } = renderAt(matchAt(21, { positions: { 'AAA-9': { x: 10, y: 10, clock_s: 20 } } }));
+    const hidden = Array.from(container.querySelectorAll('[aria-hidden="true"]'));
+    expect(hidden.length).toBeGreaterThan(0);
+    for (const h of hidden) expect(h.querySelector('[tabindex]:not([tabindex="-1"]), button, a[href], input, select')).toBeNull();
+  });
+
   it('shows the lower third for an active card and hides it after its duration', () => {
     const { rerender } = renderAt(matchAt(22));
     expect(screen.getByTestId('lower-third').textContent).toContain('Goal for AAA');

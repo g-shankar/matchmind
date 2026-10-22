@@ -480,7 +480,7 @@ const Parity: React.FC<{ audit: MomentAudit }> = ({ audit }) => {
         </p>
       )}
       {rows.size > 0 && (
-        <div className="relative overflow-x-auto">
+        <div className="relative overflow-x-auto" tabIndex={0} role="region" aria-label={t('audit.parity.table')}>
           <table className="w-full border-collapse text-[11px]">
             <caption className="sr-only">{t('audit.parity.table')}</caption>
             <thead>

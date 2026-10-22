@@ -114,7 +114,7 @@ export const HealthBody: React.FC<{ status: CrewStatus; demo: boolean }> = ({ st
             {h.latency.length === 0 ? (
               <p className="text-xs text-pp-mute">{t('health.noSamples')}</p>
             ) : (
-              <div className="relative overflow-x-auto">
+              <div className="relative overflow-x-auto" tabIndex={0} role="region" aria-label={t('health.latencyCaption', { n: h.window })}>
                 <table className="w-full min-w-[320px] border-collapse text-xs">
                   <caption className="sr-only">{t('health.latencyCaption', { n: h.window })}</caption>
                   <thead>
