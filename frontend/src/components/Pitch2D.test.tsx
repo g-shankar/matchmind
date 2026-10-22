@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { I18nProvider } from '../i18n';
 import type { BetterOptionReplay, UnfoundRunReplay } from '../api/contract';
 import { makeFixture, event } from '../test/fixture';
-import { MARKER_GAP_PX, Pitch2D, boxAround, decimalsOf } from './Pitch2D';
+import { MARKER_GAP_PX, Pitch2D, TOUCH_TARGET_PX, boxAround, decimalsOf } from './Pitch2D';
 
 const teams = makeFixture().teams;
 
@@ -177,5 +177,52 @@ describe('Pitch2D', () => {
     expect(decimalsOf(0.198)).toBe(3);
     expect(decimalsOf(4)).toBe(0);
     expect(decimalsOf(3.75)).toBe(2);
+  });
+});
+
+describe('Pitch2D player markers on touch screens (LC-5)', () => {
+  const positions = { 'AAA-9': { x: 10, y: 10, clock_s: 100 }, 'BBB-10': { x: 60, y: 30, clock_s: 100 } };
+  const drawAt = (width: number, pointer: 'coarse' | 'fine') => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes(pointer), media: q, addEventListener() {}, removeEventListener() {} }));
+    const spy = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width);
+    const r = render(
+      <I18nProvider lang="en">
+        <Pitch2D teams={teams} event={null} positions={positions} />
+      </I18nProvider>,
+    );
+    spy.mockRestore();
+    return r;
+  };
+  const hitRadius = (container: HTMLElement, id: string) =>
+    Number(container.querySelector(`[data-player-dot="${id}"] [data-hit-area]`)!.getAttribute('r'));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('gives each marker an invisible 44 px hit area on a phone-sized pitch', () => {
+    // 343 px wide pitch (a 375 px phone): 105 m across, so 44 px is about 13.5 m.
+    const { container } = drawAt(343, 'coarse');
+    for (const id of ['AAA-9', 'BBB-10']) {
+      const px = 2 * hitRadius(container, id) * (343 / 105);
+      expect(px).toBeGreaterThanOrEqual(TOUCH_TARGET_PX - 0.01);
+      // The visible dot keeps its size: only the transparent circle grows.
+      const circles = container.querySelectorAll(`[data-player-dot="${id}"] circle`);
+      expect(circles[circles.length - 1].getAttribute('fill')).not.toBe('transparent');
+      expect(Number(circles[circles.length - 1].getAttribute('r'))).toBeLessThan(2);
+    }
+  });
+
+  it('keeps the small hit area with a mouse', () => {
+    const { container } = drawAt(343, 'fine');
+    expect(hitRadius(container, 'AAA-9')).toBeCloseTo(2.5, 5);
+  });
+
+  it('draws no focusable markers when the pitch is only a picture', () => {
+    const { container } = render(
+      <I18nProvider lang="en">
+        <Pitch2D teams={teams} event={null} positions={positions} interactive={false} />
+      </I18nProvider>,
+    );
+    expect(container.querySelectorAll('circle').length).toBeGreaterThan(0);
+    expect(container.querySelector('[data-player-dot]')).toBeNull();
+    expect(container.querySelector('[tabindex]')).toBeNull();
   });
 });
