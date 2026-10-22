@@ -185,7 +185,8 @@ consumes the live stream the simulator publishes
 
 - **Keyless**: `EVENTHUB_FULLY_QUALIFIED_NAMESPACE` and `EVENTHUB_NAME`,
   signed in with `DefaultAzureCredential` (managed identity in Azure,
-  `az login` locally). There is no connection-string path in the consumer.
+  `az login` locally). There is no connection-string path in the consumer or
+  in the simulator's publisher.
   Needs the `azure` extra; switched on without these settings, the app stops at
   start-up with a message naming what is missing.
 - **Position**: reads every partition from the latest position (`@latest`;

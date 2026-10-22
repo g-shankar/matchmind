@@ -119,7 +119,7 @@ merged. Test files below are in `backend/tests/` unless a path says otherwise.
 | Redelivery, reordering, changed content under the same seq | Dedup by seq, reorder buffer, first version stands, gaps skipped after 5 s | `test_live_source.py::test_same_seq_with_changed_content_is_refused_and_the_first_stands`, `::test_a_gap_that_never_fills_is_skipped_after_the_timeout` |
 | A feed-supplied score becoming a fact | Scores always from the engine; a bad score is rejected and the match stays whole | `test_live_source.py::test_a_feed_supplied_score_never_becomes_a_fact`, `::test_a_bad_score_in_the_stream_is_rejected_and_the_match_stays_whole` |
 | Uploads replacing everyone's match | No upload endpoint; feeds are operator files (docs/DATASET.md) | Route list in `api/app.py` |
-| Keys for Event Hubs | Keyless only (`DefaultAzureCredential`); no connection-string path | docs/DATASET.md |
+| Keys for Event Hubs | Keyless only (`DefaultAzureCredential`) in both the app's consumer and the simulator's publisher, locally and in Azure; neither reads a connection string, and the namespace has local (key) auth switched off | `test_live_source.py::test_no_event_hubs_code_reads_a_connection_string`, `::test_the_publisher_signs_in_keyless_and_refuses_without_a_namespace`; docs/DATASET.md |
 
 ### Azure OpenAI and Foundry Agent Service
 

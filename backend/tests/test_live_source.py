@@ -633,3 +633,60 @@ def test_a_feed_keeps_only_known_reason_codes():
     assert feed.status()["reason"] == "connect_failed" and feed.status()["state"] == "unavailable"
     feed.mark_connected()
     assert feed.status()["reason"] is None and feed.status()["state"] == "waiting_for_match_start"
+
+
+# --- launch checks LC-16: Event Hubs is keyless on both sides --------------------------------
+
+
+def test_no_event_hubs_code_reads_a_connection_string():
+    root = Path(__file__).resolve().parents[1]
+    hits = [
+        str(p.relative_to(root))
+        for p in (root / "src").rglob("*.py")
+        if "EVENTHUB_CONNECTION_STRING" in p.read_text(encoding="utf-8")
+        or "from_connection_string" in p.read_text(encoding="utf-8")
+    ]
+    assert hits == []
+    assert "EVENTHUB_CONNECTION_STRING" not in (root / ".env.example").read_text(encoding="utf-8")
+
+
+def test_the_publisher_signs_in_keyless_and_refuses_without_a_namespace(monkeypatch):
+    import sys
+    import types
+
+    from matchmind.simulator.publisher import EventHubSink
+
+    made: list[dict] = []
+
+    class FakeProducer:
+        def __init__(self, **kwargs) -> None:
+            made.append(kwargs)
+
+        @classmethod
+        def from_connection_string(cls, *args, **kwargs):  # pragma: no cover - must never run
+            raise AssertionError("a connection string was used")
+
+    class FakeCredential:
+        pass
+
+    eventhub = types.ModuleType("azure.eventhub")
+    eventhub.EventData = object
+    eventhub.EventHubProducerClient = FakeProducer
+    identity = types.ModuleType("azure.identity")
+    identity.DefaultAzureCredential = FakeCredential
+    # Works with or without the azure extra installed.
+    monkeypatch.setitem(sys.modules, "azure", sys.modules.get("azure") or types.ModuleType("azure"))
+    monkeypatch.setitem(sys.modules, "azure.eventhub", eventhub)
+    monkeypatch.setitem(sys.modules, "azure.identity", identity)
+
+    monkeypatch.setenv("EVENTHUB_NAME", "match-events")
+    monkeypatch.setenv("EVENTHUB_CONNECTION_STRING", "Endpoint=sb://x/;SharedAccessKey=not-used")
+    monkeypatch.delenv("EVENTHUB_FULLY_QUALIFIED_NAMESPACE", raising=False)
+    with pytest.raises(SystemExit, match="EVENTHUB_FULLY_QUALIFIED_NAMESPACE"):
+        EventHubSink()
+    assert made == []
+
+    monkeypatch.setenv("EVENTHUB_FULLY_QUALIFIED_NAMESPACE", "ns.servicebus.windows.net")
+    EventHubSink()
+    assert made[0]["fully_qualified_namespace"] == "ns.servicebus.windows.net"
+    assert isinstance(made[0]["credential"], FakeCredential)
