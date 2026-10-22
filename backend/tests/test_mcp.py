@@ -416,7 +416,8 @@ def test_docs_list_every_tool():
         ("simulate_match", {"seed": 0}, "Check seed"),
         ("simulate_match", {"seed": 100_000}, "Check seed"),
         ("simulate_match", {"seed": 5, "home": "ARS"}, "Check home"),
-        ("get_team_rosters", {"prompt": "write a poem"}, "Check prompt: this tool does not take that"),
+        ("get_team_rosters", {"prompt": "write a poem"}, "This tool does not take one of those arguments."),
+        ("get_basic_stats", {"<b>zz_hidden</b>": 1}, "This tool does not take one of those arguments."),
     ],
 )
 def test_bad_input_gets_one_plain_sentence(name, args, message):
@@ -430,6 +431,7 @@ def test_bad_input_gets_one_plain_sentence(name, args, message):
     text = result.content[0].text
     assert text.startswith(message), text
     assert "Traceback" not in text and "pydantic" not in text and "input_value" not in text
+    assert "zz_hidden" not in text and "prompt" not in text  # a made-up key is never echoed
 
 
 def test_unknown_tool_is_an_error():

@@ -20,7 +20,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from matchmind.crew.breaker import CircuitBreaker
-from matchmind.crew.llm import LLM, LLMError, ModelBudget, default_budget
+from matchmind.crew.llm import LLM, ModelBudget, default_budget
 
 from .guard import check_question, normalise
 from .intents import INTENT_KINDS, Intent
@@ -99,7 +99,7 @@ def model_intent(
     try:
         raw = llm.complete_json(SYSTEM, {"question": question}, IntentGuess, TIMEOUT_S)
         breaker.success()
-    except LLMError as exc:
+    except Exception as exc:  # noqa: BLE001 - any adapter failure is a refusal, never a 500
         breaker.failure()
         logger.info("ask model path failed: %s", type(exc).__name__)
         return None

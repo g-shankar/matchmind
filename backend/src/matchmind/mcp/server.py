@@ -31,6 +31,7 @@ from starlette.types import Message, Receive, Scope, Send
 
 from matchmind import __version__ as _pkg_version
 from matchmind.api.session import SessionError
+from matchmind.api.validation import validation_detail
 
 from .tools import REGISTRY, ToolContext, ToolSpec
 
@@ -57,10 +58,8 @@ def canonical_json(payload: Any) -> str:
 
 
 def _bad_input(exc: ValidationError) -> str:
-    fields = sorted({str(e["loc"][-1]) for e in exc.errors() if e.get("loc")})
-    if fields:
-        return f"Check {', '.join(fields)}: the value is missing or not allowed."
-    return "Those arguments are not valid for this tool."
+    detail = validation_detail(exc.errors())
+    return "Those arguments are not valid for this tool." if detail == "Bad request." else detail
 
 
 def _error(text: str) -> CallToolResult:
@@ -73,17 +72,22 @@ def _result(payload: dict[str, Any]) -> CallToolResult:
     )
 
 
+EXTRA_ARGUMENT = "This tool does not take one of those arguments. Remove it and try again."
+
+
 class PitchPulseMCP(MCPServer):
-    """MCPServer that answers bad arguments with one plain sentence (field names only)."""
+    """MCPServer that answers bad arguments with one plain sentence (our field names only)."""
 
     specs: dict[str, ToolSpec]
 
     async def call_tool(self, name: str, arguments: dict[str, Any], context: Any = None) -> Any:
         spec = self.specs.get(name)
-        if spec is not None and isinstance(arguments, dict):
-            unknown = sorted(k[:40] for k in arguments if k not in spec.input_model.model_fields)
-            if unknown:
-                return _error(f"Check {', '.join(unknown[:3])}: this tool does not take that argument.")
+        if (
+            spec is not None
+            and isinstance(arguments, dict)
+            and any(k not in spec.input_model.model_fields for k in arguments)
+        ):
+            return _error(EXTRA_ARGUMENT)  # never echo a key the client made up
         try:
             return await super().call_tool(name, arguments, context)
         except ToolError as exc:

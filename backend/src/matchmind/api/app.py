@@ -52,6 +52,7 @@ from matchmind.schema import PITCH_LENGTH_M, PITCH_WIDTH_M, SCHEMA_VERSION, Even
 
 from . import reads, view
 from .session import CUE_PAGE_MAX, MatchSession, SessionError, Tick, build_session
+from .validation import validation_detail
 
 logger = logging.getLogger("pitchpulse.api")
 
@@ -673,11 +674,7 @@ def create_app(
 
     @app.exception_handler(RequestValidationError)
     async def _bad_request(request: Request, exc: RequestValidationError) -> JSONResponse:
-        fields = sorted({str(e["loc"][-1]) for e in exc.errors() if e.get("loc")})
-        detail = (
-            f"Check {', '.join(fields)}: the value is missing or not allowed." if fields else "Bad request."
-        )
-        return JSONResponse({"detail": detail}, status_code=400)
+        return JSONResponse({"detail": validation_detail(exc.errors())}, status_code=400)
 
     @app.exception_handler(SessionError)
     async def _session_error(request: Request, exc: SessionError) -> JSONResponse:
@@ -789,13 +786,7 @@ def create_app(
         try:
             body = AskBody.model_validate_json(bytes(raw))
         except ValidationError as exc:
-            fields = sorted({str(e["loc"][-1]) for e in exc.errors() if e.get("loc")})
-            detail = (
-                f"Check {', '.join(fields)}: the value is missing or not allowed."
-                if fields
-                else "Bad request."
-            )
-            raise HTTPException(status_code=400, detail=detail) from None
+            raise HTTPException(status_code=400, detail=validation_detail(exc.errors())) from None
         if (body.question is None) == (body.chip is None):
             raise HTTPException(status_code=400, detail="Send a question or a chip.")
         return await reads.ask(hub, body.question, body.chip, body.lang, body.spoilers)

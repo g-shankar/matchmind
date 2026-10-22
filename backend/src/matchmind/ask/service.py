@@ -30,7 +30,7 @@ from matchmind.crew.i18n import fill
 from matchmind.crew.llm import LLM
 from matchmind.crew.spotter import surname
 
-from .answer import AskContext, Composed, compose, evidence_for, minute_of
+from .answer import AskContext, Composed, _team_name, compose, evidence_for, minute_of
 from .guard import RefusalReason, check_question, safe_display_name
 from .i18n import answer_language, ask_pack
 from .intents import CHIPS, Intent
@@ -230,7 +230,7 @@ def _clarify(ctx: AskContext, language: str, spoilers: bool, number: int, ids: t
         for t in ctx.teams.values():
             for p in t.players:
                 if p.player_id == pid and safe_display_name(p.name):
-                    options.append(f"{p.name} ({t.name})")
+                    options.append(f"{p.name} ({_team_name(ctx, t.team_id)})")
     facts: dict[str, FactValue] = {"number": number, "options": ", ".join(options)}
     text = fill(ask_pack(lang)["clarify_number"], facts, lang)
     return AskAnswer(status="clarify", answer=text, facts=facts, **_base(ctx, language, spoilers))
