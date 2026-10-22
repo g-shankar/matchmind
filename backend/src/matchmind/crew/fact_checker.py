@@ -19,15 +19,33 @@ own protection check makes sure every number and name came back unchanged.
 String facts (names, clocks such as "67:28") are removed from the text before
 numbers are read, so the digits inside a clock never need their own fact.
 
+Bounded sanity checks on top (every text, see docs/TRUST.md):
+- unit: a number printed with a unit ("31 km/h", "18 m", "62%", "3.1x",
+  "0.4 xG", "5 minutes", in every studio language) must match a fact of that
+  unit, so a distance can never be printed as a speed;
+- range: a percentage is never over 100;
+- attribution: a per-team number (score, xG, shots) printed straight after one
+  club's name must be that club's value, and a scoreline "A 2-1 B" must read
+  in the right order for the two clubs named;
+- comparison (English, Spanish, French): "N more than M" needs N > M, "N less
+  than M" needs N < M, and a multiplier read as "more" or "better" must be
+  over 1;
+- roster: with `roster` given, a squad player's or club's name that is not in
+  the moment's facts is rejected (a true number pinned on the wrong player).
+Out of scope, on purpose: negation ("did not score"), tone, causal wording and
+any claim without a number or a name. Those are never reported as verified.
+
 This is the ONLY module allowed to contain real names: they are here so the
 checker can block them. Everything else in the codebase stays synthetic.
 """
 
 from __future__ import annotations
 
+import functools
 import re
 import unicodedata
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
+from dataclasses import dataclass
 from typing import Literal
 
 from matchmind.crew.contracts import FactCheck, FactValue
@@ -195,6 +213,8 @@ _CJK = re.compile(r"[぀-ヿ㐀-鿿ｦ-ﾟ]")
 def normalise_digits(text: str) -> str:
     """Map every Unicode decimal digit (Arabic-Indic, full-width, ...) to 0-9
     and the Arabic decimal and thousands separators to ASCII."""
+    if text.isascii():
+        return text
     out = []
     for ch in text:
         if unicodedata.category(ch) == "Nd":
@@ -428,9 +448,11 @@ def check(
     field: Field = "text",
     strict_words: bool = False,
     translated: bool = False,
+    roster: Collection[str] | None = None,
 ) -> FactCheck:
     """`strict_words=True` (model text) also rejects number words not in the facts.
-    `translated=True` (world languages) relaxes the length rules a little."""
+    `translated=True` (world languages) relaxes the length rules a little.
+    `roster` (squad player and club names) turns on the wrong-name check."""
     reasons = length_problems(text, field, translated)
     if banned_names_in(text):
         reasons.append("real name not allowed")
@@ -446,6 +468,9 @@ def check(
         for word, value in number_words_in(scrubbed, language):
             if not _matches(str(value), values):
                 reasons.append(f"number word {word} is not in the facts")
+    reasons += sanity_problems(text, facts, language)
+    if roster:
+        reasons += [f"name {name} is not in the facts" for name in unknown_names(text, facts, roster)]
     return FactCheck(ok=not reasons, reasons=reasons)
 
 
@@ -455,11 +480,270 @@ def check_all(
     language: str,
     strict_words: bool = False,
     translated: bool = False,
+    roster: Collection[str] | None = None,
 ) -> FactCheck:
     """Check several fields at once; reasons are prefixed with the field."""
     reasons: list[str] = []
     for field, value in parts.items():
         for text in value if isinstance(value, list) else [value]:
-            result = check(text, facts, language, field, strict_words, translated)
+            result = check(text, facts, language, field, strict_words, translated, roster)
             reasons.extend(f"{field}: {r}" for r in result.reasons)
     return FactCheck(ok=not reasons, reasons=reasons)
+
+
+# --- Where things sit in the text (claims and sanity checks) ------------------------------------
+# Positions are in the original text: `normalise_digits` maps one character to one character.
+
+
+@dataclass(frozen=True)
+class Span:
+    text: str  # as printed
+    start: int
+    end: int
+
+
+@dataclass(frozen=True)
+class NumberSpan(Span):
+    token: str  # '.' as decimal point, no thousands separator
+    unit: str | None  # kmh, km, m, pct, x, xg, xa, xt, min
+
+
+def string_fact_spans(text: str, facts: Mapping[str, FactValue]) -> list[tuple[Span, list[str]]]:
+    """Each place a string fact (a name, a clock, a word) is printed, longest first,
+    never overlapping, with every fact key that holds that string."""
+    keys_by_value: dict[str, list[str]] = {}
+    for k, v in facts.items():
+        if isinstance(v, str) and v:
+            keys_by_value.setdefault(v, []).append(k)
+    taken = [False] * len(text)
+    out: list[tuple[Span, list[str]]] = []
+    for value in sorted(keys_by_value, key=len, reverse=True):
+        start = text.find(value)
+        while start != -1:
+            end = start + len(value)
+            if not any(taken[start:end]):
+                for i in range(start, end):
+                    taken[i] = True
+                out.append((Span(value, start, end), keys_by_value[value]))
+            start = text.find(value, end)
+    out.sort(key=lambda item: item[0].start)
+    return out
+
+
+_L = "(?![/A-Za-z])"  # a Latin unit must not run into more Latin letters ("m" vs "more")
+_UNIT_AFTER: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("kmh", re.compile(r"\s?(?:km/h|kmh|كم/س)")),
+    ("km", re.compile(rf"\s?(?:km{_L}|كم(?![/\w])|キロ)")),
+    ("m", re.compile(rf"\s?(?:m{_L}|م(?!\w)|メートル)")),
+    ("pct", re.compile(r"\s?(?:%|パーセント)")),
+    ("x", re.compile(r"(?:x|×)(?![A-Za-z])|\s?(?:倍|veces\b|fois\b|أضعاف)")),
+    ("xg", re.compile(r"\s?xG(?![A-Za-z])")),
+    ("xa", re.compile(r"\s?xA(?![A-Za-z])")),
+    ("xt", re.compile(r"\s?xT(?![A-Za-z])")),
+    ("min", re.compile(r"\s?(?:minutes?(?![A-Za-z])|mins?(?![A-Za-z])|minutos?(?![A-Za-z])|دقائق|دقيقة|分)")),
+)
+_KMH_BEFORE = re.compile(r"時速\s?$")
+
+
+def _number_re(language: str) -> re.Pattern[str]:
+    if language in ("es", "fr"):
+        return re.compile(r"(?<![\d.,])\d+(?:[.,]\d+)?")
+    return re.compile(r"(?<![\d.])(?:\d{1,3}(?:,\d{3})+(?!\d)|\d+(?:\.\d+)?)")
+
+
+def number_spans(
+    text: str, language: str = "en", facts: Mapping[str, FactValue] | None = None
+) -> list[NumberSpan]:
+    """Every number in the text outside string facts, with its position and the unit
+    printed right after it (or 時速 'speed' right before, in Japanese)."""
+    t = normalise_digits(text)
+    if facts:
+        chars = list(t)
+        for span, _ in string_fact_spans(text, facts):
+            chars[span.start : span.end] = " " * (span.end - span.start)
+        t = "".join(chars)
+    out: list[NumberSpan] = []
+    for m in _number_re(language).finditer(t):
+        raw = m.group(0)
+        token = raw.replace(",", ".") if language in ("es", "fr") else raw.replace(",", "")
+        after = t[m.end() : m.end() + 12]
+        unit = next((name for name, rx in _UNIT_AFTER if rx.match(after)), None)
+        if unit in (None, "km") and _KMH_BEFORE.search(t[max(0, m.start() - 4) : m.start()]):
+            unit = "kmh"
+        out.append(NumberSpan(text[m.start() : m.end()], m.start(), m.end(), token, unit))
+    return out
+
+
+def key_unit(key: str) -> str | None:
+    """The unit a numeric fact is printed in, from its key's suffix."""
+    parts = key.split("_")
+    if key.endswith("_kmh"):
+        return "kmh"
+    if key.endswith("_km"):
+        return "km"
+    if key.endswith("_pct"):
+        return "pct"
+    if key.endswith("_m"):
+        return "m"
+    if key.endswith("_min"):
+        return "min"
+    if key == "times_better":
+        return "x"
+    if "xt" in parts:
+        return "xt"
+    if "xa" in parts:
+        return "xa"
+    if "xg" in parts:
+        return "xg"
+    return None
+
+
+def matching_keys(token: str, facts: Mapping[str, FactValue]) -> list[str]:
+    """Numeric fact keys whose value prints as this number (within rounding)."""
+    return [
+        k
+        for k, v in facts.items()
+        if isinstance(v, int | float) and not isinstance(v, bool) and _matches(token, [abs(float(v))])
+    ]
+
+
+# --- Sanity checks ------------------------------------------------------------------------------
+
+SIDE_PAIRS: tuple[tuple[str, str], ...] = (
+    ("score_home", "score_away"),
+    ("xg_home", "xg_away"),
+    ("shots_home", "shots_away"),
+)
+_SCORELINE = re.compile(r"(\d+)\s?[-–]\s?(\d+)")
+_GAP = re.compile(r"[\s:：]*$")
+# "13 for <club>, 6 ...": the club belongs to the number before it, not after.
+_OWNED_BY_EARLIER = re.compile(r"\d\s*(?:for|pour|para|لـ|de)\s*$", re.IGNORECASE)
+_MORE_THAN = re.compile(
+    r"\b(?:more|higher|greater|bigger|better)\s+than\b|\bmás\s+que\b|\bplus\s+que\b", re.IGNORECASE
+)
+_LESS_THAN = re.compile(
+    r"\b(?:less|fewer|lower|smaller|worse)\s+than\b|\bmenos\s+que\b|\bmoins\s+que\b", re.IGNORECASE
+)
+_MORE_AFTER = re.compile(r"^\s*(?:more|better|más|mejor|plus|mieux)\b", re.IGNORECASE)
+_COMPARE_LANGUAGES = frozenset({"en", "es", "fr"})
+
+
+def _sentences_bounds(text: str) -> list[tuple[int, int]]:
+    bounds, start = [], 0
+    for m in _SENTENCE_END.finditer(text):
+        bounds.append((start, m.end()))
+        start = m.end()
+    if start < len(text):
+        bounds.append((start, len(text)))
+    return bounds
+
+
+def sanity_problems(text: str, facts: Mapping[str, FactValue], language: str = "en") -> list[str]:
+    """Unit, range, attribution and comparison problems (see the module docstring).
+    Numbers that are not facts at all are left to the main check."""
+    reasons: list[str] = []
+    spans = number_spans(text, language, facts)
+    for n in spans:
+        keys = matching_keys(n.token, facts)
+        if n.unit and keys and all(key_unit(k) != n.unit for k in keys):
+            reasons.append(f"unit: {n.text} {n.unit} does not match a {n.unit} fact")
+        if n.unit == "pct" and float(n.token) > 100:
+            reasons.append(f"range: {n.text}% is over 100%")
+    reasons += _attribution_problems(text, facts, spans)
+    if language in _COMPARE_LANGUAGES:
+        reasons += _comparison_problems(text, spans, facts)
+    return reasons
+
+
+def _team_sides(facts: Mapping[str, FactValue]) -> dict[str, str]:
+    """Club name -> 'home' or 'away' (only when both names are known and differ)."""
+    home, away = facts.get("home"), facts.get("away")
+    if isinstance(home, str) and isinstance(away, str) and home and away and home != away:
+        return {home: "home", away: "away"}
+    return {}
+
+
+def _attribution_problems(text: str, facts: Mapping[str, FactValue], spans: list[NumberSpan]) -> list[str]:
+    sides = _team_sides(facts)
+    if not sides:
+        return []
+    reasons: list[str] = []
+    in_scoreline: set[int] = set()
+    names = sorted(sides, key=len, reverse=True)
+    if isinstance(facts.get("score_home"), int) and isinstance(facts.get("score_away"), int):
+        alts = "|".join(re.escape(n) for n in names)
+        for m in re.finditer(rf"({alts})\s+(\d+)\s?[-–]\s?(\d+)\s+({alts})", normalise_digits(text)):
+            first, second = sides[m.group(1)], sides[m.group(4)]
+            if first == second:
+                continue
+            want = (facts[f"score_{first}"], facts[f"score_{second}"])
+            got = (int(m.group(2)), int(m.group(3)))
+            if got != want:
+                reasons.append(
+                    f"attribution: {m.group(1)} {got[0]}-{got[1]} {m.group(4)} does not match the score"
+                )
+    for m in _SCORELINE.finditer(normalise_digits(text)):
+        in_scoreline.update((m.start(1), m.start(2)))
+    paired = {k for pair in SIDE_PAIRS for k in pair}
+    for n in spans:
+        if n.start in in_scoreline:
+            continue
+        before = _GAP.sub("", text[: n.start])
+        name = next((name for name in names if before.endswith(name)), None)
+        if name is None or _OWNED_BY_EARLIER.search(before[: -len(name)]):
+            continue
+        named = sides[name]
+        keys = matching_keys(n.token, facts)
+        if not keys or any(k not in paired for k in keys):
+            continue  # not a per-team number, or it is also some other fact
+        if any(k.endswith(f"_{named}") for k in keys):
+            continue
+        other = "away" if named == "home" else "home"
+        club = facts.get(named)
+        reasons.append(f"attribution: {n.text} is the {other} side's number, not {club}'s")
+    return reasons
+
+
+def _comparison_problems(text: str, spans: list[NumberSpan], facts: Mapping[str, FactValue]) -> list[str]:
+    reasons: list[str] = []
+    for start, end in _sentences_bounds(text):
+        inside = [n for n in spans if start <= n.start < end]
+        for n in inside:
+            if (
+                n.unit == "x"
+                and _MORE_AFTER.match(text[n.end : n.end + 12].lstrip("x× "))
+                and float(n.token) <= 1
+            ):
+                reasons.append(f"comparison: {n.text}x cannot be more than 1x")
+        for rx, bigger in ((_MORE_THAN, True), (_LESS_THAN, False)):
+            for m in rx.finditer(text, start, end):
+                left = [n for n in inside if n.end <= m.start()]
+                right = [n for n in inside if n.start >= m.end()]
+                if not left or not right:
+                    continue
+                a, b = float(left[-1].token), float(right[0].token)
+                if left[-1].unit == "x":
+                    continue  # "3.1x more than the shot": the multiplier rule covers it
+                if (bigger and not a > b) or (not bigger and not a < b):
+                    word = "more" if bigger else "less"
+                    reasons.append(f"comparison: {left[-1].text} is not {word} than {right[0].text}")
+    return reasons
+
+
+@functools.lru_cache(maxsize=16)
+def _roster_re(roster: tuple[str, ...]) -> re.Pattern[str] | None:
+    names = sorted({n for n in roster if n}, key=len, reverse=True)
+    if not names:
+        return None
+    return re.compile(r"(?<!\w)(?:" + "|".join(re.escape(n) for n in names) + r")(?!\w)")
+
+
+def unknown_names(text: str, facts: Mapping[str, FactValue], roster: Collection[str]) -> list[str]:
+    """Squad names printed in the text that are not part of a string fact."""
+    rx = _roster_re(tuple(sorted(roster)))
+    if rx is None or not rx.search(text):
+        return []
+    chars = list(text)
+    for span, _ in string_fact_spans(text, facts):
+        chars[span.start : span.end] = " " * (span.end - span.start)
+    return list(dict.fromkeys(m.group(0) for m in rx.finditer("".join(chars))))

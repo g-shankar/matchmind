@@ -247,6 +247,31 @@ export const isBetterOption = (r: Replay | null | undefined): r is BetterOptionR
 export const isUnfoundRun = (r: Replay | null | undefined): r is UnfoundRunReplay =>
   !!r && 'run_event_id' in r;
 
+/** What the machine verified about one shown sentence (docs/TRUST.md). Tone and wording never are. */
+export type ClaimCheck = 'verified_numeric' | 'verified_name' | 'unverified_text';
+export type ClaimField = 'headline' | 'body' | 'why' | 'title' | 'paragraph' | 'key_moment';
+
+export interface ClaimBinding {
+  text: string;
+  kind: 'number' | 'name' | 'text';
+  fact_key: string | null;
+  value: FactValue | null;
+  unit: string | null;
+  entity_id: string | null;
+}
+
+export interface Claim {
+  sentence: string;
+  field: ClaimField;
+  fact_keys: string[];
+  numbers: string[];
+  source_event_ids: string[];
+  check: ClaimCheck;
+  reason: string;
+  origin?: 'template' | 'matched';
+  bindings?: ClaimBinding[];
+}
+
 export interface OverlayCard {
   card_id: string;
   moment_id: string;
@@ -272,6 +297,8 @@ export interface OverlayCard {
   /** Language the text is really in: `language`, or 'en' when a world language could not be translated. */
   text_language?: Language | null;
   translated_by?: TranslatedBy | null;
+  /** Each sentence of headline, body and why, tied to its facts and source events. */
+  claims?: Claim[];
 }
 
 export interface Bookmark {
@@ -301,6 +328,28 @@ export interface Recap {
   text_language?: Language | null;
   translated_by?: TranslatedBy | null;
   fallback_reason?: string | null;
+  claims?: Claim[];
+}
+
+export interface AgentLatency {
+  agent: string;
+  samples: number;
+  p50_ms: number;
+  p95_ms: number;
+  max_ms: number;
+}
+
+/** Rolling-window service levels; counts sit beside every rate. */
+export interface CrewHealth {
+  window: number;
+  latency: AgentLatency[];
+  model_steps: number;
+  fallback_steps: number;
+  fallback_rate: number | null;
+  checks: number;
+  rejected_checks: number;
+  rejection_rate: number | null;
+  moments_per_min: number;
 }
 
 export interface CrewStatus {
@@ -311,6 +360,7 @@ export interface CrewStatus {
   fallbacks: number;
   rejections: number;
   translator?: TranslatorStatus;
+  health?: CrewHealth;
 }
 
 export interface CrewTrace {
@@ -393,3 +443,54 @@ export type ClientAction =
   | { action: 'seek'; clock_s: number; period?: number }
   | ({ action: 'set_view' } & { [K in keyof ViewerProfile]?: ViewerProfile[K] | null })
   | { action: 'set_persona'; persona: PersonaType; spotlight_player_id?: string | null };
+
+// --- Moment audit: GET /api/match/moment/{id}/audit (docs/TRUST.md) ---
+
+export interface FactParity {
+  ok: boolean;
+  key_facts: string[];
+  anchors: string[][];
+  renderings: number;
+  withheld: number;
+  /** 'persona/language' (plus ' (live)' for live cards) -> key facts it states */
+  stated: Record<string, string[]>;
+  problems: string[];
+}
+
+export interface RenderingAudit {
+  persona: PersonaType;
+  language: Language;
+  text_language: Language | null;
+  source: 'template_sweep' | 'live';
+  produced_by: ProducedBy;
+  fallback_reason: string | null;
+  translated_by: TranslatedBy | null;
+  headline: string;
+  body: string;
+  why: string;
+  fact_check: { ok: boolean; reasons: string[] };
+  claims: Claim[];
+}
+
+export interface MomentAudit {
+  moment_id: string;
+  kind: MomentKind;
+  match_clock: string;
+  period: number;
+  team: string | null;
+  player_ids: string[];
+  facts: Record<string, FactValue>;
+  source_event_ids: string[];
+  explanation: {
+    moment_id: string;
+    why: string;
+    tactical_tag: string;
+    evidence: Evidence[];
+    produced_by: ProducedBy;
+    fallback_reason: string | null;
+  };
+  renderings: RenderingAudit[];
+  parity: FactParity;
+  trace: CrewTrace['steps'];
+  not_checked: string[];
+}

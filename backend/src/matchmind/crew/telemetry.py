@@ -23,11 +23,16 @@ on it.
 from __future__ import annotations
 
 import logging
+import math
 import os
 import re
 import threading
 import time
+from collections import deque
+from collections.abc import Callable
 from typing import Any
+
+from matchmind.crew.contracts import AgentLatency, CrewHealth
 
 logger = logging.getLogger(__name__)
 
@@ -193,3 +198,85 @@ def record_step(
         span.end(end_time=end_ns)
     except Exception:  # noqa: BLE001 - tracing must never stop the crew
         logger.debug("crew span dropped", exc_info=True)
+
+
+# --- Service levels for /api/crew/status (in memory, no viewer data) -------------------------------
+
+HEALTH_WINDOW = 256  # most recent steps kept per agent, and verdicts kept
+MOMENTS_WINDOW_S = 60.0
+MOMENTS_KEPT = 10_000
+
+
+def percentile(sorted_ms: list[float], q: float) -> float:
+    """Nearest-rank percentile of an ascending list (deterministic, no interpolation)."""
+    if not sorted_ms:
+        return 0.0
+    rank = max(1, math.ceil(q * len(sorted_ms)))
+    return sorted_ms[min(rank, len(sorted_ms)) - 1]
+
+
+class HealthTracker:
+    """Rolling per-agent latency (p50/p95), fallback and rejection rates, and
+    moments per minute. Memory is bounded: `window` steps per agent, `window`
+    verdicts, and at most MOMENTS_KEPT moment timestamps. Thread-safe."""
+
+    def __init__(self, clock: Callable[[], float] = time.monotonic, window: int = HEALTH_WINDOW) -> None:
+        self.clock = clock
+        self.window = window
+        self._lock = threading.Lock()
+        self._steps: dict[str, deque[tuple[float, str]]] = {}
+        self._verdicts: deque[bool] = deque(maxlen=window)
+        self._moments: deque[tuple[float, int]] = deque(maxlen=MOMENTS_KEPT)
+
+    def step(self, agent: str, ms: float, status: str) -> None:
+        with self._lock:
+            steps = self._steps.get(agent)
+            if steps is None:
+                if len(self._steps) >= 16:  # agent names come from our own code; stay bounded anyway
+                    return
+                steps = self._steps[agent] = deque(maxlen=self.window)
+            steps.append((max(0.0, float(ms)), status))
+
+    def verdict(self, ok: bool) -> None:
+        with self._lock:
+            self._verdicts.append(bool(ok))
+
+    def moments(self, n: int) -> None:
+        if n <= 0:
+            return
+        with self._lock:
+            self._moments.append((self.clock(), n))
+
+    def snapshot(self) -> CrewHealth:
+        with self._lock:
+            now = self.clock()
+            while self._moments and now - self._moments[0][0] > MOMENTS_WINDOW_S:
+                self._moments.popleft()
+            latency = []
+            for agent in sorted(self._steps):
+                ms = sorted(m for m, _ in self._steps[agent])
+                if ms:
+                    latency.append(
+                        AgentLatency(
+                            agent=agent,
+                            samples=len(ms),
+                            p50_ms=round(percentile(ms, 0.5), 2),
+                            p95_ms=round(percentile(ms, 0.95), 2),
+                            max_ms=round(ms[-1], 2),
+                        )
+                    )
+            model = [s for agent in MODEL_AGENTS for _, s in self._steps.get(agent, ())]
+            fallbacks = sum(s == "fallback" for s in model)
+            checks = len(self._verdicts)
+            rejected = sum(not ok for ok in self._verdicts)
+            return CrewHealth(
+                window=self.window,
+                latency=latency,
+                model_steps=len(model),
+                fallback_steps=fallbacks,
+                fallback_rate=round(fallbacks / len(model), 4) if model else None,
+                checks=checks,
+                rejected_checks=rejected,
+                rejection_rate=round(rejected / checks, 4) if checks else None,
+                moments_per_min=sum(n for _, n in self._moments),
+            )

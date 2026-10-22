@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 
 from matchmind.crew.contracts import (
     RTL_LANGUAGES,
+    Claim,
     Evidence,
     MomentBundle,
     MomentKind,
@@ -116,6 +117,7 @@ def build_card(
     profile: ViewerProfile,
     slot: Slot | None = None,
     evidence: list[Evidence] | None = None,
+    claims: list[Claim] | None = None,
 ) -> OverlayCard:
     m = bundle.moment
     chosen: Slot = slot or SLOT_BY_KIND.get(m.kind, "lower_third")
@@ -153,6 +155,7 @@ def build_card(
         produced_by=produced_by,
         fallback_reason=reason,
         replay=bundle.replay,
+        claims=list(claims or []),
     )
 
 

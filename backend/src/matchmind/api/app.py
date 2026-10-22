@@ -563,6 +563,21 @@ def create_app(
             raise HTTPException(status_code=404, detail="We could not find that moment.")
         return view.card_payload(card)
 
+    # --- Claim audit (trust layer, docs/TRUST.md) -----------------------------------------------
+    @app.get("/api/match/moment/{moment_id}/audit", dependencies=limited_get)
+    async def moment_audit(moment_id: str) -> dict[str, Any]:
+        """Facts, source events, evidence, every rendering's claims and fact-check,
+        parity and trace for one moment. Same rate limit as the moment route; never
+        calls a paid model (template sweep plus the live crew's cached cards)."""
+        if len(moment_id) > 80:
+            raise HTTPException(status_code=404, detail="We could not find that moment.")
+        audit = await asyncio.to_thread(hub.session.moment_audit, moment_id)
+        if audit is None:
+            raise HTTPException(status_code=404, detail="We could not find that moment.")
+        return audit.model_dump(mode="json")
+
+    # --- end claim audit -----------------------------------------------------------------------
+
     @app.get("/api/match/recap", dependencies=limited_get)
     async def recap(persona: Persona = "casual", lang: Language = "en") -> dict[str, Any]:
         profile = ViewerProfile(persona=persona, language=lang)

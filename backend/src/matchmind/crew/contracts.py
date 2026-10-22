@@ -115,6 +115,46 @@ class FactCheck(BaseModel):
     reasons: list[str] = Field(default_factory=list)
 
 
+# --- Claims: each shown sentence tied to the facts and events behind it (docs/TRUST.md) ---------
+
+ClaimCheck = Literal["verified_numeric", "verified_name", "unverified_text"]
+ClaimField = Literal["headline", "body", "why", "title", "paragraph", "key_moment"]
+
+
+class ClaimBinding(BaseModel):
+    """One number or name in a sentence and the fact it was matched to."""
+
+    text: str = Field(description="As printed")
+    kind: Literal["number", "name", "text"]
+    fact_key: str | None = Field(default=None, description="None: matches no fact (never on a shown card)")
+    value: FactValue | None = None
+    unit: str | None = None
+    entity_id: str | None = Field(default=None, description="Squad player or club id for names")
+
+
+class Claim(BaseModel):
+    """One sentence a viewer sees, with what was machine-checked about it.
+
+    `verified_numeric`: every number in it matches a fact (bound in `bindings`).
+    `verified_name`: no numbers; its squad names match the facts.
+    `unverified_text`: nothing to check (tone, wording), or a check failed (`reason`).
+    Wording, tone and causal claims are never machine-verified, whatever `check` says."""
+
+    sentence: str
+    field: ClaimField
+    fact_keys: list[str] = Field(default_factory=list)
+    numbers: list[str] = Field(default_factory=list)
+    source_event_ids: list[str] = Field(default_factory=list)
+    check: ClaimCheck
+    reason: str
+    origin: Literal["template", "matched"] = Field(
+        default="matched",
+        description="template: keys from the template's placeholders; matched: found by value (model "
+        "or translated text)",
+    )
+    bindings: list[ClaimBinding] = Field(default_factory=list)
+
+
 class ViewerProfile(BaseModel):
     """One viewer's choices. Lives per WebSocket connection, never shared."""
 
@@ -160,6 +200,9 @@ class OverlayCard(BaseModel):
         "could not be translated",
     )
     translated_by: TranslatedBy | None = None
+    claims: list[Claim] = Field(
+        default_factory=list, description="Each sentence of headline, body and why, tied to its facts"
+    )
 
     @model_validator(mode="after")
     def _text_language(self) -> OverlayCard:
@@ -193,6 +236,7 @@ class Recap(BaseModel):
     text_language: Language | None = None
     translated_by: TranslatedBy | None = None
     fallback_reason: str | None = None
+    claims: list[Claim] = Field(default_factory=list, description="Each sentence, tied to its facts")
 
     @model_validator(mode="after")
     def _text_language(self) -> Recap:
@@ -238,6 +282,28 @@ class LanguageInfo(BaseModel):
     reason: Literal["translator_off"] | None = None
 
 
+class AgentLatency(BaseModel):
+    agent: str
+    samples: int = Field(description="Steps in the rolling window")
+    p50_ms: float
+    p95_ms: float
+    max_ms: float
+
+
+class CrewHealth(BaseModel):
+    """Rolling-window service levels (bounded memory; resets with the crew)."""
+
+    window: int = Field(default=0, description="Most recent steps kept per agent")
+    latency: list[AgentLatency] = Field(default_factory=list)
+    model_steps: int = Field(default=0, description="Analyst, Commentator and recap steps in the window")
+    fallback_steps: int = 0
+    fallback_rate: float | None = Field(default=None, description="fallback_steps / model_steps")
+    checks: int = Field(default=0, description="Fact-check verdicts in the window")
+    rejected_checks: int = 0
+    rejection_rate: float | None = Field(default=None, description="rejected_checks / checks")
+    moments_per_min: int = Field(default=0, description="Moments spotted in the last 60 s of wall clock")
+
+
 class CrewStatus(BaseModel):
     mode: Literal["ai", "template"]
     model: str | None = None
@@ -246,3 +312,54 @@ class CrewStatus(BaseModel):
     fallbacks: int = 0
     rejections: int = 0
     translator: TranslatorStatus = Field(default_factory=TranslatorStatus)
+    health: CrewHealth = Field(default_factory=CrewHealth)
+
+
+# --- Moment audit: GET /api/match/moment/{id}/audit ---------------------------------------------
+
+
+class FactParity(BaseModel):
+    """Do all renderings of one moment use only its facts and agree on the key ones?"""
+
+    ok: bool
+    key_facts: list[str] = Field(default_factory=list)
+    anchors: list[list[str]] = Field(
+        default_factory=list, description="Each rendering states at least one fact of every group"
+    )
+    renderings: int = 0
+    withheld: int = Field(default=0, description="Audiences with no card (no template fits)")
+    stated: dict[str, list[str]] = Field(
+        default_factory=dict, description="'persona/language' -> key facts it states"
+    )
+    problems: list[str] = Field(default_factory=list)
+
+
+class RenderingAudit(BaseModel):
+    persona: Persona
+    language: Language
+    text_language: Language | None = None
+    source: Literal["template_sweep", "live"]
+    produced_by: Literal["ai", "template"]
+    fallback_reason: str | None = None
+    translated_by: TranslatedBy | None = None
+    headline: str
+    body: str
+    why: str
+    fact_check: FactCheck
+    claims: list[Claim] = Field(default_factory=list)
+
+
+class MomentAudit(BaseModel):
+    moment_id: str
+    kind: MomentKind
+    match_clock: str
+    period: int
+    team: str | None = None
+    player_ids: list[str] = Field(default_factory=list)
+    facts: dict[str, FactValue]
+    source_event_ids: list[str]
+    explanation: Explanation
+    renderings: list[RenderingAudit]
+    parity: FactParity
+    trace: list[AgentStep] = Field(default_factory=list)
+    not_checked: list[str] = Field(default_factory=list)

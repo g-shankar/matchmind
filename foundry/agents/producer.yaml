@@ -432,6 +432,122 @@ contract:
     type: object
   output:
     $defs:
+      Claim:
+        description: |-
+          One sentence a viewer sees, with what was machine-checked about it.
+
+          `verified_numeric`: every number in it matches a fact (bound in `bindings`).
+          `verified_name`: no numbers; its squad names match the facts.
+          `unverified_text`: nothing to check (tone, wording), or a check failed (`reason`).
+          Wording, tone and causal claims are never machine-verified, whatever `check` says.
+        properties:
+          sentence:
+            title: Sentence
+            type: string
+          field:
+            enum:
+            - headline
+            - body
+            - why
+            - title
+            - paragraph
+            - key_moment
+            title: Field
+            type: string
+          fact_keys:
+            items:
+              type: string
+            title: Fact Keys
+            type: array
+          numbers:
+            items:
+              type: string
+            title: Numbers
+            type: array
+          source_event_ids:
+            items:
+              type: string
+            title: Source Event Ids
+            type: array
+          check:
+            enum:
+            - verified_numeric
+            - verified_name
+            - unverified_text
+            title: Check
+            type: string
+          reason:
+            title: Reason
+            type: string
+          origin:
+            default: matched
+            description: 'template: keys from the template''s placeholders; matched: found by value (model or translated
+              text)'
+            enum:
+            - template
+            - matched
+            title: Origin
+            type: string
+          bindings:
+            items:
+              $ref: '#/$defs/ClaimBinding'
+            title: Bindings
+            type: array
+        required:
+        - sentence
+        - field
+        - check
+        - reason
+        title: Claim
+        type: object
+      ClaimBinding:
+        description: One number or name in a sentence and the fact it was matched to.
+        properties:
+          text:
+            description: As printed
+            title: Text
+            type: string
+          kind:
+            enum:
+            - number
+            - name
+            - text
+            title: Kind
+            type: string
+          fact_key:
+            anyOf:
+            - type: string
+            - type: 'null'
+            default: null
+            description: 'None: matches no fact (never on a shown card)'
+            title: Fact Key
+          value:
+            anyOf:
+            - type: string
+            - type: integer
+            - type: number
+            - type: boolean
+            - type: 'null'
+            default: null
+            title: Value
+          unit:
+            anyOf:
+            - type: string
+            - type: 'null'
+            default: null
+            title: Unit
+          entity_id:
+            anyOf:
+            - type: string
+            - type: 'null'
+            default: null
+            description: Squad player or club id for names
+            title: Entity Id
+        required:
+        - text
+        - kind
+        title: ClaimBinding
+        type: object
       Evidence:
         properties:
           label:
@@ -626,6 +742,12 @@ contract:
         - type: 'null'
         default: null
         title: Translated By
+      claims:
+        description: Each sentence of headline, body and why, tied to its facts
+        items:
+          $ref: '#/$defs/Claim'
+        title: Claims
+        type: array
     required:
     - card_id
     - moment_id
