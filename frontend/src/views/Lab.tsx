@@ -640,7 +640,6 @@ const PixelPath: React.FC<{ row: NonNullable<AutoEventingStatus['pixel_path']> }
         <figure>
           <video
             className="w-full border border-pp-line bg-black"
-            src={`${base}lab/pixel-path.mp4`}
             poster={`${base}lab/pixel-path-still.jpg`}
             muted
             loop
@@ -648,7 +647,11 @@ const PixelPath: React.FC<{ row: NonNullable<AutoEventingStatus['pixel_path']> }
             controls
             preload="none"
             aria-label={t('lab.bench.videoAlt')}
-          />
+          >
+            {/* VP9 for browsers without H.264 (some open-source builds), then the original MP4. */}
+            <source src={`${base}lab/pixel-path.webm`} type="video/webm" />
+            <source src={`${base}lab/pixel-path.mp4`} type="video/mp4" />
+          </video>
           <figcaption className="mt-1 text-[11px] text-pp-mute">{t('lab.bench.videoCaption')}</figcaption>
         </figure>
         <div className="space-y-2 text-xs">
