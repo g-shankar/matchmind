@@ -1,0 +1,78 @@
+== /
+HTTP/1.1 200 OK
+date: Thu, 22 Oct 2026 13:07:02 GMT
+content-type: text/html; charset=utf-8
+accept-ranges: bytes
+content-length: 2891
+last-modified: Thu, 22 Oct 2026 13:06:24 GMT
+etag: "8f508b19f4f69c095a03d79880b6fecf"
+cache-control: no-cache
+vary: Accept-Encoding, Origin
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+content-security-policy: default-src 'self'; script-src 'self'; connect-src 'self' ws: wss: http://localhost:5173 ws://localhost:5173 http://localhost:3000 ws://localhost:3000; img-src 'self' data:; media-src 'self'; font-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+
+== /api/health
+HTTP/1.1 200 OK
+date: Thu, 22 Oct 2026 13:07:02 GMT
+content-length: 15
+content-type: application/json
+vary: Origin
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+cache-control: no-store
+
+== /api/match/snapshot
+HTTP/1.1 200 OK
+date: Thu, 22 Oct 2026 13:07:02 GMT
+content-length: 17168
+content-type: application/json
+vary: Origin
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+cache-control: no-store
+
+== /index.html
+HTTP/1.1 200 OK
+date: Thu, 22 Oct 2026 13:07:02 GMT
+content-type: text/html; charset=utf-8
+accept-ranges: bytes
+content-length: 2891
+last-modified: Thu, 22 Oct 2026 13:06:24 GMT
+etag: "8f508b19f4f69c095a03d79880b6fecf"
+cache-control: no-cache
+vary: Accept-Encoding, Origin
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+content-security-policy: default-src 'self'; script-src 'self'; connect-src 'self' ws: wss: http://localhost:5173 ws://localhost:5173 http://localhost:3000 ws://localhost:3000; img-src 'self' data:; media-src 'self'; font-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+
+== /assets/
+HTTP/1.1 404 Not Found
+date: Thu, 22 Oct 2026 13:07:02 GMT
+content-length: 22
+content-type: application/json
+vary: Origin
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+content-security-policy: default-src 'self'; script-src 'self'; connect-src 'self' ws: wss: http://localhost:5173 ws://localhost:5173 http://localhost:3000 ws://localhost:3000; img-src 'self' data:; media-src 'self'; font-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+
+== /nonexistent
+HTTP/1.1 404 Not Found
+date: Thu, 22 Oct 2026 13:07:02 GMT
+content-length: 22
+content-type: application/json
+vary: Origin
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+content-security-policy: default-src 'self'; script-src 'self'; connect-src 'self' ws: wss: http://localhost:5173 ws://localhost:5173 http://localhost:3000 ws://localhost:3000; img-src 'self' data:; media-src 'self'; font-src 'self' data:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+
+== /api/nonexistent
+HTTP/1.1 404 Not Found
+date: Thu, 22 Oct 2026 13:07:03 GMT
+content-length: 22
+content-type: application/json
+vary: Origin
+x-content-type-options: nosniff
+referrer-policy: no-referrer
+cache-control: no-store
+

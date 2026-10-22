@@ -1,0 +1,109 @@
+[
+ {
+  "route": "GET /api/match/recap",
+  "n": 100,
+  "codes": {
+   "200": 30,
+   "429": 70
+  },
+  "wall_s": 0.38,
+  "p50_ms": 133,
+  "p95_ms": 196
+ },
+ {
+  "route": "POST /api/ask",
+  "n": 100,
+  "codes": {
+   "200": 2,
+   "429": 98
+  },
+  "wall_s": 0.52,
+  "p50_ms": 182,
+  "p95_ms": 462
+ },
+ {
+  "route": "POST /mcp",
+  "n": 100,
+  "codes": {
+   "429": 98,
+   "200": 2
+  },
+  "wall_s": 0.59,
+  "p50_ms": 231,
+  "p95_ms": 520
+ },
+ {
+  "route": "POST /api/match/speed",
+  "n": 50,
+  "codes": {
+   "200": 10,
+   "429": 40
+  },
+  "wall_s": 0.31,
+  "p50_ms": 167,
+  "p95_ms": 266
+ },
+ {
+  "route": "GET /api/dataset/export?match_id=MM-DEMO-001&format=jsonl",
+  "n": 30,
+  "codes": {
+   "429": 28,
+   "200": 2
+  },
+  "wall_s": 0.93,
+  "p50_ms": 328,
+  "p95_ms": 930
+ },
+ {
+  "route": "GET /api/match/snapshot",
+  "n": 1000,
+  "codes": {
+   "200": 1000
+  },
+  "wall_s": 5.64,
+  "p50_ms": 194,
+  "p95_ms": 789,
+  "health_p50_ms": 114,
+  "health_max_ms": 1036,
+  "samples": 15
+ },
+ {
+  "route": "GET /api/auto-eventing",
+  "n": 1000,
+  "codes": {
+   "200": 1000
+  },
+  "wall_s": 6.22,
+  "p50_ms": 201,
+  "p95_ms": 823,
+  "health_p50_ms": 202,
+  "health_max_ms": 712,
+  "samples": 22
+ },
+ {
+  "route": "GET /api/match/stats/basic",
+  "n": 1000,
+  "codes": {
+   "200": 1000
+  },
+  "wall_s": 5.13,
+  "p50_ms": 163,
+  "p95_ms": 740,
+  "health_p50_ms": 148,
+  "health_max_ms": 478,
+  "samples": 22
+ },
+ {
+  "route": "GET /api/crew/trace?limit=100",
+  "n": 1000,
+  "codes": {
+   "200": 1000
+  },
+  "wall_s": 5.4,
+  "p50_ms": 163,
+  "p95_ms": 832,
+  "health_p50_ms": 149,
+  "health_max_ms": 1354,
+  "samples": 16
+ }
+]

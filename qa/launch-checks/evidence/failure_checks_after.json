@@ -1,0 +1,116 @@
+{
+ "kill_backend": {
+  "timeline": [
+   {
+    "t": 0,
+    "badge": []
+   },
+   {
+    "t": 1.0,
+    "badge": [
+     "connecting\u2026"
+    ]
+   },
+   {
+    "t": 2.0,
+    "badge": [
+     "connecting\u2026"
+    ]
+   },
+   {
+    "t": 3.2,
+    "badge": [
+     "connecting\u2026"
+    ]
+   },
+   {
+    "t": 4.2,
+    "badge": [
+     "connecting\u2026"
+    ]
+   },
+   {
+    "t": 5.2,
+    "badge": [
+     "connecting\u2026"
+    ]
+   },
+   {
+    "t": 6.2,
+    "badge": [
+     "connecting\u2026"
+    ]
+   },
+   {
+    "t": 7.2,
+    "badge": [
+     "connecting\u2026"
+    ]
+   },
+   {
+    "t": 8.2,
+    "badge": [
+     "connecting\u2026"
+    ]
+   },
+   {
+    "t": 9.2,
+    "badge": [
+     "connecting\u2026"
+    ]
+   },
+   {
+    "t": 10.2,
+    "badge": [
+     "connecting\u2026"
+    ]
+   },
+   {
+    "t": 11.2,
+    "badge": [
+     "connecting\u2026"
+    ]
+   },
+   {
+    "t": 12.2,
+    "badge": [
+     "connecting\u2026"
+    ]
+   },
+   {
+    "t": 41.4,
+    "badge": [],
+    "note": "server back after 18.9s (pid 18883)"
+   }
+  ],
+  "page_errors": [],
+  "stack_trace_shown": false
+ },
+ "api_blocked_auto": {
+  "badge": [
+   "offline demo"
+  ],
+  "demo_hint": true
+ },
+ "api_blocked_live_only": {
+  "badge": [
+   "connecting\u2026"
+  ],
+  "text_head": "PitchPulse\nSTUDIO\nBROADCAST\nFAN VS ANALYST\nPLAYER FOCUS\nMY MATCH\nUNDER THE HOOD\nI'm a\nFan\nAnalyst\nStats scout\n1X\n10X\n60X\nCATCH UP\nREAD ALOUD: OFF\nLanguage\nEnglish\nEspa\u00f1ol\nFran\u00e7ais\n\u0627\u0644\u0639\u0631\u0628\u064a\u0629\n\u65e5\u672c\u8a9e\nPortugu\u00eas \u00b7 Off: needs Azure AI Translator\nDeutsch \u00b7 Off: needs Azure AI Translator\n\u0939\u093f\u0928\u094d\u0926\u0940 \u00b7 Off: needs Azur"
+ },
+ "demo": {
+  "badge": [
+   "offline demo"
+  ]
+ },
+ "ask_500": {
+  "alerts": [
+   "The studio could not answer just now. Check your connection and try again."
+  ]
+ },
+ "ask_abort": {
+  "alerts": [
+   "The studio could not answer just now. Check your connection and try again."
+  ]
+ }
+}
