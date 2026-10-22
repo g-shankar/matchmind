@@ -133,4 +133,33 @@ describe('reconnecting after the live server restarts (LC-2)', () => {
     });
     expect(result.current.state.connectionLost).toBe(false);
   });
+
+  it('spreads reconnect attempts with jitter, so viewers do not all come back at once', async () => {
+    const { retryDelay } = await import('./useMatch');
+    // About ±25 % around the doubling back-off (2 s, 4 s, 8 s, then 10 s at most).
+    expect(retryDelay(1, () => 0)).toBe(1500);
+    expect(retryDelay(1, () => 1)).toBe(2500);
+    expect(retryDelay(2, () => 0.5)).toBe(4000);
+    expect(retryDelay(9, () => 1)).toBe(12500);
+    const spread = new Set(Array.from({ length: 50 }, () => retryDelay(1)));
+    expect(spread.size).toBeGreaterThan(10);
+    for (const d of spread) expect(d >= 1500 && d <= 2500).toBe(true);
+
+    // The live hook uses it: with the low end drawn, the first retry comes after 1.5 s.
+    const random = vi.spyOn(Math, 'random').mockReturnValue(0);
+    const { useMatch } = await import('./useMatch');
+    renderHook(() => useMatch());
+    act(() => FakeSocket.all[0].open());
+    act(() => FakeSocket.all[0].close());
+    const before = FakeSocket.all.length;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1400);
+    });
+    expect(FakeSocket.all.length).toBe(before);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
+    expect(FakeSocket.all.length).toBe(before + 1);
+    random.mockRestore();
+  });
 });

@@ -412,7 +412,9 @@ itself, from `MATCHMIND_PUBLIC_ORIGIN`. The `Host` header is never trusted for
 this. A refused origin, a full server (`MATCHMIND_MAX_CONNECTIONS`) or too many
 connections from one IP (`MATCHMIND_MAX_CONN_PER_IP`) closes with code 1008. A
 viewer that falls more than 4 MB behind on messages is disconnected with code
-1013 (try again later); reconnecting gets a fresh `INITIAL_SNAPSHOT`. All send
+1013 (try again later); reconnecting gets a fresh `INITIAL_SNAPSHOT` (the web app
+waits 2 s, 4 s, 8 s, then 10 s between attempts, each ±25 % at random, so viewers
+dropped together do not all come back in the same instant). All send
 queues together are capped (`MATCHMIND_SEND_QUEUE_TOTAL_BYTES`, default 192 MB);
 once that is spent, viewers more than 256 KB behind are disconnected the same way.
 

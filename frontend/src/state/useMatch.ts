@@ -17,6 +17,18 @@ const LIVE_TIMEOUT_MS = 2500;
 const RETRY_MS = 2000;
 const MAX_RETRY_MS = 10000;
 const MAX_RETRIES = 3;
+const RETRY_JITTER = 0.25;
+
+/**
+ * Wait before reconnect attempt `retries` (1, 2, ...): the doubling back-off, capped, with
+ * ±25 % jitter so that many viewers dropped by one server restart do not all come back in the
+ * same instant.
+ */
+export function retryDelay(retries: number, random: () => number = Math.random): number {
+  const base = Math.min(RETRY_MS * 2 ** (Math.max(1, retries) - 1), MAX_RETRY_MS);
+  return Math.round(base * (1 - RETRY_JITTER + 2 * RETRY_JITTER * random()));
+}
+
 /** After this long without the live server, say so in one sentence with a retry button (LC-15). */
 export const LOST_AFTER_MS = 15000;
 
@@ -183,7 +195,7 @@ export function useMatch() {
           lostTimer ??= setTimeout(() => {
             if (!disposed) dispatch({ type: 'connectionLost', lost: true });
           }, LOST_AFTER_MS);
-          retryTimer = setTimeout(startLive, Math.min(RETRY_MS * 2 ** (retries - 1), MAX_RETRY_MS));
+          retryTimer = setTimeout(startLive, retryDelay(retries));
           timers.push(retryTimer);
         },
       }, apiBase(), viewOf(profileRef.current));
