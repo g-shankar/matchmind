@@ -241,6 +241,12 @@ class LanguageInfo(BaseModel):
 class CrewStatus(BaseModel):
     mode: Literal["ai", "template"]
     model: str | None = None
+    # Who runs the model steps: "templates" (no model), Azure OpenAI chat
+    # completions, or Microsoft Foundry Agent Service agents.
+    provider: Literal["templates", "azure_openai", "foundry_agents"] = "templates"
+    # Who chains the agents: our in-process orchestrator or a Microsoft Agent
+    # Framework workflow.
+    orchestrator: Literal["in_process", "agent_framework"] = "in_process"
     breakers_open: list[str] = Field(default_factory=list)
     moments: int = 0
     fallbacks: int = 0

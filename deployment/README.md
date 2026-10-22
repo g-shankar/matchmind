@@ -60,6 +60,17 @@ without it the deploy fails at the role assignment. Tracing works in
 template mode (no model cost). With `DEPLOY_OPENAI=true` as well, the Foundry
 project's **Tracing** page shows the spans. Details: `docs/FOUNDRY.md`.
 
+## Switching the crew to Foundry Agent Service
+
+With `DEPLOY_OPENAI=true` and `MATCHMIND_AI_ENABLED=true`, set repo variable
+`MATCHMIND_LLM_PROVIDER=foundry_agents` and redeploy: the Analyst, Commentator
+and recap steps then run as Foundry agents on the project. This needs one more
+role in the deploy identity's allowed list, Azure AI User
+(`53ca6127-db72-4b80-b1b0-d745d6d5456d`, `setup/owner-todo.md` step 2), granted
+to the app identity on the project only. `MATCHMIND_ORCHESTRATOR=agent_framework`
+(free, no Azure resources) chains the crew with Microsoft Agent Framework.
+Details: `docs/FOUNDRY.md`.
+
 ## Roll back
 
 Container Apps keeps earlier revisions:

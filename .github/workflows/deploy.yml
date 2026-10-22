@@ -32,6 +32,8 @@ env:
     deployTranslator=${{ vars.DEPLOY_TRANSLATOR || 'false' }}
     aiEnabled=${{ vars.MATCHMIND_AI_ENABLED || 'false' }}
     deployObservability=${{ vars.DEPLOY_OBSERVABILITY || 'false' }}
+    llmProvider=${{ vars.MATCHMIND_LLM_PROVIDER || 'azure_openai' }}
+    orchestrator=${{ vars.MATCHMIND_ORCHESTRATOR || 'in_process' }}
 
 jobs:
   azure:

@@ -39,6 +39,14 @@ param deployTranslator bool = false
 @description('Turns the AI crew on. Stays false until the owner approves the spend.')
 param aiEnabled bool = false
 
+@description('Who runs the model steps once aiEnabled is true: azure_openai (chat completions on the deployment) or foundry_agents (Microsoft Foundry Agent Service agents on the project; register them first with `matchmind-foundry register`).')
+@allowed(['azure_openai', 'foundry_agents'])
+param llmProvider string = 'azure_openai'
+
+@description('Who chains the crew agents: in_process, or agent_framework (Microsoft Agent Framework workflows). Free and local; no extra Azure resources.')
+@allowed(['in_process', 'agent_framework'])
+param orchestrator string = 'in_process'
+
 @description('Model and version for the crew, deployed on the Foundry resource.')
 param openAiModelName string = 'gpt-4o-mini'
 param openAiModelVersion string = '2024-07-18'
@@ -72,6 +80,7 @@ var roles = {
   acrPull: '7f951dda-4ed3-4680-a7ca-43fe172d538d'
   cognitiveServicesOpenAiUser: '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
   cognitiveServicesUser: 'a97b65f3-24c7-4388-baec-2e87135dc908'
+  azureAiUser: '53ca6127-db72-4b80-b1b0-d745d6d5456d'
   eventHubsDataSender: '2b629674-e913-4c01-ae53-ef4638d8f975'
   eventHubsDataReceiver: 'a638d3c7-ab3a-418d-83e6-5f17a39d4fde'
   monitoringMetricsPublisher: '3913510d-42f4-4e42-8a64-420c390055eb'
@@ -240,6 +249,20 @@ resource openAiUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (d
   }
 }
 
+// Foundry Agent Service: only when the crew's model steps run as agents. Azure
+// AI User on the project alone (not the resource): create agent versions from
+// the cards and run them; it cannot manage the resource, its deployments or
+// its connections.
+resource agentServiceUser 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (deployOpenAi && llmProvider == 'foundry_agents') {
+  scope: foundryProject
+  name: guid(resourceId('Microsoft.CognitiveServices/accounts/projects', names.foundry, names.foundryProject), appIdentity.id, roles.azureAiUser)
+  properties: {
+    principalId: appIdentity.properties.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.azureAiUser)
+  }
+}
+
 // ------------------------------------------------------------ observability --
 //
 // Workspace-based Application Insights on the same Log Analytics workspace.
@@ -379,6 +402,8 @@ var appEnv = [
   { name: 'AZURE_AI_PROJECT_ENDPOINT', value: deployOpenAi ? foundryProjectEndpoint : '' }
   { name: 'AZURE_OPENAI_DEPLOYMENT', value: openAiModelName }
   { name: 'AZURE_OPENAI_API_VERSION', value: '2024-10-21' }
+  { name: 'MATCHMIND_LLM_PROVIDER', value: llmProvider }
+  { name: 'MATCHMIND_ORCHESTRATOR', value: orchestrator }
   { name: 'MATCHMIND_TRANSLATOR_ENABLED', value: string(deployTranslator && aiEnabled) }
   { name: 'AZURE_TRANSLATOR_ENDPOINT', value: deployTranslator ? 'https://${names.translator}.cognitiveservices.azure.com/' : '' }
   { name: 'AZURE_TRANSLATOR_REGION', value: location }
@@ -394,7 +419,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
     type: 'UserAssigned'
     userAssignedIdentities: { '${appIdentity.id}': {} }
   }
-  dependsOn: [appRegistryPull, appTelemetryPublisher]
+  dependsOn: [appRegistryPull, appTelemetryPublisher, agentServiceUser]
   properties: {
     environmentId: environment.id
     workloadProfileName: 'Consumption'
