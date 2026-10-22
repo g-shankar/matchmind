@@ -48,6 +48,7 @@ class AskContext:
     moments: Sequence[Moment] = ()
     team_totals: Mapping[str, Mapping[str, Any]] | None = None  # basic stats `teams`, when known
     physical_source: str = "event_estimate"
+    ai_crew: bool = False  # paid AI is switched on for the crew's wording (the "about" answer says so)
 
 
 @dataclass
@@ -485,6 +486,14 @@ def _window(w: _Writer, intent: Intent, spoilers: bool) -> None:
         w.say("window_partial")
 
 
+def _about(w: _Writer, intent: Intent, spoilers: bool) -> None:
+    """What PitchPulse is: fixed text written by the team, no numbers and no match facts."""
+    w.say("about_data")
+    w.say("about_numbers")
+    w.say("about_ai" if w.ctx.ai_crew else "about_template")
+    w.say("about_team")
+
+
 _HANDLERS = {
     "score": _score,
     "scorers": _scorers,
@@ -498,6 +507,7 @@ _HANDLERS = {
     "cards": _cards,
     "explain_metric": _explain,
     "window": _window,
+    "about": _about,
 }
 
 

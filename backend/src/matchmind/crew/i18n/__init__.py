@@ -64,6 +64,18 @@ def fmt_value(value: Any, language: str) -> str:
     return str(value)
 
 
+# Chance values in a replay ("worth 0.20 expected goals against 0.05 xG"): always two
+# decimals, as the evidence shows them, so 0.2 never reads as a different figure from 0.24.
+XG_DECIMALS_KEYS: frozenset[str] = frozenset({"shot_xg", "alt_xg", "alt_value", "projected_xg"})
+
+
+def _fmt_key(key: str, value: Any, language: str) -> str:
+    if key in XG_DECIMALS_KEYS and isinstance(value, float) and not isinstance(value, bool):
+        text = f"{value:.2f}"
+        return text.replace(".", ",") if language in ("es", "fr") else text
+    return fmt_value(value, language)
+
+
 def _plural_one(n: float, language: str) -> bool:
     return n < 2 if language == "fr" else n == 1
 
@@ -74,7 +86,7 @@ def fill(template: str, variables: Mapping[str, Any], language: str) -> str:
         if key not in variables or variables[key] is None or isinstance(variables[key], bool):
             raise MissingFact(key)
         value = variables[key]
-        text = fmt_value(value, language)
+        text = _fmt_key(key, value, language)
         if one is not None:
             word = one if isinstance(value, int | float) and _plural_one(value, language) else many
             return f"{text} {word}"

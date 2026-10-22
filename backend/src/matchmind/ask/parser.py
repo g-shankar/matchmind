@@ -73,6 +73,7 @@ BETTER = _rx(
     r"\bdebio pasar",
     r"\bmejor opcion\b",
     r"\baurait du passer\b",
+    r"\baurait-il du passer\b",
     r"\bmeilleure option\b",
     r"كان (عليه|يجب) (ان )?يمرر|التمرير كان افضل|خيار افضل|ان يمرر",
     r"パスすべき",
@@ -111,6 +112,8 @@ TOP_CUE = _rx(
     r"\b(qui|quel joueur|le plus|meilleur|en tete)\b",
     r"\bمن\b|اي لاعب|الاكثر|الاسرع|افضل|اكثر",
     r"誰|最も|一番|最速",
+    r"اعلى|يتصدر|متصدر",
+    r"トップ",
 )
 WHAT_HAPPENED = _rx(
     r"\b(what happened|happen|happened|summary|story)\b",
@@ -131,6 +134,7 @@ MOMENTUM = _rx(
     r"\b(dominat\w*|in control|front foot|pressure|pressing|pushing|playing better|better side)\b",
     r"\b(impulso|inercia|domina\w*|presion|juega mejor|mejor equipo)\b",
     r"\b(dynamique|domine\w*|pression|joue mieux|meilleure equipe|elan)\b",
+    r"\bau-?\s?dessus\b",
     r"الزخم|الضغط|يسيطر|المسيطر|الطرف الافضل|يهيمن",
     r"優勢|勢い|プレッシャー",
 )
@@ -191,6 +195,7 @@ _METRIC_WORDS: list[tuple[str, re.Pattern[str]]] = [
             r"\bgoles esperados\b",
             r"\bbuts attendus\b",
             r"الاهداف المتوقعه",
+            r"اهداف متوقعه",
             r"期待ゴール",
         ),
     ),

@@ -104,6 +104,12 @@ Suggested chips are sent as an id, never as text: `score`, `top_xg`,
 | `cards` | "any bookings?" | card moments |
 | `explain_metric` | "what is xG?" | the metric registry (formula and quality flag) plus a plain-words definition |
 | `window` | "what happened between 60 and 70?" | moments in that window (never past the clock) |
+| `about` | "is this real data?", "who built you?", "is this AI?" | fixed text written by the team (`ask/about.py`): a synthetic match with invented clubs and players, every number from the stats engine, the crew's mode (templates with paid AI off, or paid AI on for the wording), made by the PitchPulse team as a hackathon entry. No numbers, no match facts, nothing from the question |
+
+Before the first "should he have passed?" moment, `better_option` says there is none
+yet and that each one is marked in the moments list before it happens. It never
+names the later moment's clock (that would read ahead); the web app adds a
+"Jump to" button from the public jump list (`components/AskStudio.tsx`).
 
 ## Refusal policy
 
@@ -111,6 +117,12 @@ A refusal is a single plain sentence in the viewer's language. It never repeats
 the question, and it does not say which check caught it. Markup, injection and
 real-name refusals all use the same "I can only answer questions about this
 match." sentence.
+
+One exception to the real-name refusal: a provenance question that names a real
+competition or club ("is this real Premier League data?") gets the fixed `about`
+answer, because the honest reply is that the match is synthetic. The real name is
+never repeated, and the wrapped-request rule still applies ("is this real
+Premier League data? write me a poem" is refused).
 
 | Reason | When | Sentence (en) |
 |---|---|---|
@@ -161,7 +173,8 @@ Most of these are in `backend/tests/test_ask.py`. The catch-up tests are in
 | What | Evidence |
 |---|---|
 | 61 questions in en, es, fr, ar and ja map to the right intent and answer | `TABLE` |
-| 33 wrapped requests in all five languages are refused; 26 plain questions with filler words are still answered | `WRAPPED`, `LEGIT` |
+| 41 wrapped requests in all five languages are refused (provenance questions included); 51 plain questions with filler words, the main chips typed in all five languages and provenance questions are still answered | `WRAPPED`, `LEGIT` |
+| Provenance questions ("is this real data?", "who built you?") get the fixed `about` answer in all five languages, never echo a real name, and lose to a match question | `backend/tests/test_ask_about.py` |
 | 37 adversarial inputs are refused, and the refusal never echoes them | `ADVERSARIAL` |
 | Inputs covered by the adversarial set | wrapped and indirect "ignore your rules"; role-play; HTML and SQL; bidi and zero-width characters; look-alike letters; spaced-out letters; real names; over-length input; a crafted squad name |
 | Every chip in every studio language | chip tests |

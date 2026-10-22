@@ -206,6 +206,12 @@ _SQUASHED = (
 )
 
 
+def carries_another_request(norm: str) -> bool:
+    """Whether normalised text carries a request riding along ("tell me a joke", "btw ...")."""
+    squashed = re.sub(r"[^\w]+", " ", norm)
+    return any(rx.search(norm) or rx.search(squashed) for rx in _OFF_TOPIC)
+
+
 def _squashed_injection(letters: str) -> bool:
     return any(token in letters for token in _SQUASHED)
 

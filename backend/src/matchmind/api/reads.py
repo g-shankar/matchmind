@@ -16,6 +16,7 @@ import threading
 import time
 from collections import OrderedDict
 from collections.abc import Callable
+from dataclasses import replace
 from typing import Any, Protocol, TypeVar
 
 from fastapi import HTTPException
@@ -276,6 +277,7 @@ async def ask(
     session = hub.session
     ctx = await hub.run(ask_context, session)
     llm = getattr(session.crew, "llm", None) if ai_enabled() else None
+    ctx = replace(ctx, ai_crew=llm is not None)
     answer = await asyncio.to_thread(
         lambda: ask_studio(
             ctx,

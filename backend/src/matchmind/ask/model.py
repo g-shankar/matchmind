@@ -140,6 +140,7 @@ class IntentGuess(BaseModel):
         "cards",
         "explain_metric",
         "window",
+        "about",
         "none",
     ]
     side: Literal["home", "away"] | None = None

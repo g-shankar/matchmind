@@ -7991,7 +7991,8 @@
                 "var",
                 "cards",
                 "explain_metric",
-                "window"
+                "window",
+                "about"
               ],
               "title": "Kind",
               "type": "string"

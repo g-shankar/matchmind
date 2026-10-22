@@ -48,6 +48,7 @@ from matchmind.crew.contracts import (
     OverlayCard,
     Recap,
     ViewerProfile,
+    is_world_language,
 )
 from matchmind.crew.cues import Cue, CueCompiler, CueTime, RibbonSample, active_cues
 from matchmind.crew.llm import ai_enabled
@@ -392,6 +393,8 @@ class MatchSession:
         self._spotter_checkpoints: dict[int, Any] = {}  # index -> spotter rolling state before it
         self._event_metrics: list[EventMetrics] = []  # per event, from the load-time pass
         self.bookmarks: list[Bookmark] = []
+        # moment id -> language -> jump-list title in that studio language (filled on first use).
+        self._titles: dict[str, dict[str, str]] = {}
         self._samples: list[RibbonSample] = []  # momentum and pressure after each event
         self._retractions: list[tuple[int, list[str]]] = []  # (event index, moment ids ruled out)
         # profile (JSON) -> its compiled positions (upto -> compile). The sheet depends only on
@@ -474,8 +477,22 @@ class MatchSession:
         ruled_out = {mid for _, ids in self._retractions for mid in ids}
         self.bookmarks = [replace(b, ruled_out=b.moment_id in ruled_out) for b in self.bookmarks]
 
-    def _title(self, bundle: MomentBundle) -> str:
-        card = self._bookmark_crew.render(bundle, ViewerProfile())
+    def bookmark_title(self, bookmark: Bookmark, language: str) -> str:
+        """The jump-list title in the viewer's studio language (en, es, fr, ar, ja), from
+        the template crew's headline for that language. Other languages keep the English
+        title: translating every title would mean a paid call per moment."""
+        if language == "en" or is_world_language(language):
+            return bookmark.title
+        titles = self._titles.setdefault(bookmark.moment_id, {})
+        title = titles.get(language)
+        if title is None:
+            bundle = self._bundles.get(bookmark.moment_id)
+            title = self._title(bundle, language) if bundle is not None else bookmark.title
+            titles[language] = title
+        return title
+
+    def _title(self, bundle: MomentBundle, language: str = "en") -> str:
+        card = self._bookmark_crew.render(bundle, ViewerProfile(language=language))
         if card is not None and card.headline:
             return card.headline
         return bundle.explanation.tactical_tag or str(bundle.moment.kind).replace("_", " ").capitalize()
@@ -800,6 +817,7 @@ class MatchSession:
             for _, bundle in self._bundle_index[marks[0] :]:
                 self._bundles.pop(bundle.moment.moment_id, None)
                 self._moment_at.pop(bundle.moment.moment_id, None)
+                self._titles.pop(bundle.moment.moment_id, None)
             del self._bundle_index[marks[0] :]
             del self.bookmarks[marks[1] :]
             del self._checkpoints[marks[2] :]

@@ -152,7 +152,7 @@ def unit_for(key: str) -> str | None:
         return "min"
     if key in ("times_better",):
         return "x"
-    if key in ("xg", "shot_xg", "alt_xg", "projected_xg", "xg_home", "xg_away", "team_xg_total"):
+    if key in ("xg", "shot_xg", "alt_xg", "alt_value", "projected_xg", "xg_home", "xg_away", "team_xg_total"):
         return "xG"
     if key in ("xt_delta", "xt_stopped"):
         return "xT"

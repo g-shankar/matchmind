@@ -30,14 +30,16 @@ from matchmind.crew.i18n import fill
 from matchmind.crew.llm import LLM
 from matchmind.crew.spotter import surname
 
+from .about import is_about
 from .answer import AskContext, Composed, _team_name, compose, evidence_for, minute_of
 from .guard import RefusalReason, check_question, safe_display_name
 from .i18n import answer_language, ask_pack
 from .intents import CHIPS, Intent
 from .model import model_intent
-from .parser import Roster, parse
+from .parser import ParseResult, Roster, parse
 
 logger = logging.getLogger("pitchpulse.ask")
+ABOUT_INTENT = Intent(kind="about")
 
 AskStatus = Literal["answered", "refused", "hidden", "clarify", "not_yet"]
 UnderstoodBy = Literal["chip", "rules", "model"]
@@ -145,9 +147,14 @@ def ask(
     else:
         text = question or ""
         guard = check_question(text)
+        if guard.refusal == "real_name" and is_about(text, roster):
+            # "Is this real <competition> data?": the honest, fixed answer is that it is synthetic.
+            return _log(answer_intent(ctx, ABOUT_INTENT, "rules", language, spoilers), len(text))
         if guard.refusal is not None:
             return _log(refusal(ctx, language, spoilers, guard.refusal), len(text))
         parsed = parse(text, guard.normalised, roster, minute_of(ctx.clock_s, ctx.period))
+        if parsed.intent is None and not parsed.clarify and is_about(text, roster):
+            parsed = ParseResult(intent=ABOUT_INTENT)
         if parsed.refusal is not None:
             return _log(refusal(ctx, language, spoilers, parsed.refusal), len(text))
         if parsed.clarify:

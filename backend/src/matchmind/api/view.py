@@ -209,8 +209,12 @@ def card_payload(card: OverlayCard) -> dict[str, Any]:
     return card.model_dump(mode="json")
 
 
-def bookmark_payload(bookmark: Bookmark) -> dict[str, Any]:
-    return asdict(bookmark)
+def bookmark_payload(bookmark: Bookmark, title: str | None = None) -> dict[str, Any]:
+    """`title` replaces the English title (the viewer's studio language)."""
+    out = asdict(bookmark)
+    if title is not None:
+        out["title"] = title
+    return out
 
 
 def moment_detail_payload(bundle: MomentBundle, played: bool) -> dict[str, Any]:
@@ -329,7 +333,9 @@ def _snapshot_payload(
         "profile": profile.model_dump(),
         "playback": session.playback(),
         "recent_cards": [card_payload(c) for c in session.cards_for(session.recent_bundles(), profile)],
-        "bookmarks": [bookmark_payload(b) for b in session.bookmarks],
+        "bookmarks": [
+            bookmark_payload(b, session.bookmark_title(b, profile.language)) for b in session.bookmarks
+        ],
         "players": [player_payload(p) for p in session.players()],
         "crew": crew.model_dump(),
         "languages": languages_payload(crew),

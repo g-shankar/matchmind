@@ -543,7 +543,7 @@ interface AskAnswer {
   status: 'answered' | 'refused' | 'hidden' | 'clarify' | 'not_yet';
   reason: 'empty' | 'too_long' | 'markup' | 'injection' | 'real_name' | 'off_topic'
         | 'unknown_player' | 'fact_check' | null;           // refused only
-  intent: Intent | null;                    // the fixed-schema intent that was answered
+  intent: Intent | null;                    // the fixed-schema intent that was answered (kind 'about': fixed text about PitchPulse)
   understood_by: 'chip' | 'rules' | 'model' | null;
   answer: string;                           // plain text, render as text
   language: Language; text_language: Language; rtl: boolean;

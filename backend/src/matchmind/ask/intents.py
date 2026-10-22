@@ -28,6 +28,7 @@ IntentKind = Literal[
     "cards",
     "explain_metric",
     "window",
+    "about",
 ]
 INTENT_KINDS: tuple[str, ...] = IntentKind.__args__  # type: ignore[attr-defined]
 
