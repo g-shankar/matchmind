@@ -2,7 +2,7 @@
 // stable `code` next to its English text (docs/API-CONTRACT.md, ERROR); the toast shows the
 // text for that code in the viewer's content language, so a rate-limit message never
 // appears in English on an Arabic or Japanese page. Kept in all five content languages,
-// not only the three UI languages, because a toast speaks to the viewer about their match.
+// which are also the five UI languages.
 
 export const TOAST_LANGUAGES = ['en', 'es', 'fr', 'ar', 'ja'] as const;
 export type ToastLanguage = (typeof TOAST_LANGUAGES)[number];
