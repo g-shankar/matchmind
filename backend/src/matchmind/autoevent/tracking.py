@@ -14,12 +14,14 @@ What the feed is and is not:
   the ball drops out for short spells, as it does behind bodies in real feeds.
 - Players other than the ball holder follow a simple team-shape model and run
   to wherever the events say they must be next (receiving a pass, making an
-  interception). Off the ball they ease towards their place in the shape at
+  interception, pressing the ball when the event lists them in
+  `pressure_players`, goal-side of it). Off the ball they ease towards their place in the shape at
   jogging pace, drift a little around it and sprint back when caught upfield
   after the ball is lost. Their movement is plausible, not a physical model; it
   was tuned so that distance covered lands near real outfield totals (about
-  10-12 km over a match). Nobody presses the ball closely: a defender standing
-  next to it would blur who controls it, which is what the detector measures.
+  10-12 km over a match). Only recorded pressers close the ball down: a defender standing
+  next to it would blur who controls it, so recorded pressers stand a couple of
+  metres goal-side of the ball.
 - Each frame carries a ball-in-play flag, as real feeds do.
 
 It is synthetic tracking, not video, and nothing here is presented as video.
@@ -58,6 +60,8 @@ RECOVERY_SPEED_MPS = 7.0  # a recovery run when caught upfield after losing the 
 RECOVERY_GAP_M = 8.0  # how far ahead of the shape position counts as caught upfield
 SWAY_M = 1.5  # slow drift around the shape position (keepers: a third of it)
 SWAY_PERIODS_S = (23.0, 31.0)
+PRESS_GAP_M = 2.2  # where a recorded presser stands, goal-side of the ball
+PRESS_FAN_RAD = 0.7  # two or more pressers fan out around the goal-side line
 
 _KICKS = {EventType.PASS, EventType.SHOT, EventType.CLEARANCE}
 _MOVES = _KICKS | {EventType.CARRY, EventType.DRIBBLE}
@@ -169,6 +173,7 @@ class _Builder:
                     # The actor has the ball from the last keyframe until the kick.
                     per.hold.append((max(last_end, t - 30.0), t, e.player_id))
                     per.anchors.setdefault(e.player_id, []).append((t, s))
+                self._press(per, e, t, s)
                 end_t = t
                 if e.end is not None:
                     end = _xy(e.end)
@@ -206,6 +211,19 @@ class _Builder:
             lst.sort()
         per.hold.sort()
         return per
+
+    def _press(self, per: _Period, e: Event, t: float, s: tuple[float, float]) -> None:
+        """Opponents the event records as pressing run to the ball, goal-side of it."""
+        for j, pid in enumerate(e.pressure_players):
+            if pid not in self.team_of:
+                continue
+            own_goal = (0.0 if self.team_of[pid] == self.home else pitch.LENGTH, pitch.WIDTH / 2)
+            base = math.atan2(own_goal[1] - s[1], own_goal[0] - s[0])
+            angle = base + PRESS_FAN_RAD * ((j + 1) // 2) * (1 if j % 2 else -1)
+            spot = pitch.clamp_pos(
+                (s[0] + PRESS_GAP_M * math.cos(angle), s[1] + PRESS_GAP_M * math.sin(angle)), 0.5
+            )
+            per.anchors.setdefault(pid, []).append((t, spot))
 
     def _receiver(self, e: Event, rest: list[Event]) -> str | None:
         if e.type == EventType.PASS and e.outcome == Outcome.COMPLETE:

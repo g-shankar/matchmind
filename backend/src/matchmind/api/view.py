@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any
 
-from matchmind.crew.contracts import CrewStatus, OverlayCard, ViewerProfile
+from matchmind.crew.contracts import CrewStatus, MomentBundle, OverlayCard, ViewerProfile
 from matchmind.crew.languages import language_list
 from matchmind.schema import Event
 from matchmind.simulator.teams import Team, get_team
@@ -200,6 +200,16 @@ def card_payload(card: OverlayCard) -> dict[str, Any]:
 
 def bookmark_payload(bookmark: Bookmark) -> dict[str, Any]:
     return asdict(bookmark)
+
+
+def moment_detail_payload(bundle: MomentBundle, played: bool) -> dict[str, Any]:
+    """A spotted moment with the facts and evidence behind it, before any persona voices it."""
+    return {
+        "moment": bundle.moment.model_dump(mode="json"),
+        "explanation": bundle.explanation.model_dump(mode="json"),
+        "replay": bundle.replay,
+        "played": played,
+    }
 
 
 def languages_payload(status: CrewStatus) -> list[dict[str, Any]]:

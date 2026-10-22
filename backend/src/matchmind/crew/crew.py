@@ -27,6 +27,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeout
+from dataclasses import dataclass
 from typing import Any
 
 from pydantic import BaseModel
@@ -51,7 +52,8 @@ from matchmind.crew.contracts import (
 )
 from matchmind.crew.fact_checker import banned_names_in, check, check_all
 from matchmind.crew.i18n import MissingFact, fill_first, pack
-from matchmind.crew.llm import LLM, LLMSchemaError, ModelBudget, default_budget, make_llm
+from matchmind.crew.llm import LLM, LLMSchemaError, ModelBudget, default_budget, make_llm, provider_of
+from matchmind.crew.orchestration import make_workflows
 from matchmind.crew.producer import ViewerState, build_card, select
 from matchmind.crew.spotter import Spotter, surname
 from matchmind.crew.translator import TRANSIENT_REASONS, TranslationService, Translator
@@ -71,6 +73,38 @@ RECAP_AI_LIMIT = 256
 AI_AGENTS = ("analyst", "commentator", "recap")
 
 
+@dataclass
+class Spotted:
+    """The Spotter's output for one event; `repeat` holds the bundles when the
+    event was processed before."""
+
+    moments: list[Moment]
+    ms: float
+    repeat: list[MomentBundle] | None = None
+
+
+@dataclass
+class AnalystDraft:
+    """The Analyst model step's answer (None in template mode or on a fallback)."""
+
+    result: Any | None
+    reason: str | None
+    ms: float
+
+
+@dataclass
+class CommentatorDraft:
+    """What the Commentator hands the fact-checker for one viewer profile."""
+
+    bundle: MomentBundle
+    profile: ViewerProfile
+    why: str
+    template: Narrative
+    result: Any | None
+    reason: str | None
+    ms: float
+
+
 class Crew:
     def __init__(
         self,
@@ -81,6 +115,7 @@ class Crew:
         clock: Callable[[], float] = time.monotonic,
         budget: ModelBudget | None = None,
         translator: Translator | TranslationService | None = None,
+        orchestrator: str | None = None,
     ) -> None:
         self.teams = teams
         self.llm: LLM = llm if llm is not None else make_llm()
@@ -107,6 +142,8 @@ class Crew:
         self._pool = ThreadPoolExecutor(max_workers=4, thread_name_prefix="crew-llm")
         self._lock = threading.RLock()
         self._init_state()
+        # None follows MATCHMIND_ORCHESTRATOR (in process by default).
+        self._workflows = make_workflows(self, orchestrator)
 
     def _init_state(self) -> None:
         self._bundles: OrderedDict[str, MomentBundle] = OrderedDict()
@@ -126,6 +163,10 @@ class Crew:
     @property
     def mode(self) -> str:
         return "ai" if self.llm.enabled else "template"
+
+    @property
+    def orchestrator(self) -> str:
+        return "in_process" if self._workflows is None else "agent_framework"
 
     def reset(self) -> None:
         with self._lock:
@@ -153,6 +194,8 @@ class Crew:
             return CrewStatus(
                 mode=self.mode,  # type: ignore[arg-type]
                 model=self.llm.model if self.llm.enabled else None,
+                provider=provider_of(self.llm),  # type: ignore[arg-type]
+                orchestrator=self.orchestrator,  # type: ignore[arg-type]
                 breakers_open=[
                     a
                     for a, b in self.breakers.items()
@@ -180,10 +223,34 @@ class Crew:
     ) -> list[MomentBundle]:
         """Spot, explain and fact-check the moments in one event. Processing
         the same event again returns the same bundles and adds nothing."""
+        if self._workflows is not None:
+            return self._workflows.process(event, metrics, snapshot, players)
+        spotted = self.spot_step(event, metrics, snapshot, players)
+        if spotted.repeat is not None:
+            return spotted.repeat
+        bundles: list[MomentBundle] = []
+        for moment in spotted.moments:
+            self.trace_spotted(moment, spotted.ms)
+            explanation = self.fact_check_explanation(moment, self.analyst_step(moment))
+            bundles.append(self.keep_bundle(moment, explanation, metrics))
+        return bundles
+
+    # The steps below are the crew's agents, one method each. `process` and
+    # `render` chain them in process; `crew.workflow` chains the same methods
+    # as Microsoft Agent Framework executors (MATCHMIND_ORCHESTRATOR).
+
+    def spot_step(
+        self,
+        event: Event,
+        metrics: EventMetrics,
+        snapshot: MatchStateSnapshot,
+        players: dict[str, PlayerStats],
+    ) -> Spotted:
+        """Spotter: the moments in one event, or the bundles already made for it."""
         with self._lock:
             done = self._processed.get(event.event_id)
             if done is not None:
-                return [self._bundles[m] for m in done if m in self._bundles]
+                return Spotted([], 0.0, [self._bundles[m] for m in done if m in self._bundles])
             self._match_id = snapshot.match_id
             t0 = time.perf_counter()
             moments = self.spotter.spot(event, metrics, snapshot, players)
@@ -191,28 +258,23 @@ class Crew:
             self._processed[event.event_id] = [m.moment_id for m in moments]
             while len(self._processed) > PROCESSED_LIMIT:
                 self._processed.popitem(last=False)
+        return Spotted(moments, spot_ms)
 
-        bundles: list[MomentBundle] = []
-        for moment in moments:
-            self._trace(moment, "spotter", spot_ms, "ok", moment.kind.value)
-            explanation = self._explain(moment)
-            replay = None
-            if metrics.better_option is not None and moment.kind.value == "better_option":
-                replay = metrics.better_option.model_dump(mode="json")
-            elif metrics.unfound_run is not None and moment.kind.value == "unfound_run":
-                replay = metrics.unfound_run.model_dump(mode="json")
-            bundle = MomentBundle(moment=moment, explanation=explanation, replay=replay)
-            with self._lock:
-                self._bundles[moment.moment_id] = bundle
-            bundles.append(bundle)
-        return bundles
+    def trace_spotted(self, moment: Moment, ms: float) -> None:
+        self._trace(moment, "spotter", ms, "ok", moment.kind.value)
 
-    def _explain(self, moment: Moment) -> Explanation:
+    def analyst_step(self, moment: Moment) -> AnalystDraft:
+        """Analyst: the model's explanation (or why there is none). Not checked yet."""
         t0 = time.perf_counter()
         result, reason = self._ai(
             "analyst", analyst.ANALYST_SYSTEM, analyst.ai_payload(moment), analyst.AnalystOut
         )
-        ms = (time.perf_counter() - t0) * 1000
+        return AnalystDraft(result, reason, (time.perf_counter() - t0) * 1000)
+
+    def fact_check_explanation(self, moment: Moment, draft: AnalystDraft) -> Explanation:
+        """Fact-checker on the Analyst's draft: the model text if every number is a
+        fact, otherwise the template explanation (which must pass too)."""
+        result, reason, ms = draft.result, draft.reason, draft.ms
         if result is not None:
             verdict = check(result.why, moment.facts, "en", "why", strict_words=True)
             self._trace(
@@ -236,6 +298,20 @@ class Crew:
             self._trace(moment, "fact_checker", 0.0, "rejected", _short(verdict.reasons))
         self._trace(moment, "analyst", ms, "fallback" if reason else "ok", reason or "template")
         return explanation
+
+    def _explain(self, moment: Moment) -> Explanation:
+        return self.fact_check_explanation(moment, self.analyst_step(moment))
+
+    def keep_bundle(self, moment: Moment, explanation: Explanation, metrics: EventMetrics) -> MomentBundle:
+        replay = None
+        if metrics.better_option is not None and moment.kind.value == "better_option":
+            replay = metrics.better_option.model_dump(mode="json")
+        elif metrics.unfound_run is not None and moment.kind.value == "unfound_run":
+            replay = metrics.unfound_run.model_dump(mode="json")
+        bundle = MomentBundle(moment=moment, explanation=explanation, replay=replay)
+        with self._lock:
+            self._bundles[moment.moment_id] = bundle
+        return bundle
 
     # ------------------------------------------------------------ render
 
@@ -268,6 +344,20 @@ class Crew:
                 self._remember_card(key, card)
             return card.model_copy(deep=True)
 
+        if self._workflows is not None:
+            return self._workflows.voice(bundle, profile, key)
+        draft = self.commentator_step(bundle, profile)
+        if draft is None:
+            return None
+        narrative = self.fact_check_narrative(draft)
+        if narrative is None:
+            return None
+        return self.producer_step(draft, narrative, key)
+
+    def commentator_step(self, bundle: MomentBundle, profile: ViewerProfile) -> CommentatorDraft | None:
+        """Commentator: the template narrative and the model's draft (not checked
+        yet). None when no template fits the moment."""
+        m = bundle.moment
         fav_name = self.team_name(profile.favourite_team)
         lang = profile.language
         why = bundle.explanation.why
@@ -285,12 +375,21 @@ class Crew:
         except MissingFact as exc:
             self._trace(m, "commentator", 0.0, "error", f"{detail}: no template fits ({exc.args[0]})")
             return None
-        narrative: Narrative = template
         payload = commentator.ai_payload(m, why, profile.persona, lang, fav_name, profile.focus_player_id)
         result, reason = self._ai(
             "commentator", commentator.COMMENTATOR_SYSTEM, payload, commentator.CommentatorOut
         )
         ms = (time.perf_counter() - t0) * 1000
+        return CommentatorDraft(bundle, profile, why, template, result, reason, ms)
+
+    def fact_check_narrative(self, draft: CommentatorDraft) -> Narrative | None:
+        """Fact-checker on the Commentator's draft: the model text if it checks
+        out, otherwise the template (None if even that fails)."""
+        m, profile, template = draft.bundle.moment, draft.profile, draft.template
+        lang = profile.language
+        detail = f"{profile.persona}/{lang}"
+        result, reason, ms = draft.result, draft.reason, draft.ms
+        narrative: Narrative = template
         if result is not None:
             verdict = check_all(
                 {"headline": result.headline, "body": result.body}, m.facts, lang, strict_words=True
@@ -327,9 +426,14 @@ class Crew:
             "fallback" if reason else "ok",
             f"{detail}: {reason or narrative.produced_by}",
         )
+        return narrative
 
+    def producer_step(self, draft: CommentatorDraft, narrative: Narrative, key: tuple) -> OverlayCard:
+        """Producer: the overlay card for this viewer, kept in the card cache."""
+        m, profile = draft.bundle.moment, draft.profile
         t1 = time.perf_counter()
-        card = build_card(bundle, narrative, why, profile)
+        card = build_card(draft.bundle, narrative, draft.why, profile)
+        detail = f"{profile.persona}/{profile.language}"
         self._trace(m, "producer", (time.perf_counter() - t1) * 1000, "ok", f"{detail}: {card.slot}")
         self._remember_card(key, card)
         return card.model_copy(deep=True)
@@ -426,7 +530,7 @@ class Crew:
                 continue
             v = localise_teams(dict(m.facts), lang, fav_name)
             try:
-                headline, body = fill_first(pack(lang)["metric"][alert.metric], v, lang)
+                headline, body = fill_first(pack(lang)["metric"][alert.template], v, lang)
             except MissingFact:
                 continue
             if not check_all({"headline": headline, "body": body}, m.facts, lang).ok:

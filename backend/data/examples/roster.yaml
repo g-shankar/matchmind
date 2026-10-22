@@ -1,0 +1,41 @@
+# Invented clubs and players for the generic CSV example (docs/DATASET.md).
+# Every name here is made up; the ingest adapter rejects real ones.
+teams:
+  - team_id: RVT
+    name: Riverton Athletic
+    short_name: RVT
+    formation: 4-4-2
+    primary_color: "#1d6f42"
+    secondary_color: "#0b2a19"
+    style: Compact mid-block, quick wide breaks
+    players:
+      - {number: 1, name: Ansel Brook, position: GK}
+      - {number: 2, name: Corin Vale, position: RB}
+      - {number: 4, name: Hollis Marr, position: RCB}
+      - {number: 5, name: Tobin Quayle, position: LCB}
+      - {number: 3, name: Wren Ashby, position: LB}
+      - {number: 7, name: Emrys Doyle, position: RM}
+      - {number: 6, name: Lorcan Pike, position: RCM}
+      - {number: 8, name: Senan Holt, position: LCM}
+      - {number: 11, name: Jory Calloway, position: LM}
+      - {number: 9, name: Bram Ellery, position: ST}
+      - {number: 10, name: Idris Penhale, position: ST}
+  - team_id: GLD
+    name: Glenmoor Dynamo
+    short_name: GLD
+    formation: 4-3-3
+    primary_color: "#7b2cbf"
+    secondary_color: "#240046"
+    style: High line, short passing
+    players:
+      - {number: 1, name: Mattis Orlov, position: GK}
+      - {number: 2, name: Pavo Rensik, position: RB}
+      - {number: 5, name: Teodor Lusk, position: RCB}
+      - {number: 4, name: Halvar Strand, position: LCB}
+      - {number: 3, name: Ilan Mercer, position: LB}
+      - {number: 6, name: Dario Fenwick, position: CDM}
+      - {number: 8, name: Nils Okonjo, position: RCM}
+      - {number: 10, name: Aurel Simic, position: LCM}
+      - {number: 7, name: Kester Vane, position: RW}
+      - {number: 11, name: Yaro Bellweather, position: LW}
+      - {number: 9, name: Remy Castellan, position: ST}

@@ -100,14 +100,20 @@ model_steps:
     type: object
   agent_service:
     name: pitchpulse-producer-recap
+    kind: prompt
     model: gpt-4o-mini
+    model_setting: MATCHMIND_FOUNDRY_MODEL or AZURE_OPENAI_DEPLOYMENT
     instructions: the `instructions` above
-    response_format:
-      type: json_schema
-      json_schema:
+    temperature: 0.3
+    text:
+      format:
+        type: json_schema
         name: RecapOut
         schema: the `output_schema` above
+        strict: false
     tools: []
+    registered_by: matchmind-foundry register
+    runtime_switch: MATCHMIND_LLM_PROVIDER=foundry_agents (with MATCHMIND_AI_ENABLED=true)
 behaviour: |-
   Producer: turns voiced moments into timed overlay cards for one viewer.
 
@@ -115,7 +121,10 @@ behaviour: |-
   - slot by kind (speed and distance tags go on the pitch, replays to the side
     panel, goals full screen, the rest, key tackles included, as lower thirds);
   - persona filter (each audience sees the kinds it cares about);
-  - the favourite club's moments get +15 priority and `favourite_side`;
+  - club heart (crew/club_heart.py): with a favourite club, its moments get
+    +15 priority and `favourite_side`, rival minor moments are dropped and
+    rival build-up ranks a little lower (one policy table, documented in
+    docs/PERSONALISATION.md);
   - moments about the focus player are always kept and boosted;
   - de-duplicated by moment id per viewer;
   - at most one lower third per 8 s of match clock (extra ones move to the

@@ -26,7 +26,7 @@ Rules:
 type StudioLanguage = 'en' | 'es' | 'fr' | 'ar' | 'ja';    // 'ar' is right-to-left
 type WorldLanguage = 'pt' | 'de' | 'hi' | 'zh-Hans' | 'sw' | 'id' | 'tr' | 'ko';
 type Language = StudioLanguage | WorldLanguage;
-type PersonaType = 'casual' | 'tactical' | 'fantasy' | 'player_spotlight';
+type PersonaType = 'casual' | 'tactical' | 'fantasy' | 'player_spotlight';  // 'fantasy' is shown as "Stats scout"
 type FocusMetric = 'pressure' | 'xg' | 'pass_difficulty' | 'top_speed' | 'momentum';
 type MomentKind =
   | 'goal' | 'card' | 'big_chance' | 'better_option' | 'unfound_run'
@@ -236,6 +236,11 @@ interface CrewStatus {
   mode: 'ai' | 'template'; model: string | null; breakers_open: string[];
   moments: number; fallbacks: number; rejections: number;
   translator: TranslatorStatus;
+  // Who runs the model steps: 'templates' (no model; show "templates"), 'azure_openai'
+  // (Azure OpenAI deployment) or 'foundry_agents' (show "Foundry Agent Service").
+  provider: 'templates' | 'azure_openai' | 'foundry_agents';
+  // Who chains the agents: our in-process orchestrator or Microsoft Agent Framework workflows.
+  orchestrator: 'in_process' | 'agent_framework';
 }
 interface TranslatorStatus {
   mode: 'azure' | 'off'; available: boolean; breaker_open: boolean;
@@ -246,9 +251,32 @@ interface CrewTrace {
   steps: { agent: string; ms: number; status: 'ok' | 'fallback' | 'rejected' | 'error' | 'skipped'; detail: string | null }[];
 }
 
-interface AutoEventingStatus {                 // filled by the auto-eventing work; null until then
+interface AutoEventingStatus {                 // synthetic tracking-to-event benchmark; null if it could not run
   source: 'synthetic_tracking'; label: string; // "Detected from synthetic tracking, not video"
   passes_detected_pct: number; speed_mae_kmh: number; events_checked: number;
+  // Optional, added by the benchmark (older clients can ignore them). See docs/AUTO-EVENTING.md.
+  name?: string;                               // "Synthetic tracking-to-event benchmark"
+  match_id?: string | null;
+  speed_mae_ci_kmh?: [number, number] | null;  // 95% bootstrap interval for speed_mae_kmh
+  classes?: BenchmarkClassRow[] | null;        // pass, shot, clearance, tackle, interception, recovery
+  pressure?: BenchmarkClassRow | null;         // pressure on kicks vs the event data's under_pressure flag
+  confusion?: { rows: string[]; columns: string[]; counts: number[][] } | null;
+                                               // rows: true kinds + 'spurious'; columns: detected kinds + 'missed'
+  baseline?: { name: string; classes: BenchmarkClassRow[] } | null;  // naive detector, same scoring
+  pixel_path?: PixelPathRow | null;            // first 30 s only: a smoke check, not the benchmark
+  caveat?: string | null;                      // the circularity caveat, in plain words
+}
+interface BenchmarkClassRow {
+  kind: 'pass' | 'shot' | 'clearance' | 'tackle' | 'interception' | 'recovery' | 'pressure';
+  support: number; detected: number; matched: number;   // support = true events of this kind
+  precision: number; recall: number; f1: number;        // 0-1
+  precision_ci: [number, number] | null; recall_ci: [number, number] | null;  // 95% Wilson
+}
+interface PixelPathRow {                       // label: "Rendered synthetic top-down video, not broadcast footage; no real-video model"
+  label: string; window_s: number; frames: number; width_px: number; height_px: number;
+  player_error_m: number | null; ball_error_m: number | null; ball_found_pct: number;
+  coordinate: BenchmarkClassRow[]; pixels: BenchmarkClassRow[];   // same frames, both paths (last row: pressure)
+  speed_mae_kmh_coordinate: number | null; speed_mae_kmh_pixels: number | null;
 }
 ```
 
@@ -314,8 +342,9 @@ viewer that falls more than 4 MB behind on messages is disconnected with code
 | `set_persona` | `persona`, `spotlight_player_id?` | old alias for `set_view` (`spotlight_player_id` sets `focus_player_id`) |
 
 Cards in `MATCH_TICK` are already filtered and ordered for the connection's
-profile: persona and language applied, favourite club's moments boosted,
-`focus_player_id` moments always kept, `focus_metric` changes sent as
+profile: persona and language applied, club heart for the favourite club
+(its moments boosted, rival minor moments dropped, fan's-side framing: see
+docs/PERSONALISATION.md), `focus_player_id` moments always kept, `focus_metric` changes sent as
 `slot: 'metric_alert'`, speed and distance tags as `slot: 'pitch_tag'`.
 The server gets these from the crew: `render(bundle, profile)` for each moment,
 plus, when the crew provides it, `metric_alerts(snapshot, players, profile)` for
@@ -338,32 +367,100 @@ the focus metric (one place in `MatchSession.cards_for`).
 | `GET /api/crew/status` | `CrewStatus` |
 | `GET /api/languages` | `{ languages: LanguageInfo[], translator: TranslatorStatus }`: every language, its source (studio pack or Azure AI Translator) and whether it can be shown now |
 | `GET /api/crew/trace?limit=20` | `CrewTrace[]` (newest first) |
-| `GET /api/auto-eventing` | `AutoEventingStatus` or 404 until built |
+| `GET /api/auto-eventing` | `AutoEventingStatus` (computed once per match when the session loads, then served from memory) or 404 if it could not run |
 | `GET /api/metrics` | `MetricRegistry`: every metric's formula, units, source events, window, range, quality flag, limitations and edge cases, plus the metrics we do not compute |
 | `GET /api/match/stats/basic` | `BasicStats`: possession, pass accuracy (with its denominator), shots and on target, tackles, interceptions, PPDA, distance and top speed, per team and per player, match so far |
+| `GET /api/source` | `MatchSource`: where the match comes from (file or the live Event Hubs stream) and the stream counters |
+| `GET /api/dataset` | `DatasetIndex`: every downloadable synthetic match with its scenario and seed (docs/DATASET.md) |
+| `GET /api/dataset/export?match_id=&format=jsonl\|csv\|zip[&tracking_period=&tracking_from=&tracking_to=]` | a file download (streamed, `Content-Disposition: attachment`): events as JSON lines (byte for byte as bundled), events as CSV, or a zip with metadata, rosters, schema, data dictionary and, with the three tracking parameters, a 25 Hz synthetic tracking sample of at most 60 s (zip only) |
+
+```ts
+interface DatasetMatch {
+  match_id: string;                         // allow-listed: bundled ids and MM-GEN-01000..MM-GEN-01019
+  kind: 'bundled' | 'seeded';
+  scenario: 'demo_storyline' | 'chance_model' | 'chance_model_with_beats';
+  seed: number; home: string; away: string;
+  score: string | null;                     // bundled only, e.g. '2-3'
+  events: number | null;                    // bundled only
+}
+interface DatasetIndex {
+  synthetic: true; note: string; schema_version: string;
+  pitch: { length_m: 105; width_m: 68; home_attacks: '+x' };
+  formats: ('jsonl' | 'csv' | 'zip')[];
+  tracking: { hz: 25; max_window_s: 60; formats: ['zip'] };
+  scenarios: Record<string, string>;
+  seeded: { seed_start: number; seed_end: number; match_id: string };
+  matches: DatasetMatch[];
+}
+interface MatchSource {
+  source: 'file' | 'eventhubs';
+  format?: 'jsonl' | 'csv';                 // file source
+  requested?: 'eventhubs'; note?: string;   // live mode was asked for but no match started in time
+  starting_position?: string;               // eventhubs source
+  match_id: string; events_loaded: number;
+  complete: boolean;                        // false while a live match is still arriving
+  stream?: {                                // eventhubs source only: counts, never event content
+    state: 'waiting_for_match_start' | 'live' | 'ended' | 'stopped';
+    match_id: string | null; queued: number; backpressure_waits: number; error: string | null;
+    received: number; accepted: number; duplicates: number; conflicts: number; rejected: number;
+    too_big: number; before_start: number; other_match: number; after_end: number;
+    reordered: number; skipped: number; last_problem: string | null;
+  };
+}
+```
 
 Errors: `{ "detail": "plain words" }` with 400 or 404 (429 for a seek or reset
 inside the 0.5 s throttle, or more than about 2 POSTs a second, bursts of 10,
 from one client IP, or more than about 3 `GET /api/match/moment` and
 `GET /api/match/recap` requests a second, bursts of 30, from one client IP; 503 while the match is still loading, 500 with a generic
 message if something breaks on our side).
-API responses carry `Cache-Control: no-store`.
+`GET /api/dataset/export` allows about one request every 5 s per client IP
+(bursts of 6) and at most two exports built at once (429 "Downloads are busy");
+an unknown `match_id` is 404 and a malformed one 400.
+API responses carry `Cache-Control: no-store`, except successful `/api/dataset`
+responses (synthetic, the same for everyone), which carry
+`Cache-Control: public, max-age=3600`. There is no upload route: external feeds
+are played from disk (docs/DATASET.md).
+
+## MCP
+
+`POST /mcp` serves the same reads as typed, read-only Model Context Protocol
+tools (Streamable HTTP, stateless, JSON responses), on the same live session.
+Each tool returns exactly the REST payload above (or the engine's, for tools
+with no REST route); a parity test holds them byte-identical. The endpoint has
+its own per-IP bucket (about 3 POSTs a second, bursts of 30), 16 KB bodies, one
+JSON-RPC request per POST, and checks `Origin` against the allow-list and `Host`
+against DNS rebinding. Tools, inputs, outputs and how to attach a client:
+[MCP.md](MCP.md). The stdio form is `matchmind-mcp`.
 
 ## Server settings
 
 | env | default | meaning |
 |---|---|---|
 | `MATCHMIND_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:3000` | comma-separated CORS and WebSocket origins; `*` is ignored |
-| `MATCHMIND_MATCH_FILE` | `backend/data/matches/MM-DEMO-001.jsonl` | the match to play |
+| `MATCHMIND_MATCH_FILE` | `backend/data/matches/MM-DEMO-001.jsonl` | the match to play: `.jsonl` in our event schema or `.csv` with a mapping file, both checked strictly by `matchmind.ingest` (docs/DATASET.md) |
+| `MATCHMIND_FEED_MAPPING` | (none) | mapping file for a generic CSV feed |
+| `MATCHMIND_ROSTER_FILE` | (none) | roster of invented clubs and players for a feed that does not use the two bundled clubs |
+| `MATCHMIND_SOURCE` | `file` | `eventhubs`: play the live Event Hubs stream instead (keyless, `EVENTHUB_FULLY_QUALIFIED_NAMESPACE` + `EVENTHUB_NAME`, needs the `azure` extra) |
+| `MATCHMIND_EVENTHUBS_MATCH_ID` | (none) | follow this match on the hub; default the first match_start seen |
+| `MATCHMIND_EVENTHUBS_START` | `@latest` | consumer starting position (`-1` = earliest retained event) |
+| `MATCHMIND_EVENTHUBS_WAIT_S` | `90` | how long to wait for a live match_start before replaying the match file |
+| `EVENTHUB_CONSUMER_GROUP` | `$Default` | Event Hubs consumer group |
+| `MATCHMIND_DATASET_DIR` | `backend/data/matches` | the bundled dataset offered by `/api/dataset` |
 | `MATCHMIND_STATIC_DIR` | `./static` (working directory) | built frontend served at `/` when it has an `index.html` |
 | `MATCHMIND_BASE_RATE` | `10` | match seconds per real second at 1x |
 | `MATCHMIND_AI_ENABLED` | `false` | `true`, `1` or `yes` (any case): live crew uses the paid model client; the whole-match bookmark pass always uses templates. Model recaps are only made at full time, once per persona, language and favourite club |
+| `MATCHMIND_LLM_PROVIDER` | `azure_openai` | with `MATCHMIND_AI_ENABLED` on: `azure_openai` (chat completions on `AZURE_OPENAI_DEPLOYMENT`) or `foundry_agents` (Microsoft Foundry Agent Service agents on the project at `MATCHMIND_FOUNDRY_PROJECT_ENDPOINT` or `AZURE_AI_PROJECT_ENDPOINT`; `docs/FOUNDRY.md`). Anything else reads as `azure_openai` |
+| `MATCHMIND_FOUNDRY_MODEL` | `AZURE_OPENAI_DEPLOYMENT`, else `gpt-4o-mini` | model deployment the Foundry agents use |
+| `MATCHMIND_ORCHESTRATOR` | `in_process` | `agent_framework`: the crew's chains run as Microsoft Agent Framework workflows (free; needs the `agent-framework` extra, otherwise logged and in process) |
 | `MATCHMIND_AI_BUDGET` | `300` | most paid model calls per process; then templates with `fallback_reason: 'budget'` |
 | `MATCHMIND_AI_RATE_PER_MIN` | `30` | most paid model calls in any 60 s; then templates with `fallback_reason: 'budget'` |
 | `MATCHMIND_TRANSLATOR_ENABLED` | `false` | with `MATCHMIND_AI_ENABLED` also on: world languages are translated by Azure AI Translator (keyless, `AZURE_TRANSLATOR_ENDPOINT` custom subdomain); otherwise they are English with `fallback_reason: 'translator_off'` |
 | `MATCHMIND_TRANSLATOR_CHAR_BUDGET` | `200000` | most characters sent to Translator per process; then English with `fallback_reason: 'translator_budget'` |
 | `MATCHMIND_TRANSLATOR_CHARS_PER_MIN` | `20000` | most characters sent to Translator in any 60 s |
 | `MATCHMIND_PUBLIC_ORIGIN` | (none) | this server's own public origin (e.g. `https://pitchpulse.example`), allowed for the WebSocket only when the built frontend is served from `MATCHMIND_STATIC_DIR` |
+| `MATCHMIND_MCP_ENABLED` | `true` | `false`, `0`, `no` or `off`: no `/mcp` endpoint (REST and WebSocket unchanged) |
+| `MATCHMIND_MCP_ALLOWED_HOSTS` | (none) | extra comma-separated `Host` values `/mcp` answers (beyond localhost and the hosts of the allowed and public origins); `*` is ignored |
 | `MATCHMIND_MAX_CONNECTIONS` | `200` | most open WebSockets |
 | `MATCHMIND_MAX_CONN_PER_IP` | `20` | most open WebSockets from one client IP |
 | `MATCHMIND_HOST`, `PORT` / `MATCHMIND_PORT` | `127.0.0.1`, `8000` | `matchmind-api` / `python -m matchmind.api`; ASGI app `matchmind.api.app:app` |

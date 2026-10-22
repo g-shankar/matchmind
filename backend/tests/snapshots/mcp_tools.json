@@ -1,0 +1,4667 @@
+[
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "The live match as a viewer joining now sees it: clock, score, rolling team state, control/chaos, playback, recent overlay cards, moment bookmarks, player stats, crew status, languages and the auto-eventing check. Same payload as GET /api/match/snapshot. All clubs, players and matches are fictional and synthetic.",
+    "inputSchema": {
+      "properties": {},
+      "title": "get_match_snapshotArguments",
+      "type": "object"
+    },
+    "name": "get_match_snapshot",
+    "outputSchema": {
+      "$defs": {
+        "AutoEventingStatus": {
+          "description": "The shape served at GET /api/auto-eventing (see docs/API-CONTRACT.md).\n\nThe first five fields are the original contract; everything after them is\noptional and was added by the benchmark, so older clients keep working.",
+          "properties": {
+            "baseline": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/BaselineRow"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "caveat": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Caveat"
+            },
+            "classes": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/$defs/ClassRow"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Classes"
+            },
+            "confusion": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Confusion"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "events_checked": {
+              "description": "True passes and shots the detections were checked against.",
+              "title": "Events Checked",
+              "type": "integer"
+            },
+            "label": {
+              "default": "Detected from synthetic tracking, not video",
+              "title": "Label",
+              "type": "string"
+            },
+            "match_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Match Id"
+            },
+            "name": {
+              "default": "Synthetic tracking-to-event benchmark",
+              "title": "Name",
+              "type": "string"
+            },
+            "passes_detected_pct": {
+              "description": "Recall on passes, in percent.",
+              "title": "Passes Detected Pct",
+              "type": "number"
+            },
+            "pixel_path": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PixelPathRow"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "pressure": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClassRow"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "source": {
+              "const": "synthetic_tracking",
+              "default": "synthetic_tracking",
+              "title": "Source",
+              "type": "string"
+            },
+            "speed_mae_ci_kmh": {
+              "anyOf": [
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "95% bootstrap interval for speed_mae_kmh.",
+              "title": "Speed Mae Ci Kmh"
+            },
+            "speed_mae_kmh": {
+              "title": "Speed Mae Kmh",
+              "type": "number"
+            }
+          },
+          "required": [
+            "passes_detected_pct",
+            "speed_mae_kmh",
+            "events_checked"
+          ],
+          "title": "AutoEventingStatus",
+          "type": "object"
+        },
+        "BaselineRow": {
+          "description": "A naive detector scored the same way, to show what the real one adds.",
+          "properties": {
+            "classes": {
+              "items": {
+                "$ref": "#/$defs/ClassRow"
+              },
+              "title": "Classes",
+              "type": "array"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "classes"
+          ],
+          "title": "BaselineRow",
+          "type": "object"
+        },
+        "BookmarkOut": {
+          "properties": {
+            "clock_s": {
+              "title": "Clock S",
+              "type": "number"
+            },
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "match_clock": {
+              "title": "Match Clock",
+              "type": "string"
+            },
+            "moment_id": {
+              "title": "Moment Id",
+              "type": "string"
+            },
+            "period": {
+              "title": "Period",
+              "type": "integer"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "moment_id",
+            "kind",
+            "match_clock",
+            "clock_s",
+            "period",
+            "title"
+          ],
+          "title": "BookmarkOut",
+          "type": "object"
+        },
+        "ClassRow": {
+          "description": "One class of the benchmark: counts, rates and 95% Wilson intervals.",
+          "properties": {
+            "detected": {
+              "title": "Detected",
+              "type": "integer"
+            },
+            "f1": {
+              "title": "F1",
+              "type": "number"
+            },
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "matched": {
+              "title": "Matched",
+              "type": "integer"
+            },
+            "precision": {
+              "title": "Precision",
+              "type": "number"
+            },
+            "precision_ci": {
+              "anyOf": [
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "95% Wilson interval; None if nothing detected.",
+              "title": "Precision Ci"
+            },
+            "recall": {
+              "title": "Recall",
+              "type": "number"
+            },
+            "recall_ci": {
+              "anyOf": [
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "95% Wilson interval; None if no true events.",
+              "title": "Recall Ci"
+            },
+            "support": {
+              "description": "True events of this kind (the recall denominator).",
+              "title": "Support",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "support",
+            "detected",
+            "matched",
+            "precision",
+            "recall",
+            "f1",
+            "precision_ci",
+            "recall_ci"
+          ],
+          "title": "ClassRow",
+          "type": "object"
+        },
+        "Confusion": {
+          "description": "Rows are true kinds then 'spurious'; columns are detected kinds then 'missed'.",
+          "properties": {
+            "columns": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Columns",
+              "type": "array"
+            },
+            "counts": {
+              "items": {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "title": "Counts",
+              "type": "array"
+            },
+            "rows": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Rows",
+              "type": "array"
+            }
+          },
+          "required": [
+            "rows",
+            "columns",
+            "counts"
+          ],
+          "title": "Confusion",
+          "type": "object"
+        },
+        "ControlChaos": {
+          "properties": {
+            "away_control_pct": {
+              "title": "Away Control Pct",
+              "type": "number"
+            },
+            "chaos_index": {
+              "title": "Chaos Index",
+              "type": "number"
+            },
+            "current_tempo": {
+              "title": "Current Tempo",
+              "type": "string"
+            },
+            "home_control_pct": {
+              "title": "Home Control Pct",
+              "type": "number"
+            },
+            "rolling_momentum_home": {
+              "title": "Rolling Momentum Home",
+              "type": "number"
+            }
+          },
+          "required": [
+            "home_control_pct",
+            "away_control_pct",
+            "chaos_index",
+            "current_tempo",
+            "rolling_momentum_home"
+          ],
+          "title": "ControlChaos",
+          "type": "object"
+        },
+        "CrewStatus": {
+          "properties": {
+            "breakers_open": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Breakers Open",
+              "type": "array"
+            },
+            "fallbacks": {
+              "default": 0,
+              "title": "Fallbacks",
+              "type": "integer"
+            },
+            "mode": {
+              "enum": [
+                "ai",
+                "template"
+              ],
+              "title": "Mode",
+              "type": "string"
+            },
+            "model": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Model"
+            },
+            "moments": {
+              "default": 0,
+              "title": "Moments",
+              "type": "integer"
+            },
+            "orchestrator": {
+              "default": "in_process",
+              "enum": [
+                "in_process",
+                "agent_framework"
+              ],
+              "title": "Orchestrator",
+              "type": "string"
+            },
+            "provider": {
+              "default": "templates",
+              "enum": [
+                "templates",
+                "azure_openai",
+                "foundry_agents"
+              ],
+              "title": "Provider",
+              "type": "string"
+            },
+            "rejections": {
+              "default": 0,
+              "title": "Rejections",
+              "type": "integer"
+            },
+            "translator": {
+              "$ref": "#/$defs/TranslatorStatus"
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "title": "CrewStatus",
+          "type": "object"
+        },
+        "Evidence": {
+          "properties": {
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "label_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Label Key"
+            },
+            "source_event_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Source Event Id"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Unit"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ],
+              "title": "Value"
+            }
+          },
+          "required": [
+            "label",
+            "value"
+          ],
+          "title": "Evidence",
+          "type": "object"
+        },
+        "LanguageInfo": {
+          "description": "One language the viewer can pick, and whether it can be shown in it now.",
+          "properties": {
+            "available": {
+              "title": "Available",
+              "type": "boolean"
+            },
+            "code": {
+              "enum": [
+                "en",
+                "es",
+                "fr",
+                "ar",
+                "ja",
+                "pt",
+                "de",
+                "hi",
+                "zh-Hans",
+                "sw",
+                "id",
+                "tr",
+                "ko"
+              ],
+              "title": "Code",
+              "type": "string"
+            },
+            "english_name": {
+              "title": "English Name",
+              "type": "string"
+            },
+            "name": {
+              "description": "The language's own name, e.g. 'Portugu\u00eas'",
+              "title": "Name",
+              "type": "string"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "const": "translator_off",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Reason"
+            },
+            "rtl": {
+              "default": false,
+              "title": "Rtl",
+              "type": "boolean"
+            },
+            "source": {
+              "enum": [
+                "studio",
+                "translator"
+              ],
+              "title": "Source",
+              "type": "string"
+            }
+          },
+          "required": [
+            "code",
+            "name",
+            "english_name",
+            "source",
+            "available"
+          ],
+          "title": "LanguageInfo",
+          "type": "object"
+        },
+        "MatchStateSnapshot": {
+          "properties": {
+            "avg_chain_passes": {
+              "title": "Avg Chain Passes",
+              "type": "number"
+            },
+            "away": {
+              "$ref": "#/$defs/TeamWindow"
+            },
+            "away_id": {
+              "title": "Away Id",
+              "type": "string"
+            },
+            "clock_s": {
+              "title": "Clock S",
+              "type": "number"
+            },
+            "control_chaos": {
+              "description": "-1 chaos ... +1 control",
+              "maximum": 1,
+              "minimum": -1,
+              "title": "Control Chaos",
+              "type": "number"
+            },
+            "events_per_min": {
+              "title": "Events Per Min",
+              "type": "number"
+            },
+            "home": {
+              "$ref": "#/$defs/TeamWindow"
+            },
+            "home_id": {
+              "title": "Home Id",
+              "type": "string"
+            },
+            "match_clock": {
+              "title": "Match Clock",
+              "type": "string"
+            },
+            "match_id": {
+              "title": "Match Id",
+              "type": "string"
+            },
+            "momentum": {
+              "description": "+ = home on top",
+              "maximum": 100,
+              "minimum": -100,
+              "title": "Momentum",
+              "type": "number"
+            },
+            "period": {
+              "title": "Period",
+              "type": "integer"
+            },
+            "score_away": {
+              "title": "Score Away",
+              "type": "integer"
+            },
+            "score_home": {
+              "title": "Score Home",
+              "type": "integer"
+            },
+            "shots_away": {
+              "title": "Shots Away",
+              "type": "integer"
+            },
+            "shots_home": {
+              "title": "Shots Home",
+              "type": "integer"
+            },
+            "tempo": {
+              "title": "Tempo",
+              "type": "string"
+            },
+            "turnovers_per_min": {
+              "title": "Turnovers Per Min",
+              "type": "number"
+            },
+            "xg_away": {
+              "title": "Xg Away",
+              "type": "number"
+            },
+            "xg_home": {
+              "title": "Xg Home",
+              "type": "number"
+            }
+          },
+          "required": [
+            "match_id",
+            "clock_s",
+            "match_clock",
+            "period",
+            "home_id",
+            "away_id",
+            "score_home",
+            "score_away",
+            "home",
+            "away",
+            "momentum",
+            "control_chaos",
+            "tempo",
+            "events_per_min",
+            "turnovers_per_min",
+            "avg_chain_passes",
+            "xg_home",
+            "xg_away",
+            "shots_home",
+            "shots_away"
+          ],
+          "title": "MatchStateSnapshot",
+          "type": "object"
+        },
+        "MomentKind": {
+          "enum": [
+            "goal",
+            "card",
+            "big_chance",
+            "better_option",
+            "unfound_run",
+            "momentum_swing",
+            "pressure_spell",
+            "speed_burst",
+            "rocket_shot",
+            "distance_milestone",
+            "hard_pass",
+            "key_tackle",
+            "milestone"
+          ],
+          "title": "MomentKind",
+          "type": "string"
+        },
+        "OverlayCard": {
+          "description": "Producer output: one timed, machine-readable overlay for one viewer.",
+          "properties": {
+            "body": {
+              "title": "Body",
+              "type": "string"
+            },
+            "card_id": {
+              "title": "Card Id",
+              "type": "string"
+            },
+            "duration_s": {
+              "title": "Duration S",
+              "type": "number"
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/Evidence"
+              },
+              "title": "Evidence",
+              "type": "array"
+            },
+            "fallback_reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Fallback Reason"
+            },
+            "favourite_side": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "True when about the viewer's club",
+              "title": "Favourite Side"
+            },
+            "headline": {
+              "title": "Headline",
+              "type": "string"
+            },
+            "kind": {
+              "$ref": "#/$defs/MomentKind"
+            },
+            "language": {
+              "enum": [
+                "en",
+                "es",
+                "fr",
+                "ar",
+                "ja",
+                "pt",
+                "de",
+                "hi",
+                "zh-Hans",
+                "sw",
+                "id",
+                "tr",
+                "ko"
+              ],
+              "title": "Language",
+              "type": "string"
+            },
+            "moment_id": {
+              "title": "Moment Id",
+              "type": "string"
+            },
+            "persona": {
+              "enum": [
+                "casual",
+                "tactical",
+                "fantasy",
+                "player_spotlight"
+              ],
+              "title": "Persona",
+              "type": "string"
+            },
+            "player_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Player Ids",
+              "type": "array"
+            },
+            "players": {
+              "description": "Identity of each player in player_ids, same order.",
+              "items": {
+                "$ref": "#/$defs/PlayerRef"
+              },
+              "title": "Players",
+              "type": "array"
+            },
+            "priority": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Priority",
+              "type": "integer"
+            },
+            "produced_by": {
+              "enum": [
+                "ai",
+                "template"
+              ],
+              "title": "Produced By",
+              "type": "string"
+            },
+            "replay": {
+              "anyOf": [
+                {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Drawing geometry: BetterOption or UnfoundRun model dump",
+              "title": "Replay"
+            },
+            "rtl": {
+              "default": false,
+              "title": "Rtl",
+              "type": "boolean"
+            },
+            "show_at_s": {
+              "description": "Match clock seconds",
+              "title": "Show At S",
+              "type": "number"
+            },
+            "slot": {
+              "enum": [
+                "lower_third",
+                "side_panel",
+                "pitch_tag",
+                "metric_alert",
+                "full_screen"
+              ],
+              "title": "Slot",
+              "type": "string"
+            },
+            "tactical_tag": {
+              "title": "Tactical Tag",
+              "type": "string"
+            },
+            "team": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Team"
+            },
+            "text_language": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "en",
+                    "es",
+                    "fr",
+                    "ar",
+                    "ja",
+                    "pt",
+                    "de",
+                    "hi",
+                    "zh-Hans",
+                    "sw",
+                    "id",
+                    "tr",
+                    "ko"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Language the text is really in: `language`, or 'en' when a world language could not be translated",
+              "title": "Text Language"
+            },
+            "translated_by": {
+              "anyOf": [
+                {
+                  "const": "azure_ai_translator",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Translated By"
+            },
+            "why": {
+              "title": "Why",
+              "type": "string"
+            }
+          },
+          "required": [
+            "card_id",
+            "moment_id",
+            "kind",
+            "slot",
+            "priority",
+            "show_at_s",
+            "duration_s",
+            "persona",
+            "language",
+            "headline",
+            "body",
+            "why",
+            "tactical_tag",
+            "evidence",
+            "produced_by"
+          ],
+          "title": "OverlayCard",
+          "type": "object"
+        },
+        "PixelPathRow": {
+          "description": "The same detector run on positions recovered from rendered top-down video frames.",
+          "properties": {
+            "ball_error_m": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Median distance from recovered to true ball position.",
+              "title": "Ball Error M"
+            },
+            "ball_found_pct": {
+              "description": "Frames with the ball tracked where the ball was recovered.",
+              "title": "Ball Found Pct",
+              "type": "number"
+            },
+            "coordinate": {
+              "description": "The coordinate path scored on the same window.",
+              "items": {
+                "$ref": "#/$defs/ClassRow"
+              },
+              "title": "Coordinate",
+              "type": "array"
+            },
+            "frames": {
+              "title": "Frames",
+              "type": "integer"
+            },
+            "height_px": {
+              "title": "Height Px",
+              "type": "integer"
+            },
+            "label": {
+              "default": "Rendered synthetic top-down video, not broadcast footage; no real-video model",
+              "title": "Label",
+              "type": "string"
+            },
+            "pixels": {
+              "items": {
+                "$ref": "#/$defs/ClassRow"
+              },
+              "title": "Pixels",
+              "type": "array"
+            },
+            "player_error_m": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Median distance from recovered to true player position.",
+              "title": "Player Error M"
+            },
+            "speed_mae_kmh_coordinate": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Speed Mae Kmh Coordinate"
+            },
+            "speed_mae_kmh_pixels": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Speed Mae Kmh Pixels"
+            },
+            "width_px": {
+              "title": "Width Px",
+              "type": "integer"
+            },
+            "window_s": {
+              "description": "Seconds of match clock rendered to pixels (from kick-off).",
+              "title": "Window S",
+              "type": "number"
+            }
+          },
+          "required": [
+            "window_s",
+            "frames",
+            "width_px",
+            "height_px",
+            "player_error_m",
+            "ball_error_m",
+            "ball_found_pct",
+            "coordinate",
+            "pixels",
+            "speed_mae_kmh_coordinate",
+            "speed_mae_kmh_pixels"
+          ],
+          "title": "PixelPathRow",
+          "type": "object"
+        },
+        "Playback": {
+          "properties": {
+            "clock_s": {
+              "title": "Clock S",
+              "type": "number"
+            },
+            "ended": {
+              "title": "Ended",
+              "type": "boolean"
+            },
+            "is_running": {
+              "title": "Is Running",
+              "type": "boolean"
+            },
+            "match_clock": {
+              "title": "Match Clock",
+              "type": "string"
+            },
+            "period": {
+              "title": "Period",
+              "type": "integer"
+            },
+            "speed_multiplier": {
+              "title": "Speed Multiplier",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "is_running",
+            "speed_multiplier",
+            "clock_s",
+            "match_clock",
+            "period",
+            "ended"
+          ],
+          "title": "Playback",
+          "type": "object"
+        },
+        "PlayerRef": {
+          "description": "A player's resolved identity, so overlays can tag him by name and shirt\nnumber without a second lookup. Names come from our fictional squads.",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "number": {
+              "title": "Number",
+              "type": "integer"
+            },
+            "player_id": {
+              "title": "Player Id",
+              "type": "string"
+            },
+            "position": {
+              "title": "Position",
+              "type": "string"
+            },
+            "team": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          "required": [
+            "player_id",
+            "name",
+            "number",
+            "team",
+            "position"
+          ],
+          "title": "PlayerRef",
+          "type": "object"
+        },
+        "PlayerStatsOut": {
+          "description": "A player's stats with his identity from the fictional squads.",
+          "properties": {
+            "assists": {
+              "default": 0,
+              "title": "Assists",
+              "type": "integer"
+            },
+            "carry_distance_m": {
+              "default": 0.0,
+              "title": "Carry Distance M",
+              "type": "number"
+            },
+            "distance_km": {
+              "default": 0.0,
+              "title": "Distance Km",
+              "type": "number"
+            },
+            "goals": {
+              "default": 0,
+              "title": "Goals",
+              "type": "integer"
+            },
+            "interceptions": {
+              "default": 0,
+              "title": "Interceptions",
+              "type": "integer"
+            },
+            "jog_km": {
+              "default": 0.0,
+              "title": "Jog Km",
+              "type": "number"
+            },
+            "key_passes": {
+              "default": 0,
+              "title": "Key Passes",
+              "type": "integer"
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Fictional name",
+              "title": "Name"
+            },
+            "number": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Shirt number",
+              "title": "Number"
+            },
+            "passes": {
+              "default": 0,
+              "title": "Passes",
+              "type": "integer"
+            },
+            "passes_completed": {
+              "default": 0,
+              "title": "Passes Completed",
+              "type": "integer"
+            },
+            "physical_source": {
+              "default": "event_estimate",
+              "description": "synthetic_tracking: distance, speed bands, sprints and top speed come from the 25 Hz synthetic tracking. event_estimate: distance is a lower bound from event positions and sprints/top speed come from recorded action speeds.",
+              "enum": [
+                "synthetic_tracking",
+                "event_estimate"
+              ],
+              "title": "Physical Source",
+              "type": "string"
+            },
+            "player_id": {
+              "title": "Player Id",
+              "type": "string"
+            },
+            "position": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Position code, e.g. ST",
+              "title": "Position"
+            },
+            "run_km": {
+              "default": 0.0,
+              "title": "Run Km",
+              "type": "number"
+            },
+            "shots": {
+              "default": 0,
+              "title": "Shots",
+              "type": "integer"
+            },
+            "shots_on_target": {
+              "default": 0,
+              "title": "Shots On Target",
+              "type": "integer"
+            },
+            "sprint_km": {
+              "default": 0.0,
+              "title": "Sprint Km",
+              "type": "number"
+            },
+            "sprints": {
+              "default": 0,
+              "title": "Sprints",
+              "type": "integer"
+            },
+            "tackles_lost": {
+              "default": 0,
+              "description": "Challenges lost: dribbled past by the ball carrier.",
+              "title": "Tackles Lost",
+              "type": "integer"
+            },
+            "tackles_won": {
+              "default": 0,
+              "title": "Tackles Won",
+              "type": "integer"
+            },
+            "team": {
+              "title": "Team",
+              "type": "string"
+            },
+            "top_speed_kmh": {
+              "default": 0.0,
+              "title": "Top Speed Kmh",
+              "type": "number"
+            },
+            "touches": {
+              "default": 0,
+              "title": "Touches",
+              "type": "integer"
+            },
+            "walk_km": {
+              "default": 0.0,
+              "title": "Walk Km",
+              "type": "number"
+            },
+            "xa": {
+              "default": 0.0,
+              "title": "Xa",
+              "type": "number"
+            },
+            "xg": {
+              "default": 0.0,
+              "title": "Xg",
+              "type": "number"
+            }
+          },
+          "required": [
+            "player_id",
+            "team"
+          ],
+          "title": "PlayerStatsOut",
+          "type": "object"
+        },
+        "RosterPlayer": {
+          "properties": {
+            "line": {
+              "enum": [
+                "GK",
+                "DEF",
+                "MID",
+                "FWD"
+              ],
+              "title": "Line",
+              "type": "string"
+            },
+            "name": {
+              "description": "Fictional name",
+              "title": "Name",
+              "type": "string"
+            },
+            "number": {
+              "title": "Number",
+              "type": "integer"
+            },
+            "player_id": {
+              "title": "Player Id",
+              "type": "string"
+            },
+            "position": {
+              "title": "Position",
+              "type": "string"
+            }
+          },
+          "required": [
+            "player_id",
+            "name",
+            "number",
+            "position",
+            "line"
+          ],
+          "title": "RosterPlayer",
+          "type": "object"
+        },
+        "TeamOut": {
+          "properties": {
+            "formation": {
+              "title": "Formation",
+              "type": "string"
+            },
+            "name": {
+              "description": "Fictional club name",
+              "title": "Name",
+              "type": "string"
+            },
+            "players": {
+              "items": {
+                "$ref": "#/$defs/RosterPlayer"
+              },
+              "title": "Players",
+              "type": "array"
+            },
+            "primary_color": {
+              "title": "Primary Color",
+              "type": "string"
+            },
+            "secondary_color": {
+              "title": "Secondary Color",
+              "type": "string"
+            },
+            "short_name": {
+              "title": "Short Name",
+              "type": "string"
+            },
+            "style": {
+              "title": "Style",
+              "type": "string"
+            },
+            "team_id": {
+              "title": "Team Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "team_id",
+            "name",
+            "short_name",
+            "primary_color",
+            "secondary_color",
+            "formation",
+            "style",
+            "players"
+          ],
+          "title": "TeamOut",
+          "type": "object"
+        },
+        "TeamWindow": {
+          "description": "Rolling five-minute numbers for one team.",
+          "properties": {
+            "box_entries": {
+              "title": "Box Entries",
+              "type": "integer"
+            },
+            "field_tilt_pct": {
+              "title": "Field Tilt Pct",
+              "type": "number"
+            },
+            "final_third_passes": {
+              "title": "Final Third Passes",
+              "type": "integer"
+            },
+            "possession_pct": {
+              "title": "Possession Pct",
+              "type": "number"
+            },
+            "pressure_index": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Pressure Index",
+              "type": "number"
+            },
+            "shots": {
+              "title": "Shots",
+              "type": "integer"
+            },
+            "xg": {
+              "title": "Xg",
+              "type": "number"
+            }
+          },
+          "required": [
+            "possession_pct",
+            "field_tilt_pct",
+            "pressure_index",
+            "shots",
+            "xg",
+            "final_third_passes",
+            "box_entries"
+          ],
+          "title": "TeamWindow",
+          "type": "object"
+        },
+        "TeamsOut": {
+          "properties": {
+            "away": {
+              "$ref": "#/$defs/TeamOut"
+            },
+            "home": {
+              "$ref": "#/$defs/TeamOut"
+            }
+          },
+          "required": [
+            "home",
+            "away"
+          ],
+          "title": "TeamsOut",
+          "type": "object"
+        },
+        "TranslatorStatus": {
+          "description": "Azure AI Translator, as the crew sees it right now.",
+          "properties": {
+            "available": {
+              "default": false,
+              "title": "Available",
+              "type": "boolean"
+            },
+            "breaker_open": {
+              "default": false,
+              "title": "Breaker Open",
+              "type": "boolean"
+            },
+            "cache_hits": {
+              "default": 0,
+              "title": "Cache Hits",
+              "type": "integer"
+            },
+            "fallbacks": {
+              "default": 0,
+              "title": "Fallbacks",
+              "type": "integer"
+            },
+            "mode": {
+              "default": "off",
+              "enum": [
+                "azure",
+                "off"
+              ],
+              "title": "Mode",
+              "type": "string"
+            },
+            "rejections": {
+              "default": 0,
+              "title": "Rejections",
+              "type": "integer"
+            },
+            "translated": {
+              "default": 0,
+              "title": "Translated",
+              "type": "integer"
+            }
+          },
+          "title": "TranslatorStatus",
+          "type": "object"
+        },
+        "ViewerProfile": {
+          "description": "One viewer's choices. Lives per WebSocket connection, never shared.",
+          "properties": {
+            "favourite_team": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Favourite Team"
+            },
+            "focus_metric": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pressure",
+                    "xg",
+                    "pass_difficulty",
+                    "top_speed",
+                    "momentum"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Focus Metric"
+            },
+            "focus_player_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Focus Player Id"
+            },
+            "language": {
+              "default": "en",
+              "enum": [
+                "en",
+                "es",
+                "fr",
+                "ar",
+                "ja",
+                "pt",
+                "de",
+                "hi",
+                "zh-Hans",
+                "sw",
+                "id",
+                "tr",
+                "ko"
+              ],
+              "title": "Language",
+              "type": "string"
+            },
+            "persona": {
+              "default": "casual",
+              "enum": [
+                "casual",
+                "tactical",
+                "fantasy",
+                "player_spotlight"
+              ],
+              "title": "Persona",
+              "type": "string"
+            }
+          },
+          "title": "ViewerProfile",
+          "type": "object"
+        }
+      },
+      "description": "INITIAL_SNAPSHOT.data for the default viewer profile.",
+      "properties": {
+        "auto_eventing": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AutoEventingStatus"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "away_score": {
+          "title": "Away Score",
+          "type": "integer"
+        },
+        "bookmarks": {
+          "items": {
+            "$ref": "#/$defs/BookmarkOut"
+          },
+          "title": "Bookmarks",
+          "type": "array"
+        },
+        "clock": {
+          "title": "Clock",
+          "type": "string"
+        },
+        "control_chaos": {
+          "$ref": "#/$defs/ControlChaos"
+        },
+        "crew": {
+          "$ref": "#/$defs/CrewStatus"
+        },
+        "home_score": {
+          "title": "Home Score",
+          "type": "integer"
+        },
+        "languages": {
+          "items": {
+            "$ref": "#/$defs/LanguageInfo"
+          },
+          "title": "Languages",
+          "type": "array"
+        },
+        "match_id": {
+          "title": "Match Id",
+          "type": "string"
+        },
+        "period": {
+          "title": "Period",
+          "type": "integer"
+        },
+        "playback": {
+          "$ref": "#/$defs/Playback"
+        },
+        "players": {
+          "items": {
+            "$ref": "#/$defs/PlayerStatsOut"
+          },
+          "title": "Players",
+          "type": "array"
+        },
+        "profile": {
+          "$ref": "#/$defs/ViewerProfile"
+        },
+        "recent_cards": {
+          "items": {
+            "$ref": "#/$defs/OverlayCard"
+          },
+          "title": "Recent Cards",
+          "type": "array"
+        },
+        "state": {
+          "$ref": "#/$defs/MatchStateSnapshot"
+        },
+        "teams": {
+          "$ref": "#/$defs/TeamsOut"
+        }
+      },
+      "required": [
+        "match_id",
+        "clock",
+        "period",
+        "home_score",
+        "away_score",
+        "teams",
+        "state",
+        "control_chaos",
+        "profile",
+        "playback",
+        "recent_cards",
+        "bookmarks",
+        "players",
+        "crew",
+        "languages",
+        "auto_eventing"
+      ],
+      "title": "SnapshotOut",
+      "type": "object"
+    },
+    "title": "Match snapshot"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Bookmarked moments of the match (goals, cards, big chances, better options, unfound runs, momentum swings, pressure spells, milestones), earliest first, filtered by kind, half or match clock. Bookmarks cover the whole match; set played_only for moments already played.",
+    "inputSchema": {
+      "properties": {
+        "from_clock_s": {
+          "anyOf": [
+            {
+              "maximum": 10000,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only moments at or after this match clock (s).",
+          "title": "From Clock S"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "goal",
+                "card",
+                "big_chance",
+                "better_option",
+                "unfound_run",
+                "momentum_swing",
+                "pressure_spell",
+                "key_tackle",
+                "milestone"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only moments of this kind.",
+          "title": "Kind"
+        },
+        "limit": {
+          "default": 50,
+          "description": "Most moments to return, earliest first.",
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "period": {
+          "anyOf": [
+            {
+              "enum": [
+                1,
+                2
+              ],
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only this half.",
+          "title": "Period"
+        },
+        "played_only": {
+          "default": false,
+          "description": "Only moments already played at the live position (no spoilers).",
+          "title": "Played Only",
+          "type": "boolean"
+        },
+        "to_clock_s": {
+          "anyOf": [
+            {
+              "maximum": 10000,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Only moments at or before this match clock (s).",
+          "title": "To Clock S"
+        }
+      },
+      "title": "list_momentsArguments",
+      "type": "object"
+    },
+    "name": "list_moments",
+    "outputSchema": {
+      "$defs": {
+        "BookmarkOut": {
+          "properties": {
+            "clock_s": {
+              "title": "Clock S",
+              "type": "number"
+            },
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "match_clock": {
+              "title": "Match Clock",
+              "type": "string"
+            },
+            "moment_id": {
+              "title": "Moment Id",
+              "type": "string"
+            },
+            "period": {
+              "title": "Period",
+              "type": "integer"
+            },
+            "title": {
+              "title": "Title",
+              "type": "string"
+            }
+          },
+          "required": [
+            "moment_id",
+            "kind",
+            "match_clock",
+            "clock_s",
+            "period",
+            "title"
+          ],
+          "title": "BookmarkOut",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "moments": {
+          "items": {
+            "$ref": "#/$defs/BookmarkOut"
+          },
+          "title": "Moments",
+          "type": "array"
+        }
+      },
+      "required": [
+        "count",
+        "moments"
+      ],
+      "title": "MomentsOut",
+      "type": "object"
+    },
+    "title": "List moments"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "One moment with its facts (the only numbers any agent may state about it), the analyst's evidence and the source event ids it was spotted from. No persona, no model call.",
+    "inputSchema": {
+      "properties": {
+        "moment_id": {
+          "description": "A moment id from list_moments.",
+          "pattern": "^[A-Za-z0-9_.:+-]{1,80}$",
+          "title": "Moment Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "moment_id"
+      ],
+      "title": "get_momentArguments",
+      "type": "object"
+    },
+    "name": "get_moment",
+    "outputSchema": {
+      "$defs": {
+        "Evidence": {
+          "properties": {
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "label_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Label Key"
+            },
+            "source_event_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Source Event Id"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Unit"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ],
+              "title": "Value"
+            }
+          },
+          "required": [
+            "label",
+            "value"
+          ],
+          "title": "Evidence",
+          "type": "object"
+        },
+        "Explanation": {
+          "description": "Analyst output: why the moment matters, with evidence.",
+          "properties": {
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/Evidence"
+              },
+              "title": "Evidence",
+              "type": "array"
+            },
+            "fallback_reason": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Fallback Reason"
+            },
+            "moment_id": {
+              "title": "Moment Id",
+              "type": "string"
+            },
+            "produced_by": {
+              "enum": [
+                "ai",
+                "template"
+              ],
+              "title": "Produced By",
+              "type": "string"
+            },
+            "tactical_tag": {
+              "title": "Tactical Tag",
+              "type": "string"
+            },
+            "why": {
+              "title": "Why",
+              "type": "string"
+            }
+          },
+          "required": [
+            "moment_id",
+            "why",
+            "tactical_tag",
+            "evidence",
+            "produced_by"
+          ],
+          "title": "Explanation",
+          "type": "object"
+        },
+        "Moment": {
+          "description": "Spotter output: something worth telling, with the numbers that back it.",
+          "properties": {
+            "clock_s": {
+              "title": "Clock S",
+              "type": "number"
+            },
+            "facts": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "description": "The only numbers any agent may say about this moment.",
+              "title": "Facts",
+              "type": "object"
+            },
+            "kind": {
+              "$ref": "#/$defs/MomentKind"
+            },
+            "match_clock": {
+              "title": "Match Clock",
+              "type": "string"
+            },
+            "moment_id": {
+              "title": "Moment Id",
+              "type": "string"
+            },
+            "period": {
+              "title": "Period",
+              "type": "integer"
+            },
+            "player_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Player Ids",
+              "type": "array"
+            },
+            "players": {
+              "description": "Identity of each player in player_ids, same order.",
+              "items": {
+                "$ref": "#/$defs/PlayerRef"
+              },
+              "title": "Players",
+              "type": "array"
+            },
+            "priority": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Priority",
+              "type": "integer"
+            },
+            "source_event_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Source Event Ids",
+              "type": "array"
+            },
+            "team": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Team"
+            }
+          },
+          "required": [
+            "moment_id",
+            "kind",
+            "clock_s",
+            "match_clock",
+            "period",
+            "source_event_ids",
+            "priority"
+          ],
+          "title": "Moment",
+          "type": "object"
+        },
+        "MomentKind": {
+          "enum": [
+            "goal",
+            "card",
+            "big_chance",
+            "better_option",
+            "unfound_run",
+            "momentum_swing",
+            "pressure_spell",
+            "speed_burst",
+            "rocket_shot",
+            "distance_milestone",
+            "hard_pass",
+            "key_tackle",
+            "milestone"
+          ],
+          "title": "MomentKind",
+          "type": "string"
+        },
+        "PlayerRef": {
+          "description": "A player's resolved identity, so overlays can tag him by name and shirt\nnumber without a second lookup. Names come from our fictional squads.",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "number": {
+              "title": "Number",
+              "type": "integer"
+            },
+            "player_id": {
+              "title": "Player Id",
+              "type": "string"
+            },
+            "position": {
+              "title": "Position",
+              "type": "string"
+            },
+            "team": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          "required": [
+            "player_id",
+            "name",
+            "number",
+            "team",
+            "position"
+          ],
+          "title": "PlayerRef",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "explanation": {
+          "$ref": "#/$defs/Explanation",
+          "description": "Why it matters, with evidence"
+        },
+        "moment": {
+          "$ref": "#/$defs/Moment",
+          "description": "Facts (the only numbers any agent may say) and source event ids"
+        },
+        "played": {
+          "description": "Whether the live position has reached this moment",
+          "title": "Played",
+          "type": "boolean"
+        },
+        "replay": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Drawing geometry for better-option and unfound-run",
+          "title": "Replay"
+        }
+      },
+      "required": [
+        "moment",
+        "explanation",
+        "replay",
+        "played"
+      ],
+      "title": "MomentDetailOut",
+      "type": "object"
+    },
+    "title": "Get moment facts"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "The fact-checked overlay card for one moment, voiced for a persona and language. Same payload as GET /api/match/moment/{moment_id}.",
+    "inputSchema": {
+      "properties": {
+        "favourite_team": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z]{2,5}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Viewer's club id (marks cards about that side).",
+          "title": "Favourite Team"
+        },
+        "language": {
+          "default": "en",
+          "description": "Language of the card text.",
+          "enum": [
+            "en",
+            "es",
+            "fr",
+            "ar",
+            "ja",
+            "pt",
+            "de",
+            "hi",
+            "zh-Hans",
+            "sw",
+            "id",
+            "tr",
+            "ko"
+          ],
+          "title": "Language",
+          "type": "string"
+        },
+        "moment_id": {
+          "description": "A moment id from list_moments.",
+          "pattern": "^[A-Za-z0-9_.:+-]{1,80}$",
+          "title": "Moment Id",
+          "type": "string"
+        },
+        "persona": {
+          "default": "casual",
+          "description": "Audience the card is voiced for.",
+          "enum": [
+            "casual",
+            "tactical",
+            "fantasy",
+            "player_spotlight"
+          ],
+          "title": "Persona",
+          "type": "string"
+        }
+      },
+      "required": [
+        "moment_id"
+      ],
+      "title": "get_overlay_cardArguments",
+      "type": "object"
+    },
+    "name": "get_overlay_card",
+    "outputSchema": {
+      "$defs": {
+        "Evidence": {
+          "properties": {
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "label_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Label Key"
+            },
+            "source_event_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Source Event Id"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Unit"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ],
+              "title": "Value"
+            }
+          },
+          "required": [
+            "label",
+            "value"
+          ],
+          "title": "Evidence",
+          "type": "object"
+        },
+        "MomentKind": {
+          "enum": [
+            "goal",
+            "card",
+            "big_chance",
+            "better_option",
+            "unfound_run",
+            "momentum_swing",
+            "pressure_spell",
+            "speed_burst",
+            "rocket_shot",
+            "distance_milestone",
+            "hard_pass",
+            "key_tackle",
+            "milestone"
+          ],
+          "title": "MomentKind",
+          "type": "string"
+        },
+        "PlayerRef": {
+          "description": "A player's resolved identity, so overlays can tag him by name and shirt\nnumber without a second lookup. Names come from our fictional squads.",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "number": {
+              "title": "Number",
+              "type": "integer"
+            },
+            "player_id": {
+              "title": "Player Id",
+              "type": "string"
+            },
+            "position": {
+              "title": "Position",
+              "type": "string"
+            },
+            "team": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          "required": [
+            "player_id",
+            "name",
+            "number",
+            "team",
+            "position"
+          ],
+          "title": "PlayerRef",
+          "type": "object"
+        }
+      },
+      "description": "Producer output: one timed, machine-readable overlay for one viewer.",
+      "properties": {
+        "body": {
+          "title": "Body",
+          "type": "string"
+        },
+        "card_id": {
+          "title": "Card Id",
+          "type": "string"
+        },
+        "duration_s": {
+          "title": "Duration S",
+          "type": "number"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "fallback_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fallback Reason"
+        },
+        "favourite_side": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "True when about the viewer's club",
+          "title": "Favourite Side"
+        },
+        "headline": {
+          "title": "Headline",
+          "type": "string"
+        },
+        "kind": {
+          "$ref": "#/$defs/MomentKind"
+        },
+        "language": {
+          "enum": [
+            "en",
+            "es",
+            "fr",
+            "ar",
+            "ja",
+            "pt",
+            "de",
+            "hi",
+            "zh-Hans",
+            "sw",
+            "id",
+            "tr",
+            "ko"
+          ],
+          "title": "Language",
+          "type": "string"
+        },
+        "moment_id": {
+          "title": "Moment Id",
+          "type": "string"
+        },
+        "persona": {
+          "enum": [
+            "casual",
+            "tactical",
+            "fantasy",
+            "player_spotlight"
+          ],
+          "title": "Persona",
+          "type": "string"
+        },
+        "player_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Player Ids",
+          "type": "array"
+        },
+        "players": {
+          "description": "Identity of each player in player_ids, same order.",
+          "items": {
+            "$ref": "#/$defs/PlayerRef"
+          },
+          "title": "Players",
+          "type": "array"
+        },
+        "priority": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Priority",
+          "type": "integer"
+        },
+        "produced_by": {
+          "enum": [
+            "ai",
+            "template"
+          ],
+          "title": "Produced By",
+          "type": "string"
+        },
+        "replay": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Drawing geometry: BetterOption or UnfoundRun model dump",
+          "title": "Replay"
+        },
+        "rtl": {
+          "default": false,
+          "title": "Rtl",
+          "type": "boolean"
+        },
+        "show_at_s": {
+          "description": "Match clock seconds",
+          "title": "Show At S",
+          "type": "number"
+        },
+        "slot": {
+          "enum": [
+            "lower_third",
+            "side_panel",
+            "pitch_tag",
+            "metric_alert",
+            "full_screen"
+          ],
+          "title": "Slot",
+          "type": "string"
+        },
+        "tactical_tag": {
+          "title": "Tactical Tag",
+          "type": "string"
+        },
+        "team": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Team"
+        },
+        "text_language": {
+          "anyOf": [
+            {
+              "enum": [
+                "en",
+                "es",
+                "fr",
+                "ar",
+                "ja",
+                "pt",
+                "de",
+                "hi",
+                "zh-Hans",
+                "sw",
+                "id",
+                "tr",
+                "ko"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Language the text is really in: `language`, or 'en' when a world language could not be translated",
+          "title": "Text Language"
+        },
+        "translated_by": {
+          "anyOf": [
+            {
+              "const": "azure_ai_translator",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Translated By"
+        },
+        "why": {
+          "title": "Why",
+          "type": "string"
+        }
+      },
+      "required": [
+        "card_id",
+        "moment_id",
+        "kind",
+        "slot",
+        "priority",
+        "show_at_s",
+        "duration_s",
+        "persona",
+        "language",
+        "headline",
+        "body",
+        "why",
+        "tactical_tag",
+        "evidence",
+        "produced_by"
+      ],
+      "title": "OverlayCard",
+      "type": "object"
+    },
+    "title": "Get overlay card"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "The fact-checked match recap so far for a persona and language. Same payload as GET /api/match/recap.",
+    "inputSchema": {
+      "properties": {
+        "language": {
+          "default": "en",
+          "description": "Language of the recap text.",
+          "enum": [
+            "en",
+            "es",
+            "fr",
+            "ar",
+            "ja",
+            "pt",
+            "de",
+            "hi",
+            "zh-Hans",
+            "sw",
+            "id",
+            "tr",
+            "ko"
+          ],
+          "title": "Language",
+          "type": "string"
+        },
+        "persona": {
+          "default": "casual",
+          "description": "Audience the recap is written for.",
+          "enum": [
+            "casual",
+            "tactical",
+            "fantasy",
+            "player_spotlight"
+          ],
+          "title": "Persona",
+          "type": "string"
+        }
+      },
+      "title": "get_recapArguments",
+      "type": "object"
+    },
+    "name": "get_recap",
+    "outputSchema": {
+      "$defs": {
+        "FactCheck": {
+          "properties": {
+            "ok": {
+              "title": "Ok",
+              "type": "boolean"
+            },
+            "reasons": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Reasons",
+              "type": "array"
+            }
+          },
+          "required": [
+            "ok"
+          ],
+          "title": "FactCheck",
+          "type": "object"
+        },
+        "MomentKind": {
+          "enum": [
+            "goal",
+            "card",
+            "big_chance",
+            "better_option",
+            "unfound_run",
+            "momentum_swing",
+            "pressure_spell",
+            "speed_burst",
+            "rocket_shot",
+            "distance_milestone",
+            "hard_pass",
+            "key_tackle",
+            "milestone"
+          ],
+          "title": "MomentKind",
+          "type": "string"
+        },
+        "RecapMoment": {
+          "properties": {
+            "headline": {
+              "title": "Headline",
+              "type": "string"
+            },
+            "kind": {
+              "$ref": "#/$defs/MomentKind"
+            },
+            "match_clock": {
+              "title": "Match Clock",
+              "type": "string"
+            },
+            "moment_id": {
+              "title": "Moment Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "match_clock",
+            "kind",
+            "headline",
+            "moment_id"
+          ],
+          "title": "RecapMoment",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "fact_check": {
+          "$ref": "#/$defs/FactCheck"
+        },
+        "fallback_reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fallback Reason"
+        },
+        "generated_at_clock": {
+          "title": "Generated At Clock",
+          "type": "string"
+        },
+        "headline": {
+          "title": "Headline",
+          "type": "string"
+        },
+        "key_moments": {
+          "items": {
+            "$ref": "#/$defs/RecapMoment"
+          },
+          "title": "Key Moments",
+          "type": "array"
+        },
+        "language": {
+          "enum": [
+            "en",
+            "es",
+            "fr",
+            "ar",
+            "ja",
+            "pt",
+            "de",
+            "hi",
+            "zh-Hans",
+            "sw",
+            "id",
+            "tr",
+            "ko"
+          ],
+          "title": "Language",
+          "type": "string"
+        },
+        "match_id": {
+          "title": "Match Id",
+          "type": "string"
+        },
+        "persona": {
+          "enum": [
+            "casual",
+            "tactical",
+            "fantasy",
+            "player_spotlight"
+          ],
+          "title": "Persona",
+          "type": "string"
+        },
+        "player_of_the_match": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Player Of The Match"
+        },
+        "player_of_the_match_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Player Of The Match Id"
+        },
+        "produced_by": {
+          "enum": [
+            "ai",
+            "template"
+          ],
+          "title": "Produced By",
+          "type": "string"
+        },
+        "rtl": {
+          "default": false,
+          "title": "Rtl",
+          "type": "boolean"
+        },
+        "stats": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "title": "Stats",
+          "type": "object"
+        },
+        "summary_paragraphs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Summary Paragraphs",
+          "type": "array"
+        },
+        "text_language": {
+          "anyOf": [
+            {
+              "enum": [
+                "en",
+                "es",
+                "fr",
+                "ar",
+                "ja",
+                "pt",
+                "de",
+                "hi",
+                "zh-Hans",
+                "sw",
+                "id",
+                "tr",
+                "ko"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Text Language"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "translated_by": {
+          "anyOf": [
+            {
+              "const": "azure_ai_translator",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Translated By"
+        }
+      },
+      "required": [
+        "match_id",
+        "persona",
+        "language",
+        "title",
+        "headline",
+        "summary_paragraphs",
+        "key_moments",
+        "player_of_the_match_id",
+        "player_of_the_match",
+        "stats",
+        "generated_at_clock",
+        "produced_by",
+        "fact_check"
+      ],
+      "title": "Recap",
+      "type": "object"
+    },
+    "title": "Get recap"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Stats engine numbers so far for one fictional player (by id, e.g. NBR-9) or for everyone involved, home side first. Same rows as GET /api/match/players.",
+    "inputSchema": {
+      "properties": {
+        "player_id": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z]{2,5}-[0-9]{1,3}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Fictional player id, e.g. NBR-9. Omit for everyone.",
+          "title": "Player Id"
+        }
+      },
+      "title": "get_player_statsArguments",
+      "type": "object"
+    },
+    "name": "get_player_stats",
+    "outputSchema": {
+      "$defs": {
+        "PlayerStatsOut": {
+          "description": "A player's stats with his identity from the fictional squads.",
+          "properties": {
+            "assists": {
+              "default": 0,
+              "title": "Assists",
+              "type": "integer"
+            },
+            "carry_distance_m": {
+              "default": 0.0,
+              "title": "Carry Distance M",
+              "type": "number"
+            },
+            "distance_km": {
+              "default": 0.0,
+              "title": "Distance Km",
+              "type": "number"
+            },
+            "goals": {
+              "default": 0,
+              "title": "Goals",
+              "type": "integer"
+            },
+            "interceptions": {
+              "default": 0,
+              "title": "Interceptions",
+              "type": "integer"
+            },
+            "jog_km": {
+              "default": 0.0,
+              "title": "Jog Km",
+              "type": "number"
+            },
+            "key_passes": {
+              "default": 0,
+              "title": "Key Passes",
+              "type": "integer"
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Fictional name",
+              "title": "Name"
+            },
+            "number": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Shirt number",
+              "title": "Number"
+            },
+            "passes": {
+              "default": 0,
+              "title": "Passes",
+              "type": "integer"
+            },
+            "passes_completed": {
+              "default": 0,
+              "title": "Passes Completed",
+              "type": "integer"
+            },
+            "physical_source": {
+              "default": "event_estimate",
+              "description": "synthetic_tracking: distance, speed bands, sprints and top speed come from the 25 Hz synthetic tracking. event_estimate: distance is a lower bound from event positions and sprints/top speed come from recorded action speeds.",
+              "enum": [
+                "synthetic_tracking",
+                "event_estimate"
+              ],
+              "title": "Physical Source",
+              "type": "string"
+            },
+            "player_id": {
+              "title": "Player Id",
+              "type": "string"
+            },
+            "position": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Position code, e.g. ST",
+              "title": "Position"
+            },
+            "run_km": {
+              "default": 0.0,
+              "title": "Run Km",
+              "type": "number"
+            },
+            "shots": {
+              "default": 0,
+              "title": "Shots",
+              "type": "integer"
+            },
+            "shots_on_target": {
+              "default": 0,
+              "title": "Shots On Target",
+              "type": "integer"
+            },
+            "sprint_km": {
+              "default": 0.0,
+              "title": "Sprint Km",
+              "type": "number"
+            },
+            "sprints": {
+              "default": 0,
+              "title": "Sprints",
+              "type": "integer"
+            },
+            "tackles_lost": {
+              "default": 0,
+              "description": "Challenges lost: dribbled past by the ball carrier.",
+              "title": "Tackles Lost",
+              "type": "integer"
+            },
+            "tackles_won": {
+              "default": 0,
+              "title": "Tackles Won",
+              "type": "integer"
+            },
+            "team": {
+              "title": "Team",
+              "type": "string"
+            },
+            "top_speed_kmh": {
+              "default": 0.0,
+              "title": "Top Speed Kmh",
+              "type": "number"
+            },
+            "touches": {
+              "default": 0,
+              "title": "Touches",
+              "type": "integer"
+            },
+            "walk_km": {
+              "default": 0.0,
+              "title": "Walk Km",
+              "type": "number"
+            },
+            "xa": {
+              "default": 0.0,
+              "title": "Xa",
+              "type": "number"
+            },
+            "xg": {
+              "default": 0.0,
+              "title": "Xg",
+              "type": "number"
+            }
+          },
+          "required": [
+            "player_id",
+            "team"
+          ],
+          "title": "PlayerStatsOut",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "players": {
+          "items": {
+            "$ref": "#/$defs/PlayerStatsOut"
+          },
+          "title": "Players",
+          "type": "array"
+        }
+      },
+      "required": [
+        "players"
+      ],
+      "title": "PlayersOut",
+      "type": "object"
+    },
+    "title": "Player stats"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Both fictional clubs: names, colours, formation, style and squad. Same payload as GET /api/teams.",
+    "inputSchema": {
+      "properties": {},
+      "title": "get_team_rostersArguments",
+      "type": "object"
+    },
+    "name": "get_team_rosters",
+    "outputSchema": {
+      "$defs": {
+        "RosterPlayer": {
+          "properties": {
+            "line": {
+              "enum": [
+                "GK",
+                "DEF",
+                "MID",
+                "FWD"
+              ],
+              "title": "Line",
+              "type": "string"
+            },
+            "name": {
+              "description": "Fictional name",
+              "title": "Name",
+              "type": "string"
+            },
+            "number": {
+              "title": "Number",
+              "type": "integer"
+            },
+            "player_id": {
+              "title": "Player Id",
+              "type": "string"
+            },
+            "position": {
+              "title": "Position",
+              "type": "string"
+            }
+          },
+          "required": [
+            "player_id",
+            "name",
+            "number",
+            "position",
+            "line"
+          ],
+          "title": "RosterPlayer",
+          "type": "object"
+        },
+        "TeamOut": {
+          "properties": {
+            "formation": {
+              "title": "Formation",
+              "type": "string"
+            },
+            "name": {
+              "description": "Fictional club name",
+              "title": "Name",
+              "type": "string"
+            },
+            "players": {
+              "items": {
+                "$ref": "#/$defs/RosterPlayer"
+              },
+              "title": "Players",
+              "type": "array"
+            },
+            "primary_color": {
+              "title": "Primary Color",
+              "type": "string"
+            },
+            "secondary_color": {
+              "title": "Secondary Color",
+              "type": "string"
+            },
+            "short_name": {
+              "title": "Short Name",
+              "type": "string"
+            },
+            "style": {
+              "title": "Style",
+              "type": "string"
+            },
+            "team_id": {
+              "title": "Team Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "team_id",
+            "name",
+            "short_name",
+            "primary_color",
+            "secondary_color",
+            "formation",
+            "style",
+            "players"
+          ],
+          "title": "TeamOut",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "away": {
+          "$ref": "#/$defs/TeamOut"
+        },
+        "home": {
+          "$ref": "#/$defs/TeamOut"
+        }
+      },
+      "required": [
+        "home",
+        "away"
+      ],
+      "title": "TeamsOut",
+      "type": "object"
+    },
+    "title": "Team rosters"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "The studio crew's mode (template or AI), breakers, counts and translator state, plus the latest per-moment agent traces. Same as GET /api/crew/status and GET /api/crew/trace.",
+    "inputSchema": {
+      "properties": {
+        "trace_limit": {
+          "default": 20,
+          "description": "Most recent crew traces to include.",
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Trace Limit",
+          "type": "integer"
+        }
+      },
+      "title": "get_crew_statusArguments",
+      "type": "object"
+    },
+    "name": "get_crew_status",
+    "outputSchema": {
+      "$defs": {
+        "AgentStep": {
+          "properties": {
+            "agent": {
+              "enum": [
+                "spotter",
+                "analyst",
+                "commentator",
+                "fact_checker",
+                "producer",
+                "recap",
+                "translator"
+              ],
+              "title": "Agent",
+              "type": "string"
+            },
+            "detail": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Detail"
+            },
+            "ms": {
+              "title": "Ms",
+              "type": "number"
+            },
+            "status": {
+              "enum": [
+                "ok",
+                "fallback",
+                "rejected",
+                "error",
+                "skipped"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          "required": [
+            "agent",
+            "ms",
+            "status"
+          ],
+          "title": "AgentStep",
+          "type": "object"
+        },
+        "CrewStatus": {
+          "properties": {
+            "breakers_open": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Breakers Open",
+              "type": "array"
+            },
+            "fallbacks": {
+              "default": 0,
+              "title": "Fallbacks",
+              "type": "integer"
+            },
+            "mode": {
+              "enum": [
+                "ai",
+                "template"
+              ],
+              "title": "Mode",
+              "type": "string"
+            },
+            "model": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Model"
+            },
+            "moments": {
+              "default": 0,
+              "title": "Moments",
+              "type": "integer"
+            },
+            "orchestrator": {
+              "default": "in_process",
+              "enum": [
+                "in_process",
+                "agent_framework"
+              ],
+              "title": "Orchestrator",
+              "type": "string"
+            },
+            "provider": {
+              "default": "templates",
+              "enum": [
+                "templates",
+                "azure_openai",
+                "foundry_agents"
+              ],
+              "title": "Provider",
+              "type": "string"
+            },
+            "rejections": {
+              "default": 0,
+              "title": "Rejections",
+              "type": "integer"
+            },
+            "translator": {
+              "$ref": "#/$defs/TranslatorStatus"
+            }
+          },
+          "required": [
+            "mode"
+          ],
+          "title": "CrewStatus",
+          "type": "object"
+        },
+        "CrewTrace": {
+          "properties": {
+            "match_clock": {
+              "title": "Match Clock",
+              "type": "string"
+            },
+            "moment_id": {
+              "title": "Moment Id",
+              "type": "string"
+            },
+            "steps": {
+              "items": {
+                "$ref": "#/$defs/AgentStep"
+              },
+              "title": "Steps",
+              "type": "array"
+            }
+          },
+          "required": [
+            "moment_id",
+            "match_clock",
+            "steps"
+          ],
+          "title": "CrewTrace",
+          "type": "object"
+        },
+        "TranslatorStatus": {
+          "description": "Azure AI Translator, as the crew sees it right now.",
+          "properties": {
+            "available": {
+              "default": false,
+              "title": "Available",
+              "type": "boolean"
+            },
+            "breaker_open": {
+              "default": false,
+              "title": "Breaker Open",
+              "type": "boolean"
+            },
+            "cache_hits": {
+              "default": 0,
+              "title": "Cache Hits",
+              "type": "integer"
+            },
+            "fallbacks": {
+              "default": 0,
+              "title": "Fallbacks",
+              "type": "integer"
+            },
+            "mode": {
+              "default": "off",
+              "enum": [
+                "azure",
+                "off"
+              ],
+              "title": "Mode",
+              "type": "string"
+            },
+            "rejections": {
+              "default": 0,
+              "title": "Rejections",
+              "type": "integer"
+            },
+            "translated": {
+              "default": 0,
+              "title": "Translated",
+              "type": "integer"
+            }
+          },
+          "title": "TranslatorStatus",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/CrewStatus"
+        },
+        "traces": {
+          "items": {
+            "$ref": "#/$defs/CrewTrace"
+          },
+          "title": "Traces",
+          "type": "array"
+        }
+      },
+      "required": [
+        "status",
+        "traces"
+      ],
+      "title": "CrewOut",
+      "type": "object"
+    },
+    "title": "Crew status and traces"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "How well events detected from synthetic tracking (not video) match the simulator's own events. Same payload as GET /api/auto-eventing.",
+    "inputSchema": {
+      "properties": {},
+      "title": "get_auto_eventingArguments",
+      "type": "object"
+    },
+    "name": "get_auto_eventing",
+    "outputSchema": {
+      "$defs": {
+        "BaselineRow": {
+          "description": "A naive detector scored the same way, to show what the real one adds.",
+          "properties": {
+            "classes": {
+              "items": {
+                "$ref": "#/$defs/ClassRow"
+              },
+              "title": "Classes",
+              "type": "array"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "classes"
+          ],
+          "title": "BaselineRow",
+          "type": "object"
+        },
+        "ClassRow": {
+          "description": "One class of the benchmark: counts, rates and 95% Wilson intervals.",
+          "properties": {
+            "detected": {
+              "title": "Detected",
+              "type": "integer"
+            },
+            "f1": {
+              "title": "F1",
+              "type": "number"
+            },
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "matched": {
+              "title": "Matched",
+              "type": "integer"
+            },
+            "precision": {
+              "title": "Precision",
+              "type": "number"
+            },
+            "precision_ci": {
+              "anyOf": [
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "95% Wilson interval; None if nothing detected.",
+              "title": "Precision Ci"
+            },
+            "recall": {
+              "title": "Recall",
+              "type": "number"
+            },
+            "recall_ci": {
+              "anyOf": [
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "95% Wilson interval; None if no true events.",
+              "title": "Recall Ci"
+            },
+            "support": {
+              "description": "True events of this kind (the recall denominator).",
+              "title": "Support",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "support",
+            "detected",
+            "matched",
+            "precision",
+            "recall",
+            "f1",
+            "precision_ci",
+            "recall_ci"
+          ],
+          "title": "ClassRow",
+          "type": "object"
+        },
+        "Confusion": {
+          "description": "Rows are true kinds then 'spurious'; columns are detected kinds then 'missed'.",
+          "properties": {
+            "columns": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Columns",
+              "type": "array"
+            },
+            "counts": {
+              "items": {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "title": "Counts",
+              "type": "array"
+            },
+            "rows": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Rows",
+              "type": "array"
+            }
+          },
+          "required": [
+            "rows",
+            "columns",
+            "counts"
+          ],
+          "title": "Confusion",
+          "type": "object"
+        },
+        "PixelPathRow": {
+          "description": "The same detector run on positions recovered from rendered top-down video frames.",
+          "properties": {
+            "ball_error_m": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Median distance from recovered to true ball position.",
+              "title": "Ball Error M"
+            },
+            "ball_found_pct": {
+              "description": "Frames with the ball tracked where the ball was recovered.",
+              "title": "Ball Found Pct",
+              "type": "number"
+            },
+            "coordinate": {
+              "description": "The coordinate path scored on the same window.",
+              "items": {
+                "$ref": "#/$defs/ClassRow"
+              },
+              "title": "Coordinate",
+              "type": "array"
+            },
+            "frames": {
+              "title": "Frames",
+              "type": "integer"
+            },
+            "height_px": {
+              "title": "Height Px",
+              "type": "integer"
+            },
+            "label": {
+              "default": "Rendered synthetic top-down video, not broadcast footage; no real-video model",
+              "title": "Label",
+              "type": "string"
+            },
+            "pixels": {
+              "items": {
+                "$ref": "#/$defs/ClassRow"
+              },
+              "title": "Pixels",
+              "type": "array"
+            },
+            "player_error_m": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Median distance from recovered to true player position.",
+              "title": "Player Error M"
+            },
+            "speed_mae_kmh_coordinate": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Speed Mae Kmh Coordinate"
+            },
+            "speed_mae_kmh_pixels": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Speed Mae Kmh Pixels"
+            },
+            "width_px": {
+              "title": "Width Px",
+              "type": "integer"
+            },
+            "window_s": {
+              "description": "Seconds of match clock rendered to pixels (from kick-off).",
+              "title": "Window S",
+              "type": "number"
+            }
+          },
+          "required": [
+            "window_s",
+            "frames",
+            "width_px",
+            "height_px",
+            "player_error_m",
+            "ball_error_m",
+            "ball_found_pct",
+            "coordinate",
+            "pixels",
+            "speed_mae_kmh_coordinate",
+            "speed_mae_kmh_pixels"
+          ],
+          "title": "PixelPathRow",
+          "type": "object"
+        }
+      },
+      "description": "The shape served at GET /api/auto-eventing (see docs/API-CONTRACT.md).\n\nThe first five fields are the original contract; everything after them is\noptional and was added by the benchmark, so older clients keep working.",
+      "properties": {
+        "baseline": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BaselineRow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "caveat": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Caveat"
+        },
+        "classes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ClassRow"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classes"
+        },
+        "confusion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confusion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "events_checked": {
+          "description": "True passes and shots the detections were checked against.",
+          "title": "Events Checked",
+          "type": "integer"
+        },
+        "label": {
+          "default": "Detected from synthetic tracking, not video",
+          "title": "Label",
+          "type": "string"
+        },
+        "match_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match Id"
+        },
+        "name": {
+          "default": "Synthetic tracking-to-event benchmark",
+          "title": "Name",
+          "type": "string"
+        },
+        "passes_detected_pct": {
+          "description": "Recall on passes, in percent.",
+          "title": "Passes Detected Pct",
+          "type": "number"
+        },
+        "pixel_path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PixelPathRow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pressure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClassRow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "source": {
+          "const": "synthetic_tracking",
+          "default": "synthetic_tracking",
+          "title": "Source",
+          "type": "string"
+        },
+        "speed_mae_ci_kmh": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "95% bootstrap interval for speed_mae_kmh.",
+          "title": "Speed Mae Ci Kmh"
+        },
+        "speed_mae_kmh": {
+          "title": "Speed Mae Kmh",
+          "type": "number"
+        }
+      },
+      "required": [
+        "passes_detected_pct",
+        "speed_mae_kmh",
+        "events_checked"
+      ],
+      "title": "AutoEventingStatus",
+      "type": "object"
+    },
+    "title": "Auto-eventing scorecard"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "The latest events played at the live position, oldest first, each with its stats engine metrics, in the MATCH_TICK event shape.",
+    "inputSchema": {
+      "properties": {
+        "limit": {
+          "default": 20,
+          "description": "How many of the latest events to return.",
+          "maximum": 100,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        }
+      },
+      "title": "get_recent_eventsArguments",
+      "type": "object"
+    },
+    "name": "get_recent_events",
+    "outputSchema": {
+      "$defs": {
+        "EventOut": {
+          "properties": {
+            "clock_s": {
+              "title": "Clock S",
+              "type": "number"
+            },
+            "details": {
+              "additionalProperties": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "title": "Details",
+              "type": "object"
+            },
+            "end": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/XYOut"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "event_id": {
+              "title": "Event Id",
+              "type": "string"
+            },
+            "match_clock": {
+              "title": "Match Clock",
+              "type": "string"
+            },
+            "metrics": {
+              "$ref": "#/$defs/MetricsOut"
+            },
+            "outcome": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Outcome"
+            },
+            "period": {
+              "title": "Period",
+              "type": "integer"
+            },
+            "player_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Player Id"
+            },
+            "receiver_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Receiver Id"
+            },
+            "seq": {
+              "title": "Seq",
+              "type": "integer"
+            },
+            "start": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/XYOut"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "team": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Team"
+            },
+            "type": {
+              "title": "Type",
+              "type": "string"
+            },
+            "under_pressure": {
+              "title": "Under Pressure",
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "event_id",
+            "seq",
+            "match_clock",
+            "clock_s",
+            "period",
+            "type",
+            "team",
+            "player_id",
+            "receiver_id",
+            "start",
+            "end",
+            "outcome",
+            "under_pressure",
+            "details",
+            "metrics"
+          ],
+          "title": "EventOut",
+          "type": "object"
+        },
+        "MetricsOut": {
+          "properties": {
+            "ball_speed_kmh": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ball Speed Kmh"
+            },
+            "chance_quality": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chance Quality"
+            },
+            "distance_to_goal_m": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Distance To Goal M"
+            },
+            "fast_shot": {
+              "title": "Fast Shot",
+              "type": "boolean"
+            },
+            "pass_difficulty": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pass Difficulty"
+            },
+            "pass_distance_m": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pass Distance M"
+            },
+            "pitch_zone": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pitch Zone"
+            },
+            "player_speed_kmh": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Player Speed Kmh"
+            },
+            "progressive": {
+              "title": "Progressive",
+              "type": "boolean"
+            },
+            "sprint": {
+              "title": "Sprint",
+              "type": "boolean"
+            },
+            "xt_delta": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Xt Delta"
+            }
+          },
+          "required": [
+            "pass_distance_m",
+            "pass_difficulty",
+            "progressive",
+            "ball_speed_kmh",
+            "player_speed_kmh",
+            "sprint",
+            "fast_shot",
+            "chance_quality",
+            "distance_to_goal_m",
+            "pitch_zone",
+            "xt_delta"
+          ],
+          "title": "MetricsOut",
+          "type": "object"
+        },
+        "XYOut": {
+          "properties": {
+            "x": {
+              "title": "X",
+              "type": "number"
+            },
+            "y": {
+              "title": "Y",
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y"
+          ],
+          "title": "XYOut",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "count": {
+          "title": "Count",
+          "type": "integer"
+        },
+        "events": {
+          "items": {
+            "$ref": "#/$defs/EventOut"
+          },
+          "title": "Events",
+          "type": "array"
+        }
+      },
+      "required": [
+        "count",
+        "events"
+      ],
+      "title": "EventsOut",
+      "type": "object"
+    },
+    "title": "Recent events"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Simulate a new seeded match between the two fictional clubs and summarise it with the stats engine: score, goals and the full-time state. Same seed, same match. Results are cached; new seeds are rate limited. All clubs, players and matches are fictional and synthetic.",
+    "inputSchema": {
+      "properties": {
+        "home": {
+          "default": "NBR",
+          "description": "Home club id (the other fictional club plays away).",
+          "enum": [
+            "NBR",
+            "HCY"
+          ],
+          "title": "Home",
+          "type": "string"
+        },
+        "seed": {
+          "description": "Seed for the simulator; the same seed gives the same match.",
+          "maximum": 99999,
+          "minimum": 1,
+          "title": "Seed",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "seed"
+      ],
+      "title": "simulate_matchArguments",
+      "type": "object"
+    },
+    "name": "simulate_match",
+    "outputSchema": {
+      "$defs": {
+        "GoalOut": {
+          "properties": {
+            "event_id": {
+              "title": "Event Id",
+              "type": "string"
+            },
+            "match_clock": {
+              "title": "Match Clock",
+              "type": "string"
+            },
+            "period": {
+              "title": "Period",
+              "type": "integer"
+            },
+            "player_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Player Id"
+            },
+            "team": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Team"
+            }
+          },
+          "required": [
+            "event_id",
+            "match_clock",
+            "period",
+            "team",
+            "player_id"
+          ],
+          "title": "GoalOut",
+          "type": "object"
+        },
+        "MatchStateSnapshot": {
+          "properties": {
+            "avg_chain_passes": {
+              "title": "Avg Chain Passes",
+              "type": "number"
+            },
+            "away": {
+              "$ref": "#/$defs/TeamWindow"
+            },
+            "away_id": {
+              "title": "Away Id",
+              "type": "string"
+            },
+            "clock_s": {
+              "title": "Clock S",
+              "type": "number"
+            },
+            "control_chaos": {
+              "description": "-1 chaos ... +1 control",
+              "maximum": 1,
+              "minimum": -1,
+              "title": "Control Chaos",
+              "type": "number"
+            },
+            "events_per_min": {
+              "title": "Events Per Min",
+              "type": "number"
+            },
+            "home": {
+              "$ref": "#/$defs/TeamWindow"
+            },
+            "home_id": {
+              "title": "Home Id",
+              "type": "string"
+            },
+            "match_clock": {
+              "title": "Match Clock",
+              "type": "string"
+            },
+            "match_id": {
+              "title": "Match Id",
+              "type": "string"
+            },
+            "momentum": {
+              "description": "+ = home on top",
+              "maximum": 100,
+              "minimum": -100,
+              "title": "Momentum",
+              "type": "number"
+            },
+            "period": {
+              "title": "Period",
+              "type": "integer"
+            },
+            "score_away": {
+              "title": "Score Away",
+              "type": "integer"
+            },
+            "score_home": {
+              "title": "Score Home",
+              "type": "integer"
+            },
+            "shots_away": {
+              "title": "Shots Away",
+              "type": "integer"
+            },
+            "shots_home": {
+              "title": "Shots Home",
+              "type": "integer"
+            },
+            "tempo": {
+              "title": "Tempo",
+              "type": "string"
+            },
+            "turnovers_per_min": {
+              "title": "Turnovers Per Min",
+              "type": "number"
+            },
+            "xg_away": {
+              "title": "Xg Away",
+              "type": "number"
+            },
+            "xg_home": {
+              "title": "Xg Home",
+              "type": "number"
+            }
+          },
+          "required": [
+            "match_id",
+            "clock_s",
+            "match_clock",
+            "period",
+            "home_id",
+            "away_id",
+            "score_home",
+            "score_away",
+            "home",
+            "away",
+            "momentum",
+            "control_chaos",
+            "tempo",
+            "events_per_min",
+            "turnovers_per_min",
+            "avg_chain_passes",
+            "xg_home",
+            "xg_away",
+            "shots_home",
+            "shots_away"
+          ],
+          "title": "MatchStateSnapshot",
+          "type": "object"
+        },
+        "RosterPlayer": {
+          "properties": {
+            "line": {
+              "enum": [
+                "GK",
+                "DEF",
+                "MID",
+                "FWD"
+              ],
+              "title": "Line",
+              "type": "string"
+            },
+            "name": {
+              "description": "Fictional name",
+              "title": "Name",
+              "type": "string"
+            },
+            "number": {
+              "title": "Number",
+              "type": "integer"
+            },
+            "player_id": {
+              "title": "Player Id",
+              "type": "string"
+            },
+            "position": {
+              "title": "Position",
+              "type": "string"
+            }
+          },
+          "required": [
+            "player_id",
+            "name",
+            "number",
+            "position",
+            "line"
+          ],
+          "title": "RosterPlayer",
+          "type": "object"
+        },
+        "TeamOut": {
+          "properties": {
+            "formation": {
+              "title": "Formation",
+              "type": "string"
+            },
+            "name": {
+              "description": "Fictional club name",
+              "title": "Name",
+              "type": "string"
+            },
+            "players": {
+              "items": {
+                "$ref": "#/$defs/RosterPlayer"
+              },
+              "title": "Players",
+              "type": "array"
+            },
+            "primary_color": {
+              "title": "Primary Color",
+              "type": "string"
+            },
+            "secondary_color": {
+              "title": "Secondary Color",
+              "type": "string"
+            },
+            "short_name": {
+              "title": "Short Name",
+              "type": "string"
+            },
+            "style": {
+              "title": "Style",
+              "type": "string"
+            },
+            "team_id": {
+              "title": "Team Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "team_id",
+            "name",
+            "short_name",
+            "primary_color",
+            "secondary_color",
+            "formation",
+            "style",
+            "players"
+          ],
+          "title": "TeamOut",
+          "type": "object"
+        },
+        "TeamWindow": {
+          "description": "Rolling five-minute numbers for one team.",
+          "properties": {
+            "box_entries": {
+              "title": "Box Entries",
+              "type": "integer"
+            },
+            "field_tilt_pct": {
+              "title": "Field Tilt Pct",
+              "type": "number"
+            },
+            "final_third_passes": {
+              "title": "Final Third Passes",
+              "type": "integer"
+            },
+            "possession_pct": {
+              "title": "Possession Pct",
+              "type": "number"
+            },
+            "pressure_index": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Pressure Index",
+              "type": "number"
+            },
+            "shots": {
+              "title": "Shots",
+              "type": "integer"
+            },
+            "xg": {
+              "title": "Xg",
+              "type": "number"
+            }
+          },
+          "required": [
+            "possession_pct",
+            "field_tilt_pct",
+            "pressure_index",
+            "shots",
+            "xg",
+            "final_third_passes",
+            "box_entries"
+          ],
+          "title": "TeamWindow",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "away": {
+          "$ref": "#/$defs/TeamOut"
+        },
+        "events": {
+          "title": "Events",
+          "type": "integer"
+        },
+        "final_state": {
+          "$ref": "#/$defs/MatchStateSnapshot"
+        },
+        "goals": {
+          "items": {
+            "$ref": "#/$defs/GoalOut"
+          },
+          "title": "Goals",
+          "type": "array"
+        },
+        "home": {
+          "$ref": "#/$defs/TeamOut"
+        },
+        "match_id": {
+          "title": "Match Id",
+          "type": "string"
+        },
+        "score_away": {
+          "title": "Score Away",
+          "type": "integer"
+        },
+        "score_home": {
+          "title": "Score Home",
+          "type": "integer"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "source": {
+          "const": "synthetic_simulator",
+          "title": "Source",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source",
+        "match_id",
+        "seed",
+        "home",
+        "away",
+        "score_home",
+        "score_away",
+        "events",
+        "goals",
+        "final_state"
+      ],
+      "title": "SimulationOut",
+      "type": "object"
+    },
+    "title": "Simulate a synthetic match"
+  }
+]
