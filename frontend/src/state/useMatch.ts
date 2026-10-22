@@ -30,37 +30,41 @@ export function sanitizeProfile(raw: unknown): ViewerProfile {
   };
 }
 
-function storedProfile(): ViewerProfile {
-  let profile = DEFAULT_PROFILE;
+// The viewer's own saved choices, without anything a link pinned.
+function savedProfile(): ViewerProfile {
   try {
     const raw = localStorage.getItem(PROFILE_KEY);
-    if (raw) profile = sanitizeProfile(JSON.parse(raw));
+    if (raw) return sanitizeProfile(JSON.parse(raw));
   } catch {
     // Private windows and blocked storage fall back to defaults.
   }
-  return urlProfile(profile);
+  return DEFAULT_PROFILE;
+}
+
+function storedProfile(): ViewerProfile {
+  return urlProfile(savedProfile());
 }
 
 // `?persona=tactical&lang=es&club=NBR` pins the audience in the link itself, so an OBS or
 // vMix Browser Source (its own empty browser storage) shows the right sheet. Checked like
-// anything else from outside: unknown values are ignored.
+// anything else from outside: each value is checked on its own, and an unknown one leaves
+// the saved choice in place. Pinned values are never written back to storage.
 export function urlProfile(base: ViewerProfile, search = window.location.search): ViewerProfile {
   const q = new URLSearchParams(search);
-  const over: Record<string, unknown> = { ...base };
-  if (q.has('persona')) over.persona = q.get('persona');
-  if (q.has('lang')) over.language = q.get('lang');
-  if (q.has('club')) over.favourite_team = q.get('club');
-  const next = sanitizeProfile(over);
+  const checked = sanitizeProfile({ persona: q.get('persona'), language: q.get('lang'), favourite_team: q.get('club') });
   return {
-    ...next,
-    persona: q.has('persona') && next.persona === DEFAULT_PROFILE.persona && q.get('persona') !== DEFAULT_PROFILE.persona ? base.persona : next.persona,
-    language: q.has('lang') && next.language === DEFAULT_PROFILE.language && q.get('lang') !== DEFAULT_PROFILE.language ? base.language : next.language,
+    ...base,
+    persona: q.get('persona') !== null && checked.persona === q.get('persona') ? checked.persona : base.persona,
+    language: q.get('lang') !== null && checked.language === q.get('lang') ? checked.language : base.language,
+    favourite_team: q.get('club') && checked.favourite_team === q.get('club') ? checked.favourite_team : base.favourite_team,
   };
 }
 
-function saveProfile(profile: ViewerProfile) {
+// Saves only what the viewer changed on top of their saved choices, so a link's pinned
+// persona, language or club does not stick to the next visit.
+export function saveProfileChanges(changes: Partial<ViewerProfile>) {
   try {
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+    localStorage.setItem(PROFILE_KEY, JSON.stringify(sanitizeProfile({ ...savedProfile(), ...changes })));
   } catch {
     // Best effort only.
   }
@@ -85,6 +89,7 @@ export function useMatch() {
     let retries = 0;
     let timers: ReturnType<typeof setTimeout>[] = [];
     // Deep links: `?t=2050&p=1` starts at a match moment, `&pause=1` holds it there.
+    // Playback is shared by everyone on the match, so the seek and pause apply to all viewers.
     const q = new URLSearchParams(window.location.search);
     let startAt = q.has('t') ? { clock_s: Number(q.get('t')), period: Number(q.get('p') ?? 0) || undefined } : null;
     const pauseAtStart = q.get('pause') === '1';
@@ -164,7 +169,7 @@ export function useMatch() {
       // The server rejects unknown fields, so send profile fields only.
       const next = { ...profileRef.current, ...changes };
       dispatch({ type: 'profile', changes });
-      saveProfile(next);
+      saveProfileChanges(changes);
       send({ action: 'set_view', ...changes });
       // Re-voice the cards already on screen so a language or audience switch shows at once.
       if (('language' in changes || 'persona' in changes) && transportRef.current) {

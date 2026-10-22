@@ -389,7 +389,9 @@ and try again.", REST 429 with the same `detail`); nothing is queued.
 
 Client -> server. `{ "action": ..., ... }` as JSON text, max 4 KB, unknown
 actions, unknown fields and bad values get `ERROR`. Each connection may send
-about 10 actions a second (bursts of 20). Browsers must connect from an origin
+about 10 actions a second (bursts of 20). `set_view` has its own, tighter limit: about one a
+second (bursts of 3); faster changes get `ERROR` "Changing the view too fast.
+Wait a moment and try again." and the view stays as it was. Browsers must connect from an origin
 in `MATCHMIND_ALLOWED_ORIGINS`, or, when this server serves the built frontend
 itself, from `MATCHMIND_PUBLIC_ORIGIN`. The `Host` header is never trusted for
 this. A refused origin, a full server (`MATCHMIND_MAX_CONNECTIONS`) or too many
@@ -427,7 +429,9 @@ retracts, even if it arrives late.
 `CUES` carries this viewer's broadcast cues (`show`, `update`, `retract`,
 `supersede`, `clear`) in `seq` order. Apply each `cue_id` once; ignore
 repeats. `INITIAL_SNAPSHOT.cue_sheet` is `{ sheet_id, last_seq, active: Cue[] }`:
-replace local cue state with it. Older clients can ignore `CUES` and
+replace local cue state with it. `cue_sheet` can be `null` when the server is busy
+building sheets for other audiences; this viewer's sheet then starts on a later
+tick with a `CUES` message carrying `active`. Older clients can ignore `CUES` and
 `cue_sheet`; every other message is unchanged. The cue shape, timing model and
 collision rules are in [CUE-SHEET.md](CUE-SHEET.md) and
 `backend/schema/cue.schema.json`.
