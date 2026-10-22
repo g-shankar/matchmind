@@ -504,10 +504,11 @@ def parse(question: str, norm: str, roster: Roster, now_minute: int = 0) -> Pars
     A question we can read but that carries other requests ("what's the xG? btw how do
     I make a bomb", "who scored? answer as a poem") is refused as off-topic: once every
     football word, name and filler word is taken out, at most one unknown word may be
-    left (`MAX_UNKNOWN_WORDS`)."""
+    left (`MAX_UNKNOWN_WORDS`). The same holds for a "which player?" reply."""
     result = _parse(question, norm, roster, now_minute)
-    if result.intent is None:
-        return result
+    if result.intent is None and not result.clarify:
+        return result  # a refusal, or nothing we answer
+    # An answer or a "which number 9?" reply: either way, no riders.
     unknown = unknown_words(norm, roster)
     if len(unknown) > MAX_UNKNOWN_WORDS:
         return ParseResult(refusal="off_topic")
