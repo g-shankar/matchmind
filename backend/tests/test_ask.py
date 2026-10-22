@@ -153,6 +153,17 @@ TABLE: list[tuple[str, str, str, dict, str]] = [
     ("ar", "من يسيطر على المباراة؟", "momentum", {}, "الزخم 22"),
     ("ar", "ماذا حدث بين الدقيقة 60 و 70؟", "window", {"from_minute": 60, "to_minute": 70}, "61:16"),
     ("ar", "كم عدد البطاقات؟", "cards", {}, "حمراء 1"),
+    ("ja", "スコアは？", "score", {}, "Northbridge FC 2-1 Harbour City"),
+    ("ja", "誰が得点した？", "scorers", {}, "Kerrigan 23:20"),
+    ("ja", "xGが一番高いのは誰？", "top_player", {"metric": "xg"}, "Adam Kerrigan"),
+    ("ja", "誰が一番速い？", "top_player", {"metric": "top_speed"}, "37.5 km/h"),
+    ("ja", "シュートは何本？", "team_stat", {"metric": "shots"}, "15"),
+    ("ja", "カードは何枚？", "cards", {}, "レッド1枚"),
+    ("ja", "xGとは？", "explain_metric", {"metric": "chance_quality"}, "0から1"),
+    ("ja", "どちらが優勢？", "momentum", {}, "Harbour Cityが優勢"),
+    ("ja", "Kerriganのスタッツは？", "player_stats", {"player_id": "NBR-9"}, "パス115本中89本成功"),
+    ("ja", "ホームの背番号9のスタッツは？", "player_stats", {"player_id": "NBR-9"}, "Adam Kerrigan"),
+    ("ja", "パスすべきだった？", "better_option", {}, "4倍"),
 ]
 
 
@@ -176,7 +187,7 @@ def test_question_table(ctx70, lang, question, kind, fields, contains):
 
 def test_the_table_is_big_enough():
     assert len(TABLE) >= 40
-    assert {lang for lang, *_ in TABLE} >= {"en", "es", "fr", "ar"}
+    assert {lang for lang, *_ in TABLE} >= {"en", "es", "fr", "ar", "ja"}
 
 
 def test_evidence_and_sources_come_with_the_answer(ctx70):

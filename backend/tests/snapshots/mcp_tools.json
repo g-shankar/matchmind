@@ -7634,7 +7634,7 @@
         },
         "language": {
           "default": "en",
-          "description": "Language of the answer (en, es, fr, ar; others get English).",
+          "description": "Language of the answer (en, es, fr, ar, ja; others get English).",
           "enum": [
             "en",
             "es",

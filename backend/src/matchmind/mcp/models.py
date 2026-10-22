@@ -138,7 +138,7 @@ class AskIn(_In):
     )
     chip: ChipId | None = Field(default=None, description="A suggested question by id, instead of text.")
     language: Language = Field(
-        default="en", description="Language of the answer (en, es, fr, ar; others get English)."
+        default="en", description="Language of the answer (en, es, fr, ar, ja; others get English)."
     )
     spoilers: bool = Field(
         default=True,

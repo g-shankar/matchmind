@@ -2,7 +2,7 @@
 
 The parser reads the guard's normalised copy of the question (accent-free,
 case-folded, Arabic letters folded, ASCII digits) with keyword tables for
-English, Spanish, French and Arabic (and a few Japanese words). Clubs and
+English, Spanish, French, Arabic and Japanese. Clubs and
 players are resolved only against the match's own squads: full name, surname,
 unique first name, club name, short code, "home"/"away", or a shirt number
 ("number 9", "#9", "dorsal 9", "رقم 9"). A capitalised name that is not in
@@ -42,7 +42,7 @@ SCORERS = _rx(
     r"\bqui (a|ont) (marque|inscrit)\b",
     r"\bbuteurs?\b",
     r"من سجل|من احرز|الهداف|مسجلو الاهداف|مسجلي الاهداف",
-    r"得点者|誰が(点|ゴール)",
+    r"得点者|誰が(得点|点|ゴール)|得点した|ゴールを決めた",
 )
 SCORE = _rx(
     r"\bscore(line)?\b",
@@ -135,9 +135,21 @@ MOMENTUM = _rx(
     r"優勢|勢い|プレッシャー",
 )
 HOME = _rx(
-    r"\bhome (side|team)\b", r"\bhosts\b", r"\b(local|locales)\b", r"\bdomicile\b", r"اصحاب الارض|المضيف"
+    r"\bhome (side|team)\b",
+    r"\bhosts\b",
+    r"\b(local|locales)\b",
+    r"\bdomicile\b",
+    r"اصحاب الارض|المضيف",
+    r"ホーム",
 )
-AWAY = _rx(r"\baway (side|team)\b", r"\bvisitors?\b", r"\bvisitantes?\b", r"\bvisiteurs?\b", r"الضيوف|الضيف")
+AWAY = _rx(
+    r"\baway (side|team)\b",
+    r"\bvisitors?\b",
+    r"\bvisitantes?\b",
+    r"\bvisiteurs?\b",
+    r"الضيوف|الضيف",
+    r"アウェイ|アウェー",
+)
 
 # Metric vocabulary, most specific first. (metric id, pattern)
 _METRIC_WORDS: list[tuple[str, re.Pattern[str]]] = [
@@ -291,7 +303,7 @@ _EXPLAIN_EXTRA: list[tuple[str, re.Pattern[str]]] = [
 ]
 
 _NUMBER = re.compile(
-    r"(?:#\s?|\bno\.?\s?|\bnumber\s|\bnumero\s|\bdorsal\s|\bn°\s?|\bnr\.?\s?|رقم\s?)(\d{1,2})\b"
+    r"(?:#\s?|\bno\.?\s?|\bnumber\s|\bnumero\s|\bdorsal\s|\bn°\s?|\bnr\.?\s?|رقم\s?|背番号\s?)(\d{1,2})\b"
 )
 _RANGE = re.compile(
     r"(?:\bbetween|\bfrom|\bentre|\bdesde|\bdel?|\bdu|بين|من)\s*(?:the\s|el\s|la\s|le\s|minute\s|minutes\s|minuto\s"

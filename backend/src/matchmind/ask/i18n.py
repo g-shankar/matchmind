@@ -5,7 +5,7 @@ prints a fact, `{key|one|many}` prints a count with its plural word. Every
 placeholder is a fact the answer composer took from the stats engine, so the
 fact-checker can tie every printed number to its source.
 
-Answers are written in en, es, fr and ar. Any other language gets the English
+Answers are written in en, es, fr, ar and ja. Any other language gets the English
 answer, marked with `text_language: "en"`.
 """
 
@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-ASK_LANGUAGES: tuple[str, ...] = ("en", "es", "fr", "ar")
+ASK_LANGUAGES: tuple[str, ...] = ("en", "es", "fr", "ar", "ja")
 
 EN: dict[str, Any] = {
     "tempo": {
@@ -538,7 +538,137 @@ AR: dict[str, Any] = {
     },
 }
 
-PACKS: dict[str, dict[str, Any]] = {"en": EN, "es": ES, "fr": FR, "ar": AR}
+JA: dict[str, Any] = {
+    "tempo": {
+        "Furious Chaos": "激しい乱戦",
+        "High-Tempo Transition": "速い切り替え",
+        "Methodical Control": "落ち着いた支配",
+        "Total Positional Control": "完全なポジショナル支配",
+    },
+    "evidence": {
+        "score_home": "得点 {home}",
+        "score_away": "得点 {away}",
+        "momentum_abs": "勢い",
+        "pressure_home": "プレッシャー {home}",
+        "pressure_away": "プレッシャー {away}",
+        "possession_home_pct": "ポゼッション {home}",
+        "possession_away_pct": "ポゼッション {away}",
+        "cci_abs": "コントロール・カオス",
+        "n_pressure_spells": "押し込んだ時間帯",
+        "n_better_options": "パスすべきだった？",
+        "times_better": "何倍良かったか",
+        "passes_completed": "成功パス",
+        "passes": "パス試行",
+        "shots": "シュート",
+        "xg": "xG",
+        "distance_km": "走行距離",
+        "top_speed_kmh": "最高速度",
+        "goals": "ゴール",
+        "assists": "アシスト",
+        "n_var": "VAR判定",
+        "n_yellow": "イエローカード",
+        "n_red": "レッドカード",
+        "n_moments": "場面",
+        "n_goals": "ゴール",
+    },
+    "refuse": {
+        "off_topic": "この試合についての質問にだけお答えできます。",
+        "too_long": "質問は200文字以内でお願いします。",
+        "empty": "この試合についての質問を入力してください。",
+        "fact_check": "その答えをスタッツで確認できなかったため、表示しません。",
+        "unknown_player": "この試合の選手とクラブについてだけお答えできます。",
+    },
+    "hidden": "結果が分かってしまいます。スコアを表示するボタンで確認するか、チャンス、プレッシャー、選手について質問してください。",
+    "clarify_number": "両クラブに背番号{number}の選手がいます：{options}。クラブ名を添えてもう一度質問してください。",
+    "not_yet": "試合のその時間帯はまだ行われていません。現在{clock}です。",
+    "score_live": "{clock}時点で{home} {score_home}-{score_away} {away}。",
+    "score_full": "試合終了：{home} {score_home}-{score_away} {away}。",
+    "scorers_none": "{clock}時点でまだゴールはありません。",
+    "scorers": "ここまでのゴール（{n_goals}）：{goals_line}。",
+    "scorers_ruled_out": "VARで取り消し：{ruled_out_line}。",
+    "team_both": "{label}：{home} {value_home}{unit}、{away} {value_away}{unit}。",
+    "team_one": "{team}の{label}：{value}{unit}。",
+    "team_na": "{label}はまだ出ていません。",
+    "top_lead": "{label}のトップは{player}（{team}）：{value}{unit}。",
+    "top_second": "次点は{second}（{second_team}）：{second_value}{unit}。",
+    "top_none": "{clock}時点で{label}を記録した選手はまだいません。",
+    "tracking_note": "走行距離と速度は合成トラッキングからの推定です。",
+    "event_note": "走行距離と速度はイベント位置からの推定です。",
+    "player_line": "{player}（{team}、背番号{number}）：パス{passes}本中{passes_completed}本成功、シュート{shots}本、xG {xg}。",
+    "player_physical": "走行距離{distance_km} km、最高速度{top_speed_kmh} km/h。",
+    "player_goals": "{goals}ゴール、{assists}アシスト。",
+    "player_metric": "{player}（{team}）：{label} {value}{unit}。",
+    "player_none": "{clock}時点で{player}はまだプレーに関わっていません。",
+    "control": "直近五分間のポゼッション：{home} {possession_home_pct}%、{away} {possession_away_pct}%。",
+    "control_tilt_control": "コントロール・カオス指数はコントロール寄りに{cci_abs}（テンポ：{tempo}）。",
+    "control_tilt_chaos": "コントロール・カオス指数はカオス寄りに{cci_abs}（テンポ：{tempo}）。",
+    "momentum_top": "{on_top}が優勢です：勢いは{momentum_abs}。",
+    "momentum_level": "どちらも優勢ではありません：勢いは{momentum_abs}です。",
+    "momentum_pressure": "プレッシャー指数：{home} {pressure_home}、{away} {pressure_away}。",
+    "momentum_spells": "ここまでの押し込んだ時間帯：{n_pressure_spells}。",
+    "better_none": "{clock}時点で「パスすべきだった」場面はまだありません。",
+    "better_count": "ここまでの「パスすべきだった」場面：{n_better_options}。",
+    "better_latest": "直近は{moment_clock}：{player}がシュートを選びましたが、{teammate}へのパスは{times_better}倍良い選択でした。",
+    "var_none": "ここまでスコアを変えたVAR判定はありません。",
+    "var_count": "ここまでのVAR判定：{n_var}。",
+    "var_latest": "直近：{ruled_out_clock}の{player}のゴールは{reason_word}で取り消されました。",
+    "var_now": "現在のスコアは{home} {score_home}-{score_away} {away}です。",
+    "cards_none": "{clock}時点でまだカードは出ていません。",
+    "cards_count": "ここまでのカード：イエロー{n_yellow}枚、レッド{n_red}枚。",
+    "cards_latest": "直近：{moment_clock}に{player}（{team}）に{card_word}。",
+    "window_none": "{from_clock}から{to_clock}の間に注目の場面はありませんでした。",
+    "window_count": "{from_clock}から{to_clock}の間の注目場面は{n_moments}件：{moments_line}。",
+    "window_partial": "試合は現在{clock}なので、すでに行われた部分だけを扱っています。",
+    "reason": {"offside": "オフサイド", "handball": "ハンド", "foul": "ファウル"},
+    "card_word": {"yellow": "イエローカード", "red": "レッドカード"},
+    "labels": {
+        "xg": "xG",
+        "shots": "シュート",
+        "shots_on_target": "枠内シュート",
+        "possession": "ポゼッション（試合全体）",
+        "pass_accuracy": "パス成功率",
+        "passes": "成功パス",
+        "tackles": "タックル成功",
+        "distance": "走行距離",
+        "top_speed": "最高速度",
+        "sprints": "スプリント",
+        "key_passes": "キーパス",
+        "interceptions": "インターセプト",
+        "touches": "タッチ",
+    },
+    "kinds": {
+        "goal": "ゴール",
+        "card": "カード",
+        "big_chance": "決定機",
+        "better_option": "パスすべきだった？",
+        "unfound_run": "使われなかった走り込み",
+        "momentum_swing": "流れの変化",
+        "pressure_spell": "押し込んだ時間帯",
+        "key_tackle": "重要なタックル",
+        "milestone": "節目",
+        "correction": "VAR判定",
+    },
+    "explain": {
+        "chance_quality": "xG（チャンスの質）は、その位置と状況からのシュートが決まる割合で、0から1の値です。距離、角度、プレッシャーから計算します。",
+        "times_better": "「パスすべきだった？」は、打ったシュートと空いていたパスを比べます。パス後のチャンスにパスが通る確率を掛け、シュート自体のxGと比較します。",
+        "projected_chance_quality": "使われなかった走り込みは、スルーパスが出せたのに出なかった、最終ラインの裏への走り込みです。生まれたはずのチャンスを示します。",
+        "possession_pct": "直近のポゼッションは、プレー時間の直近五分間の成功パスに占める各チームの割合です。",
+        "field_tilt_pct": "フィールドティルトは、直近五分間の敵陣最終サードでのパスに占める各チームの割合です。",
+        "pressure_index": "プレッシャー指数は0から100で、直近五分間の最終サードでのパス、ペナルティエリア進入、シュート、xGを合わせたものです。",
+        "momentum": "勢いは-100から100で、最近より脅威を作ったチームに傾きます。新しいプレーほど重く数えます。",
+        "control_chaos": "コントロール・カオス指数は-1（カオス：素早いボールロスト）から+1（コントロール：長いパスの連続）までです。",
+        "pass_difficulty": "パス難度は0から100で、成功パスを距離、プレッシャー、かわした守備者の数で評価します。",
+        "xt_delta": "xT（期待脅威の上積み）は、パスやドリブルでボールが運ばれた場所によって、近いうちに得点する可能性がどれだけ上がったかです。",
+        "ppda": "PPDAは守備アクション1回あたりの被パス数です。自陣でのタックル、インターセプト、ファウル1回ごとに相手に許したパスの数で、低いほどプレスが強いことを示します。",
+        "distance_km": "走行距離は各選手の動きを合計したもので、合成トラッキング（映像ではありません）からの推定です。",
+        "top_speed_kmh": "最高速度はここまでで選手が維持した最も速い速度で、合成トラッキング（映像ではありません）からの推定です。",
+        "sprints": "スプリントは、スプリント速度を超えた状態が1秒以上続いた区間で、合成トラッキングから数えます。",
+        "pass_accuracy": "パス成功率は、試みたすべてのパス（ラインを割ったパスを含む）のうち成功したパスの割合です。",
+        "xa": "xA（期待アシスト）は、選手のパスから生まれたシュートのxGです。キーパスはシュートにつながったパスです。",
+    },
+}
+
+PACKS: dict[str, dict[str, Any]] = {"en": EN, "es": ES, "fr": FR, "ar": AR, "ja": JA}
 
 
 def ask_pack(language: str) -> dict[str, Any]:
