@@ -100,6 +100,7 @@ PLAYER_KEYS = {
     "pass_accuracy",
     "key_passes",
     "shots",
+    "shots_on_target",
     "goals",
     "assists",
     "xg",

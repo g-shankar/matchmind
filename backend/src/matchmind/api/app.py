@@ -42,6 +42,7 @@ from matchmind.crew.contracts import (
     is_world_language,
 )
 from matchmind.crew.producer import ViewerState
+from matchmind.stats.registry import registry_payload
 
 from . import view
 from .session import MatchSession, SessionError, Tick, build_session
@@ -602,6 +603,18 @@ def create_app(
     async def crew_trace(limit: int = Query(default=20, ge=1, le=100)) -> list[dict[str, Any]]:
         traces = await hub.run(hub.session.crew_traces, limit)
         return [t.model_dump() for t in traces]
+
+    # --- Metric registry and basic stats (docs/METRICS.md) -----------------------------------
+
+    @app.get("/api/metrics")
+    async def metric_registry() -> dict[str, Any]:
+        return registry_payload()
+
+    @app.get("/api/match/stats/basic")
+    async def basic_stats() -> dict[str, Any]:
+        return await hub.run(view.basic_stats_payload, hub.session)
+
+    # --- end metric registry and basic stats ----------------------------------------------------
 
     @app.get("/api/auto-eventing")
     async def auto_eventing() -> dict[str, Any]:

@@ -113,7 +113,7 @@ behaviour: |-
 
   Deterministic rules:
   - slot by kind (speed and distance tags go on the pitch, replays to the side
-    panel, goals full screen, the rest as lower thirds);
+    panel, goals full screen, the rest, key tackles included, as lower thirds);
   - persona filter (each audience sees the kinds it cares about);
   - the favourite club's moments get +15 priority and `favourite_side`;
   - moments about the focus player are always kept and boosted;
@@ -232,6 +232,12 @@ contract:
               type: string
             title: Player Ids
             type: array
+          players:
+            description: Identity of each player in player_ids, same order.
+            items:
+              $ref: '#/$defs/PlayerRef'
+            title: Players
+            type: array
           facts:
             additionalProperties:
               anyOf:
@@ -294,6 +300,7 @@ contract:
         - rocket_shot
         - distance_milestone
         - hard_pass
+        - key_tackle
         - milestone
         title: MomentKind
         type: string
@@ -356,6 +363,34 @@ contract:
         - body
         - produced_by
         title: Narrative
+        type: object
+      PlayerRef:
+        description: |-
+          A player's resolved identity, so overlays can tag him by name and shirt
+          number without a second lookup. Names come from our fictional squads.
+        properties:
+          player_id:
+            title: Player Id
+            type: string
+          name:
+            title: Name
+            type: string
+          number:
+            title: Number
+            type: integer
+          team:
+            title: Team
+            type: string
+          position:
+            title: Position
+            type: string
+        required:
+        - player_id
+        - name
+        - number
+        - team
+        - position
+        title: PlayerRef
         type: object
       ViewerProfile:
         description: One viewer's choices. Lives per WebSocket connection, never shared.
@@ -480,9 +515,38 @@ contract:
         - rocket_shot
         - distance_milestone
         - hard_pass
+        - key_tackle
         - milestone
         title: MomentKind
         type: string
+      PlayerRef:
+        description: |-
+          A player's resolved identity, so overlays can tag him by name and shirt
+          number without a second lookup. Names come from our fictional squads.
+        properties:
+          player_id:
+            title: Player Id
+            type: string
+          name:
+            title: Name
+            type: string
+          number:
+            title: Number
+            type: integer
+          team:
+            title: Team
+            type: string
+          position:
+            title: Position
+            type: string
+        required:
+        - player_id
+        - name
+        - number
+        - team
+        - position
+        title: PlayerRef
+        type: object
     description: 'Producer output: one timed, machine-readable overlay for one viewer.'
     properties:
       card_id:
@@ -564,6 +628,12 @@ contract:
         items:
           type: string
         title: Player Ids
+        type: array
+      players:
+        description: Identity of each player in player_ids, same order.
+        items:
+          $ref: '#/$defs/PlayerRef'
+        title: Players
         type: array
       team:
         anyOf:

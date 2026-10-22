@@ -130,6 +130,7 @@ class PlayerStats(BaseModel):
     passes_completed: int = 0
     key_passes: int = 0
     shots: int = 0
+    shots_on_target: int = 0
     goals: int = 0
     assists: int = 0
     xg: float = 0.0

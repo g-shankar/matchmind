@@ -94,6 +94,77 @@ def player_payload(stats: PlayerStats) -> dict[str, Any]:
     return data
 
 
+def _pct(part: int, whole: int) -> float | None:
+    return round(100 * part / whole, 1) if whole else None
+
+
+def basic_stats_payload(session: MatchSession) -> dict[str, Any]:
+    """GET /api/match/stats/basic: plain counting stats per team and per player,
+    with the denominators beside the percentages (docs/METRICS.md)."""
+    from matchmind.stats.physical import LABEL as TRACKING_LABEL
+
+    totals = session.team_totals()
+    players = session.players()
+    completed = {t: tt.passes_completed for t, tt in totals.items()}
+    all_completed = sum(completed.values())
+    tracked = any(p.physical_source == "synthetic_tracking" for p in players)
+    teams: dict[str, Any] = {}
+    for team_id in (session.home_id, session.away_id):
+        t = totals.get(team_id)
+        squad = [p for p in players if p.team == team_id]
+        if t is None:
+            continue
+        teams[team_id] = {
+            "team_id": team_id,
+            "name": session.teams[team_id].name,
+            "possession_pct": _pct(completed[team_id], all_completed) if all_completed else 50.0,
+            "passes_completed": t.passes_completed,
+            "passes_attempted": t.passes,
+            "pass_accuracy_pct": _pct(t.passes_completed, t.passes),
+            "shots": t.shots,
+            "shots_on_target": t.shots_on_target,
+            "goals": t.goals,
+            "tackles_won": t.tackles_won,
+            "tackles_attempted": t.tackles_won + t.tackles_lost,
+            "interceptions": t.interceptions,
+            "fouls": t.fouls,
+            "ppda": t.ppda,
+            "ppda_opponent_passes": t.ppda_opponent_passes,
+            "ppda_defensive_actions": t.ppda_defensive_actions,
+            "distance_km": round(sum(p.distance_km for p in squad), 1),
+            "top_speed_kmh": max((p.top_speed_kmh for p in squad), default=0.0),
+        }
+    return {
+        "match_id": session.match_id,
+        "clock": session.match_clock,
+        "period": session.period,
+        "pass_accuracy_denominator": "every pass attempt (passes out of play included)",
+        "physical_source": "synthetic_tracking" if tracked else "event_estimate",
+        "physical_label": TRACKING_LABEL if tracked else "Estimated from event positions (lower bound)",
+        "teams": teams,
+        "players": [
+            {
+                "player_id": p.player_id,
+                "team": p.team,
+                **player_identity(p.player_id, p.team),
+                "passes_completed": p.passes_completed,
+                "passes_attempted": p.passes,
+                "pass_accuracy_pct": _pct(p.passes_completed, p.passes),
+                "shots": p.shots,
+                "shots_on_target": p.shots_on_target,
+                "goals": p.goals,
+                "tackles_won": p.tackles_won,
+                "tackles_attempted": p.tackles_attempted,
+                "interceptions": p.interceptions,
+                "distance_km": round(p.distance_km, 2),
+                "sprints": p.sprints,
+                "top_speed_kmh": p.top_speed_kmh,
+            }
+            for p in players
+        ],
+    }
+
+
 def team_payload(team: Team) -> dict[str, Any]:
     return {
         "team_id": team.team_id,

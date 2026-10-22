@@ -31,7 +31,7 @@ type FocusMetric = 'pressure' | 'xg' | 'pass_difficulty' | 'top_speed' | 'moment
 type MomentKind =
   | 'goal' | 'card' | 'big_chance' | 'better_option' | 'unfound_run'
   | 'momentum_swing' | 'pressure_spell' | 'speed_burst' | 'rocket_shot'
-  | 'distance_milestone' | 'hard_pass' | 'milestone';
+  | 'distance_milestone' | 'hard_pass' | 'key_tackle' | 'milestone';
 type Slot = 'lower_third' | 'side_panel' | 'pitch_tag' | 'metric_alert' | 'full_screen';
 type FactValue = string | number | boolean;
 
@@ -53,6 +53,10 @@ interface ViewerProfile {
   favourite_team: string | null; focus_player_id: string | null;
   focus_metric: FocusMetric | null;
 }
+
+// Resolved identity of a player on moments and cards, so overlays can tag him by
+// name and shirt number. Same order as player_ids.
+interface PlayerRef { player_id: string; name: string; number: number; team: string; position: string }
 
 interface Evidence { label: string; value: FactValue; unit: string | null; label_key: string | null; source_event_id: string | null }
 
@@ -122,10 +126,57 @@ interface ControlChaosState {
 
 interface PlayerStats {
   player_id: string; team: string;
+  name: string | null; number: number | null; position: string | null; // identity, from the squads
   touches: number; passes: number; passes_completed: number; pass_accuracy: number; // %
-  key_passes: number; shots: number; goals: number; assists: number;
-  xg: number; xa: number; tackles_won: number; interceptions: number;
-  top_speed_kmh: number; sprints: number; distance_km: number; carry_distance_m: number;
+  key_passes: number; shots: number; shots_on_target: number; goals: number; assists: number;
+  xg: number; xa: number;
+  tackles_won: number; tackles_lost: number;   // lost = dribbled past
+  tackles_attempted: number; tackle_success_pct: number;
+  interceptions: number;
+  // Physical: from the 25 Hz synthetic tracking when physical_source is 'synthetic_tracking'
+  // (label it "Estimated from synthetic tracking"); otherwise the event estimate (docs/METRICS.md).
+  distance_km: number; walk_km: number; jog_km: number; run_km: number; sprint_km: number;
+  sprints: number; top_speed_kmh: number;
+  physical_source: 'synthetic_tracking' | 'event_estimate';
+  carry_distance_m: number;
+}
+// A player's physical numbers are re-sent in players_changed when his distance moves
+// by 0.1 km, or his sprints or top speed change.
+
+// GET /api/match/stats/basic: the plain box score, match so far.
+interface BasicStats {
+  match_id: string; clock: string; period: number;
+  pass_accuracy_denominator: string;           // 'every pass attempt (passes out of play included)'
+  physical_source: 'synthetic_tracking' | 'event_estimate'; physical_label: string;
+  teams: Record<string, {
+    team_id: string; name: string;
+    possession_pct: number;                    // completed-pass share
+    passes_completed: number; passes_attempted: number; pass_accuracy_pct: number | null;
+    shots: number; shots_on_target: number; goals: number;
+    tackles_won: number; tackles_attempted: number; interceptions: number; fouls: number;
+    ppda: number | null; ppda_opponent_passes: number; ppda_defensive_actions: number;
+    distance_km: number; top_speed_kmh: number;
+  }>;
+  players: {
+    player_id: string; team: string; name: string | null; number: number | null; position: string | null;
+    passes_completed: number; passes_attempted: number; pass_accuracy_pct: number | null;
+    shots: number; shots_on_target: number; goals: number;
+    tackles_won: number; tackles_attempted: number; interceptions: number;
+    distance_km: number; sprints: number; top_speed_kmh: number;
+  }[];
+}
+
+// GET /api/metrics: the metric registry (docs/METRICS.md is generated from it).
+interface MetricRegistry {
+  quality_flags: Record<'counted' | 'calibrated' | 'heuristic' | 'estimated_from_synthetic_tracking', string>;
+  metrics: {
+    id: string; name: string; scope: 'event' | 'window' | 'player' | 'team' | 'moment';
+    formula: string; symbols: string; units: string; source_events: string[];
+    window: string; range: string;
+    quality: 'counted' | 'calibrated' | 'heuristic' | 'estimated_from_synthetic_tracking';
+    limitations: string; edge_cases: string; fields: string[];
+  }[];
+  not_computed: { id: string; name: string; reason: string }[];
 }
 ```
 
@@ -142,6 +193,7 @@ interface OverlayCard {
   why: string; tactical_tag: string;         // Analyst
   evidence: Evidence[];                      // the numbers behind it
   player_ids: string[]; team: string | null;
+  players: PlayerRef[];                      // identity of each player in player_ids, same order
   favourite_side: boolean | null;
   produced_by: 'ai' | 'template'; fallback_reason: string | null;
   replay: BetterOptionReplay | UnfoundRunReplay | null;
@@ -287,6 +339,8 @@ the focus metric (one place in `MatchSession.cards_for`).
 | `GET /api/languages` | `{ languages: LanguageInfo[], translator: TranslatorStatus }`: every language, its source (studio pack or Azure AI Translator) and whether it can be shown now |
 | `GET /api/crew/trace?limit=20` | `CrewTrace[]` (newest first) |
 | `GET /api/auto-eventing` | `AutoEventingStatus` or 404 until built |
+| `GET /api/metrics` | `MetricRegistry`: every metric's formula, units, source events, window, range, quality flag, limitations and edge cases, plus the metrics we do not compute |
+| `GET /api/match/stats/basic` | `BasicStats`: possession, pass accuracy (with its denominator), shots and on target, tackles, interceptions, PPDA, distance and top speed, per team and per player, match so far |
 
 Errors: `{ "detail": "plain words" }` with 400 or 404 (429 for a seek or reset
 inside the 0.5 s throttle, or more than about 2 POSTs a second, bursts of 10,

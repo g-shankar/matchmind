@@ -377,6 +377,7 @@ class StatsEngine:
     def _count_shot(self, e: Event, shooter: PlayerStats, xg: float) -> None:
         team = shooter.team
         shooter.shots += 1
+        shooter.shots_on_target += e.outcome in (Outcome.GOAL, Outcome.SAVED)
         shooter.xg = round(shooter.xg + xg, 3)
         self._shots[team] = self._shots.get(team, 0) + 1
         self._xg[team] = self._xg.get(team, 0.0) + xg
