@@ -119,7 +119,7 @@ PACK = {
             "fantasy": [
                 (
                     "{card_name_cap} pour {player_short}",
-                    "Des points en moins. {player_short} aujourd'hui : {p_goals|but|buts}, "
+                    "{player_short} {card_action}. Aujourd'hui : {p_goals|but|buts}, "
                     "{p_assists|passe décisive|passes décisives}, {p_xg} xG.",
                 )
             ],
@@ -431,7 +431,7 @@ PACK = {
             "fantasy": [
                 (
                     "Fin du match : {home} {score_home}-{score_away} {away}",
-                    "xG final : {home} {xg_home}, {away} {xg_away}. Vérifiez vos points.",
+                    "xG final : {home} {xg_home}, {away} {xg_away}. Tirs : {shots_home} contre {shots_away}.",
                 )
             ],
         },
@@ -559,3 +559,305 @@ PACK = {
         "parcourus, pointe à {focus_top_speed_kmh} km/h.",
     },
 }
+
+# Vocabulaire du football utilisé par les modèles sous la forme `{g_<terme>}` (docs/LANGUAGES.md).
+PACK["glossary"] = {
+    "box": "surface",
+    "keeper": "gardien",
+    "back_line": "défense",
+    "equaliser": "égalisation",
+    "comeback": "remontada",
+    "let_off": "frayeur",
+    "rocket": "mine",
+}
+
+_SCORE = "{home} {score_home}-{score_away} {away}"
+
+# Cœur de club (crew/club_heart.py) : les mêmes faits, racontés du côté du supporter.
+PACK["heart"] = {
+    "goal_for": {
+        "casual": [
+            (
+                "BUT pour votre équipe ! {player_short} marque",
+                "{player} bat le {g_keeper} à {distance_m} m. " + _SCORE + ".",
+            ),
+        ],
+        "tactical": [
+            (
+                "{player_short} convertit {xg} xG pour votre équipe",
+                "Frappe à {distance_m} m, dans {zone}. " + _SCORE + " à {match_clock}.",
+            ),
+        ],
+        "fantasy": [
+            (
+                "But de {player_short} pour votre équipe",
+                "{player_short} aujourd'hui : {p_goals|but|buts} et {p_xg} xG en {p_shots|tir|tirs}. "
+                "Cette occasion valait {xg} xG.",
+            ),
+        ],
+    },
+    "goal_for_level": {
+        "casual": [
+            (
+                "{g_equaliser} ! {player_short} relance votre équipe",
+                "{player} égalise à {match_clock}. " + _SCORE + " : la {g_comeback} est lancée.",
+            ),
+        ],
+        "tactical": [
+            (
+                "{player_short} égalise sur {xg} xG",
+                "Frappe à {distance_m} m, dans {zone}. " + _SCORE + " à {match_clock}.",
+            ),
+        ],
+    },
+    "goal_for_pull_back": {
+        "casual": [
+            (
+                "{player_short} réduit l'écart !",
+                _SCORE + " à {match_clock}. Votre équipe est relancée : la {g_comeback} commence ici.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Votre équipe réduit l'écart : {player_short}, {xg} xG",
+                "Frappe à {distance_m} m, dans {zone}. " + _SCORE + " à {match_clock}.",
+            ),
+        ],
+    },
+    "goal_for_lead": {
+        "casual": [
+            (
+                "BUT ! {player_short} donne l'avantage à votre équipe",
+                "{player} marque à {match_clock}. " + _SCORE + ".",
+            ),
+        ],
+        "tactical": [
+            (
+                "Avantage votre équipe : {player_short}, {xg} xG",
+                "Frappe à {distance_m} m, dans {zone}, à {match_clock}. " + _SCORE + ".",
+            ),
+        ],
+    },
+    "goal_against": {
+        "casual": [
+            (
+                "{player_short} marque contre votre équipe",
+                _SCORE + " à {match_clock}. Votre équipe a encore le temps de réagir.",
+            ),
+        ],
+        "tactical": [
+            (
+                "But encaissé : {player_short}, {xg} xG",
+                "Frappe à {distance_m} m, dans {zone}. "
+                + _SCORE
+                + " à {match_clock} : il reste du temps pour réagir.",
+            ),
+        ],
+        "fantasy": [
+            (
+                "{player_short} marque contre votre équipe",
+                "{player_short} aujourd'hui : {p_goals|but|buts} et {p_xg} xG en {p_shots|tir|tirs}. "
+                "Cette occasion valait {xg} xG.",
+            ),
+        ],
+    },
+    "goal_against_level": {
+        "casual": [
+            (
+                "Rejoint au score : {player_short} égalise",
+                _SCORE + " à {match_clock}. Votre équipe doit se remobiliser.",
+            ),
+        ],
+        "tactical": [
+            (
+                "{g_equaliser} adverse : {player_short}, {xg} xG",
+                "Frappe à {distance_m} m, dans {zone}. " + _SCORE + " à {match_clock}.",
+            ),
+        ],
+    },
+    "goal_against_lead_cut": {
+        "casual": [
+            (
+                "{player_short} réduit l'écart contre votre équipe",
+                _SCORE + " à {match_clock}. Votre équipe mène toujours : du calme.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Écart réduit : {player_short}, {xg} xG",
+                "Frappe à {distance_m} m, dans {zone}. Toujours devant à {match_clock} : " + _SCORE + ".",
+            ),
+        ],
+    },
+    "goal_against_late": {
+        "casual": [
+            (
+                "Coup dur : {player_short} marque",
+                _SCORE + " à {match_clock}. Difficile à encaisser pour votre équipe si tard.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Coup dur tardif : {player_short}, {xg} xG",
+                "Frappe à {distance_m} m, dans {zone}, à {match_clock}. " + _SCORE + ".",
+            ),
+        ],
+    },
+    "card_own": {
+        "casual": [
+            (
+                "{card_name_cap} pour {player_short}",
+                "{player} {card_action} à {match_clock}. Votre équipe doit garder la tête froide.",
+            ),
+        ],
+    },
+    "card_rival": {
+        "casual": [
+            (
+                "{card_name_cap} pour {player_short}",
+                "{player} {card_action} à {match_clock}. À votre équipe d'en profiter.",
+            ),
+        ],
+    },
+    "let_off": {
+        "casual": [
+            (
+                "Grosse {g_let_off} pour votre équipe !",
+                "{player} avait une belle occasion pour {team} à {distance_m} m, mais {outcome_phrase}. "
+                "Ce genre d'occasion finit au fond environ {xg_pct} % du temps.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Danger : occasion à {xg} xG pour {team}",
+                "{player_short} frappe à {distance_m} m, dans {zone}, mais {outcome_phrase}. "
+                "La {g_back_line} de votre équipe a été prise de vitesse.",
+            ),
+        ],
+    },
+    "let_off_shot": {
+        "casual": [
+            (
+                "{g_let_off} : la {g_rocket} de {player_short}",
+                "{player} frappe à {shot_speed_kmh} km/h à {distance_m} m, et {outcome_phrase}. Votre équipe s'en sort.",
+            ),
+        ],
+    },
+    "let_off_choice": {
+        "casual": [
+            (
+                "{g_let_off} : {player_short} a préféré frapper",
+                "{teammate_short} était libre, et la passe valait {times_better} fois plus que le tir. "
+                "Votre équipe s'en sort bien.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Votre équipe s'en sort : {player_short} a ignoré {teammate_short}",
+                "Tir à {shot_xg} xG ; la passe de {pass_distance_m} m avait {pass_success_pct} % de chances de réussir. "
+                "Votre équipe s'en sort bien.",
+            ),
+        ],
+    },
+    "let_off_run": {
+        "casual": [
+            (
+                "{g_let_off} : l'appel de {runner_short} ignoré",
+                "{runner} a pris la {g_back_line} de votre équipe dans le dos, mais {player_short} n'a jamais donné "
+                "la passe. Ça pouvait être une occasion à {projected_xg_pct} %.",
+            ),
+        ],
+        "tactical": [
+            (
+                "{g_let_off} : {runner_short}, {clear_of_line_m} m d'avance",
+                "{runner_short} avait passé la {g_back_line} de votre équipe à {pass_on_clock} ; la passe aurait "
+                "offert {projected_xg} xG. {player_short} ne l'a pas vu.",
+            ),
+        ],
+    },
+    "lesson_choice": {
+        "casual": [
+            (
+                "La prochaine fois, trouver {teammate_short}",
+                "{player_short} a frappé, mais la passe à {teammate_short} valait {times_better} fois plus. "
+                "Un point à travailler pour votre équipe.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Leçon : la passe vers {teammate_short}",
+                "Tir à {shot_xg} xG ; la passe de {pass_distance_m} m avait {pass_success_pct} % de réussite et "
+                "{alt_xg} xG derrière. Le bon ballon était là.",
+            ),
+        ],
+    },
+    "lesson_run": {
+        "casual": [
+            (
+                "L'appel de {runner_short} méritait le ballon",
+                "{runner} avait {clear_of_line_m} m d'avance sur la {g_back_line} ; la prochaine fois, {player_short} "
+                "peut le trouver. Ça pouvait être une occasion à {projected_xg_pct} %.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Appel ignoré : {runner_short}, {clear_of_line_m} m d'avance",
+                "La passe en profondeur était possible à {pass_on_clock} : une occasion à {projected_xg} xG. "
+                "La prochaine fois, {player_short} peut le trouver.",
+            ),
+        ],
+    },
+    "pressure_for": {
+        "casual": [
+            (
+                "Votre équipe met la pression",
+                "Votre équipe enferme {opp} depuis {spell_min|minute|minutes}. Il faut continuer.",
+            ),
+        ],
+    },
+    "hold_firm": {
+        "casual": [
+            (
+                "Tenir bon : {team} pousse",
+                "{team} enferme votre équipe depuis {spell_min|minute|minutes}. "
+                "Il faut tenir et garder le ballon loin de la {g_box}.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Sous pression : {team} à {pressure_index}",
+                "Indice de pression {pressure_index} depuis {spell_min|minute|minutes}, avec {team_field_tilt_pct} % "
+                "de domination territoriale contre votre équipe.",
+            ),
+        ],
+    },
+    "momentum_against": {
+        "casual": [
+            (
+                "Attention : {team} prend le contrôle",
+                "La dynamique a bougé de {momentum_change} points vers {team} en {window_min} minutes. "
+                "Votre équipe doit réagir.",
+            ),
+        ],
+        "tactical": [
+            (
+                "La dynamique tourne contre votre équipe",
+                "La dynamique a bougé de {momentum_change} points en {window_min} minutes ; {team} a "
+                "{team_field_tilt_pct} % de domination territoriale.",
+            ),
+        ],
+    },
+    "full_time_won": {
+        "casual": [("Fin du match : victoire de votre équipe !", _SCORE + ". Un résultat à savourer.")]
+    },
+    "full_time_lost": {
+        "casual": [("Fin du match : défaite de votre équipe", _SCORE + ". Il faudra se relever.")]
+    },
+    "full_time_drawn": {"casual": [("Fin du match : match nul", _SCORE + ". Chacun repart avec un point.")]},
+}
+PACK["metric"]["momentum_against"] = [
+    (
+        "Attention : la dynamique pour {team}",
+        "La dynamique a bougé de {change} points en faveur de {team}, au détriment de votre équipe.",
+    ),
+]
