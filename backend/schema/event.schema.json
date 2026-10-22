@@ -25,6 +25,7 @@
         "foul",
         "card",
         "milestone",
+        "var_review",
         "period_end",
         "match_end"
       ],
@@ -124,7 +125,9 @@
         "blocked",
         "off_target",
         "found",
-        "not_found"
+        "not_found",
+        "overturned",
+        "stands"
       ],
       "title": "Outcome",
       "type": "string"
@@ -150,6 +153,16 @@
       ],
       "title": "Point",
       "type": "object"
+    },
+    "ReviewReason": {
+      "description": "Why a VAR review looked at an event (var_review only).",
+      "enum": [
+        "offside",
+        "handball",
+        "foul"
+      ],
+      "title": "ReviewReason",
+      "type": "string"
     },
     "TrackingFrame": {
       "description": "Positions at one instant inside a run window (every 0.5 s).",
@@ -406,6 +419,31 @@
       "default": null,
       "description": "match_start only.",
       "title": "Lineups"
+    },
+    "reviewed_event_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "var_review only: the earlier event under review (e.g. the goal's shot). Outcome `overturned` reverses its on-field decision; `stands` keeps it.",
+      "title": "Reviewed Event Id"
+    },
+    "review_reason": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ReviewReason"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "var_review only."
     },
     "details": {
       "additionalProperties": {

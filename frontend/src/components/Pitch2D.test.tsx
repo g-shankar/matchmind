@@ -1,9 +1,9 @@
-import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { I18nProvider } from '../i18n';
 import type { BetterOptionReplay, UnfoundRunReplay } from '../api/contract';
 import { makeFixture, event } from '../test/fixture';
-import { Pitch2D, boxAround, decimalsOf } from './Pitch2D';
+import { MARKER_GAP_PX, Pitch2D, TOUCH_TARGET_PX, boxAround, decimalsOf } from './Pitch2D';
 
 const teams = makeFixture().teams;
 
@@ -56,7 +56,7 @@ describe('Pitch2D', () => {
     expect(screen.getByTestId('replay-nearest').textContent).toContain('4.3 m');
     expect(screen.queryByTestId('event-line')).toBeNull();
     expect(screen.queryByTestId('event-tags')).toBeNull();
-    expect(screen.getByRole('img').getAttribute('aria-label')).toContain('5.6 times better');
+    expect(screen.getByRole('figure').getAttribute('aria-label')).toContain('5.6 times better');
   });
 
   it('draws the unfound-run replay labels', () => {
@@ -89,6 +89,9 @@ describe('Pitch2D', () => {
       </I18nProvider>,
     );
     expect(screen.getByTestId('tag-speed').textContent).toContain('60 km/h');
+    // The ball-speed box sits clear of the player marker it names.
+    expect(MARKER_GAP_PX).toBeGreaterThanOrEqual(14);
+    expect(screen.getByTestId('event-tags').style.transform).toContain(`${MARKER_GAP_PX}px`);
     expect(screen.getByTestId('tag-distance').textContent).toContain('20.0 m');
 
     const base = event(2, 12);
@@ -120,6 +123,33 @@ describe('Pitch2D', () => {
     expect(transforms).not.toContain('translate(20 20)');
   });
 
+  it('labels players by number and shows the name on hover or keyboard focus', () => {
+    const { container } = render(
+      <I18nProvider lang="en">
+        <Pitch2D
+          teams={teams}
+          event={event(1, 200, { player_id: 'BBB-10', receiver_id: null })}
+          positions={{ 'AAA-9': { x: 10, y: 10, clock_s: 190 } }}
+        />
+      </I18nProvider>,
+    );
+    const dot = container.querySelector('[data-player-dot="AAA-9"]') as SVGGElement;
+    expect(dot.textContent).toContain('9');
+    expect(dot.getAttribute('tabindex')).toBe('0');
+    expect(dot.getAttribute('aria-label')).toBe('Number 9, AAA Striker, AAA Town');
+    expect(screen.queryByTestId('player-name-label')).toBeNull();
+    fireEvent.mouseEnter(dot);
+    expect(screen.getByTestId('player-name-label').textContent).toBe('9 A. Striker');
+    fireEvent.mouseLeave(dot);
+    expect(screen.queryByTestId('player-name-label')).toBeNull();
+    // The live actor's dot is tagged too, and keyboard focus works the same way.
+    const actor = container.querySelector('[data-player-dot="BBB-10"]') as SVGGElement;
+    fireEvent.focus(actor);
+    expect(screen.getByTestId('player-name-label').textContent).toContain('B. Playmaker');
+    fireEvent.blur(actor);
+    expect(screen.queryByTestId('player-name-label')).toBeNull();
+  });
+
   it('keeps the pitch left-to-right in Arabic', () => {
     render(
       <I18nProvider lang="ar">
@@ -147,5 +177,52 @@ describe('Pitch2D', () => {
     expect(decimalsOf(0.198)).toBe(3);
     expect(decimalsOf(4)).toBe(0);
     expect(decimalsOf(3.75)).toBe(2);
+  });
+});
+
+describe('Pitch2D player markers on touch screens (LC-5)', () => {
+  const positions = { 'AAA-9': { x: 10, y: 10, clock_s: 100 }, 'BBB-10': { x: 60, y: 30, clock_s: 100 } };
+  const drawAt = (width: number, pointer: 'coarse' | 'fine') => {
+    vi.stubGlobal('matchMedia', (q: string) => ({ matches: q.includes(pointer), media: q, addEventListener() {}, removeEventListener() {} }));
+    const spy = vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(width);
+    const r = render(
+      <I18nProvider lang="en">
+        <Pitch2D teams={teams} event={null} positions={positions} />
+      </I18nProvider>,
+    );
+    spy.mockRestore();
+    return r;
+  };
+  const hitRadius = (container: HTMLElement, id: string) =>
+    Number(container.querySelector(`[data-player-dot="${id}"] [data-hit-area]`)!.getAttribute('r'));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('gives each marker an invisible 44 px hit area on a phone-sized pitch', () => {
+    // 343 px wide pitch (a 375 px phone): 105 m across, so 44 px is about 13.5 m.
+    const { container } = drawAt(343, 'coarse');
+    for (const id of ['AAA-9', 'BBB-10']) {
+      const px = 2 * hitRadius(container, id) * (343 / 105);
+      expect(px).toBeGreaterThanOrEqual(TOUCH_TARGET_PX - 0.01);
+      // The visible dot keeps its size: only the transparent circle grows.
+      const circles = container.querySelectorAll(`[data-player-dot="${id}"] circle`);
+      expect(circles[circles.length - 1].getAttribute('fill')).not.toBe('transparent');
+      expect(Number(circles[circles.length - 1].getAttribute('r'))).toBeLessThan(2);
+    }
+  });
+
+  it('keeps the small hit area with a mouse', () => {
+    const { container } = drawAt(343, 'fine');
+    expect(hitRadius(container, 'AAA-9')).toBeCloseTo(2.5, 5);
+  });
+
+  it('draws no focusable markers when the pitch is only a picture', () => {
+    const { container } = render(
+      <I18nProvider lang="en">
+        <Pitch2D teams={teams} event={null} positions={positions} interactive={false} />
+      </I18nProvider>,
+    );
+    expect(container.querySelectorAll('circle').length).toBeGreaterThan(0);
+    expect(container.querySelector('[data-player-dot]')).toBeNull();
+    expect(container.querySelector('[tabindex]')).toBeNull();
   });
 });

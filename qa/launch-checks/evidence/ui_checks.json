@@ -1,0 +1,1025 @@
+{
+ "devices": {
+  "desktop-1440": {
+   "studio": {
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "offenders": [],
+    "count": 0
+   },
+   "overlay": {
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "offenders": [],
+    "count": 0
+   },
+   "split": {
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "offenders": [],
+    "count": 0
+   },
+   "follow": {
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "offenders": [],
+    "count": 0
+   },
+   "fan": {
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "offenders": [],
+    "count": 0
+   },
+   "lab": {
+    "scrollWidth": 1440,
+    "clientWidth": 1440,
+    "offenders": [],
+    "count": 0
+   },
+   "console_errors": []
+  },
+  "iphone-390": {
+   "studio": {
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "offenders": [],
+    "count": 0
+   },
+   "overlay": {
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "offenders": [],
+    "count": 0
+   },
+   "split": {
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "offenders": [],
+    "count": 0
+   },
+   "follow": {
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "offenders": [],
+    "count": 0
+   },
+   "fan": {
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "offenders": [],
+    "count": 0
+   },
+   "lab": {
+    "scrollWidth": 390,
+    "clientWidth": 390,
+    "offenders": [],
+    "count": 0
+   },
+   "console_errors": []
+  },
+  "android-360": {
+   "studio": {
+    "scrollWidth": 360,
+    "clientWidth": 360,
+    "offenders": [],
+    "count": 0
+   },
+   "overlay": {
+    "scrollWidth": 360,
+    "clientWidth": 360,
+    "offenders": [],
+    "count": 0
+   },
+   "split": {
+    "scrollWidth": 360,
+    "clientWidth": 360,
+    "offenders": [],
+    "count": 0
+   },
+   "follow": {
+    "scrollWidth": 360,
+    "clientWidth": 360,
+    "offenders": [],
+    "count": 0
+   },
+   "fan": {
+    "scrollWidth": 360,
+    "clientWidth": 360,
+    "offenders": [],
+    "count": 0
+   },
+   "lab": {
+    "scrollWidth": 360,
+    "clientWidth": 360,
+    "offenders": [],
+    "count": 0
+   },
+   "console_errors": []
+  },
+  "tablet-768": {
+   "studio": {
+    "scrollWidth": 768,
+    "clientWidth": 768,
+    "offenders": [],
+    "count": 0
+   },
+   "overlay": {
+    "scrollWidth": 768,
+    "clientWidth": 768,
+    "offenders": [],
+    "count": 0
+   },
+   "split": {
+    "scrollWidth": 768,
+    "clientWidth": 768,
+    "offenders": [],
+    "count": 0
+   },
+   "follow": {
+    "scrollWidth": 768,
+    "clientWidth": 768,
+    "offenders": [],
+    "count": 0
+   },
+   "fan": {
+    "scrollWidth": 768,
+    "clientWidth": 768,
+    "offenders": [],
+    "count": 0
+   },
+   "lab": {
+    "scrollWidth": 768,
+    "clientWidth": 768,
+    "offenders": [],
+    "count": 0
+   },
+   "console_errors": []
+  }
+ },
+ "axe": {
+  "desktop-1440": {
+   "studio": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "n": 6,
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "sample": [
+      ".sm\\:px-2\\.5:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1",
+      "button[aria-current=\"page\"] ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1",
+      ".mt-2.flex-wrap.gap-2 > .hover\\:text-pp-night.hover\\:bg-pp-chalk.bg-pp-pulse ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+     ]
+    },
+    {
+     "id": "region",
+     "impact": "moderate",
+     "n": 5,
+     "help": "All page content should be contained by landmarks",
+     "sample": [
+      ".gap-x-4 > .gap-2:nth-child(1) ::   Some page content is not contained by landmarks",
+      ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks",
+      "select ::   Some page content is not contained by landmarks"
+     ]
+    }
+   ],
+   "overlay": [
+    {
+     "id": "aria-hidden-focus",
+     "impact": "serious",
+     "n": 1,
+     "help": "ARIA hidden element must not be focusable or contain focusable elements",
+     "sample": [
+      ".opacity-60 ::   Focusable content should have tabindex=\"-1\" or be removed from the DOM"
+     ]
+    },
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "n": 2,
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "sample": [
+      "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1",
+      "button[aria-current=\"page\"] ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+     ]
+    },
+    {
+     "id": "region",
+     "impact": "moderate",
+     "n": 5,
+     "help": "All page content should be contained by landmarks",
+     "sample": [
+      ".gap-x-4 > .gap-2:nth-child(1) ::   Some page content is not contained by landmarks",
+      "label > .sr-only ::   Some page content is not contained by landmarks",
+      "select ::   Some page content is not contained by landmarks"
+     ]
+    }
+   ],
+   "split": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "n": 2,
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "sample": [
+      "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1",
+      ".bg-pp-pulse ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+     ]
+    },
+    {
+     "id": "region",
+     "impact": "moderate",
+     "n": 5,
+     "help": "All page content should be contained by landmarks",
+     "sample": [
+      ".gap-x-4 > .gap-2:nth-child(1) ::   Some page content is not contained by landmarks",
+      ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks",
+      ".max-w-\\[55vw\\] ::   Some page content is not contained by landmarks"
+     ]
+    }
+   ],
+   "follow": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "n": 4,
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "sample": [
+      "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1",
+      "button[aria-current=\"page\"] ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1",
+      "div[aria-label=\"Northbridge FC\"] > .sm\\:grid-cols-2.lg\\:grid-cols-1 > li:nth-child(8) > .text-start.hover\\:border-pp-line.text-slate-300 > .h-6.w-7.justify-center ::   Element has insufficient color contrast of 3.58 (foreground color: #0d1b3d, background color: #2f6fde, font size: 8.3pt (11px), font weight: bold). Expected contrast ratio of 4.5:1"
+     ]
+    },
+    {
+     "id": "region",
+     "impact": "moderate",
+     "n": 5,
+     "help": "All page content should be contained by landmarks",
+     "sample": [
+      ".gap-x-4 > .gap-2:nth-child(1) ::   Some page content is not contained by landmarks",
+      ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks",
+      ".max-w-\\[55vw\\] ::   Some page content is not contained by landmarks"
+     ]
+    }
+   ],
+   "fan": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "n": 7,
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "sample": [
+      "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1",
+      "button[aria-current=\"page\"] ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1",
+      ".min-h-\\[96px\\].text-start.opacity-80:nth-child(1) > .ps-2.gap-2.items-center > .rounded-lg.h-9.w-9 ::   Element has insufficient color contrast of 2.73 (foreground color: #0f1a35, background color: #2a5db6, font size: 9.0pt (12px), font weight: bold). Expected contrast ratio of 4.5:1"
+     ]
+    },
+    {
+     "id": "region",
+     "impact": "moderate",
+     "n": 5,
+     "help": "All page content should be contained by landmarks",
+     "sample": [
+      ".gap-x-4 > .gap-2.items-center:nth-child(1) ::   Some page content is not contained by landmarks",
+      ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks",
+      "select ::   Some page content is not contained by landmarks"
+     ]
+    }
+   ],
+   "lab": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "n": 3,
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "sample": [
+      "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1",
+      ".bg-pp-pulse ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1",
+      "tr:nth-child(5) > .h-10.border-pp-night.min-w-\\[3\\.25rem\\]:nth-child(6) ::   Element has insufficient color contrast of 3.89 (foreground color: #f2efe8, background color: #8b760b, font size: 8.3pt (11px), font weight: bold). Expected contrast ratio of 4.5:1"
+     ]
+    },
+    {
+     "id": "heading-order",
+     "impact": "moderate",
+     "n": 1,
+     "help": "Heading levels should only increase by one",
+     "sample": [
+      ".p-3.bg-pp-deep\\/70:nth-child(1) > .justify-between.gap-2.flex-wrap > h4 ::   Heading order invalid"
+     ]
+    },
+    {
+     "id": "region",
+     "impact": "moderate",
+     "n": 5,
+     "help": "All page content should be contained by landmarks",
+     "sample": [
+      ".gap-x-4 > .gap-2.items-center.flex:nth-child(1) ::   Some page content is not contained by landmarks",
+      "label > .sr-only ::   Some page content is not contained by landmarks",
+      "select ::   Some page content is not contained by landmarks"
+     ]
+    }
+   ]
+  },
+  "iphone-390": {
+   "studio": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "n": 6,
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "sample": [
+      ".sm\\:px-2\\.5:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1",
+      "button[aria-current=\"page\"] ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1",
+      ".mt-2.flex-wrap.gap-2 > .hover\\:text-pp-night.hover\\:bg-pp-chalk.bg-pp-pulse ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+     ]
+    },
+    {
+     "id": "region",
+     "impact": "moderate",
+     "n": 6,
+     "help": "All page content should be contained by landmarks",
+     "sample": [
+      ".gap-x-4 > .gap-2:nth-child(1) ::   Some page content is not contained by landmarks",
+      ".lg\\:hidden.gap-2 > div[aria-label=\"Playback speed\"][role=\"radiogroup\"][dir=\"ltr\"] ::   Some page content is not contained by landmarks",
+      ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks"
+     ]
+    }
+   ],
+   "overlay": [
+    {
+     "id": "aria-hidden-focus",
+     "impact": "serious",
+     "n": 1,
+     "help": "ARIA hidden element must not be focusable or contain focusable elements",
+     "sample": [
+      ".opacity-60 ::   Focusable content should have tabindex=\"-1\" or be removed from the DOM"
+     ]
+    },
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "n": 2,
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "sample": [
+      "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1",
+      "button[aria-current=\"page\"] ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+     ]
+    },
+    {
+     "id": "region",
+     "impact": "moderate",
+     "n": 6,
+     "help": "All page content should be contained by landmarks",
+     "sample": [
+      ".gap-x-4 > .gap-2:nth-child(1) ::   Some page content is not contained by landmarks",
+      ".lg\\:hidden.gap-2 > .items-stretch[aria-label=\"Playback speed\"][role=\"radiogroup\"] ::   Some page content is not contained by landmarks",
+      "label > .sr-only ::   Some page content is not contained by landmarks"
+     ]
+    }
+   ],
+   "split": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "n": 2,
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "sample": [
+      "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1",
+      ".bg-pp-pulse ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1"
+     ]
+    },
+    {
+     "id": "region",
+     "impact": "moderate",
+     "n": 6,
+     "help": "All page content should be contained by landmarks",
+     "sample": [
+      ".gap-x-4 > .gap-2:nth-child(1) ::   Some page content is not contained by landmarks",
+      ".lg\\:hidden.gap-2 > .items-stretch[aria-label=\"Playback speed\"][role=\"radiogroup\"] ::   Some page content is not contained by landmarks",
+      ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks"
+     ]
+    }
+   ],
+   "follow": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "n": 4,
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "sample": [
+      "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1",
+      "button[aria-current=\"page\"] ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1",
+      "div[aria-label=\"Northbridge FC\"] > .sm\\:grid-cols-2.lg\\:grid-cols-1 > li:nth-child(8) > .text-start.hover\\:border-pp-line.text-slate-300 > .h-6.w-7.justify-center ::   Element has insufficient color contrast of 3.58 (foreground color: #0d1b3d, background color: #2f6fde, font size: 8.3pt (11px), font weight: bold). Expected contrast ratio of 4.5:1"
+     ]
+    },
+    {
+     "id": "region",
+     "impact": "moderate",
+     "n": 6,
+     "help": "All page content should be contained by landmarks",
+     "sample": [
+      ".gap-x-4 > .gap-2:nth-child(1) ::   Some page content is not contained by landmarks",
+      ".lg\\:hidden.gap-2 > div[aria-label=\"Playback speed\"][role=\"radiogroup\"][dir=\"ltr\"] ::   Some page content is not contained by landmarks",
+      ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks"
+     ]
+    }
+   ],
+   "fan": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "n": 7,
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "sample": [
+      "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1",
+      "button[aria-current=\"page\"] ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1",
+      ".min-h-\\[96px\\].text-start.opacity-80:nth-child(1) > .ps-2.gap-2.items-center > .rounded-lg.h-9.w-9 ::   Element has insufficient color contrast of 2.73 (foreground color: #0f1a35, background color: #2a5db6, font size: 9.0pt (12px), font weight: bold). Expected contrast ratio of 4.5:1"
+     ]
+    },
+    {
+     "id": "region",
+     "impact": "moderate",
+     "n": 6,
+     "help": "All page content should be contained by landmarks",
+     "sample": [
+      ".gap-x-4 > .gap-2.items-center:nth-child(1) ::   Some page content is not contained by landmarks",
+      ".lg\\:hidden.gap-2.items-center > div[aria-label=\"Playback speed\"][role=\"radiogroup\"][dir=\"ltr\"] ::   Some page content is not contained by landmarks",
+      ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks"
+     ]
+    }
+   ],
+   "lab": [
+    {
+     "id": "color-contrast",
+     "impact": "serious",
+     "n": 3,
+     "help": "Elements must meet minimum color contrast ratio thresholds",
+     "sample": [
+      "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1",
+      ".bg-pp-pulse ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1",
+      "tr:nth-child(5) > .h-10.border-pp-night.min-w-\\[3\\.25rem\\]:nth-child(6) ::   Element has insufficient color contrast of 3.89 (foreground color: #f2efe8, background color: #8b760b, font size: 8.3pt (11px), font weight: bold). Expected contrast ratio of 4.5:1"
+     ]
+    },
+    {
+     "id": "heading-order",
+     "impact": "moderate",
+     "n": 1,
+     "help": "Heading levels should only increase by one",
+     "sample": [
+      ".p-3.bg-pp-deep\\/70:nth-child(1) > .justify-between.gap-2.flex-wrap > h4 ::   Heading order invalid"
+     ]
+    },
+    {
+     "id": "region",
+     "impact": "moderate",
+     "n": 6,
+     "help": "All page content should be contained by landmarks",
+     "sample": [
+      ".gap-x-4 > .gap-2.items-center.flex:nth-child(1) ::   Some page content is not contained by landmarks",
+      ".lg\\:hidden.gap-2.items-center > .items-stretch[aria-label=\"Playback speed\"][role=\"radiogroup\"] ::   Some page content is not contained by landmarks",
+      "label > .sr-only ::   Some page content is not contained by landmarks"
+     ]
+    },
+    {
+     "id": "scrollable-region-focusable",
+     "impact": "serious",
+     "n": 2,
+     "help": "Scrollable region must have keyboard access",
+     "sample": [
+      ".space-y-5 > div:nth-child(2) > .overflow-x-auto.relative ::   Element should have focusable content",
+      "div:nth-child(3) > .overflow-x-auto.relative ::   Element should have focusable content"
+     ]
+    }
+   ]
+  }
+ },
+ "keyboard": {
+  "tab_stops": [
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Broadcast",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Fan vs Analyst",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Player focus",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "My match",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Under the hood",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": "radio",
+    "name": "Fan",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": "radio",
+    "name": "Analyst",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": "radio",
+    "name": "Stats scout",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Catch up",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Read aloud: off",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "SELECT",
+    "role": null,
+    "name": "EnglishEspa\u00f1olFran\u00e7ais\u0627\u0644\u0639\u0631\u0628\u064a\u0629\u65e5\u672c\u8a9ePortugu\u00ea",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Watch from kick-off",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Read the recap",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Not now",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "g",
+    "role": "img",
+    "name": "Number 10, Elias Varga, Harbour City",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "g",
+    "role": "img",
+    "name": "Number 9, Ivan Petrov, Harbour City",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "g",
+    "role": "img",
+    "name": "Number 1, Tomas Reyner, Northbridge FC",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "g",
+    "role": "img",
+    "name": "Number 5, Jonah Vries, Northbridge FC",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "g",
+    "role": "img",
+    "name": "Number 2, Callum Okafor, Northbridge FC",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "g",
+    "role": "img",
+    "name": "Number 3, Duarte Nogueira, Harbour City",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "g",
+    "role": "img",
+    "name": "Number 11, Jaden Clarke, Harbour City",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "g",
+    "role": "img",
+    "name": "Number 7, Mateo Rios, Harbour City",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "g",
+    "role": "img",
+    "name": "Number 7, Dev Mallick, Northbridge FC",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "g",
+    "role": "img",
+    "name": "Number 8, Kai Watanabe, Harbour City",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "g",
+    "role": "img",
+    "name": "Number 8, Rory Achterberg, Northbridge F",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "g",
+    "role": "img",
+    "name": "Number 9, Adam Kerrigan, Northbridge FC",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 00:00: Kick-off: Northbridge FC ",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 00:53: Big chance for Kerrigan!",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 03:26: Northbridge FC piling on ",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 06:38: Harbour City piling on th",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 12:46: Northbridge FC piling on ",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 13:38: Northbridge FC take contr",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 20:09: Harbour City take control",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 21:53: Harbour City piling on th",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 23:20: GOAL! Kerrigan scores for",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 27:21: Yellow card for Clarke",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 29:25: Big chance for Kerrigan!",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 30:47: Yellow card for Varga",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 32:25: Northbridge FC piling on ",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 34:12: Northbridge FC take contr",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 34:16: Should Asante have passed",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 36:21: Big chance for Petrov!",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 39:11: GOAL! Asante scores for N",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 40:22: No goal! VAR rules out As",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   },
+   {
+    "tag": "BUTTON",
+    "role": null,
+    "name": "Jump to 41:36: GOAL! Ferrante scores for",
+    "outline": true,
+    "ring": false,
+    "inView": true
+   }
+  ],
+  "no_visible_focus": [],
+  "modal": {
+   "tabs_inside": 25,
+   "of": 25,
+   "after_escape": {
+    "dialog": false,
+    "focus": "Recap"
+   }
+  }
+ },
+ "tap": {
+  "studio": {
+   "total": 86,
+   "under44": 16,
+   "under24": 12,
+   "examples_under24": [
+    {
+     "w": 17,
+     "h": 17,
+     "name": "Number 10, Elias Varga, Harbour City"
+    },
+    {
+     "w": 17,
+     "h": 17,
+     "name": "Number 9, Ivan Petrov, Harbour City"
+    },
+    {
+     "w": 17,
+     "h": 17,
+     "name": "Number 1, Tomas Reyner, Northbridge FC"
+    },
+    {
+     "w": 17,
+     "h": 17,
+     "name": "Number 5, Jonah Vries, Northbridge FC"
+    },
+    {
+     "w": 17,
+     "h": 17,
+     "name": "Number 2, Callum Okafor, Northbridge FC"
+    },
+    {
+     "w": 17,
+     "h": 17,
+     "name": "Number 3, Duarte Nogueira, Harbour City"
+    }
+   ]
+  },
+  "overlay": {
+   "total": 37,
+   "under44": 16,
+   "under24": 12,
+   "examples_under24": [
+    {
+     "w": 14,
+     "h": 14,
+     "name": "Number 10, Elias Varga, Harbour City"
+    },
+    {
+     "w": 14,
+     "h": 14,
+     "name": "Number 9, Ivan Petrov, Harbour City"
+    },
+    {
+     "w": 14,
+     "h": 14,
+     "name": "Number 1, Tomas Reyner, Northbridge FC"
+    },
+    {
+     "w": 14,
+     "h": 14,
+     "name": "Number 5, Jonah Vries, Northbridge FC"
+    },
+    {
+     "w": 14,
+     "h": 14,
+     "name": "Number 2, Callum Okafor, Northbridge FC"
+    },
+    {
+     "w": 14,
+     "h": 14,
+     "name": "Number 3, Duarte Nogueira, Harbour City"
+    }
+   ]
+  },
+  "split": {
+   "total": 22,
+   "under44": 4,
+   "under24": 0,
+   "examples_under24": []
+  },
+  "follow": {
+   "total": 58,
+   "under44": 17,
+   "under24": 11,
+   "examples_under24": [
+    {
+     "w": 23,
+     "h": 23,
+     "name": "Number 10, Elias Varga, Harbour City"
+    },
+    {
+     "w": 23,
+     "h": 23,
+     "name": "Number 9, Ivan Petrov, Harbour City"
+    },
+    {
+     "w": 23,
+     "h": 23,
+     "name": "Number 1, Tomas Reyner, Northbridge FC"
+    },
+    {
+     "w": 23,
+     "h": 23,
+     "name": "Number 5, Jonah Vries, Northbridge FC"
+    },
+    {
+     "w": 23,
+     "h": 23,
+     "name": "Number 2, Callum Okafor, Northbridge FC"
+    },
+    {
+     "w": 23,
+     "h": 23,
+     "name": "Number 3, Duarte Nogueira, Harbour City"
+    }
+   ]
+  },
+  "fan": {
+   "total": 37,
+   "under44": 5,
+   "under24": 0,
+   "examples_under24": []
+  },
+  "lab": {
+   "total": 57,
+   "under44": 4,
+   "under24": 0,
+   "examples_under24": []
+  }
+ },
+ "zoom": {
+  "studio": {
+   "scrollWidth": 640,
+   "clientWidth": 640,
+   "offenders": [],
+   "count": 0
+  },
+  "overlay": {
+   "scrollWidth": 640,
+   "clientWidth": 640,
+   "offenders": [],
+   "count": 0
+  },
+  "lab": {
+   "scrollWidth": 640,
+   "clientWidth": 640,
+   "offenders": [],
+   "count": 0
+  }
+ },
+ "aria": {
+  "lines": 197,
+  "unnamed_buttons": 0,
+  "unnamed_links": 0
+ }
+}

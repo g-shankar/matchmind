@@ -21,6 +21,18 @@ describe('MockMatchServer', () => {
     server.close();
   });
 
+  it('lists languages honestly: recorded studio text on, the rest off with a reason', async () => {
+    const { server, messages } = await start();
+    const snap = messages[0];
+    if (snap.type !== 'INITIAL_SNAPSHOT') throw new Error('no snapshot');
+    const by = Object.fromEntries((snap.data.languages ?? []).map((l) => [l.code, l]));
+    expect(Object.keys(by)).toHaveLength(13);
+    expect(['en', 'es', 'ar'].every((c) => by[c].available)).toBe(true);
+    expect(by.fr).toMatchObject({ source: 'studio', available: false, reason: 'not_in_demo' });
+    expect(by['zh-Hans']).toMatchObject({ source: 'translator', available: false, reason: 'translator_off' });
+    server.close();
+  });
+
   it('plays ticks on the match clock and attaches the goal card', async () => {
     const { server, messages } = await start();
     server.step(0.15); // 15 s of match clock at 10x
@@ -63,6 +75,21 @@ describe('MockMatchServer', () => {
     server.close();
   });
 
+  it('refuses a seek past full time or to a bad time, like the live server (EC-8)', async () => {
+    const { server, messages } = await start();
+    for (const action of [
+      { action: 'seek' as const, clock_s: 99_999 },
+      { action: 'seek' as const, clock_s: Number.NaN },
+      { action: 'seek' as const, clock_s: -5 },
+      { action: 'seek' as const, clock_s: 10, period: 3 },
+    ]) {
+      const before = messages.length;
+      server.send(action);
+      expect(messages.slice(before).map((m) => m.type)).toEqual(['ERROR']);
+    }
+    server.close();
+  });
+
   it('sends a metric alert only for the focus metric', async () => {
     const { server, messages } = await start({ focus_metric: 'pressure' });
     server.step(0.25);
@@ -77,10 +104,34 @@ describe('MockMatchServer', () => {
 describe('cardForMoment', () => {
   const m = makeFixture().moments[0];
 
-  it('falls back to English when a language is missing', () => {
+  it('falls back to English when a language is missing, and says so', () => {
     const card = cardForMoment(m, { ...DEFAULT_PROFILE, persona: 'tactical', language: 'ar' });
-    expect(card?.language).toBe('en');
+    expect(card?.language).toBe('ar');
+    expect(card?.text_language).toBe('en');
+    expect(card?.rtl).toBe(false);
+    expect(card?.fallback_reason).toBe('not_in_demo');
     expect(card?.headline).toBe('Finish from 0.31 xG');
+  });
+
+  it('carries player identities from the recording onto the card', () => {
+    const who = { player_id: m.player_ids[0] ?? 'AAA-10', name: 'Test Player', number: 10, team: 'AAA', position: 'ST' };
+    expect(cardForMoment({ ...m, players: [who] }, DEFAULT_PROFILE)?.players).toEqual([who]);
+    expect(cardForMoment(m, DEFAULT_PROFILE)?.players).toBeUndefined();
+  });
+
+  it('never pretends to translate: world languages are English with translator_off', () => {
+    const card = cardForMoment(m, { ...DEFAULT_PROFILE, language: 'pt' });
+    expect(card?.language).toBe('pt');
+    expect(card?.text_language).toBe('en');
+    expect(card?.translated_by).toBeNull();
+    expect(card?.fallback_reason).toBe('translator_off');
+    expect(card?.headline).toBe('Goal for AAA');
+  });
+
+  it('studio text in the recording keeps its own language and no fallback', () => {
+    const card = cardForMoment(m, { ...DEFAULT_PROFILE, language: 'es' });
+    expect(card?.text_language).toBe('es');
+    expect(card?.fallback_reason).toBeNull();
   });
 
   it('marks and boosts the favourite side', () => {

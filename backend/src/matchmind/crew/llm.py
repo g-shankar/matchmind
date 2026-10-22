@@ -4,15 +4,19 @@
   `enabled == False` and use the localised templates.
 - `AzureOpenAILLM`: Azure OpenAI through Microsoft Entra ID (no API key),
   JSON response format, validated against a fixed pydantic schema.
+- `FoundryAgentsLLM` (`matchmind.foundry.agent_service`): each model step
+  runs as a Microsoft Foundry Agent Service agent, one per role.
 
-Paid AI stays off unless `MATCHMIND_AI_ENABLED=true` (owner approval). The
-`openai` and `azure-identity` packages are imported lazily, so the engine
-works without the optional `ai` extra.
+Paid AI stays off unless `MATCHMIND_AI_ENABLED=true` (owner approval);
+`MATCHMIND_LLM_PROVIDER` (azure_openai, the default, or foundry_agents) picks
+the client once it is on. The SDKs are imported lazily, so the engine works
+without the optional `ai` and `foundry` extras.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import os
 import threading
 import time
@@ -23,7 +27,13 @@ from typing import Any, Protocol, runtime_checkable
 from pydantic import BaseModel, ValidationError
 
 DEFAULT_API_VERSION = "2024-10-21"
+DEFAULT_DEPLOYMENT = "gpt-4o-mini"
 TOKEN_SCOPE = "https://cognitiveservices.azure.com/.default"
+TEMPERATURE = 0.3
+MAX_TOKENS = 400
+PROVIDERS = ("azure_openai", "foundry_agents")
+
+logger = logging.getLogger(__name__)
 
 
 class LLMError(RuntimeError):
@@ -38,6 +48,7 @@ class LLMSchemaError(LLMError):
 class LLM(Protocol):
     enabled: bool
     model: str | None
+    # Optional: "azure_openai" or "foundry_agents" (see `provider_of`).
 
     def complete_json(
         self, system: str, user: dict[str, Any], schema: type[BaseModel], timeout_s: float
@@ -49,6 +60,7 @@ class TemplateLLM:
 
     enabled = False
     model: str | None = None
+    provider = "templates"
 
     def complete_json(
         self, system: str, user: dict[str, Any], schema: type[BaseModel], timeout_s: float
@@ -67,6 +79,7 @@ def parse_json(raw: str | None, schema: type[BaseModel]) -> BaseModel:
 
 class AzureOpenAILLM:
     enabled = True
+    provider = "azure_openai"
 
     def __init__(
         self,
@@ -76,7 +89,7 @@ class AzureOpenAILLM:
         client: Any | None = None,
     ) -> None:
         self.endpoint = endpoint or os.environ.get("AZURE_OPENAI_ENDPOINT", "")
-        self.model = deployment or os.environ.get("AZURE_OPENAI_DEPLOYMENT", "gpt-4o-mini")
+        self.model = deployment or os.environ.get("AZURE_OPENAI_DEPLOYMENT", DEFAULT_DEPLOYMENT)
         self.api_version = api_version or os.environ.get("AZURE_OPENAI_API_VERSION", DEFAULT_API_VERSION)
         self._client = client
 
@@ -107,8 +120,8 @@ class AzureOpenAILLM:
                     {"role": "user", "content": json.dumps(user, ensure_ascii=False)},
                 ],
                 response_format={"type": "json_object"},
-                temperature=0.3,
-                max_tokens=400,
+                temperature=TEMPERATURE,
+                max_tokens=MAX_TOKENS,
                 timeout=timeout_s,
             )
             raw = response.choices[0].message.content
@@ -169,6 +182,32 @@ def default_budget() -> ModelBudget:
     return BUDGET
 
 
+def llm_provider() -> str:
+    """MATCHMIND_LLM_PROVIDER: azure_openai (default) or foundry_agents. Anything
+    else is logged and read as the default."""
+    value = os.environ.get("MATCHMIND_LLM_PROVIDER", "").strip().lower() or "azure_openai"
+    if value not in PROVIDERS:
+        logger.warning("MATCHMIND_LLM_PROVIDER=%r is not one of %s; using azure_openai", value, PROVIDERS)
+        return "azure_openai"
+    return value
+
+
+def provider_of(llm: Any) -> str:
+    """What /api/crew/status reports: templates, azure_openai or foundry_agents."""
+    if not getattr(llm, "enabled", False):
+        return "templates"
+    provider = getattr(llm, "provider", "azure_openai")
+    return provider if provider in PROVIDERS else "azure_openai"
+
+
 def make_llm() -> LLM:
-    """Azure only when the owner has switched paid AI on; templates otherwise."""
-    return AzureOpenAILLM() if ai_enabled() else TemplateLLM()
+    """A paid model client only when the owner has switched paid AI on, from the
+    provider MATCHMIND_LLM_PROVIDER names; templates otherwise. No client talks
+    to Azure until its first call."""
+    if not ai_enabled():
+        return TemplateLLM()
+    if llm_provider() == "foundry_agents":
+        from matchmind.foundry.agent_service import FoundryAgentsLLM
+
+        return FoundryAgentsLLM()
+    return AzureOpenAILLM()

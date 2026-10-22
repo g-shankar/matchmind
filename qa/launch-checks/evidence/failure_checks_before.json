@@ -1,0 +1,88 @@
+{
+ "kill_backend": {
+  "timeline": [
+   {
+    "t": 0,
+    "badge": []
+   },
+   {
+    "t": 1.0,
+    "badge": []
+   },
+   {
+    "t": 2.0,
+    "badge": []
+   },
+   {
+    "t": 3.3,
+    "badge": []
+   },
+   {
+    "t": 4.3,
+    "badge": []
+   },
+   {
+    "t": 5.3,
+    "badge": []
+   },
+   {
+    "t": 6.3,
+    "badge": []
+   },
+   {
+    "t": 7.3,
+    "badge": []
+   },
+   {
+    "t": 8.3,
+    "badge": []
+   },
+   {
+    "t": 9.3,
+    "badge": []
+   },
+   {
+    "t": 10.3,
+    "badge": []
+   },
+   {
+    "t": 11.3,
+    "badge": []
+   },
+   {
+    "t": 12.3,
+    "badge": []
+   },
+   {
+    "t": 42.3,
+    "badge": [],
+    "note": "server back after 19.7s (pid 16720)"
+   }
+  ],
+  "page_errors": [],
+  "stack_trace_shown": false
+ },
+ "api_blocked_auto": {
+  "badge": [],
+  "demo_hint": false
+ },
+ "api_blocked_live_only": {
+  "badge": [],
+  "text_head": "PitchPulse\nNBR\n0-0\nHCY\n02:39\nSTUDIO\nBROADCAST\nFAN VS ANALYST\nPLAYER FOCUS\nMY MATCH\nUNDER THE HOOD\nI'm a\nFan\nAnalyst\nStats scout\n1X\n10X\n60X\nCATCH UP\nREAD ALOUD: OFF\nLanguage\nEnglish\nEspa\u00f1ol\nFran\u00e7ais\n\u0627\u0644\u0639\u0631\u0628\u064a\u0629\n\u65e5\u672c\u8a9e\nPortugu\u00eas \u00b7 Off: needs Azure AI Translator\nDeutsch \u00b7 Off: needs Azure AI Translator\n\u0939\u093f\u0928\u094d\u0926\u0940"
+ },
+ "demo": {
+  "badge": [
+   "Offline demo"
+  ]
+ },
+ "ask_500": {
+  "alerts": [
+   "The studio could not answer just now. Check your connection and try again."
+  ]
+ },
+ "ask_abort": {
+  "alerts": [
+   "The studio could not answer just now. Check your connection and try again."
+  ]
+ }
+}

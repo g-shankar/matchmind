@@ -12,8 +12,28 @@
   unless it matches a numeric fact. Templates are exempt: they use articles
   such as "un"/"une" and words such as "premier" by design.
 
+Machine-translated text (world languages, `translated=True`) gets the same
+number and name checks with slightly roomier length rules; the translator's
+own protection check makes sure every number and name came back unchanged.
+
 String facts (names, clocks such as "67:28") are removed from the text before
 numbers are read, so the digits inside a clock never need their own fact.
+
+Bounded sanity checks on top (every text, see docs/TRUST.md):
+- unit: a number printed with a unit ("31 km/h", "18 m", "62%", "3.1x",
+  "0.4 xG", "5 minutes", in every studio language) must match a fact of that
+  unit, so a distance can never be printed as a speed;
+- range: a percentage is never over 100;
+- attribution: a per-team number (score, xG, shots) printed straight after one
+  club's name must be that club's value, and a scoreline "A 2-1 B" must read
+  in the right order for the two clubs named;
+- comparison (English, Spanish, French): "N more than M" needs N > M, "N less
+  than M" needs N < M, and a multiplier read as "more" or "better" must be
+  over 1;
+- roster: with `roster` given, a squad player's or club's name that is not in
+  the moment's facts is rejected (a true number pinned on the wrong player).
+Out of scope, on purpose: negation ("did not score"), tone, causal wording and
+any claim without a number or a name. Those are never reported as verified.
 
 This is the ONLY module allowed to contain real names: they are here so the
 checker can block them. Everything else in the codebase stays synthetic.
@@ -21,9 +41,11 @@ checker can block them. Everything else in the codebase stays synthetic.
 
 from __future__ import annotations
 
+import functools
 import re
 import unicodedata
-from collections.abc import Mapping
+from collections.abc import Collection, Mapping
+from dataclasses import dataclass
 from typing import Literal
 
 from matchmind.crew.contracts import FactCheck, FactValue
@@ -38,9 +60,18 @@ BODY_MAX_SENTENCES = 2
 WHY_MAX_CHARS = 320
 PARAGRAPH_MAX_CHARS = 700
 TEXT_MAX_CHARS = 1200
+# Machine-translated text (world languages) may run this much longer than English.
+TRANSLATED_STRETCH = 1.3
+TRANSLATED_HEADLINE_MAX_WORDS = 12
+TRANSLATED_HEADLINE_MAX_CJK_UNITS = 26
 
-# Real top-flight English clubs, famous players and competition or broadcaster
-# brands. Generated text must never contain them (case-insensitive, whole word).
+# Real clubs, famous players and managers, grounds, nicknames, competitions,
+# broadcasters and programmes, with Arabic, Japanese and Cyrillic spellings. Generated
+# text, feed rosters and viewer questions must never contain them. Matching is on a
+# folded copy (compatibility forms, case, accents, Arabic letter variants and the
+# Japanese middle dot all folded): Latin and Cyrillic names as whole words, Arabic
+# names as whole words that may carry a prefix ("and", "the"), Japanese anywhere.
+# This file is the only place the names are spelled out; tests read them from here.
 BANNED_NAMES: tuple[str, ...] = (
     # clubs
     "Arsenal",
@@ -62,6 +93,7 @@ BANNED_NAMES: tuple[str, ...] = (
     "Man Utd",
     "Newcastle",
     "Nottingham Forest",
+    "Nottm Forest",
     "Sunderland",
     "Tottenham",
     "West Ham",
@@ -69,6 +101,51 @@ BANNED_NAMES: tuple[str, ...] = (
     "Leicester",
     "Southampton",
     "Ipswich",
+    "Sheffield United",
+    "Sheffield Wednesday",
+    "Luton Town",
+    "West Brom",
+    "Norwich City",
+    "Watford",
+    "Middlesbrough",
+    "Real Madrid",
+    "Barcelona",
+    "Barca",
+    "Atletico Madrid",
+    "Atletico de Madrid",
+    "Bayern",
+    "Borussia Dortmund",
+    "Dortmund",
+    "Bayer Leverkusen",
+    "Leverkusen",
+    "RB Leipzig",
+    "PSG",
+    "Paris Saint-Germain",
+    "Juventus",
+    "Inter Milan",
+    "Internazionale",
+    "AC Milan",
+    "Napoli",
+    "Lazio",
+    "AS Roma",
+    "Ajax",
+    "Benfica",
+    "FC Porto",
+    "Sporting CP",
+    "Celtic",
+    "Glasgow Rangers",
+    "Sevilla",
+    "Villarreal",
+    "Real Sociedad",
+    "Athletic Bilbao",
+    "Galatasaray",
+    "Fenerbahce",
+    "Al Nassr",
+    "Al Hilal",
+    "Inter Miami",
+    "Olympique de Marseille",
+    "Olympique Lyonnais",
+    "AS Monaco",
     # players
     "Haaland",
     "Salah",
@@ -90,6 +167,205 @@ BANNED_NAMES: tuple[str, ...] = (
     "Son Heung-min",
     "Van Dijk",
     "Alisson",
+    "Mbappe",
+    "Bellingham",
+    "Foden",
+    "Isak",
+    "Watkins",
+    "Toney",
+    "Gakpo",
+    "Nunez",
+    "Luis Diaz",
+    "Diogo Jota",
+    "Alexander-Arnold",
+    "Szoboszlai",
+    "Mac Allister",
+    "Wirtz",
+    "Ekitike",
+    "Saliba",
+    "Martinelli",
+    "Havertz",
+    "Gyokeres",
+    "Trossard",
+    "Rodri",
+    "Gvardiol",
+    "Jeremy Doku",
+    "Marmoush",
+    "Cherki",
+    "Reijnders",
+    "Mainoo",
+    "Garnacho",
+    "Hojlund",
+    "Sesko",
+    "Mbeumo",
+    "Matheus Cunha",
+    "Caicedo",
+    "Enzo Fernandez",
+    "Joao Pedro",
+    "Mitoma",
+    "Welbeck",
+    "Wissa",
+    "Mateta",
+    "Eberechi Eze",
+    "Olise",
+    "Pickford",
+    "Onana",
+    "Ederson",
+    "Courtois",
+    "Lewandowski",
+    "Lamine Yamal",
+    "Vinicius",
+    "Neymar",
+    "Modric",
+    "Benzema",
+    "Kroos",
+    "Pedri",
+    "Griezmann",
+    "Kvaratskhelia",
+    "Dembele",
+    "Musiala",
+    "Kimmich",
+    "Neuer",
+    "Zidane",
+    "Maradona",
+    "Pele",
+    "Beckham",
+    "Drogba",
+    "Aguero",
+    "Cantona",
+    "Bergkamp",
+    "Vardy",
+    "Kante",
+    "Pogba",
+    "Lukaku",
+    "Grealish",
+    "Maguire",
+    "Mason Mount",
+    "Raheem Sterling",
+    "Bukayo",
+    "Mohamed Salah",
+    "Cristiano",
+    "Kylian",
+    "Erling",
+    "Rodrygo",
+    "Osimhen",
+    "Lautaro",
+    "Julian Alvarez",
+    "Bruno Guimaraes",
+    "Tonali",
+    "Semenyo",
+    "Kudus",
+    "Paqueta",
+    "Solanke",
+    "Maddison",
+    "Richarlison",
+    "Van de Ven",
+    "Vicario",
+    "Zubimendi",
+    "Sancho",
+    "Casemiro",
+    "Dalot",
+    "Kobbie",
+    "Amad Diallo",
+    "Zirkzee",
+    "Ugarte",
+    "De Ligt",
+    "Mazraoui",
+    "Konate",
+    "Szczesny",
+    "Ter Stegen",
+    "Raphinha",
+    "Gavi",
+    "Thiago Silva",
+    "Pulisic",
+    "Kolo Muani",
+    "Hakimi",
+    "Marquinhos",
+    "Donnarumma",
+    "Vlahovic",
+    "Dybala",
+    "Mertens",
+    "Ibrahimovic",
+    "Totti",
+    "Del Piero",
+    "Buffon",
+    "Maldini",
+    "Pirlo",
+    "Iniesta",
+    "Xavi",
+    "Puyol",
+    "Casillas",
+    "Pique",
+    "Busquets",
+    "Suarez",
+    "Cavani",
+    "Forlan",
+    "Fabregas",
+    "Essien",
+    "Makelele",
+    "Vidic",
+    "Scholes",
+    "Giggs",
+    "Dalglish",
+    "Carragher",
+    "Mascherano",
+    "Kompany",
+    "Ljungberg",
+    "Cech",
+    "Schmeichel",
+    "Van der Sar",
+    "Van Nistelrooy",
+    "Van Persie",
+    "Eriksen",
+    "Lineker",
+    "Le Tissier",
+    "Zola",
+    "Ginola",
+    "Ronaldinho",
+    "Kaka",
+    "Rivaldo",
+    "Romario",
+    "Cruyff",
+    "Beckenbauer",
+    "Klose",
+    "Lahm",
+    "Schweinsteiger",
+    "Ozil",
+    "Gotze",
+    "Reus",
+    "Gnabry",
+    # players and pundits (full names where the surname is a common word)
+    "David Silva",
+    "Bernardo Silva",
+    "Gareth Bale",
+    "Leroy Sane",
+    "Eden Hazard",
+    "David Seaman",
+    "John Terry",
+    "Michael Owen",
+    "Ian Wright",
+    "Tony Adams",
+    "Roy Keane",
+    "Anthony Gordon",
+    "Cristian Romero",
+    "Yaya Toure",
+    "Thomas Muller",
+    "Dele Alli",
+    "Fede Valverde",
+    "Rio Ferdinand",
+    "Jarrod Bowen",
+    "Robert Pires",
+    "Patrick Vieira",
+    "Robbie Fowler",
+    "Ian Rush",
+    "Federico Chiesa",
+    "Ciro Immobile",
+    "Rafael Leao",
+    "Antonio Conte",
+    "Estadio Azteca",
+    "ITV",
+    "Fernando Torres",
+    "Sergio Ramos",
     # managers
     "Guardiola",
     "Arteta",
@@ -108,6 +384,35 @@ BANNED_NAMES: tuple[str, ...] = (
     "Moyes",
     "Dyche",
     "Iraola",
+    "Ancelotti",
+    "Simeone",
+    "Xabi Alonso",
+    "Hansi Flick",
+    "Luis Enrique",
+    "Tuchel",
+    "Southgate",
+    "Thomas Frank",
+    "Glasner",
+    "Marco Silva",
+    "Hurzeler",
+    "McKenna",
+    "Nuno Espirito Santo",
+    "Lopetegui",
+    "Graham Potter",
+    "Benitez",
+    "Ranieri",
+    "Allardyce",
+    "Redknapp",
+    "Hodgson",
+    "Bielsa",
+    "Sarri",
+    "Nagelsmann",
+    "Rangnick",
+    "Solskjaer",
+    "Vincent Kompany",
+    "Enzo Maresca",
+    "Ruben Amorim",
+    "Mikel Arteta",
     # stadiums
     "Anfield",
     "Old Trafford",
@@ -125,6 +430,32 @@ BANNED_NAMES: tuple[str, ...] = (
     "Stadium of Light",
     "White Hart Lane",
     "Highbury",
+    "Wembley",
+    "Bernabeu",
+    "Santiago Bernabeu",
+    "Camp Nou",
+    "San Siro",
+    "Allianz Arena",
+    "Signal Iduna Park",
+    "Parc des Princes",
+    "London Stadium",
+    "Gtech Community Stadium",
+    "Vitality Stadium",
+    "Amex Stadium",
+    "City Ground",
+    "King Power",
+    "Portman Road",
+    "Bramall Lane",
+    "Kenilworth Road",
+    "Hillsborough",
+    "Hill Dickinson Stadium",
+    "Brentford Community Stadium",
+    "Tottenham Hotspur Stadium",
+    "Westfalenstadion",
+    "Celtic Park",
+    "Ibrox",
+    "Mestalla",
+    "Maracana",
     # club nicknames
     "Gunners",
     "Red Devils",
@@ -136,27 +467,196 @@ BANNED_NAMES: tuple[str, ...] = (
     "Seagulls",
     "Wolves",
     "Black Cats",
-    # competitions and broadcasters
+    "Hammers",
+    "Cityzens",
+    "Baggies",
+    "Hatters",
+    "Tractor Boys",
+    "Los Blancos",
+    "Blaugrana",
+    "Rossoneri",
+    "Nerazzurri",
+    "Bianconeri",
+    # competitions, broadcasters, programmes and games
     "Premier League",
     "Champions League",
     "Europa League",
+    "Conference League",
     "FA Cup",
+    "Carabao Cup",
+    "EFL Cup",
+    "EFL",
+    "Community Shield",
+    "La Liga",
+    "LaLiga",
+    "Serie A",
+    "Bundesliga",
+    "Ligue 1",
+    "Eredivisie",
+    "Copa del Rey",
+    "Copa America",
+    "World Cup",
+    "Club World Cup",
+    "Ballon d'Or",
+    "UEFA",
+    "FIFA",
+    "Euro 2024",
+    "Euro 2028",
     "Sky Sports",
     "BBC",
-    # common non-Latin spellings
+    "Match of the Day",
+    "MOTD",
+    "TNT Sports",
+    "BT Sport",
+    "Prime Video",
+    "DAZN",
+    "ESPN",
+    "NBC Sports",
+    "beIN Sports",
+    "beIN",
+    "talkSPORT",
+    "Monday Night Football",
+    "Soccer Saturday",
+    "Super Sunday",
+    "Fantasy Premier League",
+    "FPL",
+    "Barclays",
+    "EA Sports FC",
+    "Football Manager",
+    # Arabic spellings
     "أرسنال",
     "تشيلسي",
     "ليفربول",
     "مانشستر",
     "توتنهام",
     "هالاند",
+    "ميسي",
+    "محمد صلاح",
+    "صلاح",
+    "رونالدو",
+    "كريستيانو",
+    "مبابي",
+    "نيمار",
+    "ليفاندوفسكي",
+    "بنزيما",
+    "مودريتش",
+    "ريال مدريد",
+    "برشلونة",
+    "بايرن",
+    "يوفنتوس",
+    "باريس سان جيرمان",
+    "نيوكاسل",
+    "أستون فيلا",
+    "الدوري الإنجليزي",
+    "البريميرليغ",
+    "دوري أبطال أوروبا",
+    "غوارديولا",
+    "جوارديولا",
+    "كلوب",
+    "أنفيلد",
+    "أولد ترافورد",
+    "ويمبلي",
+    "بي إن سبورت",
+    "سكاي سبورتس",
+    "بيلينغهام",
+    "فودين",
+    "ساكا",
+    "كين",
+    "دي بروين",
+    "فان دايك",
+    "مورينيو",
+    "أرتيتا",
+    "إيفرتون",
+    "وست هام",
+    "كريستال بالاس",
+    "إنتر ميلان",
+    "ميلان",
+    "نابولي",
+    "أتلتيكو مدريد",
+    "دورتموند",
+    "كامب نو",
+    "سانتياغو برنابيو",
+    "زيدان",
+    "مارادونا",
+    "بيليه",
+    # Japanese spellings
     "アーセナル",
     "チェルシー",
     "リバプール",
+    "リヴァプール",
     "マンチェスター",
     "トッテナム",
     "ハーランド",
     "プレミアリーグ",
+    "メッシ",
+    "ロナウド",
+    "エムバペ",
+    "ムバッペ",
+    "サラー",
+    "ネイマール",
+    "レアル・マドリード",
+    "バルセロナ",
+    "バイエルン",
+    "ユベントス",
+    "パリ・サンジェルマン",
+    "ニューカッスル",
+    "アストン・ヴィラ",
+    "チャンピオンズリーグ",
+    "グアルディオラ",
+    "クロップ",
+    "三笘",
+    "アンフィールド",
+    "ウェンブリー",
+    "ベリンガム",
+    "フォーデン",
+    "サカ",
+    "ケイン",
+    "デ・ブライネ",
+    "ファン・ダイク",
+    "モウリーニョ",
+    "アルテタ",
+    "エバートン",
+    "ウェストハム",
+    "インテル",
+    "ミラン",
+    "ナポリ",
+    "ドルトムント",
+    "カンプ・ノウ",
+    "ジダン",
+    "マラドーナ",
+    "ベッカム",
+    "オールド・トラッフォード",
+    "スカイスポーツ",
+    "ラ・リーガ",
+    "ブンデスリーガ",
+    # Cyrillic spellings
+    "Месси",
+    "Роналду",
+    "Мбаппе",
+    "Холанд",
+    "Салах",
+    "Неймар",
+    "Реал Мадрид",
+    "Барселона",
+    "Бавария",
+    "Арсенал",
+    "Челси",
+    "Ливерпуль",
+    "Манчестер",
+    "Тоттенхэм",
+    "Премьер-лига",
+    "Лига чемпионов",
+    "Гвардиола",
+    "Клопп",
+    "Ювентус",
+    "Моуринью",
+    "Кейн",
+    "Сака",
+    "Беллингем",
+    "Фоден",
+    "Зидан",
+    "Марадона",
+    "Пеле",
 )
 
 # Letters NFKD does not split into a base letter and an accent.
@@ -169,24 +669,71 @@ def fold(text: str) -> str:
     return "".join(ch for ch in decomposed if not unicodedata.combining(ch))
 
 
-_BANNED_RE = [
-    (
-        name,
-        re.compile(
-            rf"(?<!\w){re.escape(fold(name))}(?!\w)" if name.isascii() else re.escape(fold(name)),
-            re.IGNORECASE,
-        ),
-    )
-    for name in BANNED_NAMES
-]
+# Look-alike letters (Cyrillic, Greek, Latin small capitals) -> Latin.
+CONFUSABLES = str.maketrans(
+    {
+        "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "у": "y", "х": "x", "і": "i", "ј": "j",
+        "ѕ": "s", "ԁ": "d", "ɡ": "g", "һ": "h", "ӏ": "l", "ո": "n", "ս": "u", "ν": "v", "ο": "o",
+        "ι": "i", "α": "a", "ε": "e", "ρ": "p", "τ": "t", "κ": "k", "μ": "m", "η": "n", "ω": "w",
+        "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H", "О": "O", "Р": "P", "С": "C",
+        "Т": "T", "У": "Y", "Х": "X", "І": "I", "Ј": "J", "Ѕ": "S", "Α": "A", "Β": "B", "Ε": "E",
+        "Ζ": "Z", "Η": "H", "Ι": "I", "Κ": "K", "Μ": "M", "Ν": "N", "Ο": "O", "Ρ": "P", "Τ": "T",
+        "Υ": "Y", "Χ": "X", "ᴀ": "a", "ʙ": "b", "ᴄ": "c", "ᴅ": "d", "ᴇ": "e", "ɢ": "g", "ʜ": "h",
+        "ɪ": "i", "ᴊ": "j", "ᴋ": "k", "ʟ": "l", "ᴍ": "m", "ɴ": "n", "ᴏ": "o", "ᴘ": "p", "ʀ": "r",
+        "ꜱ": "s", "ᴛ": "t", "ᴜ": "u", "ᴠ": "v", "ᴡ": "w", "ʏ": "y", "ᴢ": "z",
+    }
+)  # fmt: skip
+# Arabic letter variants (teh marbuta, alef maqsura, tatweel) and the Japanese middle dot.
+_BAN_FOLD = str.maketrans({"ة": "ه", "ى": "ي", "ـ": None, "・": None, "･": None})
+_ARABIC_PREFIXES = ("وال", "بال", "فال", "كال", "لل", "ال", "و", "ب", "ل", "ف", "ك")
+_WORD = re.compile(r"\w+")
+# What may sit inside one name written in pieces: "Ha-aland", "Haa.land" (a space only for
+# single letters, "H a a l a n d", or a long name, "Haa land").
+_JOINERS = re.compile(r"[\s\-.'’_·]{1,2}")
+_JOIN_SPACE_MIN = 5  # shorter names split at a space read too much like two ordinary words
 
-_SENTENCE_END = re.compile(r"[。！？]+|[.!?؟]+(?=\s|$|[\"'”’)])")
+
+# The look-alikes after case folding ("Н" -> "н" -> "h"), so a capital look-alike still matches.
+_BAN_CONFUSABLES = {
+    ord(chr(k).casefold()): v.casefold() for k, v in CONFUSABLES.items() if len(chr(k).casefold()) == 1
+}
+
+
+def _ban_fold(text: str) -> str:
+    """Look-alike letters to Latin, accents and invisible format characters out, case folded."""
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Cf").casefold()
+    return fold(text.translate(_BAN_CONFUSABLES)).translate(_BAN_FOLD).casefold()
+
+
+def _is_cjk(name: str) -> bool:
+    return any("\u3040" <= ch <= "\u9fff" for ch in name)
+
+
+# Latin, Cyrillic and Arabic names match as whole words (token sequences), Japanese anywhere.
+_WORD_NAMES: dict[tuple[str, ...], str] = {
+    tuple(_WORD.findall(_ban_fold(n))): n for n in BANNED_NAMES if not _is_cjk(n)
+}
+_MAX_WORDS = max(len(k) for k in _WORD_NAMES)
+_CJK_NAMES: list[tuple[str, str]] = [(_ban_fold(n), n) for n in BANNED_NAMES if _is_cjk(n)]
+
+
+def _first_word_forms(word: str) -> list[str]:
+    """The word, and the word without an attached Arabic prefix ("and", "the", ...)."""
+    forms = [word]
+    if "\u0600" <= word[:1] <= "\u06ff":
+        forms += [word[len(p) :] for p in _ARABIC_PREFIXES if word.startswith(p) and len(word) > len(p) + 1]
+    return forms
+
+
+_SENTENCE_END = re.compile(r"[。！？]+|[.!?؟।]+(?=\s|$|[\"'”’)])")
 _CJK = re.compile(r"[぀-ヿ㐀-鿿ｦ-ﾟ]")
 
 
 def normalise_digits(text: str) -> str:
     """Map every Unicode decimal digit (Arabic-Indic, full-width, ...) to 0-9
     and the Arabic decimal and thousands separators to ASCII."""
+    if text.isascii():
+        return text
     out = []
     for ch in text:
         if unicodedata.category(ch) == "Nd":
@@ -238,42 +785,106 @@ def sentence_count(text: str) -> int:
         return 0
     ends = len(_SENTENCE_END.findall(stripped))
     last = stripped.rstrip("\"'”’)")[-1:]
-    trailing = 0 if last and last in ".!?。！？؟" else 1
+    trailing = 0 if last and last in ".!?。！？؟।" else 1
     return ends + trailing
 
 
-def length_problems(text: str, field: Field) -> list[str]:
+def length_problems(text: str, field: Field, translated: bool = False) -> list[str]:
+    """`translated=True` (machine-translated studio text) allows a little more
+    room: translations run longer than the English they come from."""
     reasons: list[str] = []
     if not text.strip():
         return ["empty text"]
+    stretch = TRANSLATED_STRETCH if translated else 1.0
+    max_words = TRANSLATED_HEADLINE_MAX_WORDS if translated else HEADLINE_MAX_WORDS
+    max_cjk = TRANSLATED_HEADLINE_MAX_CJK_UNITS if translated else HEADLINE_MAX_CJK_UNITS
+
+    def limit(n: int) -> int:
+        return int(n * stretch)
+
     if field == "headline":
-        if len(text) > HEADLINE_MAX_CHARS:
-            reasons.append(f"headline longer than {HEADLINE_MAX_CHARS} characters")
+        if len(text) > limit(HEADLINE_MAX_CHARS):
+            reasons.append(f"headline longer than {limit(HEADLINE_MAX_CHARS)} characters")
         if _CJK.search(text):
             units = len(_CJK.findall(text)) + _word_count(_CJK.sub(" ", text))
-            if units > HEADLINE_MAX_CJK_UNITS:
-                reasons.append(f"headline longer than {HEADLINE_MAX_CJK_UNITS} characters")
-        elif _word_count(text) > HEADLINE_MAX_WORDS:
-            reasons.append(f"headline longer than {HEADLINE_MAX_WORDS} words")
+            if units > max_cjk:
+                reasons.append(f"headline longer than {max_cjk} characters")
+        elif _word_count(text) > max_words:
+            reasons.append(f"headline longer than {max_words} words")
     elif field == "body":
-        if len(text) > BODY_MAX_CHARS:
-            reasons.append(f"body longer than {BODY_MAX_CHARS} characters")
+        if len(text) > limit(BODY_MAX_CHARS):
+            reasons.append(f"body longer than {limit(BODY_MAX_CHARS)} characters")
         if sentence_count(text) > BODY_MAX_SENTENCES:
             reasons.append(f"body longer than {BODY_MAX_SENTENCES} sentences")
     elif field == "why":
-        if len(text) > WHY_MAX_CHARS:
-            reasons.append(f"explanation longer than {WHY_MAX_CHARS} characters")
+        if len(text) > limit(WHY_MAX_CHARS):
+            reasons.append(f"explanation longer than {limit(WHY_MAX_CHARS)} characters")
     elif field == "paragraph":
-        if len(text) > PARAGRAPH_MAX_CHARS:
-            reasons.append(f"paragraph longer than {PARAGRAPH_MAX_CHARS} characters")
-    elif len(text) > TEXT_MAX_CHARS:
-        reasons.append(f"text longer than {TEXT_MAX_CHARS} characters")
+        if len(text) > limit(PARAGRAPH_MAX_CHARS):
+            reasons.append(f"paragraph longer than {limit(PARAGRAPH_MAX_CHARS)} characters")
+    elif len(text) > limit(TEXT_MAX_CHARS):
+        reasons.append(f"text longer than {limit(TEXT_MAX_CHARS)} characters")
     return reasons
 
 
+def _single_names(word: str) -> list[str]:
+    """One-word banned names `word` spells, as is or as a plural/possessive ("Haalands")."""
+    out = []
+    for form in (word, word[:-1] if len(word) > 3 and word.endswith("s") else None):
+        name = _WORD_NAMES.get((form,)) if form else None
+        if name is not None:
+            out.append(name)
+    return out
+
+
+def _joined_words(folded: str) -> list[str]:
+    """Words written in pieces, put back together: runs of single letters ("h a a l a n d")
+    and two or three pieces with a hyphen, dot or apostrophe between them ("ha-aland"); a
+    space joins pieces only when the result is long enough not to be two ordinary words."""
+    spans = list(_WORD.finditer(folded))
+    out: list[str] = []
+    i = 0
+    while i < len(spans):  # runs of single letters
+        j = i
+        while j < len(spans) and len(spans[j].group()) == 1 and spans[j].group().isalpha():
+            j += 1
+        if j - i >= 3:
+            out.append("".join(m.group() for m in spans[i:j]))
+        i = max(j, i + 1)
+    for i in range(len(spans)):
+        for n in (2, 3):
+            if i + n > len(spans):
+                break
+            gaps = [folded[spans[k].end() : spans[k + 1].start()] for k in range(i, i + n - 1)]
+            if not all(_JOINERS.fullmatch(g) for g in gaps):
+                break
+            joined = "".join(m.group() for m in spans[i : i + n])
+            if all(not g.isspace() for g in gaps) or len(joined) >= _JOIN_SPACE_MIN:
+                out.append(joined)
+    return out
+
+
 def banned_names_in(text: str) -> list[str]:
-    folded = fold(text)
-    return [name for name, rx in _BANNED_RE if rx.search(folded)]
+    """Real names in `text` (see BANNED_NAMES), in list order. Look-alike letters, names in
+    pieces and plurals/possessives count ("Hаaland" with a Cyrillic a, "Ha-aland", "Haalands")."""
+    folded = _ban_fold(text)
+    words = _WORD.findall(folded)
+    found: set[str] = set()
+    for i, word in enumerate(words):
+        for first in _first_word_forms(word):
+            for n in range(1, _MAX_WORDS + 1):
+                if i + n > len(words):
+                    break
+                key = (first, *words[i + 1 : i + n])
+                name = _WORD_NAMES.get(key)
+                if name is None and key[-1].endswith("s") and len(key[-1]) > 3:
+                    name = _WORD_NAMES.get((*key[:-1], key[-1][:-1]))  # plural or possessive
+                if name is not None:
+                    found.add(name)
+    for joined in _joined_words(folded):
+        found.update(_single_names(joined))
+    found.update(name for f, name in _CJK_NAMES if f in folded)
+    return [name for name in BANNED_NAMES if name in found]
 
 
 # --- Number words (model text only) ---------------------------------------------------------
@@ -410,9 +1021,13 @@ def check(
     language: str = "en",
     field: Field = "text",
     strict_words: bool = False,
+    translated: bool = False,
+    roster: Collection[str] | None = None,
 ) -> FactCheck:
-    """`strict_words=True` (model text) also rejects number words not in the facts."""
-    reasons = length_problems(text, field)
+    """`strict_words=True` (model text) also rejects number words not in the facts.
+    `translated=True` (world languages) relaxes the length rules a little.
+    `roster` (squad player and club names) turns on the wrong-name check."""
+    reasons = length_problems(text, field, translated)
     if banned_names_in(text):
         reasons.append("real name not allowed")
 
@@ -427,6 +1042,9 @@ def check(
         for word, value in number_words_in(scrubbed, language):
             if not _matches(str(value), values):
                 reasons.append(f"number word {word} is not in the facts")
+    reasons += sanity_problems(text, facts, language)
+    if roster:
+        reasons += [f"name {name} is not in the facts" for name in unknown_names(text, facts, roster)]
     return FactCheck(ok=not reasons, reasons=reasons)
 
 
@@ -435,11 +1053,271 @@ def check_all(
     facts: Mapping[str, FactValue],
     language: str,
     strict_words: bool = False,
+    translated: bool = False,
+    roster: Collection[str] | None = None,
 ) -> FactCheck:
     """Check several fields at once; reasons are prefixed with the field."""
     reasons: list[str] = []
     for field, value in parts.items():
         for text in value if isinstance(value, list) else [value]:
-            result = check(text, facts, language, field, strict_words)
+            result = check(text, facts, language, field, strict_words, translated, roster)
             reasons.extend(f"{field}: {r}" for r in result.reasons)
     return FactCheck(ok=not reasons, reasons=reasons)
+
+
+# --- Where things sit in the text (claims and sanity checks) ------------------------------------
+# Positions are in the original text: `normalise_digits` maps one character to one character.
+
+
+@dataclass(frozen=True)
+class Span:
+    text: str  # as printed
+    start: int
+    end: int
+
+
+@dataclass(frozen=True)
+class NumberSpan(Span):
+    token: str  # '.' as decimal point, no thousands separator
+    unit: str | None  # kmh, km, m, pct, x, xg, xa, xt, min
+
+
+def string_fact_spans(text: str, facts: Mapping[str, FactValue]) -> list[tuple[Span, list[str]]]:
+    """Each place a string fact (a name, a clock, a word) is printed, longest first,
+    never overlapping, with every fact key that holds that string."""
+    keys_by_value: dict[str, list[str]] = {}
+    for k, v in facts.items():
+        if isinstance(v, str) and v:
+            keys_by_value.setdefault(v, []).append(k)
+    taken = [False] * len(text)
+    out: list[tuple[Span, list[str]]] = []
+    for value in sorted(keys_by_value, key=len, reverse=True):
+        start = text.find(value)
+        while start != -1:
+            end = start + len(value)
+            if not any(taken[start:end]):
+                for i in range(start, end):
+                    taken[i] = True
+                out.append((Span(value, start, end), keys_by_value[value]))
+            start = text.find(value, end)
+    out.sort(key=lambda item: item[0].start)
+    return out
+
+
+_L = "(?![/A-Za-z])"  # a Latin unit must not run into more Latin letters ("m" vs "more")
+_UNIT_AFTER: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("kmh", re.compile(r"\s?(?:km/h|kmh|كم/س)")),
+    ("km", re.compile(rf"\s?(?:km{_L}|كم(?![/\w])|キロ)")),
+    ("m", re.compile(rf"\s?(?:m{_L}|م(?!\w)|メートル)")),
+    ("pct", re.compile(r"\s?(?:%|パーセント)")),
+    ("x", re.compile(r"(?:x|×)(?![A-Za-z])|\s?(?:倍|veces\b|fois\b|أضعاف)")),
+    ("xg", re.compile(r"\s?xG(?![A-Za-z])")),
+    ("xa", re.compile(r"\s?xA(?![A-Za-z])")),
+    ("xt", re.compile(r"\s?xT(?![A-Za-z])")),
+    ("min", re.compile(r"\s?(?:minutes?(?![A-Za-z])|mins?(?![A-Za-z])|minutos?(?![A-Za-z])|دقائق|دقيقة|分)")),
+)
+_KMH_BEFORE = re.compile(r"時速\s?$")
+
+
+def _number_re(language: str) -> re.Pattern[str]:
+    if language in ("es", "fr"):
+        return re.compile(r"(?<![\d.,])\d+(?:[.,]\d+)?")
+    return re.compile(r"(?<![\d.])(?:\d{1,3}(?:,\d{3})+(?!\d)|\d+(?:\.\d+)?)")
+
+
+def number_spans(
+    text: str, language: str = "en", facts: Mapping[str, FactValue] | None = None
+) -> list[NumberSpan]:
+    """Every number in the text outside string facts, with its position and the unit
+    printed right after it (or 時速 'speed' right before, in Japanese)."""
+    t = normalise_digits(text)
+    if facts:
+        chars = list(t)
+        for span, _ in string_fact_spans(text, facts):
+            chars[span.start : span.end] = " " * (span.end - span.start)
+        t = "".join(chars)
+    out: list[NumberSpan] = []
+    for m in _number_re(language).finditer(t):
+        raw = m.group(0)
+        token = raw.replace(",", ".") if language in ("es", "fr") else raw.replace(",", "")
+        after = t[m.end() : m.end() + 12]
+        unit = next((name for name, rx in _UNIT_AFTER if rx.match(after)), None)
+        if unit in (None, "km") and _KMH_BEFORE.search(t[max(0, m.start() - 4) : m.start()]):
+            unit = "kmh"
+        out.append(NumberSpan(text[m.start() : m.end()], m.start(), m.end(), token, unit))
+    return out
+
+
+def key_unit(key: str) -> str | None:
+    """The unit a numeric fact is printed in, from its key's suffix."""
+    parts = key.split("_")
+    if key.endswith("_kmh"):
+        return "kmh"
+    if key.endswith("_km"):
+        return "km"
+    if key.endswith("_pct"):
+        return "pct"
+    if key.endswith("_m"):
+        return "m"
+    if key.endswith("_min"):
+        return "min"
+    if key == "times_better":
+        return "x"
+    if "xt" in parts:
+        return "xt"
+    if "xa" in parts:
+        return "xa"
+    if "xg" in parts:
+        return "xg"
+    return None
+
+
+def matching_keys(token: str, facts: Mapping[str, FactValue]) -> list[str]:
+    """Numeric fact keys whose value prints as this number (within rounding)."""
+    return [
+        k
+        for k, v in facts.items()
+        if isinstance(v, int | float) and not isinstance(v, bool) and _matches(token, [abs(float(v))])
+    ]
+
+
+# --- Sanity checks ------------------------------------------------------------------------------
+
+SIDE_PAIRS: tuple[tuple[str, str], ...] = (
+    ("score_home", "score_away"),
+    ("xg_home", "xg_away"),
+    ("shots_home", "shots_away"),
+)
+_SCORELINE = re.compile(r"(\d+)\s?[-–]\s?(\d+)")
+_GAP = re.compile(r"[\s:：]*$")
+# "13 for <club>, 6 ...": the club belongs to the number before it, not after.
+_OWNED_BY_EARLIER = re.compile(r"\d\s*(?:for|pour|para|لـ|de)\s*$", re.IGNORECASE)
+_MORE_THAN = re.compile(
+    r"\b(?:more|higher|greater|bigger|better)\s+than\b|\bmás\s+que\b|\bplus\s+que\b", re.IGNORECASE
+)
+_LESS_THAN = re.compile(
+    r"\b(?:less|fewer|lower|smaller|worse)\s+than\b|\bmenos\s+que\b|\bmoins\s+que\b", re.IGNORECASE
+)
+_MORE_AFTER = re.compile(r"^\s*(?:more|better|más|mejor|plus|mieux)\b", re.IGNORECASE)
+_COMPARE_LANGUAGES = frozenset({"en", "es", "fr"})
+
+
+def _sentences_bounds(text: str) -> list[tuple[int, int]]:
+    bounds, start = [], 0
+    for m in _SENTENCE_END.finditer(text):
+        bounds.append((start, m.end()))
+        start = m.end()
+    if start < len(text):
+        bounds.append((start, len(text)))
+    return bounds
+
+
+def sanity_problems(text: str, facts: Mapping[str, FactValue], language: str = "en") -> list[str]:
+    """Unit, range, attribution and comparison problems (see the module docstring).
+    Numbers that are not facts at all are left to the main check."""
+    reasons: list[str] = []
+    spans = number_spans(text, language, facts)
+    for n in spans:
+        keys = matching_keys(n.token, facts)
+        if n.unit and keys and all(key_unit(k) != n.unit for k in keys):
+            reasons.append(f"unit: {n.text} {n.unit} does not match a {n.unit} fact")
+        if n.unit == "pct" and float(n.token) > 100:
+            reasons.append(f"range: {n.text}% is over 100%")
+    reasons += _attribution_problems(text, facts, spans)
+    if language in _COMPARE_LANGUAGES:
+        reasons += _comparison_problems(text, spans, facts)
+    return reasons
+
+
+def _team_sides(facts: Mapping[str, FactValue]) -> dict[str, str]:
+    """Club name -> 'home' or 'away' (only when both names are known and differ)."""
+    home, away = facts.get("home"), facts.get("away")
+    if isinstance(home, str) and isinstance(away, str) and home and away and home != away:
+        return {home: "home", away: "away"}
+    return {}
+
+
+def _attribution_problems(text: str, facts: Mapping[str, FactValue], spans: list[NumberSpan]) -> list[str]:
+    sides = _team_sides(facts)
+    if not sides:
+        return []
+    reasons: list[str] = []
+    in_scoreline: set[int] = set()
+    names = sorted(sides, key=len, reverse=True)
+    if isinstance(facts.get("score_home"), int) and isinstance(facts.get("score_away"), int):
+        alts = "|".join(re.escape(n) for n in names)
+        for m in re.finditer(rf"({alts})\s+(\d+)\s?[-–]\s?(\d+)\s+({alts})", normalise_digits(text)):
+            first, second = sides[m.group(1)], sides[m.group(4)]
+            if first == second:
+                continue
+            want = (facts[f"score_{first}"], facts[f"score_{second}"])
+            got = (int(m.group(2)), int(m.group(3)))
+            if got != want:
+                reasons.append(
+                    f"attribution: {m.group(1)} {got[0]}-{got[1]} {m.group(4)} does not match the score"
+                )
+    for m in _SCORELINE.finditer(normalise_digits(text)):
+        in_scoreline.update((m.start(1), m.start(2)))
+    paired = {k for pair in SIDE_PAIRS for k in pair}
+    for n in spans:
+        if n.start in in_scoreline:
+            continue
+        before = _GAP.sub("", text[: n.start])
+        name = next((name for name in names if before.endswith(name)), None)
+        if name is None or _OWNED_BY_EARLIER.search(before[: -len(name)]):
+            continue
+        named = sides[name]
+        keys = matching_keys(n.token, facts)
+        if not keys or any(k not in paired for k in keys):
+            continue  # not a per-team number, or it is also some other fact
+        if any(k.endswith(f"_{named}") for k in keys):
+            continue
+        other = "away" if named == "home" else "home"
+        club = facts.get(named)
+        reasons.append(f"attribution: {n.text} is the {other} side's number, not {club}'s")
+    return reasons
+
+
+def _comparison_problems(text: str, spans: list[NumberSpan], facts: Mapping[str, FactValue]) -> list[str]:
+    reasons: list[str] = []
+    for start, end in _sentences_bounds(text):
+        inside = [n for n in spans if start <= n.start < end]
+        for n in inside:
+            if (
+                n.unit == "x"
+                and _MORE_AFTER.match(text[n.end : n.end + 12].lstrip("x× "))
+                and float(n.token) <= 1
+            ):
+                reasons.append(f"comparison: {n.text}x cannot be more than 1x")
+        for rx, bigger in ((_MORE_THAN, True), (_LESS_THAN, False)):
+            for m in rx.finditer(text, start, end):
+                left = [n for n in inside if n.end <= m.start()]
+                right = [n for n in inside if n.start >= m.end()]
+                if not left or not right:
+                    continue
+                a, b = float(left[-1].token), float(right[0].token)
+                if left[-1].unit == "x":
+                    continue  # "3.1x more than the shot": the multiplier rule covers it
+                if (bigger and not a > b) or (not bigger and not a < b):
+                    word = "more" if bigger else "less"
+                    reasons.append(f"comparison: {left[-1].text} is not {word} than {right[0].text}")
+    return reasons
+
+
+@functools.lru_cache(maxsize=16)
+def _roster_re(roster: tuple[str, ...]) -> re.Pattern[str] | None:
+    names = sorted({n for n in roster if n}, key=len, reverse=True)
+    if not names:
+        return None
+    return re.compile(r"(?<!\w)(?:" + "|".join(re.escape(n) for n in names) + r")(?!\w)")
+
+
+def unknown_names(text: str, facts: Mapping[str, FactValue], roster: Collection[str]) -> list[str]:
+    """Squad names printed in the text that are not part of a string fact."""
+    rx = _roster_re(tuple(sorted(roster)))
+    if rx is None or not rx.search(text):
+        return []
+    chars = list(text)
+    for span, _ in string_fact_spans(text, facts):
+        chars[span.start : span.end] = " " * (span.end - span.start)
+    return list(dict.fromkeys(m.group(0) for m in rx.finditer("".join(chars))))

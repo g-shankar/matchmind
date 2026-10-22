@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Award,
   Bell,
@@ -7,10 +7,12 @@ import {
   Crosshair,
   Flame,
   Footprints,
+  Gavel,
   Goal,
   Play,
   Rocket,
   Route,
+  ShieldCheck,
   Sparkles,
   Split,
   Square,
@@ -21,10 +23,14 @@ import {
 } from 'lucide-react';
 import type { Evidence, FactValue, MatchEvent, MomentKind, OverlayCard, Teams } from '../api/contract';
 import { useI18n } from '../i18n';
+import { isTranslationReason, textLanguage } from '../lib/languages';
 import type { MatchViewState } from '../state/matchStore';
+import { TranslationTag } from './LanguagePicker';
 import type { ViewProps } from '../views/types';
 import { playerName, shortName, teamById } from '../lib/teams';
 import { Badge, Panel, TeamDot, cx } from './ui';
+import { ShowWorkingButton } from './ShowWorking';
+import { tagLabel } from '../lib/labels';
 
 export interface NarrativeFeedProps extends ViewProps {
   onOpenReplay: (card: OverlayCard) => void;
@@ -42,7 +48,9 @@ export const KIND_ICON: Record<MomentKind, LucideIcon> = {
   rocket_shot: Rocket,
   distance_milestone: Route,
   hard_pass: Crosshair,
+  key_tackle: ShieldCheck,
   milestone: Award,
+  correction: Gavel,
 };
 
 export const isSpecialKind = (kind: MomentKind) => kind === 'better_option' || kind === 'unfound_run';
@@ -101,9 +109,10 @@ export const ProducedBadge: React.FC<{ card: OverlayCard }> = ({ card }) => {
       <Badge tone={card.produced_by === 'ai' ? 'signal' : 'mute'} title={t(`studio.feed.producedHint.${card.produced_by}`)}>
         {t(`produced.${card.produced_by}`)}
       </Badge>
-      {card.fallback_reason && (
+      {card.fallback_reason && !isTranslationReason(card.fallback_reason) && (
         <span className="text-[10px] text-pp-gold">{t('studio.feed.fallback', { reason: card.fallback_reason })}</span>
       )}
+      <TranslationTag item={card} />
     </span>
   );
 };
@@ -115,7 +124,18 @@ export const NarrativeFeed: React.FC<NarrativeFeedProps> = ({ match, onOpenRepla
   const [tab, setTab] = useState<Tab>('stories');
   const cards = useMemo(() => match.cards.filter((c) => c.slot !== 'pitch_tag').slice().reverse(), [match.cards]);
   const events = useMemo(() => match.events.slice().reverse(), [match.events]);
+  // Stable keys (not list positions), so a new card arriving on top never hands one
+  // card's open evidence or "Show your working" to the card below it.
+  const keys = useMemo(() => {
+    const seen = new Map<string, number>();
+    return cards.map((c) => {
+      const n = seen.get(c.card_id) ?? 0;
+      seen.set(c.card_id, n + 1);
+      return n ? `${c.card_id}#${n}` : c.card_id;
+    });
+  }, [cards]);
   const favourite = teamById(match.teams, match.profile.favourite_team);
+  const audienceNote = useAudienceNote(match.profile.persona);
 
   const tabs: { id: Tab; label: string; count: number }[] = [
     { id: 'stories', label: t('studio.feed.stories'), count: cards.length },
@@ -133,6 +153,11 @@ export const NarrativeFeed: React.FC<NarrativeFeedProps> = ({ match, onOpenRepla
       actions={<span className="text-[11px] text-pp-mute">{t('studio.feed.newest')}</span>}
       className="flex flex-col lg:max-h-[calc(100vh-140px)]"
     >
+      {audienceNote && (
+        <p role="status" data-testid="audience-note" className="mb-3 border-s-4 border-pp-signal bg-pp-signal/10 px-3 py-2 text-xs text-pp-chalk">
+          {t('guide.audience.now', { who: t(`persona.${audienceNote}`) })}
+        </p>
+      )}
       <div role="tablist" aria-label={t('studio.feed.tabs')} className="mb-3 flex gap-1 rounded-xl border border-pp-line bg-pp-deep p-1">
         {tabs.map((x) => (
           <button
@@ -144,7 +169,7 @@ export const NarrativeFeed: React.FC<NarrativeFeedProps> = ({ match, onOpenRepla
             aria-controls={`feed-panel-${x.id}`}
             onClick={() => setTab(x.id)}
             className={cx(
-              'flex min-h-[34px] flex-1 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition',
+              'flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition',
               tab === x.id ? 'bg-pp-raised text-white ring-1 ring-pp-pulse/60' : 'text-pp-mute hover:text-white',
             )}
           >
@@ -167,10 +192,10 @@ export const NarrativeFeed: React.FC<NarrativeFeedProps> = ({ match, onOpenRepla
           ) : (
             cards.map((c, i) =>
               c.slot === 'metric_alert' ? (
-                <AlertRow key={`${c.card_id}-${i}`} card={c} match={match} />
+                <AlertRow key={keys[i]} card={c} match={match} />
               ) : (
                 <StoryCard
-                  key={`${c.card_id}-${i}`}
+                  key={keys[i]}
                   card={c}
                   match={match}
                   isTop={i === 0}
@@ -193,6 +218,22 @@ export const NarrativeFeed: React.FC<NarrativeFeedProps> = ({ match, onOpenRepla
     </Panel>
   );
 };
+
+const AUDIENCE_NOTE_MS = 8000;
+
+/** After the viewer picks another audience (not on first load), a short note says what changed. */
+function useAudienceNote(persona: string): string | null {
+  const previous = useRef(persona);
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (persona === previous.current) return;
+    previous.current = persona;
+    setNote(persona);
+    const id = setTimeout(() => setNote(null), AUDIENCE_NOTE_MS);
+    return () => clearTimeout(id);
+  }, [persona]);
+  return note;
+}
 
 const Empty: React.FC = () => {
   const { t } = useI18n();
@@ -223,26 +264,33 @@ const ClockPill: React.FC<{ clock: string | null }> = ({ clock }) =>
     </span>
   ) : null;
 
-const StoryCard: React.FC<{
+export const StoryCard: React.FC<{
   card: OverlayCard;
   match: MatchViewState;
   isTop: boolean;
   favouriteColor: string | null;
   onOpenReplay: (card: OverlayCard) => void;
-}> = ({ card, match, isTop, favouriteColor, onOpenReplay }) => {
+  highlight?: boolean;
+}> = ({ card, match, isTop, favouriteColor, onOpenReplay, highlight }) => {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const special = isSpecialKind(card.kind);
   const names = card.player_ids.map((id) => playerName(match.teams, id)).filter(Boolean);
   const team = teamById(match.teams, card.team);
+  const ruledOut = match.cue.ruledOut.includes(card.moment_id);
 
   return (
     <article
+      data-ruled-out={ruledOut || undefined}
       dir={card.rtl ? 'rtl' : undefined}
+      lang={textLanguage(card)}
       className={cx(
         'animate-slide-up rounded-xl border bg-pp-raised/60 p-3.5',
         special ? 'border-pp-signal bg-pp-raised border-s-4' : 'border-pp-line/80',
         isTop && 'ring-1 ring-pp-pulse/40',
+        highlight && 'ring-2 ring-pp-signal',
+        ruledOut && 'opacity-60 grayscale',
+        card.kind === 'correction' && 'border-s-4 border-pp-pulse',
         favouriteColor && 'border-s-4',
       )}
       style={favouriteColor ? { borderInlineStartColor: favouriteColor } : undefined}
@@ -250,6 +298,12 @@ const StoryCard: React.FC<{
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
         <ClockPill clock={cardClock(card, match)} />
         <KindBadge kind={card.kind} special={special} />
+        {ruledOut && (
+          <Badge tone="pulse">
+            <Gavel className="h-3 w-3" aria-hidden />
+            {t('cue.ruledOut')}
+          </Badge>
+        )}
         {card.favourite_side && (
           <Badge className="text-white" title={team?.name}>
             <TeamDot team={team} size={8} />
@@ -261,7 +315,9 @@ const StoryCard: React.FC<{
         </span>
       </div>
 
-      <h3 className="font-display text-base font-bold leading-tight text-white">{card.headline}</h3>
+      <h3 className={cx('font-display text-base font-bold leading-tight text-white', ruledOut && 'line-through decoration-pp-pulse decoration-2')}>
+        {card.headline}
+      </h3>
       {names.length > 0 && (
         <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-pp-mute">
           <TeamDot team={team} size={8} />
@@ -269,10 +325,16 @@ const StoryCard: React.FC<{
         </p>
       )}
       {card.body && <p className="mt-2 text-sm leading-relaxed text-slate-200">{card.body}</p>}
+      <p data-testid="card-voice" className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-pp-mute">
+        {t('guide.voice', { who: t(`persona.${card.persona}`) })}
+      </p>
 
       {card.why && (
         <div className="mt-2 rounded-lg border border-pp-line/70 bg-pp-deep/80 p-2.5">
-          <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-pp-pulseSoft">{t('studio.feed.why')}</span>
+          <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-pp-pulseSoft">
+            {t('studio.feed.why')}
+            <span className="ms-1 font-semibold normal-case tracking-normal text-pp-mute">· {t('guide.whySame')}</span>
+          </span>
           <p className="text-xs leading-relaxed text-slate-200">{card.why}</p>
         </div>
       )}
@@ -280,7 +342,7 @@ const StoryCard: React.FC<{
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {card.tactical_tag && (
           <span className="rounded-md border border-pp-line bg-pp-night px-2 py-0.5 text-[11px] font-semibold text-pp-mute">
-            #{card.tactical_tag}
+            <bdi>#{tagLabel(t, card.tactical_tag)}</bdi>
           </span>
         )}
         {card.evidence.length > 0 && (
@@ -288,17 +350,18 @@ const StoryCard: React.FC<{
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            className="inline-flex min-h-[32px] items-center gap-1 rounded-lg px-2 text-xs font-semibold text-pp-signal hover:bg-pp-deep"
+            className="inline-flex min-h-[44px] items-center gap-1 rounded-lg px-2 text-xs font-semibold text-pp-signal hover:bg-pp-deep"
           >
             <ChevronDown className={cx('h-3.5 w-3.5 transition', open && 'rotate-180')} aria-hidden />
             {open ? t('studio.feed.hideEvidence') : t('studio.feed.showEvidence', { count: card.evidence.length })}
           </button>
         )}
+        <ShowWorkingButton momentId={card.moment_id} persona={card.persona} language={card.language} />
         {card.replay && (
           <button
             type="button"
             onClick={() => onOpenReplay(card)}
-            className="ms-auto inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-pp-pulse px-3 text-xs font-bold text-white shadow hover:bg-pp-pulse/85"
+            className="ms-auto inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-pp-pulseFill px-3 text-xs font-bold text-white shadow hover:bg-pp-pulseFill/85"
           >
             <Play className="h-3.5 w-3.5" aria-hidden />
             {t('studio.feed.replay')}
@@ -318,6 +381,7 @@ const AlertRow: React.FC<{ card: OverlayCard; match: MatchViewState }> = ({ card
   return (
     <div
       dir={card.rtl ? 'rtl' : undefined}
+      lang={textLanguage(card)}
       className="flex items-center gap-2 rounded-lg border border-pp-line/60 bg-pp-deep/70 px-2.5 py-1.5 text-xs"
       title={t('studio.feed.alert')}
     >

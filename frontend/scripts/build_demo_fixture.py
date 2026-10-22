@@ -30,13 +30,21 @@ from collections import deque
 from pathlib import Path
 from typing import Any
 
+from matchmind.schema import Event
 from matchmind.simulator import pitch
 from matchmind.simulator.teams import get_team
 from matchmind.stats import metrics as M
+from matchmind.stats.physical import LABEL as TRACKING_LABEL
+from matchmind.stats.physical import SOURCE as TRACKING_SOURCE
+from matchmind.stats.physical import PhysicalTimeline, timeline_for
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from demo_insights import build_insights, insights_problems  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_IN = REPO / "backend" / "data" / "matches" / "MM-DEMO-001.jsonl"
 DEFAULT_OUT = REPO / "frontend" / "public" / "demo" / "demo-match.json"
+DEFAULT_INSIGHTS_OUT = REPO / "frontend" / "public" / "demo" / "demo-insights.json"
 
 FIXTURE_VERSION = 1
 PERSONAS = ("casual", "tactical", "fantasy")
@@ -56,7 +64,11 @@ SWING_MIN = 40.0
 SWING_SD = 1.5
 SWING_MIN_SAMPLES = 50
 SWING_GAP_S = 300.0
-SPEED_BURST_MS = 8.5
+SPEED_BURST_KMH = M.SPEED_BURST_KMH  # tracked sprint peak worth a pitch tag
+SPEED_BURST_GAP_S = 1200.0  # one burst per player per 20 minutes
+KEY_TACKLE_OWN_THIRD_U = 35.0
+KEY_TACKLE_XT = 0.09
+KEY_TACKLE_GAP_S = 300.0
 HARD_PASS_LEVEL = 70
 PITCH_TAG_GAP_S = 20.0
 # Better option / unfound run
@@ -73,9 +85,10 @@ ON_BALL = {"pass", "carry", "dribble", "shot", "interception", "tackle", "cleara
 DURATION = {"lower_third": 8, "side_panel": 12, "full_screen": 15, "pitch_tag": 5}
 
 NOTES = (
-    "Synthetic match, invented clubs and players. distance_km counts on-ball distance (carries and "
-    "dribbles) plus tracked runs in behind only; the engine has no full-match player tracking. "
-    "xt_delta is not computed yet (null). Rolling state uses a 5-minute window of match clock."
+    "Synthetic match, invented clubs and players. distance_km, the speed bands, sprints and top "
+    f"speed are {TRACKING_LABEL.lower()} (25 Hz positions drawn by the engine, smoothed), not "
+    "measured on real players. xt_delta is not computed yet (null). Rolling state uses a 5-minute "
+    "window of match clock."
 )
 
 
@@ -98,6 +111,12 @@ def fmt_clock(clock_s: float, period: int) -> str:
 
 def xy(p: tuple[float, float]) -> dict[str, float]:
     return {"x": rnd(p[0]), "y": rnd(p[1])}
+
+
+def elapsed(period: int, clock_s: float) -> float:
+    """Monotonic match time: period 1 stoppage runs past 2700 s while period 2
+    restarts at 2700 s, so each period gets its own offset."""
+    return (period - 1) * 10_000.0 + clock_s
 
 
 class Ctx:
@@ -233,14 +252,18 @@ def public_event(ev: dict, metrics: dict) -> dict[str, Any]:
         "under_pressure": bool(ev.get("under_pressure")),
         "details": dict(ev.get("details") or {}),
         "metrics": metrics,
-    }
+    } | (
+        {"reviewed_event_id": ev["reviewed_event_id"], "review_reason": ev.get("review_reason")}
+        if ev.get("reviewed_event_id")
+        else {}
+    )
 
 
 # ------------------------------------------------- better option / run
 
 
 def analyse_shot(ev: dict, ctx: Ctx, shot: dict) -> dict[str, Any] | None:
-    """The shot taken versus the best pass that was on (NEXT-STEPS 2.1)."""
+    """The shot taken versus the best pass that was on (docs/METRICS.md)."""
     team = ev["team"]
     ff = ev.get("freeze_frame") or []
     s = shot["pos"]
@@ -299,7 +322,7 @@ def analyse_shot(ev: dict, ctx: Ctx, shot: dict) -> dict[str, Any] | None:
 
 
 def analyse_run(ev: dict, ctx: Ctx) -> dict[str, Any] | None:
-    """A run in behind where the through ball was on but never came (NEXT-STEPS 2.1)."""
+    """A run in behind where the through ball was on but never came (docs/METRICS.md)."""
     frames = ev.get("tracking") or []
     if ev.get("outcome") != "not_found" or len(frames) < 2:
         return None
@@ -391,6 +414,7 @@ class StateEngine:
         self.xg = {ctx.home_id: 0.0, ctx.away_id: 0.0}
         self.shots = {ctx.home_id: 0, ctx.away_id: 0}
         self.prev_poss: tuple[int, str] | None = None
+        self.goal_team: dict[str, str] = {}  # counted goals: shot event id -> team
 
     def start_period(self, period: int, clock: float) -> None:
         self.window.clear()
@@ -408,6 +432,12 @@ class StateEngine:
             self.xg[team] += cq or 0.0
             if ev.get("outcome") == "goal":
                 self.score[team] += 1
+                self.goal_team[ev["event_id"]] = team
+        elif t == "var_review" and ev.get("outcome") == "overturned":
+            # The goal comes off the score; the shot and its xG still count (docs/METRICS.md).
+            scored = self.goal_team.pop(ev.get("reviewed_event_id") or "", None)
+            if scored is not None:
+                self.score[scored] -= 1
         if team and t in ON_BALL:
             rec = {"clock": clock, "team": team, "pass": t == "pass", "ft": False, "box": False}
             rec.update(
@@ -518,7 +548,13 @@ def control_chaos_view(state: dict) -> dict[str, Any]:
 
 
 class PlayerBook:
-    def __init__(self, ctx: Ctx) -> None:
+    """Per-player match stats. Physical numbers (distance, speed bands, sprints,
+    top speed) come from the synthetic tracking timeline; everything else is
+    counted from events."""
+
+    def __init__(self, ctx: Ctx, physical: PhysicalTimeline) -> None:
+        self.ctx = ctx
+        self.physical = physical
         self.s: dict[str, dict[str, Any]] = {}
         team_of = {p.player_id: t.team_id for t in ctx.teams.values() for p in t.players}
         for pid, team in team_of.items():
@@ -530,48 +566,74 @@ class PlayerBook:
                 "passes_completed": 0,
                 "key_passes": 0,
                 "shots": 0,
+                "shots_on_target": 0,
                 "goals": 0,
                 "assists": 0,
                 "xg": 0.0,
                 "xa": 0.0,
                 "tackles_won": 0,
+                "tackles_lost": 0,
                 "interceptions": 0,
                 "top_speed_kmh": 0.0,
                 "sprints": 0,
-                "distance_m": 0.0,
+                "distance_km": 0.0,
+                "walk_km": 0.0,
+                "jog_km": 0.0,
+                "run_km": 0.0,
+                "sprint_km": 0.0,
                 "carry_distance_m": 0.0,
             }
 
         self.last_pass: dict[Any, tuple[str, str]] = {}
+        self.goal_by: dict[str, tuple[str, str | None]] = {}  # counted goal -> (scorer, assist)
+
+    def track(self, period: int, clock_s: float) -> None:
+        """Copy each player's tracking numbers at this clock. Same rule as the
+        stats engine: a player changes only when his distance (to 0.1 km),
+        sprints or top speed move."""
+        for pid, ph in self.physical.at(period, clock_s).items():
+            st = self.s.get(pid)
+            if st is None:
+                continue
+            if (
+                round(st["distance_km"], 1) == round(ph.distance_km, 1)
+                and st["sprints"] == ph.sprints
+                and st["top_speed_kmh"] == ph.top_speed_kmh
+            ):
+                continue
+            st.update(
+                distance_km=ph.distance_km,
+                walk_km=ph.walk_km,
+                jog_km=ph.jog_km,
+                run_km=ph.run_km,
+                sprint_km=ph.sprint_km,
+                sprints=ph.sprints,
+                top_speed_kmh=ph.top_speed_kmh,
+            )
 
     def process(self, ev: dict, cq: float | None) -> None:
+        self.track(ev["period"], ev["clock_s"])
         pid, t = ev.get("player_id"), ev["type"]
+        if t == "dribble" and ev.get("outcome") == "complete":
+            beaten = ev.get("details", {}).get("opponent_id")
+            if beaten in self.s:
+                self.s[beaten]["tackles_lost"] += 1
+        if t == "var_review":
+            if ev.get("outcome") == "overturned":
+                scorer, assist = self.goal_by.pop(ev.get("reviewed_event_id") or "", (None, None))
+                if scorer is not None:
+                    self.s[scorer]["goals"] -= 1
+                if assist is not None:
+                    self.s[assist]["assists"] -= 1
+            return
         if pid not in self.s:
             return
         st = self.s[pid]
         if t in ON_BALL:
             st["touches"] += 1
-        speed = ev.get("player_speed_mps")
-        if speed is not None:
-            st["top_speed_kmh"] = max(st["top_speed_kmh"], M.kmh(speed) or 0.0)
-            if speed >= M.SPRINT_MS:
-                st["sprints"] += 1
         start, end = ev.get("start"), ev.get("end")
         if t in ("carry", "dribble") and start and end:
-            d = pitch.dist((start["x"], start["y"]), (end["x"], end["y"]))
-            st["carry_distance_m"] += d
-            st["distance_m"] += d
-        if t == "run":
-            path = [
-                (p["x"], p["y"])
-                for f in ev.get("tracking") or []
-                for p in f["players"]
-                if p["player_id"] == pid
-            ]
-            if len(path) >= 2:
-                st["distance_m"] += sum(pitch.dist(a, b) for a, b in zip(path, path[1:], strict=False))
-            elif start and end:
-                st["distance_m"] += pitch.dist((start["x"], start["y"]), (end["x"], end["y"]))
+            st["carry_distance_m"] += pitch.dist((start["x"], start["y"]), (end["x"], end["y"]))
         if t == "pass":
             st["passes"] += 1
             if ev.get("outcome") == "complete":
@@ -580,6 +642,7 @@ class PlayerBook:
                     self.last_pass[ev.get("possession_id")] = (pid, ev["receiver_id"])
         elif t == "shot":
             st["shots"] += 1
+            st["shots_on_target"] += ev.get("outcome") in ("goal", "saved")
             st["xg"] += cq or 0.0
             lp = self.last_pass.get(ev.get("possession_id"))
             if lp and lp[1] == pid and lp[0] in self.s:
@@ -590,6 +653,7 @@ class PlayerBook:
                 assist = ev.get("details", {}).get("assist_id")
                 if assist in self.s:
                     self.s[assist]["assists"] += 1
+                self.goal_by[ev["event_id"]] = (pid, assist if assist in self.s else None)
         elif t == "tackle" and ev.get("outcome") == "won":
             st["tackles_won"] += 1
         elif t == "interception":
@@ -597,25 +661,49 @@ class PlayerBook:
 
     def view(self, pid: str) -> dict[str, Any]:
         st = self.s[pid]
+        p = self.ctx.players[pid]
+        tried = st["tackles_won"] + st["tackles_lost"]
         return {
             "player_id": pid,
             "team": st["team"],
+            "name": p.name,
+            "number": p.number,
+            "position": p.position,
             "touches": st["touches"],
             "passes": st["passes"],
             "passes_completed": st["passes_completed"],
             "pass_accuracy": rnd(100 * st["passes_completed"] / st["passes"], 1) if st["passes"] else 0.0,
             "key_passes": st["key_passes"],
             "shots": st["shots"],
+            "shots_on_target": st["shots_on_target"],
             "goals": st["goals"],
             "assists": st["assists"],
             "xg": rnd(st["xg"]),
             "xa": rnd(st["xa"]),
             "tackles_won": st["tackles_won"],
+            "tackles_lost": st["tackles_lost"],
+            "tackles_attempted": tried,
+            "tackle_success_pct": rnd(100 * st["tackles_won"] / tried, 1) if tried else 0.0,
             "interceptions": st["interceptions"],
             "top_speed_kmh": rnd(st["top_speed_kmh"], 1),
             "sprints": st["sprints"],
-            "distance_km": rnd(st["distance_m"] / 1000, 3),
+            "distance_km": rnd(st["distance_km"], 3),
+            "walk_km": rnd(st["walk_km"], 3),
+            "jog_km": rnd(st["jog_km"], 3),
+            "run_km": rnd(st["run_km"], 3),
+            "sprint_km": rnd(st["sprint_km"], 3),
+            "physical_source": TRACKING_SOURCE,
             "carry_distance_m": rnd(st["carry_distance_m"], 1),
+        }
+
+    def identity(self, pid: str) -> dict[str, Any]:
+        p = self.ctx.players[pid]
+        return {
+            "player_id": pid,
+            "name": p.name,
+            "number": p.number,
+            "team": self.s[pid]["team"],
+            "position": p.position,
         }
 
     def views(self) -> dict[str, dict[str, Any]]:
@@ -700,6 +788,16 @@ MILESTONE_LABELS = {
     }
 }
 
+VAR_REASON: dict[str, dict[str, str]] = {
+    "offside": {
+        "en": "offside in the build-up",
+        "es": "fuera de juego en la jugada",
+        "ar": "تسلل في بناء الهجمة",
+    },
+    "handball": {"en": "a handball", "es": "una mano", "ar": "لمسة يد"},
+    "foul": {"en": "a foul in the build-up", "es": "una falta en la jugada", "ar": "خطأ في بناء الهجمة"},
+}
+
 # kind -> persona -> lang -> (headline, body, why)
 T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
     "goal": {
@@ -739,19 +837,72 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
         },
         "fantasy": {
             "en": (
-                "Goal for {p}: fantasy points banked",
+                "Goal for {p}: the stat line grows",
                 "{p} has {pxg} xG from {pshots} this match.{extra}",
                 "Shots and xG show how often he reaches scoring spots.",
             ),
             "es": (
-                "Gol de {p}: puntos fantasy asegurados",
+                "Gol de {p}: crecen sus números",
                 "{p} suma {pxg} xG con {pshots} en el partido.{extra}",
                 "Los tiros y el xG muestran cuántas veces pisa zonas de gol.",
             ),
             "ar": (
-                "هدف من {p}: نقاط مضمونة في الفانتازي",
+                "هدف من {p}: أرقامه ترتفع",
                 "رصيد {p} في المباراة {pxg} xG من {pshots}.{extra}",
                 "التسديدات وقيمة xG تبيّن كم مرة يصل إلى مناطق التسجيل.",
+            ),
+        },
+    },
+    "correction": {
+        "casual": {
+            "en": (
+                "No goal! VAR rules out {p}",
+                "The goal at {clk} is ruled out for {why_r}. It stays {H} {sh}-{sa} {A}.",
+                "VAR checked the goal and ruled it out for {why_r}.",
+            ),
+            "es": (
+                "¡No hay gol! El VAR anula a {p}",
+                "El gol del {clk} queda anulado por {why_r}. Sigue {H} {sh}-{sa} {A}.",
+                "El VAR revisó el gol y lo anuló por {why_r}.",
+            ),
+            "ar": (
+                "لا هدف! الفار يلغي هدف {p}",
+                "أُلغي هدف الدقيقة {clk} بسبب {why_r}. النتيجة تبقى {H} {sh}-{sa} {A}.",
+                "راجع الفار الهدف وألغاه بسبب {why_r}.",
+            ),
+        },
+        "tactical": {
+            "en": (
+                "VAR overturns the {t} goal",
+                "{p}'s finish at {clk} is chalked off for {why_r}. Score: {H} {sh}-{sa} {A}.",
+                "The shot still counts in the shot and xG totals; only the goal is removed.",
+            ),
+            "es": (
+                "El VAR anula el gol de {t}",
+                "El remate de {p} del {clk} se anula por {why_r}. Marcador: {H} {sh}-{sa} {A}.",
+                "El tiro sigue contando en tiros y xG; solo se retira el gol.",
+            ),
+            "ar": (
+                "الفار يلغي هدف {t}",
+                "أُلغيت تسديدة {p} في الدقيقة {clk} بسبب {why_r}. النتيجة: {H} {sh}-{sa} {A}.",
+                "التسديدة تبقى محسوبة في التسديدات وxG؛ الهدف وحده أُلغي.",
+            ),
+        },
+        "fantasy": {
+            "en": (
+                "Goal ruled out: {p}",
+                "VAR rules out the goal at {clk} for {why_r}. {p} keeps {pxg} xG from {pshots}.",
+                "Goal and assist counts follow the official score, so this one comes off.",
+            ),
+            "es": (
+                "Gol anulado: {p}",
+                "El VAR anula el gol del {clk} por {why_r}. {p} mantiene {pxg} xG con {pshots}.",
+                "Los goles y asistencias siguen el marcador oficial, así que este se retira.",
+            ),
+            "ar": (
+                "هدف ملغى: {p}",
+                "الفار يلغي هدف الدقيقة {clk} بسبب {why_r}. يحتفظ {p} بـ {pxg} xG من {pshots}.",
+                "الأهداف والتمريرات الحاسمة تتبع النتيجة الرسمية، لذلك يُسحب هذا الهدف.",
             ),
         },
     },
@@ -792,19 +943,19 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
         },
         "fantasy": {
             "en": (
-                "Red card: fantasy hit for {p}",
+                "Red card: {p} is off",
                 "{p} leaves with {pxg} xG from {pshots}.",
-                "A red card costs fantasy points, whatever the underlying numbers.",
+                "A red card ends his output for the day, whatever the underlying numbers.",
             ),
             "es": (
-                "Roja: golpe fantasy para {p}",
+                "Roja: {p} se va a la calle",
                 "{p} se marcha con {pxg} xG en {pshots}.",
-                "Una roja resta puntos fantasy, sean cuales sean sus números.",
+                "Una roja corta su producción del día, sean cuales sean sus números.",
             ),
             "ar": (
-                "حمراء تكلّف {p} نقاطًا في الفانتازي",
+                "بطاقة حمراء: {p} خارج الملعب",
                 "يغادر {p} برصيد {pxg} xG من {pshots}.",
-                "البطاقة الحمراء تخصم نقاط الفانتازي مهما كانت أرقامه.",
+                "البطاقة الحمراء تنهي إنتاجه في هذه المباراة مهما كانت أرقامه.",
             ),
         },
     },
@@ -845,19 +996,19 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
         },
         "fantasy": {
             "en": (
-                "Yellow card dents {p} score",
+                "Yellow card for {p}",
                 "{p} has {pxg} xG from {pshots} so far.",
-                "A booking costs fantasy points, so his attacking output must make up for it.",
+                "A booking means he must defend with care for the rest of the match.",
             ),
             "es": (
-                "La amarilla resta puntos a {p}",
+                "Amarilla para {p}",
                 "{p} lleva {pxg} xG en {pshots}.",
-                "La tarjeta resta puntos fantasy, y su producción ofensiva tendrá que compensarlo.",
+                "Con la amarilla tendrá que defender con cuidado el resto del partido.",
             ),
             "ar": (
-                "الإنذار يكلّف {p} نقاطًا",
+                "إنذار لـ{p}",
                 "رصيد {p} حتى الآن {pxg} xG من {pshots}.",
-                "البطاقة تخصم نقاطًا في الفانتازي، وعلى إنتاجه الهجومي أن يعوّضها.",
+                "بعد الإنذار عليه أن يدافع بحذر حتى نهاية المباراة.",
             ),
         },
     },
@@ -900,17 +1051,17 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
             "en": (
                 "{p} milestone: check his numbers",
                 "{p} has {pxg} xG, {pxa} xA and {pkp} so far.",
-                "A milestone earns no points; his xG and xA do.",
+                "A milestone is a landmark; his xG and xA show today's output.",
             ),
             "es": (
                 "Hito de {p}: mira sus números",
                 "{p} lleva {pxg} xG, {pxa} xA y {pkp}.",
-                "El hito no da puntos; su xG y su xA sí.",
+                "El hito es una marca; su xG y su xA muestran su aporte de hoy.",
             ),
             "ar": (
                 "إنجاز {p}: ماذا تقول أرقامه؟",
                 "سجّل {p} حتى الآن {pxg} xG و{pxa} xA وصنع {pkp}.",
-                "الإنجاز لا يمنح نقاطًا، أما xG وxA فيمنحانها.",
+                "الإنجاز علامة فارقة، أما xG وxA فيُظهران إنتاجه اليوم.",
             ),
         },
     },
@@ -958,12 +1109,12 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
             "es": (
                 "{p}: gran ocasión, sin premio",
                 "{p} acumula {pxg} xG en {pshots}.",
-                "Mucho xG sin gol sugiere que los puntos pueden llegar.",
+                "Mucho xG sin gol sugiere que el gol puede llegar.",
             ),
             "ar": (
-                "{p}: فرصة كبيرة بلا نقاط",
+                "{p}: فرصة كبيرة بلا هدف",
                 "رصيد {p} {pxg} xG من {pshots}.",
-                "ارتفاع xG دون أهداف يوحي بأن النقاط قد تأتي لاحقًا.",
+                "ارتفاع xG دون أهداف يوحي بأن الهدف قد يأتي لاحقًا.",
             ),
         },
     },
@@ -1059,17 +1210,17 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
             "en": (
                 "Missed assist chance for {c}",
                 "{c} could have found {r} for a {proj} xG chance.",
-                "That pass would have earned {c} {proj} xA.",
+                "xA only counts passes that are played, and {c} never played this one.",
             ),
             "es": (
                 "Asistencia perdida para {c}",
                 "{c} pudo encontrar a {r} para una ocasión de {proj} xG.",
-                "Ese pase le habría dado a {c} {proj} de xA.",
+                "El xA solo cuenta los pases que se juegan, y {c} nunca jugó este.",
             ),
             "ar": (
                 "فرصة صناعة ضائعة على {c}",
                 "كان بإمكان {c} إيجاد {r} لفرصة بقيمة {proj} xG.",
-                "تلك التمريرة كانت ستمنح {c} قيمة {proj} xA.",
+                "قيمة xA تُحتسب فقط للتمريرات التي تُلعب، و{c} لم يلعب هذه التمريرة.",
             ),
         },
     },
@@ -1112,17 +1263,17 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
             "en": (
                 "{t} attackers are getting looks",
                 "{t} have {wshots} and {wxg} xG in the last five minutes.",
-                "Sustained pressure creates shots, and shots drive fantasy points.",
+                "Sustained pressure creates shots, and shots build xG.",
             ),
             "es": (
                 "Los atacantes de {t} tienen ocasiones",
                 "{t} suma {wshots} y {wxg} xG en los últimos cinco minutos.",
-                "La presión sostenida genera tiros, y los tiros dan puntos fantasy.",
+                "La presión sostenida genera tiros, y los tiros suman xG.",
             ),
             "ar": (
                 "مهاجمو {t} يحصلون على الفرص",
                 "سجّل {t} في آخر خمس دقائق {wxg} xG من {wshots}.",
-                "الضغط المتواصل يصنع التسديدات، والتسديدات تصنع نقاط الفانتازي.",
+                "الضغط المتواصل يصنع التسديدات، والتسديدات ترفع xG.",
             ),
         },
     },
@@ -1165,17 +1316,17 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
             "en": (
                 "{t} attackers worth watching now",
                 "{t} have {wshots} and {wxg} xG in the last five minutes.",
-                "The side on top usually takes more shots, and shots drive points.",
+                "The side on top usually takes more shots, and shots build xG.",
             ),
             "es": (
                 "Atentos a los atacantes de {t}",
                 "{t} suma {wshots} y {wxg} xG en los últimos cinco minutos.",
-                "El equipo dominante suele tirar más, y los tiros dan puntos.",
+                "El equipo dominante suele tirar más, y los tiros suman xG.",
             ),
             "ar": (
                 "راقبوا مهاجمي {t} الآن",
                 "سجّل {t} في آخر خمس دقائق {wxg} xG من {wshots}.",
-                "الفريق المسيطر يسدد أكثر عادةً، والتسديدات تصنع النقاط.",
+                "الفريق المسيطر يسدد أكثر عادةً، والتسديدات ترفع xG.",
             ),
         },
     },
@@ -1340,8 +1491,132 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
     },
 }
 
+# Moments from synthetic tracking and defending. Distances, sprints and speeds
+# are estimates and the texts say so.
+T.update(
+    {
+        "distance_milestone": {
+            "casual": {
+                "en": (
+                    "{p} passes {km} km (est.)",
+                    "{p} has covered an estimated {km} km, the first {t} player to get there. The engine keeps running.",
+                    "Distance is estimated from synthetic tracking: {dist} km so far.",
+                ),
+                "es": (
+                    "{p} supera {km} km (est.)",
+                    "{p} ya ha recorrido unos {km} km, el primero de {t} en llegar. No para de correr.",
+                    "Distancia estimada a partir de seguimiento sintético: {dist} km hasta ahora.",
+                ),
+                "ar": (
+                    "{p} يتخطى {km} كم (تقديريًا)",
+                    "{p} قطع نحو {km} كم، وهو أول لاعب في {t} يبلغها. لا يتوقف عن الركض.",
+                    "المسافة تقديرية من تتبع اصطناعي: {dist} كم حتى الآن.",
+                ),
+            },
+            "tactical": {
+                "en": (
+                    "Work rate: {p}, {km} km (est.)",
+                    "{p} passes an estimated {km} km with {spr}. Top speed {top} km/h.",
+                    "Covering ground keeps {t}'s shape together; distance is estimated from synthetic tracking.",
+                ),
+                "es": (
+                    "Despliegue: {p}, {km} km (est.)",
+                    "{p} supera {km} km estimados con {spr}. Velocidad punta: {top} km/h.",
+                    "Recorrer metros sostiene el bloque de {t}; la distancia es una estimación de seguimiento sintético.",
+                ),
+                "ar": (
+                    "جهد بدني: {p}، {km} كم تقديريًا",
+                    "{p} يتخطى {km} كم تقديريًا مع {spr}. أعلى سرعة: {top} كم/س.",
+                    "الجري الكثير يحفظ تنظيم {t}؛ والمسافة تقديرية من تتبع اصطناعي.",
+                ),
+            },
+            "fantasy": {
+                "en": (
+                    "{p}: about {km} km covered",
+                    "Plenty of running (distance estimated). In attack: {pxg} xG from {pshots}.",
+                    "Distance is estimated from synthetic tracking; xG measures the chances.",
+                ),
+                "es": (
+                    "{p}: unos {km} km recorridos",
+                    "Mucho trabajo (distancia estimada). En ataque: {pxg} xG con {pshots}.",
+                    "La distancia es una estimación de seguimiento sintético; el xG mide las ocasiones.",
+                ),
+                "ar": (
+                    "{p}: نحو {km} كم",
+                    "ركض كثير (المسافة تقديرية). في الهجوم: {pxg} xG من {pshots}.",
+                    "المسافة تقديرية من تتبع اصطناعي؛ وxG يقيس الفرص.",
+                ),
+            },
+        },
+        "key_tackle": {
+            "casual": {
+                "en": (
+                    "Big tackle by {p}",
+                    "{p} {act} {gd} m from his own goal. Danger over for {t}.",
+                    "{o} were in a dangerous spot; the tackle ended it.",
+                ),
+                "es": (
+                    "Gran entrada de {p}",
+                    "{p} {act} a {gd} m de su portería. {t} respira.",
+                    "{o} estaba en zona de peligro; la entrada lo cortó.",
+                ),
+                "ar": (
+                    "تدخل حاسم من {p}",
+                    "{p} {act} على بعد {gd} م من مرماه. {t} تتنفس الصعداء.",
+                    "كان {o} في منطقة خطرة، وأنهى التدخل الخطر.",
+                ),
+            },
+            "tactical": {
+                "en": (
+                    "Key tackle: {p}",
+                    "Won in the defensive third, {gd} m out, where {o} carried {xt} xT. {p} has {tw} today.",
+                    "Winning it back there takes away a {xt} xT threat.",
+                ),
+                "es": (
+                    "Entrada clave: {p}",
+                    "Recuperación en el tercio defensivo, a {gd} m, donde {o} acumulaba {xt} xT. {p} suma {tw}.",
+                    "Recuperar ahí anula una amenaza de {xt} xT.",
+                ),
+                "ar": (
+                    "تدخل مفتاحي: {p}",
+                    "استعادة في الثلث الدفاعي على بعد {gd} م، حيث بلغ خطر {o} {xt} xT. رصيد {p}: {tw}.",
+                    "الاستعادة هناك تلغي خطرًا بقيمة {xt} xT.",
+                ),
+            },
+            "fantasy": {
+                "en": (
+                    "{p} stops the attack",
+                    "Defensive work from {p}: {tw} so far. This one came {gd} m from his own goal.",
+                    "Tackles won show the defensive side of his game.",
+                ),
+                "es": (
+                    "{p} corta el ataque",
+                    "Trabajo defensivo de {p}: {tw} hasta ahora. Esta, a {gd} m de su portería.",
+                    "Las entradas ganadas muestran su lado defensivo.",
+                ),
+                "ar": (
+                    "{p} يوقف الهجمة",
+                    "عمل دفاعي من {p}: {tw} حتى الآن. هذا التدخل على بعد {gd} م من مرماه.",
+                    "التدخلات الناجحة تُظهر جانبه الدفاعي.",
+                ),
+            },
+        },
+    }
+)
+TACKLES = (
+    ("tackle won", "tackles won"),
+    ("entrada ganada", "entradas ganadas"),
+    ("تدخل ناجح واحد", "تدخلين ناجحين", "تدخلات ناجحة", "تدخلًا ناجحًا"),
+)
+SPRINTS = (
+    ("sprint", "sprints"),
+    ("esprint", "esprints"),
+    ("انطلاقة واحدة", "انطلاقتين", "انطلاقات", "انطلاقة"),
+)
+
 TACTICAL_TAG = {
     "goal": "Finishing",
+    "correction": "Officiating",
     "card_red": "Numerical disadvantage",
     "card_yellow": "Discipline",
     "milestone": "Squad continuity",
@@ -1353,6 +1628,8 @@ TACTICAL_TAG = {
     "speed_burst": "Pace",
     "rocket_shot": "Ball striking",
     "hard_pass": "Line-breaking pass",
+    "distance_milestone": "Work rate",
+    "key_tackle": "Defending",
 }
 
 
@@ -1383,6 +1660,7 @@ LABELS_FIXED: dict[str, tuple[str, str]] = {
     "Chance quality": ("Calidad de la ocasión", "جودة الفرصة"),
     "Distance to goal": ("Distancia a la portería", "المسافة إلى المرمى"),
     "Scorer": ("Goleador", "المسجّل"),
+    "Goal ruled out (scored at)": ("Gol anulado (marcado en)", "هدف ملغى (سُجّل في)"),
     "Assist": ("Asistente", "صاحب التمريرة الحاسمة"),
     "Card": ("Tarjeta", "البطاقة"),
     "Player": ("Jugador", "اللاعب"),
@@ -1417,6 +1695,16 @@ LABELS_FIXED: dict[str, tuple[str, str]] = {
     "Pass difficulty": ("Dificultad del pase", "صعوبة التمريرة"),
     "End zone": ("Zona de destino", "منطقة الوصول"),
     "Receiver": ("Receptor", "المستلم"),
+    "Distance milestone": ("Hito de distancia", "إنجاز المسافة"),
+    "Distance covered (estimated)": ("Distancia recorrida (estimada)", "المسافة المقطوعة (تقديرية)"),
+    "Sprints": ("Esprints", "الانطلاقات"),
+    "Top speed": ("Velocidad punta", "أعلى سرعة"),
+    "Sprint distance": ("Distancia del esprint", "مسافة الانطلاقة"),
+    "Physical source": ("Origen de los datos físicos", "مصدر البيانات البدنية"),
+    "Expected threat stopped": ("Amenaza esperada anulada", "الخطر المتوقع الذي أُلغي"),
+    "Distance from own goal": ("Distancia a su portería", "المسافة من مرماه"),
+    "Last-ditch (inside own box)": ("Al límite (dentro de su área)", "في اللحظة الأخيرة (داخل منطقته)"),
+    "Dribbler": ("Regateador", "المراوغ"),
 }
 LABELS_NAMED: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"^(?P<n>.+) xG \(match\)$"), "{n}: xG en el partido", "{n}: xG في المباراة"),
@@ -1428,6 +1716,11 @@ LABELS_NAMED: list[tuple[re.Pattern[str], str, str]] = [
         "{n}: التمريرات المفتاحية في المباراة",
     ),
     (re.compile(r"^(?P<n>.+) goals$"), "Goles de {n}", "أهداف {n}"),
+    (
+        re.compile(r"^(?P<n>.+) tackles won \(match\)$"),
+        "{n}: entradas ganadas en el partido",
+        "{n}: التدخلات الناجحة في المباراة",
+    ),
     (
         re.compile(r"^(?P<n>.+) players on the pitch$"),
         "Jugadores de {n} en el campo",
@@ -1515,6 +1808,11 @@ class Spotter:
         self.swings: list[float] = []
         self.last_swing: float | None = None
         self.reds: dict[str, int] = {ctx.home_id: 0, ctx.away_id: 0}
+        self.distance_done: dict[str, float] = {ctx.home_id: 0.0, ctx.away_id: 0.0}
+        self.last_burst: dict[str, float] = {}
+        self.last_key_tackle: float | None = None
+        self.efforts_after: tuple[int, float] | None = None
+        self.prev_event: dict | None = None
 
     def start_period(self) -> None:
         self.last_tag_clock = None
@@ -1536,10 +1834,13 @@ class Spotter:
         team: str | None,
         player_ids: list[str],
         replay: dict | None = None,
+        extra: dict | None = None,
+        *,
+        suffix: str = "",
     ) -> None:
         self.moments.append(
             {
-                "moment_id": f"{ev['event_id']}-{kind}",
+                "moment_id": f"{ev['event_id']}-{kind}{suffix}",
                 "kind": kind,
                 "slot": slot,
                 "priority": priority,
@@ -1550,6 +1851,7 @@ class Spotter:
                 "period": ev["period"],
                 "team": team,
                 "player_ids": player_ids,
+                "players": [self.book.identity(p) for p in player_ids if p in self.book.s],
                 "evidence": evidence,
                 "evidence_labels": {
                     lang: [translate_label(e["label"])[lang] for e in evidence] for lang in ("es", "ar")
@@ -1558,6 +1860,7 @@ class Spotter:
                 "replay": replay,
                 "texts": render(key, base, per),
             }
+            | (extra or {})
         )
 
     # -- per event --------------------------------------------------------
@@ -1574,16 +1877,23 @@ class Spotter:
                 self.big_chance(ev, shot)
             if better is not None:
                 self.better_option(ev, better)
+        elif t == "var_review" and ev.get("outcome") == "overturned":
+            self.correction(ev, state)
         elif t == "card":
             self.card(ev)
         elif t == "milestone" and pid:
             self.milestone(ev)
         elif t == "run" and run is not None:
             self.unfound_run(ev, run)
+        elif t == "tackle" and ev.get("outcome") == "won":
+            self.key_tackle(ev, state)
         self.pressure_spell(ev, state)
         self.momentum_swing(ev, state)
         if len(self.moments) == before and team and pid in ctx.players:
             self.pitch_tag(ev, metrics, shot)
+        self.tracked_bursts(ev)
+        self.distance(ev)
+        self.prev_event = ev
 
     def goal(self, ev: dict, shot: dict, state: dict) -> None:
         ctx, src, pid, team = self.ctx, ev["event_id"], ev["player_id"], ev["team"]
@@ -1664,6 +1974,50 @@ class Spotter:
                     "fantasy": {"extra": ""},
                 }
         self.add(ev, "goal", "lower_third", 95, "goal", base, merge(pp, per), evidence, team, players)
+
+    def correction(self, ev: dict, state: dict) -> None:
+        """VAR overturned a goal: a supersede card that rules the goal moment out."""
+        ctx, src, team = self.ctx, ev["event_id"], ev.get("team")
+        shot_id = ev.get("reviewed_event_id")
+        goal = next((m for m in self.moments if m["event_id"] == shot_id and m["kind"] == "goal"), None)
+        pid = ev.get("player_id")
+        if goal is None or team is None or pid not in ctx.players:
+            return
+        reason = str(ev.get("review_reason") or "offside")
+        H, A = ctx.short(ctx.home_id), ctx.short(ctx.away_id)
+        base: dict[str, Any] = {
+            "p": ctx.surname(pid),
+            "t": ctx.short(team),
+            "H": H,
+            "A": A,
+            "sh": state["score_home"],
+            "sa": state["score_away"],
+            "clk": goal["match_clock"],
+        }
+        pb, pp = player_vars(self.book, pid)
+        base.update(pb)
+        per = {lang: {"why_r": VAR_REASON[reason][lang]} for lang in LANGS}
+        evidence = [
+            ev_item(f"{H} goals", state["score_home"], None, src),
+            ev_item(f"{A} goals", state["score_away"], None, src),
+            ev_item("Goal ruled out (scored at)", goal["match_clock"], None, shot_id),
+            ev_item("Scorer", ctx.players[pid].name, None, shot_id),
+        ] + player_evidence(self.book, pid, src, ctx)
+        extra = {"retracts": [goal["moment_id"]], "reason": f"var_{reason}"}
+        self.add(
+            ev,
+            "correction",
+            "full_screen",
+            95,
+            "correction",
+            base,
+            merge(pp, per),
+            evidence,
+            team,
+            [pid],
+            None,
+            extra,
+        )
 
     def card(self, ev: dict) -> None:
         ctx, src, pid, team = self.ctx, ev["event_id"], ev.get("player_id"), ev.get("team")
@@ -1909,6 +2263,188 @@ class Spotter:
         ] + wev
         self.add(ev, "momentum_swing", "side_panel", 60, "momentum_swing", base, wp, evidence, team, [])
 
+    # -- synthetic tracking ------------------------------------------------
+    def tracked_bursts(self, ev: dict) -> None:
+        """Speed bursts from the synthetic tracking: a sprint that peaked at or over
+        the burst line since the last event, at most one per player per 20 minutes."""
+        until = (ev["period"], ev["clock_s"])
+        if self.efforts_after is not None and until <= self.efforts_after:
+            return
+        efforts = self.book.physical.efforts_between(self.efforts_after, until)
+        self.efforts_after = until
+        ctx, src = self.ctx, ev["event_id"]
+        for f in efforts:
+            pid = f.player_id
+            if pid not in ctx.players or f.peak_kmh < SPEED_BURST_KMH:
+                continue
+            now = elapsed(f.period, f.peak_s)
+            last = self.last_burst.get(pid)
+            if last is not None and 0 <= now - last < SPEED_BURST_GAP_S:
+                continue
+            self.last_burst[pid] = now
+            team = self.book.s[pid]["team"]
+            kmh, thr = rnd(f.peak_kmh, 1), int(SPEED_BURST_KMH)
+            sprint_m = round(f.distance_m)
+            pb, pp = player_vars(self.book, pid)
+            base: dict[str, Any] = {
+                "p": ctx.surname(pid),
+                "t": ctx.short(team),
+                "kmh": kmh,
+                "thr": thr,
+            }
+            base.update(pb)
+            evidence = [
+                ev_item("Player speed", kmh, "km/h", src),
+                ev_item("Speed burst threshold", thr, "km/h", src),
+                ev_item("Sprint distance", sprint_m, "m", src),
+                ev_item("Physical source", TRACKING_LABEL, None, src),
+            ] + player_evidence(self.book, pid, src, ctx)
+            self.add(
+                ev,
+                "speed_burst",
+                "pitch_tag",
+                30,
+                "speed_burst",
+                base,
+                pp,
+                evidence,
+                team,
+                [pid],
+                suffix=f"-{pid}",
+            )
+
+    def distance(self, ev: dict) -> None:
+        """The first player in each team past each distance milestone (5 and 10 km,
+        estimated from synthetic tracking)."""
+        ctx, src = self.ctx, ev["event_id"]
+        for team in (ctx.home_id, ctx.away_id):
+            squad = [st for st in self.book.s.values() if st["team"] == team]
+            leader = max(squad, key=lambda st: (st["distance_km"], st["player_id"]))
+            done = self.distance_done[team]
+            crossed = [km for km in M.DISTANCE_MILESTONES_KM if done < km <= leader["distance_km"]]
+            if not crossed:
+                continue
+            km = max(crossed)
+            self.distance_done[team] = km
+            pid = leader["player_id"]
+            v = self.book.view(pid)
+            km_v = int(km) if float(km).is_integer() else rnd(km, 1)
+            dist = rnd(leader["distance_km"], 1)
+            pb, pp = player_vars(self.book, pid)
+            base: dict[str, Any] = {
+                "p": ctx.surname(pid),
+                "t": ctx.short(team),
+                "km": km_v,
+                "dist": dist,
+                "top": v["top_speed_kmh"],
+            }
+            base.update(pb)
+            per = merge(
+                pp,
+                {lang: {"spr": count(v["sprints"], lang, *SPRINTS)} for lang in LANGS},
+            )
+            evidence = [
+                ev_item("Distance milestone", km_v, "km", src),
+                ev_item("Distance covered (estimated)", dist, "km", src),
+                ev_item("Sprints", v["sprints"], None, src),
+                ev_item("Top speed", v["top_speed_kmh"], "km/h", src),
+                ev_item("Physical source", TRACKING_LABEL, None, src),
+            ] + player_evidence(self.book, pid, src, ctx)
+            self.add(
+                ev,
+                "distance_milestone",
+                "pitch_tag",
+                30,
+                "distance_milestone",
+                base,
+                per,
+                evidence,
+                team,
+                [pid],
+                suffix=f"-{pid}-{km_v}",
+            )
+
+    # -- defending -----------------------------------------------------------
+    def key_tackle(self, ev: dict, state: dict) -> None:
+        """A tackle won in the tackler's own third that stops a dangerous attack
+        (the attackers' expected threat at the spot is at least KEY_TACKLE_XT)."""
+        ctx, src, pid, team = (
+            self.ctx,
+            ev["event_id"],
+            ev.get("player_id"),
+            ev.get("team"),
+        )
+        if pid not in ctx.players or not team or not ev.get("start"):
+            return
+        attackers = ctx.other(team)
+        own = ctx.att(ev["start"], team)
+        theirs = ctx.att(ev["start"], attackers)
+        threat = M.xt(*theirs)
+        if own[0] >= KEY_TACKLE_OWN_THIRD_U or threat < KEY_TACKLE_XT:
+            return
+        now = elapsed(ev["period"], ev["clock_s"])
+        if self.last_key_tackle is not None and 0 <= now - self.last_key_tackle < KEY_TACKLE_GAP_S:
+            return
+        self.last_key_tackle = now
+        prev = self.prev_event
+        victim = None
+        if (
+            prev is not None
+            and prev["type"] == "dribble"
+            and prev.get("outcome") == "incomplete"
+            and prev.get("team") == attackers
+            and prev.get("player_id") in ctx.players
+        ):
+            victim = prev["player_id"]
+        xt_v = rnd(threat, 2)
+        gd = round(pitch.distance_to_goal(theirs))
+        last_ditch = pitch.in_box(theirs)
+        tw = self.book.view(pid)["tackles_won"]
+        who = ctx.players[pid].name
+        base: dict[str, Any] = {
+            "p": ctx.surname(pid),
+            "t": ctx.short(team),
+            "o": ctx.short(attackers),
+            "gd": gd,
+            "xt": xt_v,
+        }
+        acts = (
+            {
+                "en": f"takes the ball off {ctx.surname(victim)}",
+                "es": f"le roba el balón a {ctx.surname(victim)}",
+                "ar": f"يفتك الكرة من {ctx.surname(victim)}",
+            }
+            if victim
+            else {
+                "en": "wins the ball",
+                "es": "recupera el balón",
+                "ar": "يستعيد الكرة",
+            }
+        )
+        per = {lang: {"act": acts[lang], "tw": count(tw, lang, *TACKLES)} for lang in LANGS}
+        evidence = [
+            ev_item("Player", who, None, src),
+            ev_item("Expected threat stopped", xt_v, "xT", src),
+            ev_item("Distance from own goal", gd, "m", src),
+            ev_item("Last-ditch (inside own box)", last_ditch, None, src),
+            ev_item(f"{who} tackles won (match)", tw, None, src),
+        ]
+        if victim:
+            evidence.append(ev_item("Dribbler", ctx.players[victim].name, None, src))
+        ids = [pid] + ([victim] if victim else [])
+        self.add(
+            ev,
+            "key_tackle",
+            "lower_third",
+            62,
+            "key_tackle",
+            base,
+            per,
+            evidence,
+            team,
+            ids,
+        )
+
     def pitch_tag(self, ev: dict, metrics: dict, shot: dict | None) -> None:
         clock = ev["clock_s"]
         if self.last_tag_clock is not None and clock - self.last_tag_clock < PITCH_TAG_GAP_S:
@@ -1928,15 +2464,6 @@ class Spotter:
                 ev_item("Chance quality", rnd(shot["cq"]), "xG", src),
             ] + pev
             kind, prio, players = "rocket_shot", 40, [pid]
-        elif (ev.get("player_speed_mps") or 0.0) >= SPEED_BURST_MS:
-            thr = M.kmh(SPEED_BURST_MS)
-            base.update({"kmh": metrics["player_speed_kmh"], "thr": thr})
-            per = pp
-            evidence = [
-                ev_item("Player speed", metrics["player_speed_kmh"], "km/h", src),
-                ev_item("Speed burst threshold", thr, "km/h", src),
-            ] + pev
-            kind, prio, players = "speed_burst", 30, [pid]
         elif (
             ev["type"] == "pass"
             and ev.get("outcome") == "complete"
@@ -2050,22 +2577,22 @@ R: dict[str, dict[str, dict[str, Any]]] = {
     },
     "fantasy": {
         "en": {
-            "title": "Fantasy review: {H} {sh}-{sa} {A}",
-            "headline": "{potm} leads the fantasy numbers",
+            "title": "Stats scout review: {H} {sh}-{sa} {A}",
+            "headline": "{potm} leads the numbers",
             "p1": "{potm} tops the match with {pxg} xG, {pxa} xA, {pkp} and {pshots}.",
             "p2": "Top xG for {H}: {txh} with {txhv}. Top xG for {A}: {txa} with {txav}. Top xA: {tax} with {taxv}.",
             "p3": "Team totals: {H} {xgh} xG from {shh}, {A} {xga} xG from {sha}.",
         },
         "es": {
-            "title": "Repaso fantasy: {H} {sh}-{sa} {A}",
-            "headline": "{potm} lidera los números fantasy",
+            "title": "Repaso del ojeador de datos: {H} {sh}-{sa} {A}",
+            "headline": "{potm} lidera los números",
             "p1": "{potm} encabeza el partido con {pxg} xG, {pxa} xA, {pkp} y {pshots}.",
             "p2": "Máximo xG de {H}: {txh} con {txhv}. Máximo xG de {A}: {txa} con {txav}. Máximo xA: {tax} con {taxv}.",
             "p3": "Totales: {H} {xgh} xG con {shh}, {A} {xga} xG con {sha}.",
         },
         "ar": {
-            "title": "مراجعة الفانتازي: {H} {sh}-{sa} {A}",
-            "headline": "{potm} يتصدر أرقام الفانتازي",
+            "title": "مراجعة كشّاف الأرقام: {H} {sh}-{sa} {A}",
+            "headline": "{potm} يتصدر الأرقام",
             "p1": "يتصدر {potm} المباراة برصيد {pxg} xG و{pxa} xA و{pkp} و{pshots}.",
             "p2": "الأعلى في xG لـ{H}: {txh} برصيد {txhv}. الأعلى في xG لـ{A}: {txa} برصيد {txav}. الأعلى في xA: {tax} برصيد {taxv}.",
             "p3": "حصيلة الفريقين: {H} {xgh} xG من {shh}، و{A} {xga} xG من {sha}.",
@@ -2165,7 +2692,10 @@ def build_recaps(
             }
         )
     key_kinds = ("goal", "better_option", "unfound_run")
-    key_moments = [m for m in moments if m["kind"] in key_kinds or m in reds]
+    ruled_out = {mid for m in moments for mid in m.get("retracts", [])}
+    key_moments = [
+        m for m in moments if (m["kind"] in key_kinds or m in reds) and m["moment_id"] not in ruled_out
+    ]
     recaps: dict[str, dict] = {}
     for persona in PERSONAS:
         recaps[persona] = {}
@@ -2374,7 +2904,7 @@ def build(path: Path) -> tuple[dict, list[dict]]:
     match_id = start["match_id"]
     ctx = Ctx(start["details"]["home"], start["details"]["away"])
     state_engine = StateEngine(match_id, ctx)
-    book = PlayerBook(ctx)
+    book = PlayerBook(ctx, timeline_for([Event.model_validate(e) for e in raw]))
     spotter = Spotter(ctx, book)
     prev_players = book.views()
     ticks: list[dict] = []
@@ -2398,12 +2928,15 @@ def build(path: Path) -> tuple[dict, list[dict]]:
         if ev["type"] == "shot" and ev.get("outcome") == "goal":
             goals.append(
                 {
+                    "event_id": ev["event_id"],
                     "clock_s": ev["clock_s"],
                     "period": ev["period"],
                     "match_clock": ev["match_clock"],
                     "score": {ctx.home_id: state["score_home"], ctx.away_id: state["score_away"]},
                 }
             )
+        if ev["type"] == "var_review" and ev.get("outcome") == "overturned":
+            goals = [g for g in goals if g["event_id"] != ev.get("reviewed_event_id")]
         spotter.process(ev, metrics, shot, better, run, state)
         now_players = book.views()
         changed = [now_players[p] for p in now_players if now_players[p] != prev_players[p]]
@@ -2459,6 +2992,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--input", type=Path, default=DEFAULT_IN)
     ap.add_argument("--output", type=Path, default=DEFAULT_OUT)
+    ap.add_argument("--insights-output", type=Path, default=DEFAULT_INSIGHTS_OUT)
     args = ap.parse_args(argv)
     fixture, raw = build(args.input)
     data = serialise(fixture)
@@ -2468,6 +3002,15 @@ def main(argv: list[str] | None = None) -> int:
         problems.append("fixture is not deterministic")
     problems += self_check(fixture, raw)
     problems += check_scripted(fixture, raw)
+    # The offline trust panels (claim audit, metric registry, benchmark, dataset list).
+    events = [Event.model_validate(e) for e in raw]
+    insights = build_insights(fixture, events)
+    insights_data = serialise(insights)
+    if serialise(build_insights(again, events)) != insights_data:
+        problems.append("insights are not deterministic")
+    insights_text = insights_data.decode("utf-8").lower()
+    problems += [f"banned real-world name in insights: {w}" for w in BANNED if w.lower() in insights_text]
+    problems += [p for p in insights_problems(insights) if "parity" not in p]
     if problems:
         print("Self-check failed:", file=sys.stderr)
         for p in problems[:50]:
@@ -2475,6 +3018,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes(data)
+    args.insights_output.write_bytes(insights_data)
+    notes = [p for p in insights_problems(insights) if "parity" in p]
+    print(
+        f"Wrote {args.insights_output} ({len(insights_data) / 1e6:.2f} MB): {len(insights['audits'])} audits, {len(notes)} parity notes"
+    )
+    for p in notes:
+        print(f"  parity note (shown in the audit): {p}")
     kinds: dict[str, int] = {}
     for m in fixture["moments"]:
         kinds[m["kind"]] = kinds.get(m["kind"], 0) + 1

@@ -14,7 +14,14 @@ What the feed is and is not:
   the ball drops out for short spells, as it does behind bodies in real feeds.
 - Players other than the ball holder follow a simple team-shape model and run
   to wherever the events say they must be next (receiving a pass, making an
-  interception). Their movement is plausible, not a physical model.
+  interception, pressing the ball when the event lists them in
+  `pressure_players`, goal-side of it). Off the ball they ease towards their place in the shape at
+  jogging pace, drift a little around it and sprint back when caught upfield
+  after the ball is lost. Their movement is plausible, not a physical model; it
+  was tuned so that distance covered lands near real outfield totals (about
+  10-12 km over a match). Only recorded pressers close the ball down: a defender standing
+  next to it would blur who controls it, so recorded pressers stand a couple of
+  metres goal-side of the ball.
 - Each frame carries a ball-in-play flag, as real feeds do.
 
 It is synthetic tracking, not video, and nothing here is presented as video.
@@ -23,10 +30,14 @@ It is synthetic tracking, not video, and nothing here is presented as video.
 from __future__ import annotations
 
 import bisect
+import hashlib
 import math
 import random
+import threading
 import zlib
 from array import array
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 
 from matchmind.schema import Event, EventType, Outcome
@@ -40,8 +51,18 @@ DROPOUT_RATE_PER_S = 0.05  # ball lost behind bodies roughly every 20 s of play
 DROPOUT_S = (0.12, 0.4)
 HOLD_OFFSET_M = 0.35  # the holder stands just behind the ball
 ANCHOR_LOOKAHEAD_S = 4.0
-SHAPE_SPEED_MPS = 7.0
-MAX_CATCH_UP_MPS = 12.0
+MAX_CATCH_UP_MPS = 9.5  # 34 km/h, about the top speed of a quick footballer
+# Off-ball movement (see the module docstring). None of it draws from the feed's
+# random stream, so ball dropouts and noise are the same as before it was added.
+SHAPE_TAU_S = 2.0  # players close the gap to their shape position over about this long
+SHAPE_SPEED_MPS = 3.6  # jogging pace while holding shape
+RECOVERY_SPEED_MPS = 7.0  # a recovery run when caught upfield after losing the ball
+RECOVERY_GAP_M = 8.0  # how far ahead of the shape position counts as caught upfield
+SWAY_M = 0.75  # slow drift around the shape position (keepers: a third of it); larger drifts
+# make teammates cross often enough to swap identities on the pixel path
+SWAY_PERIODS_S = (23.0, 31.0)
+PRESS_GAP_M = 2.2  # where a recorded presser stands, goal-side of the ball
+PRESS_FAN_RAD = 0.7  # two or more pressers fan out around the goal-side line
 
 _KICKS = {EventType.PASS, EventType.SHOT, EventType.CLEARANCE}
 _MOVES = _KICKS | {EventType.CARRY, EventType.DRIBBLE}
@@ -93,6 +114,12 @@ class _Period:
 
 def _d(a: tuple[float, float], b: tuple[float, float]) -> float:
     return math.hypot(a[0] - b[0], a[1] - b[1])
+
+
+def _phases(pid: str) -> tuple[float, float]:
+    """Two fixed drift phases for a player, taken from the id."""
+    key = pid.encode()
+    return (zlib.crc32(key) % 1000 / 1000 * math.tau, zlib.crc32(key[::-1]) % 1000 / 1000 * math.tau)
 
 
 def _xy(p) -> tuple[float, float]:
@@ -147,6 +174,7 @@ class _Builder:
                     # The actor has the ball from the last keyframe until the kick.
                     per.hold.append((max(last_end, t - 30.0), t, e.player_id))
                     per.anchors.setdefault(e.player_id, []).append((t, s))
+                self._press(per, e, t, s)
                 end_t = t
                 if e.end is not None:
                     end = _xy(e.end)
@@ -184,6 +212,19 @@ class _Builder:
             lst.sort()
         per.hold.sort()
         return per
+
+    def _press(self, per: _Period, e: Event, t: float, s: tuple[float, float]) -> None:
+        """Opponents the event records as pressing run to the ball, goal-side of it."""
+        for j, pid in enumerate(e.pressure_players):
+            if pid not in self.team_of:
+                continue
+            own_goal = (0.0 if self.team_of[pid] == self.home else pitch.LENGTH, pitch.WIDTH / 2)
+            base = math.atan2(own_goal[1] - s[1], own_goal[0] - s[0])
+            angle = base + PRESS_FAN_RAD * ((j + 1) // 2) * (1 if j % 2 else -1)
+            spot = pitch.clamp_pos(
+                (s[0] + PRESS_GAP_M * math.cos(angle), s[1] + PRESS_GAP_M * math.sin(angle)), 0.5
+            )
+            per.anchors.setdefault(pid, []).append((t, spot))
 
     def _receiver(self, e: Event, rest: list[Event]) -> str | None:
         if e.type == EventType.PASS and e.outcome == Outcome.COMPLETE:
@@ -236,6 +277,8 @@ class _Renderer:
         self.hz = hz
         self.rng = random.Random(seed)
         self.attacks_right = {b.home: True, b.away: False}
+        # Fixed per player, from the id: no draws from the feed's random stream.
+        self.sway_phase = {pid: _phases(pid) for pid in b.player_ids}
 
     def _shape(self, pid: str, in_poss: bool, ball: tuple[float, float], jitter) -> tuple[float, float]:
         """Same team-shape idea as the simulator, in absolute coordinates."""
@@ -254,6 +297,20 @@ class _Renderer:
             v = 34 + (by - 34) * spread + (bv - 34) * 0.3
         u, v = pitch.clamp(u + jitter[0], 1, 104), pitch.clamp(v + jitter[1], 1, 67)
         return (u, v) if right else pitch.flip((u, v))
+
+    def _targets(self, ids, teams, poss, ball, jitter, t) -> list[tuple[float, float]]:
+        """Where each off-ball player is heading and how fast they may go there:
+        their shape position plus a slow drift around it."""
+        p1, p2 = SWAY_PERIODS_S
+        out: list[tuple[float, float]] = []
+        for n, pid in enumerate(ids):
+            x, y = self._shape(pid, teams[n] == poss, ball, jitter[n])
+            a, b = self.sway_phase[pid]
+            amp = SWAY_M / 3 if self.b.base[pid][1] == "GK" else SWAY_M
+            x = pitch.clamp(x + amp * math.sin(math.tau * t / p1 + a), 1, 104)
+            y = pitch.clamp(y + amp * math.sin(math.tau * t / p2 + b), 1, 67)
+            out.append((x, y))
+        return out
 
     def render(self) -> TrackingFeed:
         b = self.b
@@ -311,7 +368,7 @@ class _Renderer:
                 jitter_poss = poss
                 jitter = [(rng.gauss(0, 1.2), rng.gauss(0, 1.2)) for _ in ids]
             if k % shape_every == 0:
-                targets = [self._shape(pid, teams[n] == poss, ball, jitter[n]) for n, pid in enumerate(ids)]
+                targets = self._targets(ids, teams, poss, ball, jitter, t)
             while h < len(holds) - 1 and holds[h][1] < t:
                 h += 1
             holder = holds[h][2] if holds and alive and holds[h][0] <= t <= holds[h][1] else -1
@@ -335,7 +392,12 @@ class _Renderer:
                     else:
                         tx, ty = targets[n]
                         gap = math.hypot(tx - cx, ty - cy)
-                        speed = min(SHAPE_SPEED_MPS, gap / 0.6)
+                        cap = SHAPE_SPEED_MPS
+                        if teams[n] != poss:
+                            ahead = (cx - tx) if self.attacks_right[teams[n]] else (tx - cx)
+                            if ahead > RECOVERY_GAP_M:
+                                cap = RECOVERY_SPEED_MPS  # caught upfield: sprint back
+                        speed = min(cap, gap / SHAPE_TAU_S)
                     if gap > 1e-9:
                         f = min(1.0, speed * dt / gap)
                         nx, ny = cx + (tx - cx) * f, cy + (ty - cy) * f
@@ -360,6 +422,31 @@ class _Renderer:
         return frames
 
 
+_reuse = threading.local()
+
+
+@contextmanager
+def reuse_renders() -> Iterator[None]:
+    """Inside this block, rendering the same match again (same events, rate and
+    seed) on the same thread returns the feed already drawn instead of drawing
+    it twice. Used when a match loads: the physical stats and the auto-eventing
+    check both need the feed. Feeds are read-only to every consumer. The kept
+    feed is let go when the block ends."""
+    previous = getattr(_reuse, "feeds", None)
+    _reuse.feeds = {}
+    try:
+        yield
+    finally:
+        _reuse.feeds = previous
+
+
+def _render_key(events: list[Event], hz: float, seed: int) -> tuple[str, float, int]:
+    h = hashlib.sha256()
+    for e in events:
+        h.update(e.to_json().encode())
+    return h.hexdigest(), hz, seed
+
+
 def render_tracking(events: list[Event], *, hz: float = DEFAULT_HZ, seed: int | None = None) -> TrackingFeed:
     """Render a synthetic tracking feed for one simulated match.
 
@@ -368,8 +455,18 @@ def render_tracking(events: list[Event], *, hz: float = DEFAULT_HZ, seed: int | 
     """
     if hz <= 0:
         raise ValueError("hz must be positive")
+    if not events:
+        raise ValueError("The event list must begin with match_start and its lineups.")
     if seed is None:
         seed = zlib.crc32(events[0].match_id.encode())
+    feeds = getattr(_reuse, "feeds", None)
+    key = _render_key(events, hz, seed) if feeds is not None else None
+    if feeds is not None and key in feeds:
+        return feeds[key]
     builder = _Builder(events)
     builder.build()
-    return _Renderer(builder, hz, seed).render()
+    feed = _Renderer(builder, hz, seed).render()
+    if feeds is not None:
+        feeds.clear()  # one feed at a time: each is tens of megabytes
+        feeds[key] = feed
+    return feed

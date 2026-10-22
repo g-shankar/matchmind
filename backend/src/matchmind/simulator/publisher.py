@@ -56,11 +56,10 @@ def stdout_sink(event: Event) -> None:
 class EventHubSink:
     """Publishes each event to Azure Event Hubs, partitioned by match.
 
-    Preferred auth is Microsoft Entra ID (no secrets): set
-    EVENTHUB_FULLY_QUALIFIED_NAMESPACE and EVENTHUB_NAME, then sign in with
-    `az login` locally or use a managed identity in Azure. A connection string
-    in EVENTHUB_CONNECTION_STRING also works for quick local tests; keep it in
-    .env, which git ignores.
+    Keyless only, here and in the deployed simulator job: Microsoft Entra ID via
+    `DefaultAzureCredential` (`az login` locally, the job's managed identity in Azure).
+    Set EVENTHUB_FULLY_QUALIFIED_NAMESPACE and EVENTHUB_NAME. There is no
+    connection-string path: the namespace has local (key) auth switched off.
     """
 
     def __init__(self) -> None:
@@ -70,24 +69,18 @@ class EventHubSink:
             raise SystemExit("Install the Azure extras: pip install -e '.[azure]'") from exc
         self._event_data = EventData
         hub = os.environ.get("EVENTHUB_NAME")
-        conn = os.environ.get("EVENTHUB_CONNECTION_STRING")
         namespace = os.environ.get("EVENTHUB_FULLY_QUALIFIED_NAMESPACE")
         if not hub:
             raise SystemExit("Set EVENTHUB_NAME")
-        if namespace:
-            from azure.identity import DefaultAzureCredential
+        if not namespace:
+            raise SystemExit("Set EVENTHUB_FULLY_QUALIFIED_NAMESPACE and sign in with az login")
+        from azure.identity import DefaultAzureCredential
 
-            self._client = EventHubProducerClient(
-                fully_qualified_namespace=namespace,
-                eventhub_name=hub,
-                credential=DefaultAzureCredential(),
-            )
-        elif conn:
-            self._client = EventHubProducerClient.from_connection_string(conn, eventhub_name=hub)
-        else:
-            raise SystemExit(
-                "Set EVENTHUB_FULLY_QUALIFIED_NAMESPACE (preferred) or EVENTHUB_CONNECTION_STRING"
-            )
+        self._client = EventHubProducerClient(
+            fully_qualified_namespace=namespace,
+            eventhub_name=hub,
+            credential=DefaultAzureCredential(),
+        )
 
     def __call__(self, event: Event) -> None:
         batch = self._client.create_batch(partition_key=event.match_id)

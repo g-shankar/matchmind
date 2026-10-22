@@ -37,17 +37,68 @@ const renderModal = (props: Partial<React.ComponentProps<typeof RecapModal>> = {
 };
 
 describe('RecapModal', () => {
+  it('can be scrolled from the keyboard and adds no page landmarks (LC-6)', () => {
+    renderModal({ loading: true, recap: null });
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.querySelector('header, footer')).toBeNull();
+    const body = screen.getByRole('region', { name: /recap|match/i });
+    expect(body.getAttribute('tabindex')).toBe('0');
+  });
+
   it('renders the recap with the fact-check line and closes on Escape', () => {
     const onClose = renderModal();
     const dialog = screen.getByRole('dialog');
     expect(dialog.getAttribute('aria-modal')).toBe('true');
     expect(screen.getByText('Every number checked against the stats engine')).toBeTruthy();
     expect(screen.getByText('AAA Striker')).toBeTruthy();
-    expect(screen.getByText('Home chance quality (xG)')).toBeTruthy();
-    expect(screen.getByText('mystery key')).toBeTruthy();
+    expect(screen.getByText(`${makeFixture().teams.home.name} chance quality (xG)`)).toBeTruthy();
     expect(document.activeElement?.getAttribute('aria-label')).toBe('Close recap');
-    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows match numbers with human labels and hides internal fields', () => {
+    renderModal({
+      recap: recap({
+        stats: { home: 'AAA', generated_at: '90:00', n_big_chances: 4, score_w: 2, score_l: 1, potm_short: 'Striker', potm_tackles: 3, mystery_key: 7 },
+      }),
+    });
+    const table = screen.getByRole('table');
+    expect(table.textContent).toContain('Big chances');
+    expect(table.textContent).toContain('Player of the match tackles won');
+    for (const raw of ['generated at', 'n big chances', 'score w', 'score l', 'potm short', 'potm tackles', 'mystery key', 'home']) {
+      expect(table.textContent?.toLowerCase()).not.toContain(raw);
+    }
+  });
+
+  it('keeps Tab inside the dialog and gives focus back to what opened it', () => {
+    const opener = document.createElement('button');
+    opener.textContent = 'Recap';
+    document.body.appendChild(opener);
+    opener.focus();
+    const onClose = vi.fn();
+    const { rerender } = render(
+      <I18nProvider lang="en">
+        <RecapModal open onClose={onClose} recap={recap()} loading={false} teams={null} />
+      </I18nProvider>,
+    );
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.getAttribute('aria-labelledby')).toBe('recap-title');
+    const buttons = dialog.querySelectorAll('button');
+    const last = buttons[buttons.length - 1] as HTMLElement;
+    last.focus();
+    fireEvent.keyDown(last, { key: 'Tab' });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(document.activeElement).toBe(buttons[0]);
+    fireEvent.keyDown(buttons[0], { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(last);
+    rerender(
+      <I18nProvider lang="en">
+        <RecapModal open={false} onClose={onClose} recap={recap()} loading={false} teams={null} />
+      </I18nProvider>,
+    );
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
   });
 
   it('lists fact-check reasons when the check failed', () => {
@@ -73,5 +124,18 @@ describe('RecapModal', () => {
     renderModal({ recap: null }, 'ar');
     expect(screen.getByText('الملخص غير متاح بعد')).toBeTruthy();
     expect(screen.getByRole('dialog').closest('[dir]')?.getAttribute('dir')).toBe('rtl');
+  });
+});
+
+describe('RecapModal in catch-up mode', () => {
+  it('shows the player of the match as hidden in the story so far', () => {
+    const story = {
+      match_id: 'T-1', persona: 'casual' as const, language: 'en' as const, rtl: false,
+      title: 'The story so far', headline: 'Catch up without the score', summary_paragraphs: ['At 30:00: xG 1.2 to 0.4.'],
+      key_moments: [], player_of_the_match_id: null, player_of_the_match: null, stats: {},
+      generated_at_clock: '30:00', produced_by: 'template' as const, fact_check: { ok: true, reasons: [] }, spoiler_free: true,
+    };
+    render(<I18nProvider lang="en"><RecapModal open onClose={() => {}} recap={story} loading={false} teams={null} /></I18nProvider>);
+    expect(screen.getByText('Hidden')).toBeTruthy();
   });
 });

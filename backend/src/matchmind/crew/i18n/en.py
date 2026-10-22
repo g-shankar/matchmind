@@ -42,6 +42,13 @@ PACK = {
         "shots_home": "Home shots",
         "shots_away": "Away shots",
         "appearance_n": "Club appearances",
+        "ruled_out_clock": "Goal ruled out (scored at)",
+        "xt_stopped": "Threat stopped (xT)",
+        "own_goal_distance_m": "Distance from own goal",
+        "p_tackles_won": "Tackles won",
+        "last_ditch": "Last-ditch (own box)",
+        "distance_km": "Distance so far (tracking est.)",
+        "sprint_m": "Sprint length",
     },
     "zones": {
         "Penalty Box": "penalty box",
@@ -60,6 +67,7 @@ PACK = {
     "card_name": {"yellow": "yellow card", "red": "red card"},
     "card_name_cap": {"yellow": "Yellow card", "red": "Red card"},
     "card_action": {"yellow": "is booked", "red": "is sent off"},
+    "var_reason": {"offside": "offside", "handball": "handball", "foul": "a foul"},
     "fav_goal": {
         "for": "GOAL for your team! {player_short} scores",
         "against": "{player_short} scores against your team",
@@ -122,7 +130,7 @@ PACK = {
             "fantasy": [
                 (
                     "{card_name_cap} for {player_short}",
-                    "Card points lost. {player_short} today: {p_goals|goal|goals}, {p_assists|assist|assists}, {p_xg} xG.",
+                    "{player_short} {card_action}. Today: {p_goals|goal|goals}, {p_assists|assist|assists}, {p_xg} xG.",
                 )
             ],
             "player_spotlight": [
@@ -377,6 +385,66 @@ PACK = {
                 )
             ],
         },
+        "key_tackle": {
+            "casual": [
+                (
+                    "Big tackle by {player_short}",
+                    "{player} takes the ball off {victim_short} {own_goal_distance_m} m from his own goal. "
+                    "Danger over for {team}.",
+                ),
+                (
+                    "Big tackle by {player_short}",
+                    "{player} wins the ball {own_goal_distance_m} m from his own goal. Danger over for {team}.",
+                ),
+            ],
+            "tactical": [
+                (
+                    "Key tackle: {player_short}",
+                    "Won in the defensive third, {own_goal_distance_m} m out, where {opp} carried {xt_stopped} xT. "
+                    "{player_short} has {p_tackles_won|tackle won|tackles won} today.",
+                )
+            ],
+            "fantasy": [
+                (
+                    "{player_short} stops the attack",
+                    "Defensive work from {player_short}: {p_tackles_won|tackle won|tackles won} so far. "
+                    "This one came {own_goal_distance_m} m from his own goal.",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "{player_short} wins it back",
+                    "A tackle {own_goal_distance_m} m from his own goal takes away a {xt_stopped} xT threat. "
+                    "Tackles won today: {p_tackles_won}.",
+                )
+            ],
+        },
+        "correction": {
+            "casual": [
+                (
+                    "No goal! VAR rules out {player_short}",
+                    "{player}'s goal at {ruled_out_clock} is ruled out for {reason_phrase} after a VAR review. It stays {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+            "tactical": [
+                (
+                    "VAR: {player_short} goal ruled out",
+                    "Overturned for {reason_phrase} on review. The score goes back to {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+            "fantasy": [
+                (
+                    "Goal ruled out: {player_short}",
+                    "VAR takes the goal off for {reason_phrase}; the shot still counts. {player_short} today: {p_goals|goal|goals} and {p_xg} xG from {p_shots|shot|shots}.",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "No goal! VAR rules out {player_short}",
+                    "{player}'s goal at {ruled_out_clock} is ruled out for {reason_phrase} after a VAR review. It stays {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+        },
         "milestone.kick_off": {
             "casual": [
                 (
@@ -433,7 +501,7 @@ PACK = {
             "fantasy": [
                 (
                     "Full-time: {home} {score_home}-{score_away} {away}",
-                    "Final xG: {home} {xg_home}, {away} {xg_away}. Check your points.",
+                    "Final xG: {home} {xg_home}, {away} {xg_away}. Shots: {shots_home} to {shots_away}.",
                 )
             ],
         },
@@ -492,6 +560,12 @@ PACK = {
         "hard_pass": [
             "A difficulty rating of {pass_difficulty} out of {difficulty_scale} is a pass few players complete."
         ],
+        "key_tackle": [
+            "Won {own_goal_distance_m} m from goal, the tackle took away a {xt_stopped} xT threat from {opp}."
+        ],
+        "correction": [
+            "VAR ruled out the goal from {ruled_out_clock} for {reason_phrase}: the score goes back to {home} {score_home}-{score_away} {away}."
+        ],
         "milestone.kick_off": ["The match is under way."],
         "milestone.half_time": ["At the break expected goals read {xg_home} to {xg_away}."],
         "milestone.full_time": ["Final expected goals: {xg_home} to {xg_away}."],
@@ -546,4 +620,332 @@ PACK = {
         "focus": "{focus}: {focus_passes_completed} of {focus_passes} passes completed, {focus_distance_km} km "
         "covered, top speed {focus_top_speed_kmh} km/h.",
     },
+}
+
+# Football words the templates use as `{g_<term>}` (docs/LANGUAGES.md).
+PACK["glossary"] = {
+    "box": "box",
+    "keeper": "keeper",
+    "back_line": "back line",
+    "equaliser": "equaliser",
+    "comeback": "comeback",
+    "let_off": "let-off",
+    "rocket": "thunderbolt",
+}
+
+_SCORE = "{home} {score_home}-{score_away} {away}"
+
+# Club heart (crew/club_heart.py): the same facts, told from the fan's side.
+# `{team}` is the side the moment is about; the fan's own club prints as "your team".
+PACK["heart"] = {
+    "goal_for": {
+        "casual": [
+            (
+                "GOAL for your team! {player_short} scores",
+                "{player} beats the {g_keeper} from {distance_m} m. It's " + _SCORE + ".",
+            ),
+        ],
+        "tactical": [
+            (
+                "{player_short} converts {xg} xG for your team",
+                "From {distance_m} m in the {zone}. " + _SCORE + " at {match_clock}.",
+            ),
+        ],
+        "fantasy": [
+            (
+                "Goal {player_short}: your team score",
+                "{player_short} today: {p_goals|goal|goals} and {p_xg} xG from {p_shots|shot|shots}. "
+                "This chance was worth {xg} xG.",
+            ),
+        ],
+    },
+    "goal_for_level": {
+        "casual": [
+            (
+                "Level! {player_short} brings your team back",
+                "{player} scores the {g_equaliser} at {match_clock}. It's "
+                + _SCORE
+                + ", and the {g_comeback} is on.",
+            ),
+        ],
+        "tactical": [
+            (
+                "{player_short} levels it from {xg} xG",
+                "A {distance_m} m finish in the {zone}. " + _SCORE + " at {match_clock}.",
+            ),
+        ],
+    },
+    "goal_for_pull_back": {
+        "casual": [
+            (
+                "{player_short} pulls a goal back!",
+                _SCORE + " at {match_clock}. Your team are back in it, and the {g_comeback} starts here.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Back in it: {player_short}, {xg} xG",
+                "A {distance_m} m finish in the {zone}. " + _SCORE + " at {match_clock}.",
+            ),
+        ],
+    },
+    "goal_for_lead": {
+        "casual": [
+            (
+                "GOAL! {player_short} puts your team in front",
+                "{player} scores at {match_clock}. It's " + _SCORE + ".",
+            ),
+        ],
+        "tactical": [
+            (
+                "Your team lead: {player_short}, {xg} xG",
+                "A {distance_m} m finish in the {zone} at {match_clock}. " + _SCORE + ".",
+            ),
+        ],
+    },
+    "goal_against": {
+        "casual": [
+            (
+                "{player_short} scores against your team",
+                _SCORE + " at {match_clock}. There is time for your team to respond.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Conceded: {player_short}, {xg} xG",
+                "A {distance_m} m finish in the {zone}. "
+                + _SCORE
+                + " at {match_clock}, with time to respond.",
+            ),
+        ],
+        "fantasy": [
+            (
+                "{player_short} scores against your team",
+                "{player_short} today: {p_goals|goal|goals} and {p_xg} xG from {p_shots|shot|shots}. "
+                "This chance was worth {xg} xG.",
+            ),
+        ],
+    },
+    "goal_against_level": {
+        "casual": [
+            (
+                "Pegged back: {player_short} levels it",
+                _SCORE + " at {match_clock}. Your team need to reset and go again.",
+            ),
+        ],
+        "tactical": [
+            (
+                "{g_equaliser} against: {player_short}, {xg} xG",
+                "A {distance_m} m finish in the {zone}. " + _SCORE + " at {match_clock}.",
+            ),
+        ],
+    },
+    "goal_against_lead_cut": {
+        "casual": [
+            (
+                "{player_short} cuts your team's lead",
+                _SCORE + " at {match_clock}. Your team are still ahead: stay calm.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Lead cut: {player_short}, {xg} xG",
+                "A {distance_m} m finish in the {zone}. Still ahead at {match_clock}: " + _SCORE + ".",
+            ),
+        ],
+    },
+    "goal_against_late": {
+        "casual": [
+            (
+                "Late blow: {player_short} scores",
+                _SCORE + " at {match_clock}. Hard to take for your team this late on.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Late blow: {player_short}, {xg} xG",
+                "A {distance_m} m finish in the {zone} at {match_clock}. " + _SCORE + ".",
+            ),
+        ],
+    },
+    "card_own": {
+        "casual": [
+            (
+                "{card_name_cap} for {player_short}",
+                "{player} {card_action} at {match_clock}. Your team need cool heads now.",
+            ),
+        ],
+    },
+    "card_rival": {
+        "casual": [
+            (
+                "{card_name_cap} for {player_short}",
+                "{player} {card_action} at {match_clock}. A chance for your team to press the advantage.",
+            ),
+        ],
+    },
+    "let_off": {
+        "casual": [
+            (
+                "{g_let_off} for your team!",
+                "{player} had a clear sight of goal for {team} {distance_m} m out, but {outcome_phrase}. "
+                "Chances like that go in about {xg_pct}% of the time.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Danger: {xg} xG chance for {team}",
+                "{player_short} shoots from {distance_m} m in the {zone}, but {outcome_phrase}. "
+                "Your team's {g_back_line} was opened up.",
+            ),
+        ],
+    },
+    "let_off_shot": {
+        "casual": [
+            (
+                "{g_let_off}: {player_short}'s {g_rocket}",
+                "{player} hits it at {shot_speed_kmh} km/h from {distance_m} m, and {outcome_phrase}. Your team survive.",
+            ),
+        ],
+    },
+    "let_off_choice": {
+        "casual": [
+            (
+                "{g_let_off}: {player_short} chose the shot",
+                "{teammate_short} was free, and the pass was worth {times_better}x more than the shot. "
+                "Your team got away with it.",
+            ),
+        ],
+        "tactical": [
+            (
+                "{g_let_off}: {player_short} ignored {teammate_short}",
+                "Shot at {shot_xg} xG; the {pass_distance_m} m pass had {pass_success_pct}% success odds. "
+                "Your team got away with it.",
+            ),
+        ],
+    },
+    "let_off_run": {
+        "casual": [
+            (
+                "{g_let_off}: {runner_short}'s run went unseen",
+                "{runner} got in behind your team's {g_back_line}, but {player_short} never played the pass. "
+                "It could have been a {projected_xg_pct}% chance.",
+            ),
+        ],
+        "tactical": [
+            (
+                "{g_let_off}: {runner_short} {clear_of_line_m} m clear",
+                "{runner_short} was beyond your team's {g_back_line} at {pass_on_clock}; the pass would have made "
+                "a {projected_xg} xG chance. {player_short} missed it.",
+            ),
+        ],
+    },
+    "lesson_choice": {
+        "casual": [
+            (
+                "Next time, find {teammate_short}",
+                "{player_short} went for goal, but the pass to {teammate_short} was worth {times_better}x more. "
+                "Something for your team to work on.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Learning point: the pass to {teammate_short}",
+                "Shot at {shot_xg} xG; the {pass_distance_m} m pass had {pass_success_pct}% success odds and "
+                "{alt_xg} xG behind it. The better ball was on.",
+            ),
+        ],
+    },
+    "lesson_run": {
+        "casual": [
+            (
+                "{runner_short}'s run deserved the ball",
+                "{runner} was {clear_of_line_m} m clear of the {g_back_line}; next time {player_short} can find him. "
+                "It could have been a {projected_xg_pct}% chance.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Unfound run: {runner_short} {clear_of_line_m} m clear",
+                "The through ball was on at {pass_on_clock}: a {projected_xg} xG chance. "
+                "Next time {player_short} can find him.",
+            ),
+        ],
+    },
+    "pressure_for": {
+        "casual": [
+            (
+                "Your team turn the screw",
+                "Your team have kept {opp} pinned back for {spell_min|minute|minutes}. Keep it coming.",
+            ),
+        ],
+    },
+    "hold_firm": {
+        "casual": [
+            (
+                "Hold firm: {team} are pressing",
+                "{team} have pinned your team back for {spell_min|minute|minutes}. "
+                "Time to hold firm and keep the ball out of the {g_box}.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Under pressure: {team} at {pressure_index}",
+                "Pressure index {pressure_index} for {spell_min|minute|minutes} with {team_field_tilt_pct}% "
+                "field tilt against your team.",
+            ),
+        ],
+    },
+    "momentum_against": {
+        "casual": [
+            (
+                "Warning: {team} take control",
+                "Momentum moved {momentum_change} points towards {team} in {window_min} minutes. "
+                "Your team need a response.",
+            ),
+        ],
+        "tactical": [
+            (
+                "Momentum shift against your team",
+                "Momentum moved {momentum_change} points in {window_min} minutes; {team} have "
+                "{team_field_tilt_pct}% field tilt.",
+            ),
+        ],
+    },
+    "full_time_won": {"casual": [("Full-time: your team win!", _SCORE + ". A result to enjoy.")]},
+    "full_time_lost": {
+        "casual": [("Full-time: defeat for your team", _SCORE + ". Time to regroup and go again.")]
+    },
+    "full_time_drawn": {"casual": [("Full-time: honours even", _SCORE + ". A point apiece.")]},
+}
+PACK["metric"]["momentum_against"] = [
+    ("Warning: momentum to {team}", "Momentum moved {change} points towards {team}, away from your team."),
+]
+PACK["heart"]["attack_stopped"] = {
+    "casual": [
+        (
+            "{player_short} stops your team's attack",
+            "{player} won the ball {own_goal_distance_m} m from his own goal. Your team go again.",
+        ),
+    ],
+    "tactical": [
+        (
+            "Attack stopped: {xt_stopped} xT taken away",
+            "{player_short} won it in his own third, {own_goal_distance_m} m out. Your team must rebuild the move.",
+        ),
+    ],
+}
+
+# Spoiler-safe catch-up (crew/spoilers.py): the story so far without the score,
+# the goals or VAR outcomes. Only facts from `recap.story_facts` are filled in.
+PACK["story"] = {
+    "title": "The story so far: {home} v {away}",
+    "headline": "Catch up without the score",
+    "p1": "At {generated_at}: xG {xg_home} to {xg_away}, from {shots_home} and {shots_away} shots.",
+    "p2": "We flagged {n_big_chances|big chance|big chances}, {n_pressure_spells|pressure spell|pressure spells} "
+    "and {n_momentum_swings|momentum swing|momentum swings}.",
+    "on_top": "{on_top} are on top right now.",
+    "level": "Neither side is on top right now.",
+    "watch": "Watch for {n_better_options|shot where the pass was better|shots where the pass was better} "
+    "and {n_unfound_runs|unfound run|unfound runs}.",
 }

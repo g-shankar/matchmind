@@ -12,7 +12,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from matchmind.crew.contracts import Evidence, Explanation, Moment
-from matchmind.crew.i18n import MissingFact, fill_first, pack
+from matchmind.crew.i18n import MissingFact, fill_first_with_template, pack
 from matchmind.crew.wording import template_key, variables
 
 TacticalTag = Literal[
@@ -27,7 +27,9 @@ TacticalTag = Literal[
     "shot_power",
     "work_rate",
     "line_breaking",
+    "defending",
     "game_state",
+    "officiating",
 ]
 
 TAGS: dict[str, TacticalTag] = {
@@ -42,7 +44,9 @@ TAGS: dict[str, TacticalTag] = {
     "rocket_shot": "shot_power",
     "distance_milestone": "work_rate",
     "hard_pass": "line_breaking",
+    "key_tackle": "defending",
     "milestone": "game_state",
+    "correction": "officiating",
 }
 
 EVIDENCE_KEYS: dict[str, tuple[str, ...]] = {
@@ -75,13 +79,18 @@ EVIDENCE_KEYS: dict[str, tuple[str, ...]] = {
     ),
     "speed_burst": ("speed_kmh", "top_speed_kmh", "sprints"),
     "rocket_shot": ("shot_speed_kmh", "xg", "distance_m"),
-    "distance_milestone": ("milestone_km", "sprints", "top_speed_kmh"),
+    "distance_milestone": ("milestone_km", "distance_km", "sprints", "top_speed_kmh"),
     "hard_pass": ("pass_difficulty", "pass_distance_m", "xt_delta"),
+    "key_tackle": ("xt_stopped", "own_goal_distance_m", "last_ditch", "p_tackles_won"),
     "milestone.kick_off": (),
     "milestone.half_time": ("score_home", "score_away", "xg_home", "xg_away", "shots_home", "shots_away"),
     "milestone.full_time": ("score_home", "score_away", "xg_home", "xg_away", "shots_home", "shots_away"),
     "milestone.player": ("appearance_n",),
+    "correction": ("score_home", "score_away", "ruled_out_clock"),
 }
+# Evidence that points at another source event than the moment's first one
+# (the correction's ruled-out clock points at the goal's own shot).
+EVIDENCE_SOURCE: dict[str, int] = {"ruled_out_clock": 1}
 
 LABELS: dict[str, str] = {
     "xg": "Chance quality (xG)",
@@ -120,6 +129,13 @@ LABELS: dict[str, str] = {
     "shots_home": "Home shots",
     "shots_away": "Away shots",
     "appearance_n": "Club appearances",
+    "xt_stopped": "Threat stopped (xT)",
+    "own_goal_distance_m": "Distance from own goal",
+    "p_tackles_won": "Tackles won",
+    "last_ditch": "Last-ditch (own box)",
+    "distance_km": "Distance so far (tracking est.)",
+    "sprint_m": "Sprint length",
+    "ruled_out_clock": "Goal ruled out (scored at)",
 }
 
 
@@ -136,9 +152,9 @@ def unit_for(key: str) -> str | None:
         return "min"
     if key in ("times_better",):
         return "x"
-    if key in ("xg", "shot_xg", "alt_xg", "projected_xg", "xg_home", "xg_away", "team_xg_total"):
+    if key in ("xg", "shot_xg", "alt_xg", "alt_value", "projected_xg", "xg_home", "xg_away", "team_xg_total"):
         return "xG"
-    if key == "xt_delta":
+    if key in ("xt_delta", "xt_stopped"):
         return "xT"
     return None
 
@@ -148,13 +164,15 @@ def evidence(moment: Moment) -> list[Evidence]:
     out: list[Evidence] = []
     for key in EVIDENCE_KEYS.get(template_key(moment), ()):
         if key in moment.facts:
+            index = EVIDENCE_SOURCE.get(key, 0)
+            src = moment.source_event_ids[index] if index < len(moment.source_event_ids) else source
             out.append(
                 Evidence(
                     label=LABELS.get(key, key.replace("_", " ").capitalize()),
                     label_key=key,
                     value=moment.facts[key],
                     unit=unit_for(key),
-                    source_event_id=source,
+                    source_event_id=src,
                 )
             )
     return out
@@ -162,11 +180,18 @@ def evidence(moment: Moment) -> list[Evidence]:
 
 def why_text(moment: Moment, language: str, favourite_name: str | None = None) -> str:
     """The localised template explanation for one moment."""
+    return why_text_with_template(moment, language, favourite_name)[0]
+
+
+def why_text_with_template(
+    moment: Moment, language: str, favourite_name: str | None = None
+) -> tuple[str, str | None]:
+    """The localised template explanation and the template it came from."""
     options = pack(language)["why"].get(template_key(moment), [])
     try:
-        return fill_first(options, variables(moment, language, favourite_name), language)
+        return fill_first_with_template(options, variables(moment, language, favourite_name), language)
     except MissingFact:
-        return ""
+        return "", None
 
 
 def template_explanation(moment: Moment, fallback_reason: str | None = None) -> Explanation:

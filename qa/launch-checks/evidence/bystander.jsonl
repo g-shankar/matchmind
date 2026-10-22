@@ -1,0 +1,3 @@
+{"flood": null, "seconds": 15.0, "rest_p50_ms": 6, "rest_max_ms": 37, "ws_msgs": 543, "ws_gap_p99_ms": 307, "ws_gap_max_ms": 410}
+{"flood": "/api/match/snapshot", "seconds": 20.0, "rest_p50_ms": 444, "rest_max_ms": 572, "flood_requests": 4409, "flood_codes": {"200": 4409}, "ws_msgs": 757, "ws_gap_p99_ms": 575, "ws_gap_max_ms": 1152}
+{"flood": "/api/match/snapshot", "seconds": 20.0, "health_over_1s": 1, "health_samples": 65, "health_p50_ms": 5, "health_max_ms": 2371, "ws_msgs": 640, "ws_gap_p99_ms": 1440, "ws_gap_max_ms": 1712, "flood_requests": 3989, "flood_codes": {"200": 3989, "err": 1}}

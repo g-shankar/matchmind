@@ -207,3 +207,14 @@ Every linked acceptance criterion has evidence; format/lint, typecheck, unit, in
 - Never trust the Host header for origin checks; only listed origins.
 - Pass `TemplateLLM()` explicitly wherever paid model calls are not allowed; `llm=None` follows the AI switch.
 - When the roster in `teams.py` changes, regenerate `backend/data/matches` or the dataset check fails.
+- In a multi-line CI `run:` block, `! grep ...` fails the step only on the last line (bash -e ignores negated commands); use `if grep ...; then exit 1; fi`.
+- Key rate limits and connection caps on the last X-Forwarded-For entry (added by the ingress), never the first; and keep paid per-request work (translation) off routes anyone can loop on.
+- Persona voices use only stats we compute: no game points, bonus systems or real-league fantasy branding (the "Stats scout" persona keeps the API value `fantasy`).
+- Feed input is untrusted even when it is well-formed: type and range-check every value other code reads (scores, enums), take numbers for facts from the stats engine, and keep live appends all-or-nothing.
+- An all-or-nothing rollback restores every structure the step writes (samples, indexes, checkpoints, side state), and its test fails late in the step, not first.
+- Spoiler-free payloads must hide what reveals the result, not just its labels: outcome geometry (shot end points), side events (VAR reviews, kick-off restarts) and every stats surface that counts goals; the leak test checks each.
+- A jump must land somewhere visible: the snapshot carries the last events (pitch never empty), the page keeps the pitch in view and shows the picked moment's own card; never leave a viewer paused on a blank pitch.
+- Server refusals reach viewers through a stable error code and a translated toast, never raw English; the app spaces its own requests to fit the server's rate limits instead of loosening them.
+- A per-connection limit is not a limit on shared state: anything every viewer shares (the playback clock, process memory across send queues) needs a cap for the whole process, sized against the container.
+- Text the server renders once (jump-list titles) must follow the viewer's language too; check every label after a language switch, not only the cards.
+- Hiding a value is not enough when its absence, a gap in numbering or a special shape marks it: withhold or neutralise the marker too, test with a classifier over the whole stream, and say plainly what timing still reveals.

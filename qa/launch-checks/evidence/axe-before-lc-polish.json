@@ -1,0 +1,345 @@
+{
+ "desktop-1440": {
+  "studio": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 3,
+    "nodes": [
+     "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1 :: <bdi class=\"flex items-center px-1.5 text-white sm:px-2.5\" style=\"background: rgb(240, 138, 36);\">HCY</bdi>",
+     "button[aria-current=\"page\"] ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"button\" aria-current=\"page\" class=\"min-h-[44px] shrink-0 whitespace-nowrap border-b-2 px-3 font-display text-sm font-bold uppe",
+     ".hover\\:text-pp-night ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"submit\" aria-busy=\"false\" class=\"flex min-h-[44px] items-center gap-1.5 bg-pp-pulse px-4 font-display text-sm font-extrabold u"
+    ]
+   },
+   {
+    "id": "region",
+    "impact": "moderate",
+    "n": 5,
+    "nodes": [
+     ".gap-x-4 > .gap-2.items-center.flex:nth-child(1) ::   Some page content is not contained by landmarks :: <div class=\"flex items-center gap-2\" title=\"Who the explanations are written for\">",
+     ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks :: <span class=\"sr-only\">Language</span>",
+     "select ::   Some page content is not contained by landmarks :: <select data-testid=\"language-picker\" title=\"Studio languages are hand-written. World languages are translated by Azure AI Translator, then ",
+     ".border-dashed ::   Some page content is not contained by landmarks :: <span data-testid=\"world-status\" title=\"Off: needs Azure AI Translator\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display tex",
+     ".md\\:inline-flex ::   Some page content is not contained by landmarks :: <span title=\"Narratives come from fact-checked templates; paid AI is switched off.\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font"
+    ]
+   }
+  ],
+  "overlay": [
+   {
+    "id": "aria-hidden-focus",
+    "impact": "serious",
+    "n": 1,
+    "nodes": [
+     ".opacity-60 ::   Focusable content should have tabindex=\"-1\" or be removed from the DOM :: <div dir=\"ltr\" aria-hidden=\"true\" class=\"absolute inset-0 flex items-center justify-center opacity-60\">"
+    ]
+   },
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 2,
+    "nodes": [
+     "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1 :: <bdi class=\"flex items-center px-1.5 text-white sm:px-2.5\" style=\"background: rgb(240, 138, 36);\">HCY</bdi>",
+     "button[aria-current=\"page\"] ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"button\" class=\"min-h-[44px] shrink-0 whitespace-nowrap border-b-2 px-3 font-display text-sm font-bold uppercase tracking-broad"
+    ]
+   },
+   {
+    "id": "region",
+    "impact": "moderate",
+    "n": 5,
+    "nodes": [
+     ".gap-x-4 > .gap-2:nth-child(1) ::   Some page content is not contained by landmarks :: <div class=\"flex items-center gap-2\" title=\"Who the explanations are written for\">",
+     "label > .sr-only ::   Some page content is not contained by landmarks :: <span class=\"sr-only\">Language</span>",
+     "select ::   Some page content is not contained by landmarks :: <select data-testid=\"language-picker\" title=\"Studio languages are hand-written. World languages are translated by Azure AI Translator, then ",
+     ".border-dashed ::   Some page content is not contained by landmarks :: <span data-testid=\"world-status\" title=\"Off: needs Azure AI Translator\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display tex",
+     ".md\\:inline-flex ::   Some page content is not contained by landmarks :: <span title=\"Narratives come from fact-checked templates; paid AI is switched off.\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font"
+    ]
+   }
+  ],
+  "split": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 2,
+    "nodes": [
+     "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1 :: <bdi class=\"flex items-center px-1.5 text-white sm:px-2.5\" style=\"background: rgb(240, 138, 36);\">HCY</bdi>",
+     ".bg-pp-pulse ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"button\" class=\"min-h-[44px] shrink-0 whitespace-nowrap border-b-2 px-3 font-display text-sm font-bold uppercase tracking-broad"
+    ]
+   },
+   {
+    "id": "region",
+    "impact": "moderate",
+    "n": 5,
+    "nodes": [
+     ".gap-x-4 > .gap-2.items-center:nth-child(1) ::   Some page content is not contained by landmarks :: <div class=\"flex items-center gap-2\" title=\"Who the explanations are written for\">",
+     ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks :: <span class=\"sr-only\">Language</span>",
+     ".max-w-\\[55vw\\] ::   Some page content is not contained by landmarks :: <select data-testid=\"language-picker\" title=\"Studio languages are hand-written. World languages are translated by Azure AI Translator, then ",
+     ".border-dashed ::   Some page content is not contained by landmarks :: <span data-testid=\"world-status\" title=\"Off: needs Azure AI Translator\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display tex",
+     ".md\\:inline-flex ::   Some page content is not contained by landmarks :: <span title=\"Narratives come from fact-checked templates; paid AI is switched off.\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font"
+    ]
+   }
+  ],
+  "follow": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 4,
+    "nodes": [
+     "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1 :: <bdi class=\"flex items-center px-1.5 text-white sm:px-2.5\" style=\"background: rgb(240, 138, 36);\">HCY</bdi>",
+     "button[aria-current=\"page\"] ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"button\" class=\"min-h-[44px] shrink-0 whitespace-nowrap border-b-2 px-3 font-display text-sm font-bold uppercase tracking-broad",
+     "div[aria-label=\"Northbridge FC\"] > .sm\\:grid-cols-2.lg\\:grid-cols-1 > li:nth-child(8) > .text-start.hover\\:border-pp-line.px-2 > .h-6.w-7.justify-center ::   Element has insufficient color contrast of 3.58 (foreground color: #0d1b3d, background color: #2f6fde, font size: 8.3pt (11px), font weight: bold). Expected contrast ratio of 4.5:1 :: <span class=\"ltr-nums flex h-6 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-bold\" style=\"background: rgb(47, 111, 22",
+     "div[aria-label=\"Northbridge FC\"] > .sm\\:grid-cols-2.lg\\:grid-cols-1 > li:nth-child(11) > .text-start.hover\\:border-pp-line.px-2 > .h-6.w-7.justify-center ::   Element has insufficient color contrast of 3.58 (foreground color: #0d1b3d, background color: #2f6fde, font size: 8.3pt (11px), font weight: bold). Expected contrast ratio of 4.5:1 :: <span class=\"ltr-nums flex h-6 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-bold\" style=\"background: rgb(47, 111, 22"
+    ]
+   },
+   {
+    "id": "region",
+    "impact": "moderate",
+    "n": 5,
+    "nodes": [
+     ".gap-x-4 > .gap-2:nth-child(1) ::   Some page content is not contained by landmarks :: <div class=\"flex items-center gap-2\" title=\"Who the explanations are written for\">",
+     ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks :: <span class=\"sr-only\">Language</span>",
+     ".max-w-\\[55vw\\] ::   Some page content is not contained by landmarks :: <select data-testid=\"language-picker\" title=\"Studio languages are hand-written. World languages are translated by Azure AI Translator, then ",
+     ".border-dashed ::   Some page content is not contained by landmarks :: <span data-testid=\"world-status\" title=\"Off: needs Azure AI Translator\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display tex",
+     ".md\\:inline-flex ::   Some page content is not contained by landmarks :: <span title=\"Narratives come from fact-checked templates; paid AI is switched off.\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font"
+    ]
+   }
+  ],
+  "fan": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 6,
+    "nodes": [
+     "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1 :: <bdi class=\"flex items-center px-1.5 text-white sm:px-2.5\" style=\"background: rgb(240, 138, 36);\">HCY</bdi>",
+     "button[aria-current=\"page\"] ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"button\" class=\"min-h-[44px] shrink-0 whitespace-nowrap border-b-2 px-3 font-display text-sm font-bold uppercase tracking-broad",
+     ".min-h-\\[96px\\].text-start.opacity-80:nth-child(1) > .ps-2.gap-2.items-center > .rounded-lg.h-9.w-9 ::   Element has insufficient color contrast of 2.73 (foreground color: #0f1a35, background color: #2a5db6, font size: 9.0pt (12px), font weight: bold). Expected contrast ratio of 4.5:1 :: <span class=\"flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-extrabold\" style=\"background: rgb(47, 111, 222); colo",
+     ".hover\\:text-pp-night ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"submit\" aria-busy=\"false\" class=\"flex min-h-[44px] items-center gap-1.5 bg-pp-pulse px-4 font-display text-sm font-extrabold u",
+     "article:nth-child(1) > .mb-1.flex-wrap.gap-1\\.5 > .bg-pp-pulse.text-\\[12px\\].py-0\\.5 ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 9.0pt (12px), font weight: bold). Expected contrast ratio of 4.5:1 :: <span class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display text-[12px] font-bold uppercase tracking-broadcast bg-pp-pulse text-w",
+     "article:nth-child(2) > .mb-1.flex-wrap.gap-1\\.5 > .bg-pp-pulse.text-\\[12px\\].py-0\\.5 ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 9.0pt (12px), font weight: bold). Expected contrast ratio of 4.5:1 :: <span class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display text-[12px] font-bold uppercase tracking-broadcast bg-pp-pulse text-w"
+    ]
+   },
+   {
+    "id": "region",
+    "impact": "moderate",
+    "n": 5,
+    "nodes": [
+     ".gap-x-4 > .gap-2.items-center:nth-child(1) ::   Some page content is not contained by landmarks :: <div class=\"flex items-center gap-2\" title=\"Who the explanations are written for\">",
+     ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks :: <span class=\"sr-only\">Language</span>",
+     "select ::   Some page content is not contained by landmarks :: <select data-testid=\"language-picker\" title=\"Studio languages are hand-written. World languages are translated by Azure AI Translator, then ",
+     ".border-dashed ::   Some page content is not contained by landmarks :: <span data-testid=\"world-status\" title=\"Off: needs Azure AI Translator\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display tex",
+     ".md\\:inline-flex ::   Some page content is not contained by landmarks :: <span title=\"Narratives come from fact-checked templates; paid AI is switched off.\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font"
+    ]
+   }
+  ],
+  "lab": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 3,
+    "nodes": [
+     "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 12.0pt (16px), font weight: bold). Expected contrast ratio of 4.5:1 :: <bdi class=\"flex items-center px-1.5 text-white sm:px-2.5\" style=\"background: rgb(240, 138, 36);\">HCY</bdi>",
+     ".bg-pp-pulse ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"button\" class=\"min-h-[44px] shrink-0 whitespace-nowrap border-b-2 px-3 font-display text-sm font-bold uppercase tracking-broad",
+     "tr:nth-child(5) > .h-10.border-pp-night.min-w-\\[3\\.25rem\\]:nth-child(6) ::   Element has insufficient color contrast of 3.89 (foreground color: #f2efe8, background color: #8b760b, font size: 8.3pt (11px), font weight: bold). Expected contrast ratio of 4.5:1 :: <td class=\"ltr-nums h-10 min-w-[3.25rem] border border-pp-night p-1 text-center font-bold text-pp-chalk\" style=\"background: rgba(255, 212, 0"
+    ]
+   },
+   {
+    "id": "heading-order",
+    "impact": "moderate",
+    "n": 1,
+    "nodes": [
+     ".p-3.bg-pp-deep\\/70:nth-child(1) > .justify-between.gap-2.flex-wrap > h4 ::   Heading order invalid :: <h4 lang=\"en\" class=\"font-display text-base font-bold uppercase tracking-broadcast text-pp-chalk\">Pass distance</h4>"
+    ]
+   },
+   {
+    "id": "region",
+    "impact": "moderate",
+    "n": 5,
+    "nodes": [
+     ".gap-x-4 > .gap-2.items-center.flex:nth-child(1) ::   Some page content is not contained by landmarks :: <div class=\"flex items-center gap-2\" title=\"Who the explanations are written for\">",
+     "label > .sr-only ::   Some page content is not contained by landmarks :: <span class=\"sr-only\">Language</span>",
+     "select ::   Some page content is not contained by landmarks :: <select data-testid=\"language-picker\" title=\"Studio languages are hand-written. World languages are translated by Azure AI Translator, then ",
+     ".border-dashed ::   Some page content is not contained by landmarks :: <span data-testid=\"world-status\" title=\"Off: needs Azure AI Translator\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display tex",
+     ".md\\:inline-flex ::   Some page content is not contained by landmarks :: <span title=\"Narratives come from fact-checked templates; paid AI is switched off.\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font"
+    ]
+   }
+  ]
+ },
+ "version": "4.10.2",
+ "phone-375": {
+  "studio": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 3,
+    "nodes": [
+     "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <bdi class=\"flex items-center px-1.5 text-white sm:px-2.5\" style=\"background: rgb(240, 138, 36);\">HCY</bdi>",
+     "button[aria-current=\"page\"] ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"button\" aria-current=\"page\" class=\"min-h-[44px] shrink-0 whitespace-nowrap border-b-2 px-3 font-display text-sm font-bold uppe",
+     ".hover\\:text-pp-night ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"submit\" aria-busy=\"false\" class=\"flex min-h-[44px] items-center gap-1.5 bg-pp-pulse px-4 font-display text-sm font-extrabold u"
+    ]
+   },
+   {
+    "id": "region",
+    "impact": "moderate",
+    "n": 6,
+    "nodes": [
+     ".gap-x-4 > .gap-2.items-center.flex:nth-child(1) ::   Some page content is not contained by landmarks :: <div class=\"flex items-center gap-2\" title=\"Who the explanations are written for\">",
+     ".lg\\:hidden.gap-2.items-center > .items-stretch[aria-label=\"Playback speed\"][role=\"radiogroup\"] ::   Some page content is not contained by landmarks :: <div role=\"radiogroup\" aria-label=\"Playback speed\" dir=\"ltr\" class=\"flex items-stretch border border-pp-line bg-pp-deep ltr-nums\">",
+     ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks :: <span class=\"sr-only\">Language</span>",
+     "select ::   Some page content is not contained by landmarks :: <select data-testid=\"language-picker\" title=\"Studio languages are hand-written. World languages are translated by Azure AI Translator, then ",
+     ".border-dashed ::   Some page content is not contained by landmarks :: <span data-testid=\"world-status\" title=\"Off: needs Azure AI Translator\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display tex",
+     ".xl\\:hidden ::   Some page content is not contained by landmarks :: <div class=\"flex flex-wrap items-center gap-2 xl:hidden\">"
+    ]
+   }
+  ],
+  "overlay": [
+   {
+    "id": "aria-hidden-focus",
+    "impact": "serious",
+    "n": 1,
+    "nodes": [
+     ".opacity-60 ::   Focusable content should have tabindex=\"-1\" or be removed from the DOM :: <div dir=\"ltr\" aria-hidden=\"true\" class=\"absolute inset-0 flex items-center justify-center opacity-60\">"
+    ]
+   },
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 2,
+    "nodes": [
+     "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <bdi class=\"flex items-center px-1.5 text-white sm:px-2.5\" style=\"background: rgb(240, 138, 36);\">HCY</bdi>",
+     ".bg-pp-pulse ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"button\" class=\"min-h-[44px] shrink-0 whitespace-nowrap border-b-2 px-3 font-display text-sm font-bold uppercase tracking-broad"
+    ]
+   },
+   {
+    "id": "region",
+    "impact": "moderate",
+    "n": 6,
+    "nodes": [
+     ".gap-x-4 > .gap-2:nth-child(1) ::   Some page content is not contained by landmarks :: <div class=\"flex items-center gap-2\" title=\"Who the explanations are written for\">",
+     ".lg\\:hidden.gap-2 > .items-stretch[aria-label=\"Playback speed\"][role=\"radiogroup\"] ::   Some page content is not contained by landmarks :: <div role=\"radiogroup\" aria-label=\"Playback speed\" dir=\"ltr\" class=\"flex items-stretch border border-pp-line bg-pp-deep ltr-nums\">",
+     "label > .sr-only ::   Some page content is not contained by landmarks :: <span class=\"sr-only\">Language</span>",
+     "select ::   Some page content is not contained by landmarks :: <select data-testid=\"language-picker\" title=\"Studio languages are hand-written. World languages are translated by Azure AI Translator, then ",
+     ".border-dashed ::   Some page content is not contained by landmarks :: <span data-testid=\"world-status\" title=\"Off: needs Azure AI Translator\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display tex",
+     ".xl\\:hidden ::   Some page content is not contained by landmarks :: <div class=\"flex flex-wrap items-center gap-2 xl:hidden\">"
+    ]
+   }
+  ],
+  "split": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 2,
+    "nodes": [
+     "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <bdi class=\"flex items-center px-1.5 text-white sm:px-2.5\" style=\"background: rgb(240, 138, 36);\">HCY</bdi>",
+     ".bg-pp-pulse ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"button\" class=\"min-h-[44px] shrink-0 whitespace-nowrap border-b-2 px-3 font-display text-sm font-bold uppercase tracking-broad"
+    ]
+   },
+   {
+    "id": "region",
+    "impact": "moderate",
+    "n": 6,
+    "nodes": [
+     ".gap-x-4 > .gap-2:nth-child(1) ::   Some page content is not contained by landmarks :: <div class=\"flex items-center gap-2\" title=\"Who the explanations are written for\">",
+     ".lg\\:hidden.gap-2 > .items-stretch[aria-label=\"Playback speed\"][role=\"radiogroup\"] ::   Some page content is not contained by landmarks :: <div role=\"radiogroup\" aria-label=\"Playback speed\" dir=\"ltr\" class=\"flex items-stretch border border-pp-line bg-pp-deep ltr-nums\">",
+     ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks :: <span class=\"sr-only\">Language</span>",
+     ".max-w-\\[55vw\\] ::   Some page content is not contained by landmarks :: <select data-testid=\"language-picker\" title=\"Studio languages are hand-written. World languages are translated by Azure AI Translator, then ",
+     ".border-dashed ::   Some page content is not contained by landmarks :: <span data-testid=\"world-status\" title=\"Off: needs Azure AI Translator\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display tex",
+     ".xl\\:hidden ::   Some page content is not contained by landmarks :: <div class=\"flex flex-wrap items-center gap-2 xl:hidden\">"
+    ]
+   }
+  ],
+  "follow": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 4,
+    "nodes": [
+     "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <bdi class=\"flex items-center px-1.5 text-white sm:px-2.5\" style=\"background: rgb(240, 138, 36);\">HCY</bdi>",
+     "button[aria-current=\"page\"] ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"button\" class=\"min-h-[44px] shrink-0 whitespace-nowrap border-b-2 px-3 font-display text-sm font-bold uppercase tracking-broad",
+     "div[aria-label=\"Northbridge FC\"] > .sm\\:grid-cols-2.lg\\:grid-cols-1 > li:nth-child(8) > .text-start.hover\\:border-pp-line.px-2 > .h-6.w-7.justify-center ::   Element has insufficient color contrast of 3.58 (foreground color: #0d1b3d, background color: #2f6fde, font size: 8.3pt (11px), font weight: bold). Expected contrast ratio of 4.5:1 :: <span class=\"ltr-nums flex h-6 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-bold\" style=\"background: rgb(47, 111, 22",
+     "div[aria-label=\"Northbridge FC\"] > .sm\\:grid-cols-2.lg\\:grid-cols-1 > li:nth-child(11) > .text-start.hover\\:border-pp-line.px-2 > .h-6.w-7.justify-center ::   Element has insufficient color contrast of 3.58 (foreground color: #0d1b3d, background color: #2f6fde, font size: 8.3pt (11px), font weight: bold). Expected contrast ratio of 4.5:1 :: <span class=\"ltr-nums flex h-6 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-bold\" style=\"background: rgb(47, 111, 22"
+    ]
+   },
+   {
+    "id": "region",
+    "impact": "moderate",
+    "n": 6,
+    "nodes": [
+     ".gap-x-4 > .gap-2:nth-child(1) ::   Some page content is not contained by landmarks :: <div class=\"flex items-center gap-2\" title=\"Who the explanations are written for\">",
+     ".lg\\:hidden.gap-2 > div[aria-label=\"Playback speed\"][role=\"radiogroup\"][dir=\"ltr\"] ::   Some page content is not contained by landmarks :: <div role=\"radiogroup\" aria-label=\"Playback speed\" dir=\"ltr\" class=\"flex items-stretch border border-pp-line bg-pp-deep ltr-nums\">",
+     ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks :: <span class=\"sr-only\">Language</span>",
+     ".max-w-\\[55vw\\] ::   Some page content is not contained by landmarks :: <select data-testid=\"language-picker\" title=\"Studio languages are hand-written. World languages are translated by Azure AI Translator, then ",
+     ".border-dashed ::   Some page content is not contained by landmarks :: <span data-testid=\"world-status\" title=\"Off: needs Azure AI Translator\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display tex",
+     ".xl\\:hidden ::   Some page content is not contained by landmarks :: <div class=\"flex flex-wrap items-center gap-2 xl:hidden\">"
+    ]
+   }
+  ],
+  "fan": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 6,
+    "nodes": [
+     "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <bdi class=\"flex items-center px-1.5 text-white sm:px-2.5\" style=\"background: rgb(240, 138, 36);\">HCY</bdi>",
+     "button[aria-current=\"page\"] ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"button\" class=\"min-h-[44px] shrink-0 whitespace-nowrap border-b-2 px-3 font-display text-sm font-bold uppercase tracking-broad",
+     ".min-h-\\[96px\\].text-start.opacity-80:nth-child(1) > .ps-2.gap-2.items-center > .rounded-lg.h-9.w-9 ::   Element has insufficient color contrast of 2.73 (foreground color: #0f1a35, background color: #2a5db6, font size: 9.0pt (12px), font weight: bold). Expected contrast ratio of 4.5:1 :: <span class=\"flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-extrabold\" style=\"background: rgb(47, 111, 222); colo",
+     ".hover\\:text-pp-night ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"submit\" aria-busy=\"false\" class=\"flex min-h-[44px] items-center gap-1.5 bg-pp-pulse px-4 font-display text-sm font-extrabold u",
+     "article:nth-child(1) > .mb-1.flex-wrap.gap-1\\.5 > .bg-pp-pulse.text-\\[12px\\].py-0\\.5 ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 9.0pt (12px), font weight: bold). Expected contrast ratio of 4.5:1 :: <span class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display text-[12px] font-bold uppercase tracking-broadcast bg-pp-pulse text-w",
+     "article:nth-child(2) > .mb-1.flex-wrap.gap-1\\.5 > .bg-pp-pulse.text-\\[12px\\].py-0\\.5 ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 9.0pt (12px), font weight: bold). Expected contrast ratio of 4.5:1 :: <span class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display text-[12px] font-bold uppercase tracking-broadcast bg-pp-pulse text-w"
+    ]
+   },
+   {
+    "id": "region",
+    "impact": "moderate",
+    "n": 6,
+    "nodes": [
+     ".gap-x-4 > .gap-2.items-center:nth-child(1) ::   Some page content is not contained by landmarks :: <div class=\"flex items-center gap-2\" title=\"Who the explanations are written for\">",
+     ".lg\\:hidden.gap-2.items-center > div[aria-label=\"Playback speed\"][role=\"radiogroup\"][dir=\"ltr\"] ::   Some page content is not contained by landmarks :: <div role=\"radiogroup\" aria-label=\"Playback speed\" dir=\"ltr\" class=\"flex items-stretch border border-pp-line bg-pp-deep ltr-nums\">",
+     ".focus-within\\:border-pp-pulse > .sr-only ::   Some page content is not contained by landmarks :: <span class=\"sr-only\">Language</span>",
+     "select ::   Some page content is not contained by landmarks :: <select data-testid=\"language-picker\" title=\"Studio languages are hand-written. World languages are translated by Azure AI Translator, then ",
+     ".border-dashed ::   Some page content is not contained by landmarks :: <span data-testid=\"world-status\" title=\"Off: needs Azure AI Translator\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display tex",
+     ".xl\\:hidden ::   Some page content is not contained by landmarks :: <div class=\"flex flex-wrap items-center gap-2 xl:hidden\">"
+    ]
+   }
+  ],
+  "lab": [
+   {
+    "id": "color-contrast",
+    "impact": "serious",
+    "n": 2,
+    "nodes": [
+     "bdi:nth-child(3) ::   Element has insufficient color contrast of 2.51 (foreground color: #ffffff, background color: #f08a24, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <bdi class=\"flex items-center px-1.5 text-white sm:px-2.5\" style=\"background: rgb(240, 138, 36);\">HCY</bdi>",
+     ".bg-pp-pulse ::   Element has insufficient color contrast of 3.54 (foreground color: #ffffff, background color: #ff3b2f, font size: 10.5pt (14px), font weight: bold). Expected contrast ratio of 4.5:1 :: <button type=\"button\" class=\"min-h-[44px] shrink-0 whitespace-nowrap border-b-2 px-3 font-display text-sm font-bold uppercase tracking-broad"
+    ]
+   },
+   {
+    "id": "heading-order",
+    "impact": "moderate",
+    "n": 1,
+    "nodes": [
+     ".p-3.bg-pp-deep\\/70:nth-child(1) > .justify-between.gap-2.flex-wrap > h4 ::   Heading order invalid :: <h4 lang=\"en\" class=\"font-display text-base font-bold uppercase tracking-broadcast text-pp-chalk\">Pass distance</h4>"
+    ]
+   },
+   {
+    "id": "region",
+    "impact": "moderate",
+    "n": 6,
+    "nodes": [
+     ".gap-x-4 > .gap-2.items-center.flex:nth-child(1) ::   Some page content is not contained by landmarks :: <div class=\"flex items-center gap-2\" title=\"Who the explanations are written for\">",
+     ".lg\\:hidden.gap-2.items-center > .items-stretch[aria-label=\"Playback speed\"][role=\"radiogroup\"] ::   Some page content is not contained by landmarks :: <div role=\"radiogroup\" aria-label=\"Playback speed\" dir=\"ltr\" class=\"flex items-stretch border border-pp-line bg-pp-deep ltr-nums\">",
+     "label > .sr-only ::   Some page content is not contained by landmarks :: <span class=\"sr-only\">Language</span>",
+     "select ::   Some page content is not contained by landmarks :: <select data-testid=\"language-picker\" title=\"Studio languages are hand-written. World languages are translated by Azure AI Translator, then ",
+     ".border-dashed ::   Some page content is not contained by landmarks :: <span data-testid=\"world-status\" title=\"Off: needs Azure AI Translator\" class=\"inline-flex items-center gap-1 px-1.5 py-0.5 font-display tex",
+     ".xl\\:hidden ::   Some page content is not contained by landmarks :: <div class=\"flex flex-wrap items-center gap-2 xl:hidden\">"
+    ]
+   },
+   {
+    "id": "scrollable-region-focusable",
+    "impact": "serious",
+    "n": 2,
+    "nodes": [
+     ".space-y-5 > div:nth-child(2) > .overflow-x-auto.relative ::   Element should have focusable content :: <div class=\"relative overflow-x-auto\">",
+     "div:nth-child(3) > .overflow-x-auto.relative ::   Element should have focusable content :: <div class=\"relative overflow-x-auto\">"
+    ]
+   }
+  ]
+ }
+}

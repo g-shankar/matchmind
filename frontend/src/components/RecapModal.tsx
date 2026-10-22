@@ -1,10 +1,14 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { AlertTriangle, Award, CheckCircle2, FileText, X } from 'lucide-react';
 import type { Recap, Teams } from '../api/contract';
 import { useI18n } from '../i18n';
 import { playerById } from '../lib/teams';
 import { Badge } from './ui';
-import { factLabel, factValue } from './BroadcastOverlay';
+import { TranslationTag } from './LanguagePicker';
+import { textLanguage } from '../lib/languages';
+import { factValue } from '../lib/facts';
+import { Modal } from './Modal';
+import { recapStatRows } from '../lib/labels';
 
 export interface RecapModalProps {
   open: boolean;
@@ -43,7 +47,8 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
   const potm = playerById(teams, recap.player_of_the_match_id);
   const potmName = recap.player_of_the_match ?? potm?.name ?? null;
   const potmColor = potm?.team.primary_color ?? '#ff9f1c';
-  const stats = Object.entries(recap.stats);
+  const stats = recapStatRows(t, recap.stats, teams);
+  const lang = textLanguage(recap);
 
   return (
     <div className="space-y-6">
@@ -53,8 +58,9 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
             {t('broadcast.recap.generatedAt', { clock: `⁦${recap.generated_at_clock}⁩` })}
           </span>
           <Badge tone={recap.produced_by === 'ai' ? 'signal' : 'mute'}>{t(`produced.${recap.produced_by}`)}</Badge>
+          <TranslationTag item={recap} />
         </div>
-        <h2 id="recap-headline" className="font-display text-2xl font-extrabold tracking-wide text-white">
+        <h2 id="recap-headline" lang={lang} className="font-display text-2xl font-extrabold tracking-wide text-white">
           {recap.headline}
         </h2>
       </div>
@@ -62,7 +68,7 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
       {recap.summary_paragraphs.length > 0 && (
         <section>
           <SectionTitle>{t('broadcast.recap.summary')}</SectionTitle>
-          <div className="space-y-3">
+          <div className="space-y-3" lang={lang}>
             {recap.summary_paragraphs.map((para, idx) => (
               <p key={idx} className="text-sm leading-relaxed text-slate-300">
                 {para}
@@ -76,7 +82,7 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
         <section className="rounded-xl border border-pp-line bg-pp-night/70 p-4">
           <SectionTitle tone="text-pp-gold">{t('broadcast.recap.keyMoments')}</SectionTitle>
           {recap.key_moments.length ? (
-            <ol className="max-h-72 space-y-1.5 overflow-y-auto pe-1">
+            <ol className="max-h-72 space-y-1.5 overflow-y-auto pe-1" tabIndex={0} aria-label={t('broadcast.recap.keyMoments')}>
               {recap.key_moments.map((m) => (
                 <li key={m.moment_id} className="flex items-start gap-2 rounded-lg border border-pp-line/60 bg-pp-deep p-2 text-xs">
                   <span className="ltr-nums shrink-0 rounded bg-pp-raised px-1.5 py-0.5 font-bold text-pp-signal">{m.match_clock}</span>
@@ -84,7 +90,11 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
                     <Badge tone="pulse" className="mb-0.5">
                       {t(`kind.${m.kind}`)}
                     </Badge>
-                    {m.headline !== t(`kind.${m.kind}`) && <span className="block text-slate-200">{m.headline}</span>}
+                    {m.headline !== t(`kind.${m.kind}`) && (
+                      <span lang={lang} className="block text-slate-200">
+                        {m.headline}
+                      </span>
+                    )}
                   </span>
                 </li>
               ))}
@@ -100,7 +110,10 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
         >
           <Award className="h-8 w-8" style={{ color: potmColor }} aria-hidden />
           <span className="text-[11px] font-bold uppercase tracking-widest text-pp-mute">{t('broadcast.recap.potm')}</span>
-          <p className="font-display text-xl font-extrabold tracking-wide text-white">{potmName ?? t('common.none')}</p>
+          <p className="font-display text-xl font-extrabold tracking-wide text-white">
+            {/* Catch-up mode: the player of the match would give the result away. */}
+            {recap.spoiler_free ? t('catchup.hiddenValue') : (potmName ?? t('common.none'))}
+          </p>
           {potm && (
             <p className="flex items-center gap-1.5 text-xs text-slate-300">
               <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: potm.team.primary_color }} />
@@ -122,10 +135,10 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
                 </tr>
               </thead>
               <tbody>
-                {stats.map(([key, value], i) => (
+                {stats.map(({ key, label, value }, i) => (
                   <tr key={key} className={i % 2 ? 'bg-pp-deep' : 'bg-pp-night/60'}>
                     <th scope="row" className="px-3 py-1.5 text-start font-normal text-pp-mute">
-                      {factLabel(t, key)}
+                      {label}
                     </th>
                     <td className="px-3 py-1.5 text-end font-semibold text-white">
                       <span className="ltr-nums">{factValue(i18n, value)}</span>
@@ -161,53 +174,34 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
 };
 
 export const RecapModal: React.FC<RecapModalProps> = ({ open, onClose, recap, loading, teams }) => {
-  const { t, dir } = useI18n();
-  const closeRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
+  const { t } = useI18n();
   return (
-    <div
-      dir={dir}
-      className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/80 p-3 backdrop-blur-md sm:p-4"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="recap-title"
-        onClick={(e) => e.stopPropagation()}
-        className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-pp-line bg-pp-panel shadow-2xl"
-      >
-        <header className="flex items-center justify-between gap-3 border-b border-pp-line to-pp-panel px-4 py-3 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2">
-            <FileText className="h-5 w-5 shrink-0 text-pp-pulse" aria-hidden />
-            <h2 id="recap-title" className="truncate font-display text-lg font-bold uppercase tracking-wider text-white">
+    <Modal open={open} onClose={onClose} labelledBy="recap-title" name="recap" className="max-w-3xl">
+      <div className="flex max-h-[100dvh] flex-col overflow-hidden border border-pp-line bg-pp-panel shadow-2xl sm:max-h-[90vh] sm:rounded-2xl">
+        <div className="flex items-start justify-between gap-3 border-b border-pp-line px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 items-start gap-2">
+            <FileText className="mt-0.5 h-5 w-5 shrink-0 text-pp-pulse" aria-hidden />
+            <h2
+              id="recap-title"
+              lang={recap ? textLanguage(recap) : undefined}
+              className="min-w-0 break-words font-display text-base font-bold uppercase leading-tight tracking-wider text-white sm:text-lg"
+            >
               {recap?.title || t('broadcast.recap.title')}
             </h2>
           </div>
           <button
-            ref={closeRef}
             type="button"
             onClick={onClose}
+            data-autofocus
             aria-label={t('broadcast.recap.close')}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-pp-mute transition hover:bg-white/10 hover:text-white"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-pp-mute transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-pp-signal"
           >
             <X className="h-5 w-5" />
           </button>
-        </header>
+        </div>
 
-        <div className="overflow-y-auto p-4 sm:p-6">
+        {/* Focusable so the recap can be scrolled from the keyboard, also while it loads. */}
+        <div tabIndex={0} role="region" aria-labelledby="recap-title" className="overflow-y-auto p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pp-signal sm:p-6">
           {loading ? (
             <Skeleton />
           ) : recap ? (
@@ -221,16 +215,16 @@ export const RecapModal: React.FC<RecapModalProps> = ({ open, onClose, recap, lo
           )}
         </div>
 
-        <footer className="flex justify-end border-t border-pp-line bg-pp-deep px-4 py-3 sm:px-6">
+        <div className="flex justify-end border-t border-pp-line bg-pp-deep px-4 py-3 sm:px-6">
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[36px] rounded-lg bg-pp-pulse px-4 text-xs font-bold text-white transition hover:bg-pp-pulse/85"
+            className="min-h-[44px] rounded-lg bg-pp-pulseFill px-4 text-xs font-bold text-white transition hover:bg-pp-pulseFill/85"
           >
             {t('broadcast.recap.close')}
           </button>
-        </footer>
+        </div>
       </div>
-    </div>
+    </Modal>
   );
 };

@@ -28,6 +28,20 @@ body {
   letter-spacing: 0;
 }
 
+/* Japanese: the brand faces keep Latin letters and digits; kana and kanji come from the
+   system's own Japanese fonts (no extra download). */
+:lang(ja) {
+  font-family: 'Barlow', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Noto Sans CJK JP',
+    'Yu Gothic', 'Meiryo', sans-serif;
+}
+
+:lang(ja) .font-display,
+.font-display:lang(ja) {
+  font-family: 'Barlow Condensed', 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
+    'Noto Sans CJK JP', 'Yu Gothic', 'Meiryo', sans-serif;
+  letter-spacing: 0;
+}
+
 /* Numbers and clocks keep left-to-right order inside right-to-left text. */
 .ltr-nums {
   direction: ltr;
@@ -41,6 +55,17 @@ body {
 }
 [dir='rtl'] .pp-slant {
   clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%);
+}
+
+/* Touch screens: every control is at least 44 px tall (and icon buttons 44 px wide). */
+@media (pointer: coarse) {
+  button[type],
+  select[class],
+  summary[class],
+  [role='radio'],
+  [role='tab'] {
+    min-height: 44px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -62,4 +87,12 @@ body {
 }
 ::-webkit-scrollbar-thumb {
   background: #34332d;
+}
+
+/* OBS / vMix capture (?capture=1#overlay): only the graphics, over a transparent page. */
+html.pp-capture,
+html.pp-capture body {
+  background: transparent !important;
+  background-image: none !important;
+  overflow: hidden;
 }

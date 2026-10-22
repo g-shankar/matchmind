@@ -1,0 +1,43 @@
+{
+ "modals": {
+  "recap": [],
+  "about": []
+ },
+ "tap": {
+  "touch-375": {
+   "studio": {
+    "pointer_coarse": true,
+    "markers": 14,
+    "min_px": 44,
+    "max_px": 44
+   },
+   "follow": {
+    "pointer_coarse": true,
+    "markers": 13,
+    "min_px": 44,
+    "max_px": 44
+   }
+  },
+  "mouse-375": {
+   "studio": {
+    "pointer_coarse": false,
+    "markers": 13,
+    "min_px": 17,
+    "max_px": 23
+   },
+   "follow": {
+    "pointer_coarse": false,
+    "markers": 12,
+    "min_px": 23,
+    "max_px": 31
+   }
+  }
+ },
+ "outage": {
+  "at_8s": 0,
+  "at_17s": 1,
+  "text_17s": "Connexion au serveur du match perdue. Nouvelle tentative\u2026\nR\u00c9ESSAYER MAINTENANT",
+  "server_back_after_s": 38,
+  "notice_gone_s_after_back": 1
+ }
+}

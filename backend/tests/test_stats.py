@@ -86,7 +86,7 @@ def test_pass_angle_and_lane_helpers():
 def test_broadcast_thresholds():
     assert metrics.SPEED_BURST_KMH == 30.0
     assert metrics.ROCKET_SHOT_KMH == 100.0
-    assert metrics.DISTANCE_MILESTONES_KM == (2.0, 3.0)
+    assert metrics.DISTANCE_MILESTONES_KM == (5.0, 10.0)
 
 
 def test_pressure_index_and_tempo():
@@ -212,7 +212,10 @@ def test_pass_accuracy_matches_a_recount(demo, demo_run):
 def test_scripted_assists_are_credited(demo, demo_run):
     engine, _ = demo_run
     players = engine.players()
+    ruled_out = engine.overturned_goals()
     for goal in (e for e in demo if e.type == EventType.SHOT and e.outcome == Outcome.GOAL):
+        if goal.event_id in ruled_out:
+            continue  # VAR took this one off: the key pass stays, the assist does not
         assister = goal.details["assist_id"]
         assert players[assister].assists >= 1 and players[assister].key_passes >= 1
     assert sum(p.assists for p in players.values()) <= 5

@@ -15,6 +15,7 @@ import type { PlayerPosition } from '../state/matchStore';
 import { useI18n, type I18n } from '../i18n';
 import { playerById, shortName } from '../lib/teams';
 import { cx } from './ui';
+import { inkOn } from '../lib/contrast';
 
 export interface Pitch2DProps {
   teams: Teams | null;
@@ -36,6 +37,8 @@ export interface Pitch2DProps {
   zoomOnFocus?: boolean;
   /** Replay story step: 0 draws every layer, 1-3 draws layers up to that step and highlights it. */
   replayStep?: 0 | 1 | 2 | 3;
+  /** False draws a picture only: no focusable or tappable player markers (e.g. a backdrop). */
+  interactive?: boolean;
   className?: string;
 }
 
@@ -75,17 +78,8 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 /** Goal the play is heading for: the nearer goal line to a point in the attacking half. */
 export const goalFor = (p: XY): XY => ({ x: p.x >= W / 2 ? W : 0, y: H / 2 });
 
-/** Readable text colour on a team colour. */
-export function inkOn(hex: string): string {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return '#ffffff';
-  const n = parseInt(m[1], 16);
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => {
-    const s = c / 255;
-    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  });
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? '#0c0c0b' : '#ffffff';
-}
+/** Readable text colour on a team colour (the shared WCAG helper). */
+export { inkOn };
 
 /** Decimal places a payload number carries (capped), so displays match the evidence exactly. */
 export function decimalsOf(value: number, max = 3): number {
@@ -208,6 +202,29 @@ function useViewBox(target: VB): VB {
   return vb;
 }
 
+/** Minimum touch target (WCAG 2.5.5 and section 3.7 of the project rules). */
+export const TOUCH_TARGET_PX = 44;
+
+const coarsePointer = () =>
+  typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches;
+
+/** On a touch screen, the pitch's drawn width in CSS px (to size hit areas); null with a mouse. */
+function useTouchWidth(ref: React.RefObject<HTMLDivElement>): number | null {
+  const [coarse] = useState(coarsePointer);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!coarse || !el) return;
+    const update = () => setWidth(el.clientWidth);
+    update();
+    if (typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [coarse, ref]);
+  return coarse && width > 0 ? width : null;
+}
+
 /** Nudges overlapping labels apart after layout (labels are measured, never guessed). */
 function useLabelSpacing(ref: React.RefObject<HTMLDivElement>) {
   useLayoutEffect(() => {
@@ -270,6 +287,16 @@ const Markings: React.FC<{ k: number }> = ({ k }) => {
   );
 };
 
+/** Hover or keyboard focus on a tagged player dot shows his name. */
+interface DotTag {
+  id: string;
+  /** Accessible name and tooltip, e.g. "9, Adam Kerrigan, Northbridge FC". */
+  label: string;
+  onShow: (id: string | null) => void;
+  /** Radius of the invisible hit area in pitch units; set on touch screens so it is 44 px across. */
+  hitR?: number;
+}
+
 const PlayerDot: React.FC<{
   at: XY;
   color: string;
@@ -280,8 +307,28 @@ const PlayerDot: React.FC<{
   glow?: boolean;
   glowId?: string;
   dashed?: boolean;
-}> = ({ at, color, number, r, opacity = 1, ring = '#ffffff', glow, glowId, dashed }) => (
-  <g transform={`translate(${at.x} ${at.y})`} opacity={opacity}>
+  tag?: DotTag;
+}> = ({ at, color, number, r, opacity = 1, ring = '#ffffff', glow, glowId, dashed, tag }) => (
+  <g
+    transform={`translate(${at.x} ${at.y})`}
+    opacity={opacity}
+    {...(tag
+      ? {
+          role: 'img',
+          'aria-label': tag.label,
+          tabIndex: 0,
+          className: 'pp-dot cursor-default',
+          'data-player-dot': tag.id,
+          onMouseEnter: () => tag.onShow(tag.id),
+          onMouseLeave: () => tag.onShow(null),
+          onFocus: () => tag.onShow(tag.id),
+          onBlur: () => tag.onShow(null),
+        }
+      : {})}
+  >
+    {tag && <title>{tag.label}</title>}
+    {/* A larger, invisible hit area so the dot is easy to hover or tap. */}
+    {tag && <circle r={Math.max(r * 2, tag.hitR ?? 0)} fill="transparent" data-hit-area />}
     {glow && (
       <>
         <circle r={r * 2.4} fill={C.signal} opacity={0.18} filter={glowId ? `url(#${glowId})` : undefined} />
@@ -308,6 +355,8 @@ const PlayerDot: React.FC<{
 // HTML labels laid over the SVG, so text stays readable on a phone at any zoom.
 
 type Tone = 'dark' | 'signal' | 'gold' | 'pulse' | 'white';
+/** Space between a label and the point it names, so it never covers the marker there. */
+export const MARKER_GAP_PX = 16;
 const TONES: Record<Tone, string> = {
   dark: 'border-white/15 bg-black/75 text-slate-100',
   signal: 'border-pp-signal/60 bg-pp-deep/90 text-pp-signal',
@@ -332,10 +381,11 @@ const Label: React.FC<{
   const top = clamp(((at.y - vb.y) / vb.h) * 100, 4, 96);
   const tx = left > 72 ? '-100%' : left < 28 ? '0%' : '-50%';
   const nudge = left > 72 ? '8px' : left < 28 ? '-8px' : '0px';
-  const ty = place === 'above' ? 'calc(-100% - 9px)' : '9px';
+  // Clear of the player marker (about 12 px across on a phone, more on a desktop pitch).
+  const ty = place === 'above' ? `calc(-100% - ${MARKER_GAP_PX}px)` : `${MARKER_GAP_PX}px`;
   const flipBelow = place === 'above' && top < 16;
   const flipAbove = place === 'below' && top > 84;
-  const y = flipBelow ? '9px' : flipAbove ? 'calc(-100% - 9px)' : ty;
+  const y = flipBelow ? `${MARKER_GAP_PX}px` : flipAbove ? `calc(-100% - ${MARKER_GAP_PX}px)` : ty;
   return (
     <div
       className={cx('pointer-events-none absolute z-10', wrapClassName)}
@@ -569,11 +619,13 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
   pitchTags = [],
   zoomOnFocus = false,
   replayStep = 0,
+  interactive = true,
   className,
 }) => {
   const i18n = useI18n();
   const { t, num } = i18n;
   const wrapRef = useRef<HTMLDivElement>(null);
+  const [shownId, setShownId] = useState<string | null>(null);
   const rawId = useId();
   const uid = `pp${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
   const ids = { glow: `${uid}-glow`, arrow: (c: string) => `${uid}-arrow-${c}` };
@@ -597,6 +649,8 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
     };
   }, [zoomOnFocus, focusPos, replay]);
   const vb = useViewBox(target);
+  const touchPx = useTouchWidth(wrapRef);
+  const hitR = touchPx ? (TOUCH_TARGET_PX / 2) * (vb.w / touchPx) : undefined;
   const k = Math.sqrt(vb.w / W); // 1 at full pitch; markers grow a little on screen when zoomed
   const ctx: Ctx = { teams, vb, k, ids };
 
@@ -616,6 +670,20 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
           .map(([id, p]) => ({ id, p, age: refClock - p.clock_s, info: playerById(teams, id) }))
           .filter((d) => d.age <= POSITION_MAX_AGE_S && d.age >= -5)
       : [];
+
+  // Name on hover or keyboard focus, for every dot that stands for a known player.
+  const tagFor = (id: string | null | undefined): DotTag | undefined => {
+    const info = playerById(teams, id);
+    if (!interactive || !info || !id) return undefined;
+    return { id, label: t('pitch.player', { number: info.number, name: info.name, team: info.team.name }), onShow: setShownId, hitR };
+  };
+  const shownAt: XY | null = (() => {
+    if (!shownId || replay) return null;
+    if (live?.player_id === shownId && live.start) return live.start;
+    if (live?.receiver_id === shownId && live.outcome === 'complete') return eventEnd(live);
+    if (shownId === focusPlayerId) return focusPos;
+    return positions?.[shownId] ?? null;
+  })();
 
   // Live event pieces.
   const actor = live ? playerById(teams, live.player_id) : null;
@@ -701,6 +769,14 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
       </Label>,
     );
   }
+  const shownInfo = playerById(teams, shownId);
+  if (shownAt && shownInfo && shownId !== focusPlayerId) {
+    labels.push(
+      <Label key="shown" at={shownAt} vb={vb} place="below" tone="signal" testId="player-name-label">
+        <span className="ltr-nums">{shownInfo.number}</span> {shortName(shownInfo.name)}
+      </Label>,
+    );
+  }
 
     const replayLayer = better ? (
     <BetterOptionLayer r={better} ctx={ctx} step={replayStep} />
@@ -746,7 +822,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
       )}
     >
       <svg
-        role="img"
+        role="figure"
         aria-label={aria}
         viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
         preserveAspectRatio="xMidYMid meet"
@@ -759,6 +835,8 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
             .pp-ring { transform-box: fill-box; transform-origin: center; animation: ppRing 1.8s ease-in-out infinite; }
             .pp-flash { transform-box: fill-box; transform-origin: center; animation: ppFlash 1.4s ease-out infinite; }
             .pp-fade { animation: ppFade 0.4s ease-out both; }
+            .pp-dot:focus { outline: none; }
+            .pp-dot:focus-visible { outline: 2px solid ${C.signal}; outline-offset: 1px; }
             @keyframes ppDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
             @keyframes ppMarch { to { stroke-dashoffset: -2.6; } }
             @keyframes ppRing { 0%,100% { transform: scale(1); opacity: 0.9; } 50% { transform: scale(1.25); opacity: 0.45; } }
@@ -803,6 +881,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
             r={1.25 * k}
             opacity={clamp(0.85 - (Math.max(0, age) / POSITION_MAX_AGE_S) * 0.6, 0.2, 0.85)}
             ring="rgba(255,255,255,0.6)"
+            tag={tagFor(id)}
           />
         ))}
 
@@ -832,12 +911,12 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
             )}
             {isGoal && liveEnd && <circle cx={liveEnd.x} cy={liveEnd.y} r={4} fill={C.gold} opacity={0.35} className="pp-flash" />}
             {receiver && liveEnd && live.outcome === 'complete' && (
-              <PlayerDot at={liveEnd} color={receiver.team.primary_color} number={receiver.number} r={rr * 0.9} opacity={0.95} />
+              <PlayerDot at={liveEnd} color={receiver.team.primary_color} number={receiver.number} r={rr * 0.9} opacity={0.95} tag={tagFor(live.receiver_id)} />
             )}
             {live.type !== 'shot' && liveEnd && !(receiver && live.outcome === 'complete') && (
               <circle cx={liveEnd.x} cy={liveEnd.y} r={0.7 * k} fill="#ffffff" className="pp-fade" />
             )}
-            <PlayerDot at={live.start} color={actor?.team.primary_color ?? C.mute} number={actor?.number} r={rr} />
+            <PlayerDot at={live.start} color={actor?.team.primary_color ?? C.mute} number={actor?.number} r={rr} tag={tagFor(live.player_id)} />
           </g>
         )}
 
@@ -845,7 +924,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
         {!replay && focusPos && focusInfo && (
           <g>
             <circle cx={focusPos.x} cy={focusPos.y} r={2.8 * k} fill="none" stroke="#ffffff" strokeWidth={0.35 * k} className="pp-ring" />
-            <PlayerDot at={focusPos} color={focusInfo.team.primary_color} number={focusInfo.number} r={rr} ring={C.signal} />
+            <PlayerDot at={focusPos} color={focusInfo.team.primary_color} number={focusInfo.number} r={rr} ring={C.signal} tag={tagFor(focusPlayerId)} />
           </g>
         )}
 

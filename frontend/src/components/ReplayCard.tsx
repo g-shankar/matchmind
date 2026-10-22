@@ -5,6 +5,9 @@ import { useI18n } from '../i18n';
 import { playerById, shortName } from '../lib/teams';
 import { Pitch2D, decimalsOf, evidenceLabel, fmtFact, fmtUnit, pct, withClock } from './Pitch2D';
 import { Badge, cx } from './ui';
+import { ShowWorkingButton } from './ShowWorking';
+import { TranslationTag } from './LanguagePicker';
+import { isTranslationReason, textLanguage } from '../lib/languages';
 
 export interface ReplayCardProps {
   card: OverlayCard; // kind better_option or unfound_run, replay set
@@ -14,7 +17,27 @@ export interface ReplayCardProps {
 }
 
 const STEP_MS = 2500;
+/** Chance values (xG) always show two decimals, as the crew's text prints them: 0.20 next to 0.24. */
+const XG_DECIMALS = 2;
+
+/** An evidence value as shown in the replay: xG with two decimals, everything else as sent. */
+export function evidenceText(ev: OverlayCard['evidence'][number], i18n: Pick<ReturnType<typeof useI18n>, 'num' | 't'>): string {
+  if (ev.unit === 'xG' && typeof ev.value === 'number') return i18n.num(ev.value, Math.max(XG_DECIMALS, decimalsOf(ev.value)));
+  return fmtFact(ev.value, i18n);
+}
 type Step = 1 | 2 | 3;
+
+/** A replay number as the evidence shows it: when the card's evidence carries the same value
+ * rounded (0.24 for 0.238, 4 for 4.0), the text uses that figure and its decimals, so the
+ * story, the verdict and the evidence never disagree. Rounding only; nothing is recomputed. */
+export function asInEvidence(raw: number, evidence: OverlayCard['evidence'], fallbackDecimals = 2): { value: number; decimals: number } {
+  for (const ev of evidence) {
+    if (typeof ev.value !== 'number') continue;
+    const d = decimalsOf(ev.value);
+    if (Math.abs(ev.value - raw) <= 0.5 * 10 ** -d + 1e-9) return { value: ev.value, decimals: ev.unit === 'xG' ? Math.max(XG_DECIMALS, d) : d };
+  }
+  return { value: raw, decimals: Math.max(fallbackDecimals, decimalsOf(raw)) };
+}
 
 const clockOf = (s: number) => {
   const total = Math.max(0, Math.floor(s));
@@ -44,6 +67,10 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
   const r = card.replay;
   const better = isBetterOption(r) ? r : null;
   const run = isUnfoundRun(r) ? r : null;
+  const shown = (raw: number, fallbackDecimals = 2) => {
+    const v = asInEvidence(raw, card.evidence, fallbackDecimals);
+    return num(v.value, v.decimals);
+  };
   const name = (id: string | null | undefined) => {
     const p = playerById(teams, id);
     return p ? shortName(p.name) : '';
@@ -51,18 +78,18 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
 
   const steps: { title: string; text: React.ReactNode }[] = better
     ? [
-        { title: t('pitch.steps.better.1.title'), text: t('pitch.steps.better.1.text', { shooter: name(better.shooter_id), xg: num(better.shot_chance_quality, Math.max(2, decimalsOf(better.shot_chance_quality))) }) },
+        { title: t('pitch.steps.better.1.title'), text: t('pitch.steps.better.1.text', { shooter: name(better.shooter_id), xg: shown(better.shot_chance_quality) }) },
         {
           title: t('pitch.steps.better.2.title'),
           text: t('pitch.steps.better.2.text', {
             teammate: name(better.teammate_id),
-            m: num(better.nearest_marker_m, 1),
+            m: shown(better.nearest_marker_m, 1),
             p: pct(better.pass_success),
           }),
         },
         {
           title: t('pitch.steps.better.3.title'),
-          text: t('pitch.steps.better.3.text', { x: num(better.times_better, 1), alt: num(better.alt_chance_quality, Math.max(2, decimalsOf(better.alt_chance_quality))) }),
+          text: t('pitch.steps.better.3.text', { x: shown(better.times_better, 1), alt: shown(better.alt_chance_quality) }),
         },
       ]
     : run
@@ -71,10 +98,10 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
             title: t('pitch.steps.run.1.title'),
             text: withClock(t('pitch.steps.run.1.text', { runner: name(run.runner_id), clock: '\u0000' }), run.pass_on_clock),
           },
-          { title: t('pitch.steps.run.2.title'), text: t('pitch.steps.run.2.text', { carrier: name(run.carrier_id), m: num(run.clear_of_line_m, 1) }) },
+          { title: t('pitch.steps.run.2.title'), text: t('pitch.steps.run.2.text', { carrier: name(run.carrier_id), m: shown(run.clear_of_line_m, 1) }) },
           {
             title: t('pitch.steps.run.3.title'),
-            text: t(run.one_on_one ? 'pitch.steps.run.3.oneOnOne' : 'pitch.steps.run.3.text', { xg: num(run.projected_chance_quality, Math.max(2, decimalsOf(run.projected_chance_quality))) }),
+            text: t(run.one_on_one ? 'pitch.steps.run.3.oneOnOne' : 'pitch.steps.run.3.text', { xg: shown(run.projected_chance_quality) }),
           },
         ]
       : [];
@@ -91,26 +118,30 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
         {t('produced.template')}
       </Badge>
     );
+  const translated = <TranslationTag item={card} />;
+  const lang = textLanguage(card);
 
   const closeBtn = onClose && (
     <button
       type="button"
       onClick={onClose}
       aria-label={t('common.close')}
-      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-pp-line text-pp-mute transition hover:border-pp-pulse hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-pp-signal"
+      data-autofocus
+      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-pp-line text-pp-mute transition hover:border-pp-pulse hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-pp-signal"
     >
       <X className="h-4 w-4" />
     </button>
   );
 
   const header = (
-    <header className="flex items-start gap-2">
+    <header className={cx('flex items-start gap-2', onClose && 'sticky top-0 z-10 -mx-3 -mt-3 bg-pp-panel px-3 pb-2 pt-3 sm:-mx-4 sm:-mt-4 sm:px-4 sm:pt-4')}>
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
         <Badge tone="pulse" className="uppercase tracking-wider">
           {t(`kind.${card.kind}`)}
         </Badge>
         <span className="ltr-nums text-xs font-semibold text-pp-mute">{clockOf(card.show_at_s)}</span>
         {produced}
+        {translated}
       </div>
       {closeBtn}
     </header>
@@ -123,7 +154,7 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
     return (
       <section dir={dir} className="animate-slide-up overflow-hidden rounded-2xl border border-pp-line/80 bg-pp-panel/95 p-2.5 shadow-2xl shadow-black/50 sm:p-3">
         {header}
-        <h2 className="my-2 font-display text-base font-bold leading-tight text-white sm:text-lg">{card.headline}</h2>
+        <h2 lang={lang} className="my-2 font-display text-base font-bold leading-tight text-white sm:text-lg">{card.headline}</h2>
         {pitch}
         {verdict && (
           <p className="mt-2 text-xs font-semibold text-pp-signal sm:text-sm" data-testid="replay-compact-verdict">
@@ -138,7 +169,7 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
     <section dir={dir} className="animate-slide-up rounded-2xl border border-pp-line/80 bg-pp-panel/95 p-3 shadow-2xl shadow-black/50 sm:p-4" aria-labelledby={`replay-${card.card_id}`}>
       <style>{`@keyframes ppProgress { from { transform: scaleX(0); } to { transform: scaleX(1); } }`}</style>
       {header}
-      <h2 id={`replay-${card.card_id}`} className="mb-3 mt-2 font-display text-xl font-bold leading-tight text-white sm:text-2xl">
+      <h2 id={`replay-${card.card_id}`} lang={lang} className="mb-3 mt-2 font-display text-xl font-bold leading-tight text-white sm:text-2xl">
         {card.headline}
       </h2>
 
@@ -195,14 +226,14 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
 
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="space-y-3">
-          {card.body && <p className="text-sm leading-relaxed text-slate-200">{card.body}</p>}
+          {card.body && <p lang={lang} className="text-sm leading-relaxed text-slate-200">{card.body}</p>}
           {card.why && (
             <div className="rounded-xl border border-pp-gold/30 bg-pp-gold/5 p-3">
               <h3 className="mb-1 text-[11px] font-bold uppercase tracking-wider text-pp-gold">{t('pitch.why')}</h3>
-              <p className="text-sm leading-relaxed text-slate-200">{card.why}</p>
+              <p lang={lang} className="text-sm leading-relaxed text-slate-200">{card.why}</p>
             </div>
           )}
-          {card.fallback_reason && (
+          {card.fallback_reason && !isTranslationReason(card.fallback_reason) && (
             <p className="text-xs text-pp-mute" data-testid="replay-fallback">
               {t('pitch.fallback', { reason: card.fallback_reason })}
             </p>
@@ -222,7 +253,7 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
                     )}
                   </dt>
                   <dd className="ltr-nums shrink-0 text-sm font-bold text-white" data-testid="evidence-value">
-                    {fmtFact(ev.value, i18n)}
+                    {evidenceText(ev, i18n)}
                     {ev.unit ? <span className="ms-1 text-xs font-medium text-pp-mute">{fmtUnit(ev.unit, t)}</span> : null}
                   </dd>
                 </div>
@@ -235,6 +266,11 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
           </div>
         )}
       </div>
+      {!card.moment_id.startsWith('metric:') && (
+        <div className="mt-3 flex justify-end">
+          <ShowWorkingButton momentId={card.moment_id} persona={card.persona} language={card.language} />
+        </div>
+      )}
     </section>
   );
 };

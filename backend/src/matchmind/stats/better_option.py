@@ -8,6 +8,8 @@ the output models is converted back to absolute pitch coordinates.
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 from matchmind.schema import BodyPart, Event, EventType, FramePlayer, Outcome
 from matchmind.simulator import pitch
 from matchmind.simulator.pitch import Pos
@@ -77,6 +79,50 @@ def shot_chance_quality(shot: Event, home_id: str) -> float | None:
     return scene.chance_from(scene.shooter, header=shot.body_part == BodyPart.HEAD)
 
 
+class ShotAlternative(NamedTuple):
+    """The best pass on in a shot's freeze frame, before any threshold is applied."""
+
+    shot_chance_quality: float
+    teammate_id: str
+    alt_chance_quality: float
+    pass_success: float
+    alt_value: float
+    nearest_marker_m: float
+
+
+def _best_pass(shot: Event, scene: _ShotScene, shot_cq: float) -> ShotAlternative | None:
+    """Best onside, unmarked outfield teammate by pass success x chance quality."""
+    shooter = scene.shooter
+    line_u = max(shooter[0], _second_last_u([o[0] for o in scene.all_opps], metrics.FINAL_THIRD_U))
+    best: ShotAlternative | None = None
+    for p in sorted(shot.freeze_frame or [], key=lambda fp: fp.player_id):
+        if not p.teammate or p.actor or p.keeper or p.player_id == shot.player_id:
+            continue
+        mate = scene.frame[p.player_id]
+        if mate[0] > line_u:
+            continue  # offside
+        marker = min((pitch.dist(mate, o) for o in scene.all_opps), default=99.0)
+        if marker < MIN_MARKER_M:
+            continue
+        success, _lane = metrics.pass_success_probability(shooter, mate, scene.all_opps)
+        alt_cq = scene.chance_from(mate)
+        value = round(success * alt_cq, 3)
+        if best is None or value > best.alt_value:
+            best = ShotAlternative(shot_cq, p.player_id, alt_cq, success, value, marker)
+    return best
+
+
+def shot_alternative(shot: Event, home_id: str) -> ShotAlternative | None:
+    """The best pass that was on when a shot was taken, whether or not it clears
+    the "should have passed" thresholds. Used for analytics and training labels;
+    `analyse_shot` applies the thresholds on top of the same search."""
+    if shot.type != EventType.SHOT or not shot.freeze_frame or shot.start is None or shot.team is None:
+        return None
+    scene = _ShotScene(shot, home_id)
+    shot_cq = scene.chance_from(scene.shooter, header=shot.body_part == BodyPart.HEAD)
+    return _best_pass(shot, scene, shot_cq)
+
+
 def analyse_shot(shot: Event, home_id: str) -> BetterOption | None:
     """Compare the shot taken with the best pass available in its freeze frame.
 
@@ -92,37 +138,18 @@ def analyse_shot(shot: Event, home_id: str) -> BetterOption | None:
     team = shot.team
     scene = _ShotScene(shot, home_id)
     frame, shooter, keeper = scene.frame, scene.shooter, scene.keeper
-    outfield_opps, all_opps = scene.outfield_opps, scene.all_opps
-    shooter_id = shot.player_id
     shot_cq = scene.chance_from(shooter, header=shot.body_part == BodyPart.HEAD)
-    line_u = max(shooter[0], _second_last_u([o[0] for o in all_opps], metrics.FINAL_THIRD_U))
-
-    best: tuple[float, str, float, float, float] | None = None
-    for p in sorted(shot.freeze_frame, key=lambda fp: fp.player_id):
-        if not p.teammate or p.actor or p.keeper or p.player_id == shooter_id:
-            continue
-        mate = frame[p.player_id]
-        if mate[0] > line_u:
-            continue  # offside
-        marker = min((pitch.dist(mate, o) for o in all_opps), default=99.0)
-        if marker < MIN_MARKER_M:
-            continue
-        success, _lane = metrics.pass_success_probability(shooter, mate, all_opps)
-        alt_cq = scene.chance_from(mate)
-        value = round(success * alt_cq, 3)
-        if best is None or value > best[0]:
-            best = (value, p.player_id, alt_cq, success, marker)
-
+    best = _best_pass(shot, scene, shot_cq)
     if best is None:
         return None
-    value, mate_id, alt_cq, success, marker = best
+    _, mate_id, alt_cq, success, value, marker = best
     if value < shot_cq + MIN_GAIN or value < MIN_RATIO * shot_cq:
         return None
 
     to_abs = lambda p: metrics.to_attacking(p, team, home_id)  # noqa: E731 (frame swap is self-inverse)
     return BetterOption(
         shot_event_id=shot.event_id,
-        shooter_id=shooter_id or "",
+        shooter_id=shot.player_id or "",
         teammate_id=mate_id,
         shot_chance_quality=shot_cq,
         alt_chance_quality=alt_cq,
@@ -133,7 +160,7 @@ def analyse_shot(shot: Event, home_id: str) -> BetterOption | None:
         nearest_marker_m=round(marker, 1),
         shooter_pos=_xy(to_abs(shooter)),
         teammate_pos=_xy(to_abs(frame[mate_id])),
-        defenders=[_xy(to_abs(o)) for o in outfield_opps],
+        defenders=[_xy(to_abs(o)) for o in scene.outfield_opps],
         keeper=_xy(to_abs(keeper)) if keeper else None,
     )
 

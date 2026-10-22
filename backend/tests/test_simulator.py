@@ -65,9 +65,52 @@ def test_speeds_match_the_documented_ranges(demo):
 
 def test_demo_story_plays_out(demo):
     goals = [e for e in demo if e.type == EventType.SHOT and e.outcome == Outcome.GOAL]
-    assert [g.player_id for g in goals] == ["NBR-9", "NBR-10", "HCY-10", "HCY-9", "HCY-11"]
+    reviews = [e for e in demo if e.type == EventType.VAR_REVIEW]
+    ruled_out = {r.reviewed_event_id for r in reviews if r.outcome == Outcome.OVERTURNED}
+    counted = [g for g in goals if g.event_id not in ruled_out]
+    assert [g.player_id for g in counted] == ["NBR-9", "NBR-10", "HCY-10", "HCY-9", "HCY-11"]
     assert demo[-1].details == {"score_home": 2, "score_away": 3}
-    assert goals[-1].match_clock.startswith("90+")
+    assert counted[-1].match_clock.startswith("90+")
+
+
+def test_demo_goal_ruled_out_by_var_before_the_break(demo):
+    """The correction beat: NBR-11 scores just before 40', VAR rules it out for
+    offside about 70 s later, and the 41' goal still makes it 2-0."""
+    (review,) = [e for e in demo if e.type == EventType.VAR_REVIEW]
+    shot = next(e for e in demo if e.event_id == review.reviewed_event_id)
+    assert shot.type == EventType.SHOT and shot.outcome == Outcome.GOAL and shot.player_id == "NBR-11"
+    assert shot.details["score_home"] == 2 and shot.details["score_away"] == 0
+    assert review.outcome == Outcome.OVERTURNED and review.review_reason == "offside"
+    assert review.details == {"score_home": 1, "score_away": 0}
+    assert review.period == 1 and 2340 <= shot.clock_s < review.clock_s < 2490  # 39:00 .. 41:30
+    assert 60 <= review.clock_s - shot.clock_s <= 80
+    nxt = demo[demo.index(review) + 1]
+    assert nxt.team == "HCY"  # restart: free kick to the defending side
+    second = next(e for e in demo if e.type == EventType.SHOT and e.outcome == "goal" and e.seq > review.seq)
+    assert second.player_id == "NBR-10" and second.details["score_home"] == 2
+
+
+def test_var_review_needs_a_target_and_a_verdict():
+    base = {
+        "event_id": "X-1",
+        "match_id": "X",
+        "seq": 1,
+        "ts": "2026-10-24T15:00:00Z",
+        "period": 1,
+        "clock_s": 10.0,
+        "match_clock": "00:10",
+        "type": "var_review",
+    }
+    with pytest.raises(ValueError):
+        Event.model_validate({**base, "outcome": "overturned"})
+    with pytest.raises(ValueError):
+        Event.model_validate({**base, "reviewed_event_id": "X-0", "outcome": "goal"})
+    with pytest.raises(ValueError):
+        Event.model_validate({**base, "type": "pass", "reviewed_event_id": "X-0"})
+    ok = Event.model_validate(
+        {**base, "reviewed_event_id": "X-0", "outcome": "stands", "review_reason": "foul"}
+    )
+    assert ok.review_reason == "foul"
 
 
 def test_red_carded_player_disappears(demo):

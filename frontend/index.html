@@ -4,11 +4,44 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="PitchPulse: an AI studio crew that turns a synthetic match into explainable, personalised, multilingual match intelligence." />
+    <meta name="theme-color" content="#0c0c0b" />
+    <meta name="description" content="PitchPulse: fact-checked explanations of the key moments in a synthetic match, for fans, analysts and stats scouts, in their language." />
     <title>PitchPulse</title>
+    <style>
+      /* Shown at once while the app loads (slow networks): the PitchPulse bar and the shape of
+         the studio, so the first screen is never blank. The app replaces it when it starts. */
+      html, body { margin: 0; background: #0c0c0b; color: #f2efe8; }
+      .pp-boot-bar { position: sticky; top: 0; height: 64px; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-bottom: 2px solid #ff3b2f; background: #0c0c0b; box-sizing: border-box; }
+      .pp-boot-word { font: italic 800 24px/1 'Arial Narrow', Arial, sans-serif; letter-spacing: 0.04em; text-transform: uppercase; }
+      .pp-boot-word span { color: #ff3b2f; }
+      .pp-boot-main { max-width: 1280px; margin: 0 auto; padding: 12px; display: grid; gap: 16px; }
+      .pp-boot-block { background: #181815; border: 1px solid #34332d; animation: pp-boot 1.4s ease-in-out infinite; }
+      .pp-boot-pitch { aspect-ratio: 105 / 68; background: #14301f; }
+      .pp-boot-note { font: 14px/1.4 Arial, sans-serif; color: #a19c8f; padding: 4px 2px; }
+      @keyframes pp-boot { 50% { opacity: 0.55; } }
+      @media (prefers-reduced-motion: reduce) { .pp-boot-block { animation: none; } }
+      @media (min-width: 1024px) { .pp-boot-main { grid-template-columns: 7fr 5fr; padding: 16px; } }
+    </style>
   </head>
   <body class="bg-pp-night text-slate-100 antialiased">
-    <div id="root"></div>
+    <div id="root">
+      <div class="pp-boot" role="status" aria-label="Loading PitchPulse">
+        <div class="pp-boot-bar">
+          <svg viewBox="0 0 40 40" width="36" height="36" aria-hidden="true"><rect width="40" height="40" fill="#ff3b2f" /><path d="M3 22h9l3-8 5 15 4-11 3 4h10" fill="none" stroke="#f2efe8" stroke-width="3.2" /></svg>
+          <span class="pp-boot-word">Pitch<span>Pulse</span></span>
+        </div>
+        <div class="pp-boot-main">
+          <div>
+            <div class="pp-boot-block pp-boot-pitch"></div>
+            <p class="pp-boot-note">Loading the match…</p>
+          </div>
+          <div style="display: grid; gap: 12px; align-content: start">
+            <div class="pp-boot-block" style="height: 96px"></div>
+            <div class="pp-boot-block" style="height: 160px"></div>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

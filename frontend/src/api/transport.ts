@@ -1,4 +1,6 @@
 import type {
+  AskRequest,
+  AskResult,
   ClientAction,
   Language,
   OverlayCard,
@@ -21,7 +23,10 @@ export interface MatchTransport {
     language: Language,
     favouriteTeam: string | null,
   ): Promise<OverlayCard | null>;
-  getRecap(persona: PersonaType, language: Language): Promise<Recap | null>;
+  /** spoilers false: the spoiler-free story so far (catch-up mode). */
+  getRecap(persona: PersonaType, language: Language, spoilers?: boolean): Promise<Recap | null>;
+  /** Ask the studio: one question or suggested chip, answered as of the match clock. */
+  ask(request: AskRequest): Promise<AskResult>;
   close(): void;
 }
 
@@ -31,6 +36,17 @@ export function apiBase(): string {
   return (fromEnv || window.location.origin).replace(/\/+$/, '');
 }
 
-export function wsUrl(base = apiBase()): string {
-  return `${base.replace(/^http/, 'ws')}/ws/match`;
+/** The viewer's starting choices, on the URL so the very first snapshot already fits them
+ * (a catch-up viewer's first frame never carries the score). */
+export interface WsView {
+  spoilers: boolean;
+  persona: PersonaType;
+  language: Language;
+}
+
+export function wsUrl(base = apiBase(), view?: WsView): string {
+  const url = `${base.replace(/^http/, 'ws')}/ws/match`;
+  if (!view) return url;
+  const q = new URLSearchParams({ spoilers: view.spoilers ? '1' : '0', persona: view.persona, lang: view.language });
+  return `${url}?${q}`;
 }

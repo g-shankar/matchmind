@@ -16,7 +16,13 @@ export interface I18n {
 }
 
 // Western digits in every language so on-screen numbers match the fact-checked evidence.
-const LOCALES: Record<UiLanguage, string> = { en: 'en-GB', es: 'es-ES', ar: 'ar-u-nu-latn' };
+const LOCALES: Record<UiLanguage, string> = {
+  en: 'en-GB',
+  es: 'es-ES',
+  fr: 'fr-FR',
+  ar: 'ar-u-nu-latn',
+  ja: 'ja-JP-u-nu-latn',
+};
 
 export const toUiLanguage = (lang: string | null | undefined): UiLanguage =>
   (UI_LANGUAGES as readonly string[]).includes(lang ?? '') ? (lang as UiLanguage) : 'en';

@@ -3,18 +3,26 @@
 // app keeps working when the backend is unreachable. It only re-sends numbers
 // that are in the recording; it never computes new stats.
 import type {
+  AskAnswer,
+  AskChip,
+  AskRequest,
+  AskResult,
   Bookmark,
   ClientAction,
   ControlChaosState,
+  CueReason,
+  CueTime,
   CrewStatus,
   Evidence,
   FocusMetric,
   Language,
+  LanguageInfo,
   MatchEvent,
   MatchState,
   MomentKind,
   OverlayCard,
   PersonaType,
+  PlayerIdentity,
   Playback,
   PlayerStats,
   Recap,
@@ -28,6 +36,9 @@ import type {
 } from './contract';
 import type { MatchTransport, MessageHandler } from './transport';
 import { metricAlertText } from './mockText';
+import { DemoCueSheet, type DemoCueMoment } from './mockCues';
+import { defaultLanguages, isWorldLanguage } from '../lib/languages';
+import { SPOILER_KINDS, catchUpIdSet, isSpoilerCard, spoilerFreeEvents, spoilerFreeSnapshot, spoilerFreeTick, withCatchUpIds } from './spoilers';
 
 export interface FixtureTick {
   event: MatchEvent;
@@ -56,12 +67,17 @@ export interface FixtureMoment {
   match_clock: string;
   team: string | null;
   player_ids: string[];
+  /** Identity of each player in player_ids (newer fixtures). */
+  players?: PlayerIdentity[];
   evidence: Evidence[];
   /** Evidence labels in other languages, same order as `evidence`. */
   evidence_labels?: Partial<Record<Language, string[]>>;
   tactical_tag: string;
   replay: Replay | null;
   texts: Partial<Record<PersonaType, Partial<Record<Language, MomentText>>>>;
+  /** A VAR correction: the moment ids it rules out, and why. */
+  retracts?: string[];
+  reason?: CueReason | null;
 }
 
 export interface DemoFixture {
@@ -75,13 +91,35 @@ export interface DemoFixture {
   recaps: Partial<Record<PersonaType, Partial<Record<Language, Recap>>>>;
 }
 
-export const DEFAULT_PROFILE: ViewerProfile = {
-  persona: 'casual',
-  language: 'en',
-  favourite_team: null,
-  focus_player_id: null,
-  focus_metric: null,
-};
+/** public/demo/demo-ask.json, written by frontend/scripts/build_demo_ask.py from this recording. */
+export interface DemoStory {
+  title: string;
+  headline: string;
+  summary_paragraphs: string[];
+  stats: Recap['stats'];
+  fact_check: { ok: boolean; reasons: string[] };
+  key_moment_ids: string[];
+}
+
+export interface DemoAskCheckpoint {
+  tick_index: number;
+  clock: string;
+  period: number;
+  clock_s: number;
+  answers: Partial<Record<Language, Partial<Record<AskChip, AskAnswer>>>>;
+  stories: Partial<Record<Language, DemoStory>>;
+}
+
+export interface DemoAsk {
+  match_id: string;
+  checkpoint_s: number;
+  chips: AskChip[];
+  hidden: Partial<Record<Language, string>>;
+  checkpoints: DemoAskCheckpoint[];
+}
+
+import { DEFAULT_PROFILE } from './defaults';
+export { DEFAULT_PROFILE };
 
 const STEP_MS = 100;
 const MATCH_SECONDS_PER_REAL_SECOND = 10; // per unit of speed, as on the server
@@ -95,9 +133,26 @@ const BOOKMARK_KINDS: MomentKind[] = [
   'pressure_spell',
   'momentum_swing',
   'milestone',
+  'correction',
 ];
 
 const textPersona = (p: PersonaType): PersonaType => (p === 'player_spotlight' ? 'casual' : p);
+
+// The recording holds studio text in en, es and ar only, and the demo never calls a
+// translator: other languages are shown in English and say why.
+const DEMO_LANGUAGES: Language[] = ['en', 'es', 'ar'];
+
+export function demoLanguages(): LanguageInfo[] {
+  return defaultLanguages(false).map((l) =>
+    l.source === 'studio' && !DEMO_LANGUAGES.includes(l.code) ? { ...l, available: false, reason: 'not_in_demo' } : l,
+  );
+}
+
+// Why text asked for in `asked` is shown in `shown` instead (null when it is not).
+function languageFallback(asked: Language, shown: Language): string | null {
+  if (asked === shown) return null;
+  return isWorldLanguage(asked) ? 'translator_off' : 'not_in_demo';
+}
 
 export function pickText(m: FixtureMoment, persona: PersonaType, language: Language): { text: MomentText; language: Language } {
   const byLang = m.texts[textPersona(persona)] ?? m.texts.casual ?? {};
@@ -116,7 +171,8 @@ export function cardForMoment(m: FixtureMoment, profile: ViewerProfile): Overlay
   const focus = profile.focus_player_id;
   const involvesFocus = !!focus && m.player_ids.includes(focus);
   if (profile.persona === 'player_spotlight' && focus && !involvesFocus && m.kind !== 'goal') return null;
-  const { text, language } = pickText(m, profile.persona, profile.language);
+  const { text, language: shown } = pickText(m, profile.persona, profile.language);
+  const language = profile.language;
   const favourite_side = profile.favourite_team ? m.team === profile.favourite_team : null;
   const priority = Math.min(100, m.priority + (favourite_side ? 10 : 0) + (involvesFocus ? 15 : 0));
   return {
@@ -129,18 +185,22 @@ export function cardForMoment(m: FixtureMoment, profile: ViewerProfile): Overlay
     duration_s: m.duration_s,
     persona: profile.persona,
     language,
-    rtl: language === 'ar',
+    rtl: shown === 'ar',
     headline: text.headline,
     body: text.body,
     why: text.why,
     tactical_tag: m.tactical_tag,
-    evidence: localEvidence(m, language),
+    evidence: localEvidence(m, shown),
     player_ids: m.player_ids,
+    ...(m.players ? { players: m.players } : {}),
     team: m.team,
     favourite_side,
     produced_by: 'template',
-    fallback_reason: null,
+    fallback_reason: languageFallback(language, shown),
     replay: m.replay,
+    text_language: shown,
+    translated_by: null,
+    ...(m.retracts?.length ? { retracts: [...m.retracts] } : {}),
   };
 }
 
@@ -208,7 +268,7 @@ export function metricAlert(
     show_at_s: e.clock_s,
     duration_s: 6,
     persona: 'casual',
-    language: text.language,
+    language,
     rtl: text.language === 'ar',
     headline: text.headline,
     body: text.body,
@@ -219,8 +279,10 @@ export function metricAlert(
     team,
     favourite_side: null,
     produced_by: 'template',
-    fallback_reason: null,
+    fallback_reason: languageFallback(language, text.language),
     replay: null,
+    text_language: text.language,
+    translated_by: null,
   };
 }
 
@@ -254,11 +316,28 @@ export class MockMatchServer implements MatchTransport {
   private momentsByEvent = new Map<string, FixtureMoment[]>();
   private timer: ReturnType<typeof setInterval> | null = null;
   private ended = false;
+  private sheet: DemoCueSheet;
+  private newSheet = false; // the next CUES carries `active` (profile changed)
+  /** Every moment id a correction in the recording rules out. */
+  private readonly retractable: Set<string>;
+  /** Moments a catch-up viewer must not see: goals, corrections, anything on a scoring event. */
+  private readonly spoilerMoments: Set<string>;
+  private heldCards: OverlayCard[] = [];
+  // Catch-up event, moment and card ids for this session (crew/spoilers.py on the live server).
+  private readonly ids = catchUpIdSet();
+  private askData: DemoAsk | null = null;
+  private askLoad: Promise<DemoAsk | null> | null = null;
 
   constructor(
     private readonly fixture: DemoFixture,
     private readonly emit: MessageHandler,
-    options: { profile?: Partial<ViewerProfile>; speed?: SpeedMultiplier; autoplay?: boolean } = {},
+    options: {
+      profile?: Partial<ViewerProfile>;
+      speed?: SpeedMultiplier;
+      autoplay?: boolean;
+      /** The recorded answers; loaded from public/demo when left out. */
+      askData?: DemoAsk | null;
+    } = {},
   ) {
     this.profile = { ...DEFAULT_PROFILE, ...options.profile };
     this.speed = options.speed ?? 1;
@@ -275,6 +354,18 @@ export class MockMatchServer implements MatchTransport {
       list.push(m);
       this.momentsByEvent.set(m.event_id, list);
     }
+    this.retractable = new Set(fixture.moments.flatMap((m) => m.retracts ?? []));
+    const scoring = new Set(
+      fixture.ticks.filter((t) => t.event.outcome === 'goal' || t.event.type === 'var_review').map((t) => t.event.event_id),
+    );
+    this.spoilerMoments = new Set(
+      fixture.moments
+        .filter((m) => SPOILER_KINDS.includes(m.kind) || (m.retracts?.length ?? 0) > 0 || scoring.has(m.event_id))
+        .map((m) => m.moment_id),
+    );
+    if (options.askData !== undefined) this.askData = options.askData;
+    if (!this.profile.spoilers) void this.loadAsk(); // the end-of-match story needs it
+    this.sheet = new DemoCueSheet(fixture.match_id, this.profile, fixture.teams);
     queueMicrotask(() => {
       this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
       this.timer = setInterval(() => this.step(STEP_MS / 1000), STEP_MS);
@@ -292,7 +383,9 @@ export class MockMatchServer implements MatchTransport {
     if (this.next >= this.fixture.ticks.length && !this.ended) {
       this.ended = true;
       this.running = false;
-      const recap = this.recapFor(this.profile.persona, this.profile.language);
+      const recap = this.profile.spoilers
+        ? this.recapFor(this.profile.persona, this.profile.language)
+        : this.catchUp(this.storyFor(this.profile.persona, this.profile.language));
       if (recap) this.emit({ type: 'MATCH_END', data: { recap } });
       this.emit({ type: 'PLAYBACK_CONTROL', data: this.playback() });
     }
@@ -307,7 +400,7 @@ export class MockMatchServer implements MatchTransport {
         return;
       case 'set_speed':
         if (!SPEEDS.includes(action.speed_multiplier)) {
-          this.emit({ type: 'ERROR', data: { message: 'Speed must be 1, 10 or 60.' } });
+          this.emit({ type: 'ERROR', data: { message: 'Speed must be 1, 10 or 60.', code: 'bad_speed' } });
           return;
         }
         this.speed = action.speed_multiplier;
@@ -317,25 +410,53 @@ export class MockMatchServer implements MatchTransport {
         this.emit({ type: 'MATCH_RESET', data: {} });
         this.jumpTo(0);
         this.running = true;
+        this.speed = 1; // a restart is a fresh start at the default speed, as on the server
         this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
         return;
-      case 'seek':
-        this.jumpTo(seekIndex(this.fixture.ticks, Math.max(0, action.clock_s), action.period));
+      case 'seek': {
+        // Same refusals as the live server: nothing moves on a bad time.
+        if (!Number.isFinite(action.clock_s) || action.clock_s < 0 || (action.period !== undefined && action.period !== 1 && action.period !== 2)) {
+          this.emit({ type: 'ERROR', data: { message: 'Seek needs clock_s, a time in seconds from kick-off (and optionally period 1 or 2).', code: 'other' } });
+          return;
+        }
+        const index = seekIndex(this.fixture.ticks, action.clock_s, action.period);
+        if (index >= this.fixture.ticks.length) {
+          this.emit({ type: 'ERROR', data: { message: 'That time is after full time.', code: 'after_full_time' } });
+          return;
+        }
+        const wasEnded = this.ended;
+        this.jumpTo(index);
+        // A jump back into a finished match plays from there, as on the server.
+        if (wasEnded && !this.ended) this.running = true;
         this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
         return;
+      }
       case 'set_persona':
       case 'set_view': {
         const changes =
           action.action === 'set_persona'
             ? { persona: action.persona, ...(action.spotlight_player_id !== undefined ? { focus_player_id: action.spotlight_player_id } : {}) }
             : (({ action: _a, ...rest }) => rest)(action);
+        if ('spoilers' in changes && typeof changes.spoilers !== 'boolean') {
+          this.emit({ type: 'ERROR', data: { message: 'Check spoilers: it must be true or false.', code: 'other' } });
+          return;
+        }
+        const revealChanged = 'spoilers' in changes && changes.spoilers !== this.profile.spoilers;
         this.profile = { ...this.profile, ...changes } as ViewerProfile;
+        this.rebuildSheet(this.next);
+        this.newSheet = true;
         this.emit({ type: 'PROFILE_CHANGED', data: this.profile });
         this.emit({ type: 'PERSONA_CHANGED', data: { persona: this.profile.persona } });
+        // Hiding or revealing the result: one fresh snapshot, as the live server does.
+        if (revealChanged) {
+          this.newSheet = false;
+          if (!this.profile.spoilers) void this.loadAsk();
+          this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
+        }
         return;
       }
       default:
-        this.emit({ type: 'ERROR', data: { message: 'That action is not supported.' } });
+        this.emit({ type: 'ERROR', data: { message: 'That action is not supported.', code: 'other' } });
     }
   }
 
@@ -345,13 +466,43 @@ export class MockMatchServer implements MatchTransport {
     language: Language,
     favouriteTeam: string | null,
   ): Promise<OverlayCard | null> {
-    const m = this.fixture.moments.find((x) => x.moment_id === momentId);
-    if (!m) return null;
-    return cardForMoment(m, { ...DEFAULT_PROFILE, persona, language, favourite_team: favouriteTeam });
+    // A catch-up moment id (from a catch-up card, bookmark or answer): look up the recorded
+    // moment, never a spoiler, and answer in catch-up ids, as the live server does.
+    const raw = this.ids.moment.raw(momentId);
+    const m = this.fixture.moments.find((x) => x.moment_id === (raw ?? momentId));
+    if (!m || (raw && this.spoilerMoments.has(m.moment_id))) return null;
+    const card = cardForMoment(m, { ...DEFAULT_PROFILE, persona, language, favourite_team: favouriteTeam });
+    return card && raw ? this.catchUp(card) : card;
   }
 
-  async getRecap(persona: PersonaType, language: Language): Promise<Recap | null> {
-    return this.recapFor(persona, language);
+  /** A catch-up payload: every event, moment and card id swapped for this session's catch-up id. */
+  private catchUp<T>(value: T): T {
+    return withCatchUpIds(value, this.ids.event, { moment: this.ids.moment, card: this.ids.card });
+  }
+
+  async getRecap(persona: PersonaType, language: Language, spoilers = true): Promise<Recap | null> {
+    if (spoilers) return this.recapFor(persona, language);
+    await this.loadAsk();
+    return this.catchUp(this.storyFor(persona, language));
+  }
+
+  // Only the suggested questions were recorded: the demo cannot read typed questions.
+  async ask(request: AskRequest): Promise<AskResult> {
+    if (!request.chip) return { ok: false, failure: 'needs_live' };
+    const data = await this.loadAsk();
+    const point = this.checkpoint(data);
+    if (!data || !point) return { ok: false, failure: 'unavailable' };
+    const lang: Language = DEMO_LANGUAGES.includes(request.lang) ? request.lang : 'en';
+    const recorded = point.answers[lang]?.[request.chip];
+    if (!recorded) return { ok: false, failure: 'unavailable' };
+    const answer: AskAnswer = { ...recorded, language: request.lang, spoilers: request.spoilers };
+    if (!request.spoilers && request.chip === 'score') {
+      return {
+        ok: true,
+        answer: { ...answer, status: 'hidden', answer: data.hidden[lang] ?? '', evidence: [], moment_ids: [], facts: {} },
+      };
+    }
+    return { ok: true, answer: request.spoilers ? answer : this.catchUp(answer) };
   }
 
   close() {
@@ -359,33 +510,118 @@ export class MockMatchServer implements MatchTransport {
     this.timer = null;
   }
 
+  private loadAsk(): Promise<DemoAsk | null> {
+    if (this.askData) return Promise.resolve(this.askData);
+    this.askLoad ??= loadDemoAsk()
+      .then((d) => (this.askData = d))
+      .catch(() => {
+        this.askLoad = null; // try again on the next question
+        return null;
+      });
+    return this.askLoad;
+  }
+
+  /** The latest recorded checkpoint at or before what has been played: nothing later is read. */
+  private checkpoint(data: DemoAsk | null): DemoAskCheckpoint | null {
+    if (!data) return null;
+    const played = Math.max(0, this.next - 1);
+    let best: DemoAskCheckpoint | null = null;
+    for (const c of data.checkpoints) if (c.tick_index <= played) best = c;
+    return best;
+  }
+
+  private storyFor(persona: PersonaType, language: Language): Recap | null {
+    const point = this.checkpoint(this.askData);
+    if (!point) return null;
+    const shown: Language = DEMO_LANGUAGES.includes(language) ? language : 'en';
+    const story = point.stories[shown];
+    if (!story) return null;
+    const byId = new Map(this.fixture.moments.map((m) => [m.moment_id, m]));
+    const key_moments = story.key_moment_ids
+      .map((id) => byId.get(id))
+      .filter((m): m is FixtureMoment => !!m && !this.spoilerMoments.has(m.moment_id))
+      .map((m) => ({ match_clock: m.match_clock, kind: m.kind, headline: pickText(m, persona, shown).text.headline, moment_id: m.moment_id }));
+    return {
+      match_id: this.fixture.match_id,
+      persona,
+      language,
+      rtl: shown === 'ar',
+      title: story.title,
+      headline: story.headline,
+      summary_paragraphs: story.summary_paragraphs,
+      key_moments,
+      player_of_the_match_id: null,
+      player_of_the_match: null,
+      stats: story.stats,
+      generated_at_clock: point.clock,
+      produced_by: 'template',
+      fact_check: story.fact_check,
+      text_language: shown,
+      translated_by: null,
+      fallback_reason: languageFallback(language, shown),
+      spoiler_free: true,
+    };
+  }
+
   private recapFor(persona: PersonaType, language: Language): Recap | null {
     const byLang = this.fixture.recaps[textPersona(persona)] ?? this.fixture.recaps.casual;
-    return byLang?.[language] ?? byLang?.en ?? null;
+    const own = byLang?.[language];
+    if (own) return own;
+    const english = byLang?.en;
+    if (!english) return null;
+    return { ...english, language, rtl: false, text_language: 'en', translated_by: null, fallback_reason: languageFallback(language, 'en') };
   }
 
   private jumpTo(index: number) {
     this.players.clear();
     for (let i = 0; i < index; i++) this.applyPlayers(this.fixture.ticks[i]);
     this.next = index;
+    this.heldCards = [];
     this.vclock = index > 0 ? this.vtimes[index - 1] : 0;
     this.ended = index >= this.fixture.ticks.length;
     if (this.ended) this.running = false;
+    this.rebuildSheet(index);
+    this.newSheet = false; // the snapshot that follows carries the sheet
   }
 
-  private applyPlayers(tick: FixtureTick) {
-    for (const p of tick.players_changed) this.players.set(p.player_id, p);
+  // Replays the cue sheet silently up to `index`, so a seek, reset or profile change
+  // starts from the same cues an uninterrupted run would have produced.
+  private rebuildSheet(index: number) {
+    this.sheet = new DemoCueSheet(this.fixture.match_id, this.profile, this.fixture.teams);
+    for (let i = 0; i < index; i++) this.feedSheet(i, this.cardsFor(i, false));
   }
 
-  private playTick(i: number) {
+  private cueTime(i: number): CueTime {
+    const e = this.fixture.ticks[i].event;
+    return { period: e.period, clock_s: e.clock_s, match_clock: e.match_clock, t_s: Math.round(this.vtimes[i] * 100) / 100 };
+  }
+
+  private feedSheet(i: number, cards: OverlayCard[]) {
     const tick = this.fixture.ticks[i];
-    this.applyPlayers(tick);
+    const moments: DemoCueMoment[] = (this.momentsByEvent.get(tick.event.event_id) ?? []).map((m) => ({
+      moment_id: m.moment_id,
+      kind: m.kind,
+      team: m.team,
+      player_ids: m.player_ids,
+      event_id: m.event_id,
+      retracts: m.retracts,
+      reason: m.reason ?? null,
+      score: m.kind === 'goal' || m.kind === 'correction' ? tick.score : null,
+    }));
+    if (i === 0) {
+      moments.unshift({ moment_id: 'kick-off', kind: 'milestone', team: null, player_ids: [], event_id: tick.event.event_id, score: { home: 0, away: 0 } });
+    }
+    return this.sheet.feed(this.cueTime(i), tick.event.type, moments, cards.filter((c) => c.slot !== 'metric_alert'));
+  }
+
+  private cardsFor(i: number, withAlerts: boolean): OverlayCard[] {
+    const tick = this.fixture.ticks[i];
     const cards: OverlayCard[] = [];
     for (const m of this.momentsByEvent.get(tick.event.event_id) ?? []) {
       const card = cardForMoment(m, this.profile);
       if (card) cards.push(card);
     }
-    if (this.profile.focus_metric) {
+    if (withAlerts && this.profile.focus_metric) {
       const alert = metricAlert(
         this.profile.focus_metric,
         i > 0 ? this.fixture.ticks[i - 1] : null,
@@ -396,19 +632,55 @@ export class MockMatchServer implements MatchTransport {
       if (alert) cards.push(alert);
     }
     cards.sort((a, b) => b.priority - a.priority);
-    this.emit({
-      type: 'MATCH_TICK',
-      data: {
-        event: tick.event,
-        clock: tick.clock,
-        period: tick.period,
-        score: tick.score,
-        state: tick.state,
-        control_chaos: tick.control_chaos,
-        cards,
-        players_changed: tick.players_changed,
-      },
-    });
+    return cards;
+  }
+
+  /** Moment ids ruled out by corrections played so far. */
+  private ruledOutSoFar(): Set<string> {
+    const out = new Set<string>();
+    for (let i = 0; i < this.next; i++) {
+      for (const m of this.momentsByEvent.get(this.fixture.ticks[i].event.event_id) ?? []) {
+        for (const id of m.retracts ?? []) out.add(id);
+      }
+    }
+    return out;
+  }
+
+  private applyPlayers(tick: FixtureTick) {
+    for (const p of tick.players_changed) this.players.set(p.player_id, p);
+  }
+
+  private playTick(i: number) {
+    const tick = this.fixture.ticks[i];
+    this.applyPlayers(tick);
+    const cards = this.cardsFor(i, true);
+    const data = {
+      event: tick.event,
+      clock: tick.clock,
+      period: tick.period,
+      score: tick.score,
+      state: tick.state,
+      control_chaos: tick.control_chaos,
+      cards,
+      players_changed: tick.players_changed,
+    };
+    const spoilerFree = !this.profile.spoilers;
+    if (spoilerFree) {
+      const free = spoilerFreeTick({ ...data, cards: [...this.heldCards, ...cards.filter((c) => !this.spoilerMoments.has(c.moment_id))] });
+      // A withheld tick (VAR review): its other cards ride the next tick.
+      this.heldCards = free ? [] : [...this.heldCards, ...cards.filter((c) => !this.spoilerMoments.has(c.moment_id))];
+      if (free) this.emit({ type: 'MATCH_TICK', data: this.catchUp(free) });
+    } else {
+      this.heldCards = [];
+      this.emit({ type: 'MATCH_TICK', data });
+    }
+    const cues = this.feedSheet(i, cards);
+    // The cue sheet carries the scorebug: a catch-up viewer gets none.
+    if (!spoilerFree && (cues.length || this.newSheet)) {
+      const active = this.newSheet ? this.sheet.active(this.vtimes[i]) : undefined;
+      this.newSheet = false;
+      this.emit({ type: 'CUES', data: { sheet_id: this.sheet.sheetId, cues, ...(active ? { active } : {}) } });
+    }
   }
 
   private playback(): Playback {
@@ -424,12 +696,27 @@ export class MockMatchServer implements MatchTransport {
   }
 
   private snapshot(): SnapshotData {
+    const full = this.fullSnapshot();
+    if (this.profile.spoilers) return full;
+    const free = spoilerFreeSnapshot(full);
+    const hidden = (id: string) => this.spoilerMoments.has(id);
+    return this.catchUp({
+      ...free,
+      recent_cards: free.recent_cards.filter((c) => !hidden(c.moment_id) && !isSpoilerCard(c)),
+      recent_events: spoilerFreeEvents(full.recent_events ?? []),
+      bookmarks: free.bookmarks.filter((b) => !hidden(b.moment_id)),
+    });
+  }
+
+  private fullSnapshot(): SnapshotData {
     const ticks = this.fixture.ticks;
     const last = this.next > 0 ? ticks[this.next - 1] : ticks[0];
     const recent: OverlayCard[] = [];
     const playedIds = new Set(ticks.slice(0, this.next).map((t) => t.event.event_id));
+    const ruledOut = this.ruledOutSoFar();
     for (const m of this.fixture.moments) {
-      if (m.slot === 'pitch_tag' || !playedIds.has(m.event_id)) continue;
+      // A goal VAR has already ruled out never comes back as a live card (seek, reconnect).
+      if (m.slot === 'pitch_tag' || !playedIds.has(m.event_id) || ruledOut.has(m.moment_id)) continue;
       const card = cardForMoment(m, this.profile);
       if (card) recent.push(card);
     }
@@ -448,7 +735,14 @@ export class MockMatchServer implements MatchTransport {
       bookmarks: this.bookmarks(),
       players: [...this.players.values()],
       crew: this.fixture.crew,
+      languages: demoLanguages(),
       auto_eventing: null,
+      recent_events: ticks.slice(Math.max(0, this.next - 30), this.next).map((t) => t.event),
+      cue_sheet: {
+        sheet_id: this.sheet.sheetId,
+        last_seq: this.sheet.seq,
+        active: this.next > 0 ? this.sheet.active(this.vtimes[this.next - 1]) : [],
+      },
     };
   }
 
@@ -462,8 +756,15 @@ export class MockMatchServer implements MatchTransport {
         clock_s: m.show_at_s,
         period: this.fixture.ticks.find((t) => t.event.event_id === m.event_id)?.period ?? 1,
         title: pickText(m, this.profile.persona, this.profile.language).text.headline,
+        ruled_out: this.retractable.has(m.moment_id),
       }));
   }
+}
+
+export async function loadDemoAsk(url = `${import.meta.env.BASE_URL}demo/demo-ask.json`): Promise<DemoAsk> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`demo answers ${res.status}`);
+  return (await res.json()) as DemoAsk;
 }
 
 export async function loadDemoFixture(url = `${import.meta.env.BASE_URL}demo/demo-match.json`): Promise<DemoFixture> {

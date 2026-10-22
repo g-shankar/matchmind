@@ -2,11 +2,14 @@ import React, { useMemo, useState } from 'react';
 import { Activity, Crosshair, Maximize2, Navigation, Search, UserCheck, Video, ZoomIn } from 'lucide-react';
 import type { EventMetrics, MatchEvent, OverlayCard, PlayerStats, Teams } from '../api/contract';
 import { Pitch2D } from '../components/Pitch2D';
+import { TranslationTag } from '../components/LanguagePicker';
+import { isTranslationReason, textLanguage } from '../lib/languages';
 import { Badge, Panel, Segmented, TeamDot, cx } from '../components/ui';
 import { useI18n } from '../i18n';
 import { activeCards } from '../state/matchStore';
 import { playerById, shortName, type PlayerRef } from '../lib/teams';
 import type { ViewProps } from './types';
+import { inkOn } from '../lib/contrast';
 
 const LINE_ORDER = { GK: 0, DEF: 1, MID: 2, FWD: 3 } as const;
 
@@ -44,6 +47,7 @@ export const CardItem: React.FC<{ card: OverlayCard; muted?: boolean; highlight?
   return (
     <article
       dir={card.rtl ? 'rtl' : undefined}
+      lang={textLanguage(card)}
       className={cx('rounded-xl border bg-pp-deep/70 p-3 transition', muted ? 'border-pp-line/50 opacity-60' : 'border-pp-line')}
       style={highlight ? { borderColor: highlight, borderInlineStartWidth: 4 } : undefined}
     >
@@ -54,6 +58,7 @@ export const CardItem: React.FC<{ card: OverlayCard; muted?: boolean; highlight?
         <Badge tone={card.produced_by === 'ai' ? 'signal' : 'mute'} className="ms-auto" title={card.fallback_reason ?? undefined}>
           {t(`produced.${card.produced_by}`)}
         </Badge>
+        <TranslationTag item={card} />
       </div>
       <h3 className="font-display text-sm font-bold text-white">{card.headline}</h3>
       {card.body && <p className="mt-1 text-xs leading-relaxed text-slate-300">{card.body}</p>}
@@ -70,7 +75,7 @@ export const CardItem: React.FC<{ card: OverlayCard; muted?: boolean; highlight?
           ))}
         </dl>
       )}
-      {card.fallback_reason && (
+      {card.fallback_reason && !isTranslationReason(card.fallback_reason) && (
         <p className="mt-1 text-[10px] text-pp-mute">{t('fan.follow.fallback', { reason: card.fallback_reason })}</p>
       )}
     </article>
@@ -121,35 +126,103 @@ export function EventMetricChips({ e }: { e: MatchEvent }) {
   return <div className="flex flex-wrap items-center gap-1.5 text-[11px]">{chips}</div>;
 }
 
+const BANDS = ['walk', 'jog', 'run', 'sprint'] as const;
+const BAND_COLORS: Record<(typeof BANDS)[number], string> = {
+  walk: 'bg-slate-500',
+  jog: 'bg-pp-signal/70',
+  run: 'bg-pp-gold',
+  sprint: 'bg-pp-pulse',
+};
+
+/** Distance split by speed band, as a bar with a legend (synthetic tracking only). */
+export const SpeedBands: React.FC<{ stats: PlayerStats }> = ({ stats }) => {
+  const { t, num } = useI18n();
+  const km = { walk: stats.walk_km ?? 0, jog: stats.jog_km ?? 0, run: stats.run_km ?? 0, sprint: stats.sprint_km ?? 0 };
+  const total = km.walk + km.jog + km.run + km.sprint;
+  if (total <= 0) return null;
+  const fmt = (v: number) => num(v, 2);
+  return (
+    <div className="mt-2" data-testid="speed-bands">
+      <p className="text-[11px] text-pp-mute">{t('fan.stat.bands')}</p>
+      <div
+        role="img"
+        aria-label={t('fan.stat.bandsAria', { walk: fmt(km.walk), jog: fmt(km.jog), run: fmt(km.run), sprint: fmt(km.sprint) })}
+        className="mt-1 flex h-2.5 w-full overflow-hidden rounded-sm bg-pp-night"
+        dir="ltr"
+      >
+        {BANDS.map((b) => (
+          <span key={b} className={BAND_COLORS[b]} style={{ width: `${(100 * km[b]) / total}%` }} />
+        ))}
+      </div>
+      <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]" aria-hidden>
+        {BANDS.map((b) => (
+          <li key={b} className="flex items-center gap-1">
+            <span className={cx('inline-block h-2 w-2 rounded-sm', BAND_COLORS[b])} />
+            <span className="text-pp-mute">{t(`fan.stat.band.${b}`)}</span>
+            <span className="ltr-nums font-mono text-white" data-band={b}>
+              {fmt(km[b])}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 const StatCard: React.FC<{ stats: PlayerStats | undefined }> = ({ stats }) => {
   const { t, num } = useI18n();
-  if (!stats || stats.touches === 0) return <p className="py-6 text-center text-sm text-pp-mute">{t('fan.follow.noTouches')}</p>;
+  if (!stats || (stats.touches === 0 && !stats.distance_km)) {
+    return <p className="py-6 text-center text-sm text-pp-mute">{t('fan.follow.noTouches')}</p>;
+  }
+  const tracked = stats.physical_source === 'synthetic_tracking';
+  const attempted = stats.tackles_attempted ?? stats.tackles_won;
   const rows: [string, string][] = [
     ['fan.stat.touches', num(stats.touches)],
     ['fan.stat.passes', `${num(stats.passes_completed)}/${num(stats.passes)}`],
     ['fan.stat.accuracy', `${num(stats.pass_accuracy)}%`],
     ['fan.stat.keyPasses', num(stats.key_passes)],
     ['fan.stat.shots', num(stats.shots)],
-    ['fan.stat.goals', num(stats.goals)],
-    ['fan.stat.assists', num(stats.assists)],
+    // Null in catch-up mode: the result stays hidden.
+    ['fan.stat.goals', stats.goals == null ? t('catchup.hiddenValue') : num(stats.goals)],
+    ['fan.stat.assists', stats.assists == null ? t('catchup.hiddenValue') : num(stats.assists)],
     ['fan.stat.xg', num(stats.xg, 2)],
     ['fan.stat.xa', num(stats.xa, 2)],
-    ['fan.stat.tackles', num(stats.tackles_won)],
+    stats.tackles_attempted !== undefined
+      ? ['fan.stat.tacklesOf', `${num(stats.tackles_won)}/${num(attempted)}`]
+      : ['fan.stat.tackles', num(stats.tackles_won)],
     ['fan.stat.interceptions', num(stats.interceptions)],
     ['fan.stat.topSpeed', `${num(stats.top_speed_kmh, 1)} ${t('unit.kmh')}`],
     ['fan.stat.sprints', num(stats.sprints)],
-    ['fan.stat.distance', `${num(stats.distance_km, 2)} ${t('unit.km')}`],
   ];
+  const distanceKey = tracked ? 'fan.stat.distanceTracked' : 'fan.stat.distance';
   return (
     <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       {rows.map(([k, v]) => (
-        <div key={k} className={cx('rounded-xl border border-pp-line/60 bg-pp-deep/60 p-2.5', k === 'fan.stat.distance' && 'col-span-2 sm:col-span-3')}>
+        <div key={k} className="rounded-xl border border-pp-line/60 bg-pp-deep/60 p-2.5">
           <dt className="text-[11px] text-pp-mute">{t(k)}</dt>
           <dd className="ltr-nums font-display text-lg font-bold text-white" data-stat={k}>
             {v}
           </dd>
         </div>
       ))}
+      <div className="col-span-2 rounded-xl border border-pp-line/60 bg-pp-deep/60 p-2.5 sm:col-span-3">
+        <dt className="flex flex-wrap items-baseline justify-between gap-x-2 text-[11px] text-pp-mute">
+          <span>{t(distanceKey)}</span>
+          {tracked && (
+            <span className="text-[10px] uppercase tracking-wider text-pp-gold" data-testid="tracking-label">
+              {t('fan.stat.trackingLabel')}
+            </span>
+          )}
+        </dt>
+        <dd className="ltr-nums font-display text-lg font-bold text-white" data-stat="fan.stat.distance">
+          {`${num(stats.distance_km, tracked ? 1 : 2)} ${t('unit.km')}`}
+        </dd>
+        {tracked && (
+          <dd>
+            <SpeedBands stats={stats} />
+          </dd>
+        )}
+      </div>
     </dl>
   );
 };
@@ -211,7 +284,7 @@ const PlayerPicker: React.FC<{ teams: Teams; selected: string | null; onPick: (i
                         >
                           <span
                             className="ltr-nums flex h-6 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-bold"
-                            style={{ background: team.primary_color, color: team.secondary_color }}
+                            style={{ background: team.primary_color, color: inkOn(team.primary_color) }}
                           >
                             {p.number}
                           </span>
@@ -288,7 +361,7 @@ export const PlayerFocus: React.FC<ViewProps> = ({ match, actions }) => {
           <div className="flex flex-wrap items-center gap-3">
             <div
               className="ltr-nums flex h-14 w-14 shrink-0 items-center justify-center rounded-xl font-display text-2xl font-extrabold shadow-inner"
-              style={{ background: color, color: player.team.secondary_color }}
+              style={{ background: color, color: inkOn(color) }}
             >
               {player.number}
             </div>
@@ -312,7 +385,7 @@ export const PlayerFocus: React.FC<ViewProps> = ({ match, actions }) => {
               title={t('fan.follow.playerCamHint')}
               className={cx(
                 'flex min-h-[40px] items-center gap-2 rounded-xl border px-3 text-xs font-bold transition',
-                camOn ? 'border-pp-pulse bg-pp-pulse text-white' : 'border-pp-line bg-pp-night text-slate-200 hover:border-pp-pulse',
+                camOn ? 'border-pp-pulse bg-pp-pulseFill text-white' : 'border-pp-line bg-pp-night text-slate-200 hover:border-pp-pulse',
               )}
             >
               <Video className="h-4 w-4" aria-hidden />
@@ -371,7 +444,7 @@ export const PlayerFocus: React.FC<ViewProps> = ({ match, actions }) => {
               focusPlayerId={focusId}
               zoomOnFocus={zoom}
               showTags
-              pitchTags={activeCards(match.cards, clockS, 'pitch_tag').filter((c) => c.player_ids.includes(focusId))}
+              pitchTags={activeCards(match.cards, clockS, 'pitch_tag', match.cue.ruledOut).filter((c) => c.player_ids.includes(focusId))}
             />
           </div>
         </Panel>

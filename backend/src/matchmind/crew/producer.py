@@ -2,23 +2,33 @@
 
 Deterministic rules:
 - slot by kind (speed and distance tags go on the pitch, replays to the side
-  panel, goals full screen, the rest as lower thirds);
+  panel, goals full screen, the rest, key tackles included, as lower thirds);
 - persona filter (each audience sees the kinds it cares about);
-- the favourite club's moments get +15 priority and `favourite_side`;
+- club heart (crew/club_heart.py): with a favourite club, its moments get
+  +15 priority and `favourite_side`, rival minor moments are dropped and
+  rival build-up ranks a little lower (one policy table, documented in
+  docs/PERSONALISATION.md);
 - moments about the focus player are always kept and boosted;
 - de-duplicated by moment id per viewer;
 - at most one lower third per 8 s of match clock (extra ones move to the
-  side panel, or are dropped when minor).
+  side panel, or are dropped when minor);
+- corrections: a card that rules earlier moments out (`retracts`) is always
+  kept, and a card for a moment already ruled out is never shown, even if it
+  arrives late or twice (out-of-order or repeated delivery).
 Per-viewer memory lives in `ViewerState`, one per connection.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any
 
+from matchmind.crew import club_heart
 from matchmind.crew.contracts import (
     RTL_LANGUAGES,
+    Claim,
     Evidence,
+    Moment,
     MomentBundle,
     MomentKind,
     Narrative,
@@ -28,14 +38,18 @@ from matchmind.crew.contracts import (
 )
 from matchmind.crew.i18n import pack
 
+if TYPE_CHECKING:
+    from matchmind.crew.cues import Cue, CueCompiler
+
 LOWER_THIRD_GAP_S = 8.0
-FAVOURITE_BOOST = 15
+FAVOURITE_BOOST = club_heart.OWN_BOOST
 FOCUS_BOOST = 20
 MINOR_PRIORITY = 50
 SEEN_LIMIT = 5000
 
 SLOT_BY_KIND: dict[MomentKind, Slot] = {
     MomentKind.GOAL: "full_screen",
+    MomentKind.CORRECTION: "full_screen",
     MomentKind.BETTER_OPTION: "side_panel",
     MomentKind.UNFOUND_RUN: "side_panel",
     MomentKind.SPEED_BURST: "pitch_tag",
@@ -62,10 +76,12 @@ PERSONA_KINDS: dict[str, frozenset[MomentKind]] = {
             MomentKind.BETTER_OPTION,
             MomentKind.UNFOUND_RUN,
             MomentKind.ROCKET_SHOT,
+            MomentKind.KEY_TACKLE,
             MomentKind.MILESTONE,
+            MomentKind.CORRECTION,
         }
     ),
-    "player_spotlight": frozenset({MomentKind.GOAL, MomentKind.MILESTONE}),
+    "player_spotlight": frozenset({MomentKind.GOAL, MomentKind.MILESTONE, MomentKind.CORRECTION}),
 }
 ALWAYS_SHOW_PRIORITY = 80  # big moments reach every audience
 
@@ -78,11 +94,35 @@ class ViewerState:
     seen: dict[str, None] = field(default_factory=dict)
     metric_baseline: dict[str, float] = field(default_factory=dict)
     last_metric_alert: dict[str, tuple[int, float]] = field(default_factory=dict)
+    ruled_out: dict[str, None] = field(default_factory=dict)  # moment ids a correction retracted
+    cues: CueCompiler | None = None  # this viewer's cue sheet, from where they joined
+    cue_active: list[Cue] | None = None  # what was on air when the sheet was (re)started, sent once
+    # Catch-up only: card payloads of a withheld tick (VAR review, kick-off), sent with the next
+    # tick, which may be played in a later step. A new state (seek, reset, set_view) drops them.
+    held_cards: list[dict[str, Any]] = field(default_factory=list)
+
+    def fork(self) -> ViewerState:
+        """An independent copy (a new viewer joining at a compiled position)."""
+        return ViewerState(
+            last_lower_third_s=self.last_lower_third_s,
+            seen=dict(self.seen),
+            metric_baseline=dict(self.metric_baseline),
+            last_metric_alert=dict(self.last_metric_alert),
+            ruled_out=dict(self.ruled_out),
+            cues=self.cues.fork() if self.cues is not None else None,
+            cue_active=list(self.cue_active) if self.cue_active is not None else None,
+        )
 
     def remember(self, moment_id: str) -> None:
         self.seen[moment_id] = None
         while len(self.seen) > SEEN_LIMIT:
             self.seen.pop(next(iter(self.seen)))
+
+    def rule_out(self, moment_ids: list[str]) -> None:
+        for mid in moment_ids:
+            self.ruled_out[mid] = None
+        while len(self.ruled_out) > SEEN_LIMIT:
+            self.ruled_out.pop(next(iter(self.ruled_out)))
 
     def reset(self) -> None:
         self.__init__()  # type: ignore[misc]
@@ -92,6 +132,14 @@ def favourite_side(team: str | None, profile: ViewerProfile) -> bool | None:
     if not profile.favourite_team or team is None:
         return None
     return team == profile.favourite_team
+
+
+def card_priority(moment: Moment, profile: ViewerProfile) -> int:
+    """The moment's priority for this viewer: club heart, then the focus player."""
+    priority = moment.priority + club_heart.boost(moment.kind, moment.team, profile.favourite_team)
+    if profile.focus_player_id and profile.focus_player_id in moment.player_ids:
+        priority += FOCUS_BOOST
+    return max(0, min(100, priority))
 
 
 def localise_evidence(items: list[Evidence], language: str) -> list[Evidence]:
@@ -116,15 +164,12 @@ def build_card(
     profile: ViewerProfile,
     slot: Slot | None = None,
     evidence: list[Evidence] | None = None,
+    claims: list[Claim] | None = None,
 ) -> OverlayCard:
     m = bundle.moment
     chosen: Slot = slot or SLOT_BY_KIND.get(m.kind, "lower_third")
-    priority = m.priority
+    priority = card_priority(m, profile)
     fav = favourite_side(m.team, profile)
-    if fav:
-        priority += FAVOURITE_BOOST
-    if profile.focus_player_id and profile.focus_player_id in m.player_ids:
-        priority += FOCUS_BOOST
     produced_by = (
         "ai" if narrative.produced_by == "ai" and bundle.explanation.produced_by == "ai" else "template"
     )
@@ -134,7 +179,7 @@ def build_card(
         moment_id=m.moment_id,
         kind=m.kind,
         slot=chosen,
-        priority=min(100, priority),
+        priority=priority,
         show_at_s=m.clock_s,
         duration_s=DURATION_S[chosen],
         persona=profile.persona,
@@ -148,11 +193,14 @@ def build_card(
             evidence if evidence is not None else bundle.explanation.evidence, profile.language
         ),
         player_ids=list(m.player_ids),
+        players=[p.model_copy() for p in m.players],
         team=m.team,
         favourite_side=fav,
         produced_by=produced_by,
         fallback_reason=reason,
         replay=bundle.replay,
+        retracts=list(m.retracts),
+        claims=list(claims or []),
     )
 
 
@@ -161,6 +209,8 @@ def wanted(card: OverlayCard, profile: ViewerProfile) -> bool:
         return True
     if card.slot == "metric_alert":
         return True
+    if not club_heart.keeps(card.kind, card.team, profile.favourite_team):
+        return False
     persona = profile.persona
     if persona == "player_spotlight" and not profile.focus_player_id:
         persona = "casual"
@@ -173,9 +223,14 @@ def select(cards: list[OverlayCard], profile: ViewerProfile, state: ViewerState)
     """Filter, de-duplicate and time cards for one viewer; highest priority first."""
     out: list[OverlayCard] = []
     batch: set[str] = set()
+    for card in cards:
+        if card.retracts:
+            state.rule_out(card.retracts)
     for card in sorted(cards, key=lambda c: (-c.priority, c.show_at_s, c.card_id)):
         key = card.moment_id
-        if key in state.seen or key in batch or not wanted(card, profile):
+        if key in state.seen or key in batch or key in state.ruled_out:
+            continue
+        if not card.retracts and not wanted(card, profile):
             continue
         if card.slot == "lower_third":
             last = state.last_lower_third_s

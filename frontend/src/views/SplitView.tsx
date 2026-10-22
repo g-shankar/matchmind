@@ -5,9 +5,12 @@ import { UI_LANGUAGES, useI18n, type UiLanguage } from '../i18n';
 import { Pitch2D } from '../components/Pitch2D';
 import { ReplayCard } from '../components/ReplayCard';
 import { EvidenceTable, KIND_ICON, ProducedBadge, cardClock } from '../components/NarrativeFeed';
-import { Badge, Panel, cx } from '../components/ui';
+import { textLanguage } from '../lib/languages';
+import { Badge, Panel, Segmented, cx } from '../components/ui';
+import { ClubColumn, NumbersVerdict } from '../components/ClubHeart';
 import { compareMoments } from '../components/MomentsList';
 import type { ViewProps } from './types';
+import { tagLabel } from '../lib/labels';
 
 const STORY_SLOTS = new Set<OverlayCard['slot']>(['lower_third', 'side_panel', 'full_screen']);
 
@@ -15,12 +18,20 @@ type Load =
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'error' }
-  | { status: 'ready'; casual: OverlayCard | null; tactical: OverlayCard | null; others: { lang: UiLanguage; card: OverlayCard | null }[] };
+  | { status: 'ready'; casual: OverlayCard | null; tactical: OverlayCard | null; others: { lang: UiLanguage; card: OverlayCard | null }[] }
+  | { status: 'clubs'; home: OverlayCard | null; away: OverlayCard | null };
+
+/** Fan vs analyst (two audiences), or one fan of each club (two club hearts). */
+export type Compare = 'persona' | 'clubs';
 
 export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
   const { t } = useI18n();
   const [picked, setPicked] = useState<string | null>(null);
   const [load, setLoad] = useState<Load>({ status: 'idle' });
+  const [compare, setCompare] = useState<Compare>('persona');
+  const homeId = match.teams?.home.team_id ?? null;
+  const awayId = match.teams?.away.team_id ?? null;
+  const heartPersona: PersonaType = match.profile.persona === 'player_spotlight' ? 'casual' : match.profile.persona;
   const getMoment = useRef(actions.getMoment);
   getMoment.current = actions.getMoment;
 
@@ -34,7 +45,19 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
     () => match.bookmarks.filter((b) => compareMoments(b, now) <= 0).sort((a, b) => compareMoments(b, a)),
     [match.bookmarks, now.clock_s, now.period],
   );
-  const momentId = picked ?? latest?.moment_id ?? null;
+  // Opens on the newest moment worth comparing: a kick-off or half-time milestone says the
+  // same thing to everyone, so a story moment (or the newest bookmark) comes first.
+  const latestStory = useMemo(() => {
+    for (let i = match.cards.length - 1; i >= 0; i--) {
+      const c = match.cards[i];
+      if (STORY_SLOTS.has(c.slot) && c.kind !== 'milestone') return c;
+    }
+    return null;
+  }, [match.cards]);
+  const latestBookmark = played.find((b) => b.kind !== 'milestone') ?? null;
+  const autoId = latestStory?.moment_id ?? latestBookmark?.moment_id ?? latest?.moment_id ?? null;
+  const autoBookmark = autoId ? match.bookmarks.find((b) => b.moment_id === autoId) ?? null : null;
+  const momentId = picked ?? latestStory?.moment_id ?? latestBookmark?.moment_id ?? latest?.moment_id ?? null;
 
   useEffect(() => {
     if (!momentId) {
@@ -44,6 +67,20 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
     let live = true;
     setLoad({ status: 'loading' });
     const get = (persona: PersonaType, l: string) => getMoment.current(momentId, persona, l as typeof lang).catch(() => null);
+    if (compare === 'clubs') {
+      // Same moment, same audience and language: only the club in the viewer's heart changes.
+      const forClub = (club: string | null) => getMoment.current(momentId, heartPersona, lang, club).catch(() => null);
+      Promise.all([forClub(homeId), forClub(awayId)])
+        .then(([home, away]) => {
+          if (!live) return;
+          if (!home && !away) return setLoad({ status: 'error' });
+          setLoad({ status: 'clubs', home, away });
+        })
+        .catch(() => live && setLoad({ status: 'error' }));
+      return () => {
+        live = false;
+      };
+    }
     const otherLangs = UI_LANGUAGES.filter((l) => l !== lang);
     Promise.all([get('casual', lang), get('tactical', lang), Promise.all(otherLangs.map((l) => get('casual', l)))])
       .then(([casual, tactical, others]) => {
@@ -55,28 +92,30 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
     return () => {
       live = false;
     };
-  }, [momentId, lang]);
+  }, [momentId, lang, compare, homeId, awayId, heartPersona]);
 
   const ready = load.status === 'ready' ? load : null;
-  const base = ready?.casual ?? ready?.tactical ?? null;
+  const clubs = load.status === 'clubs' ? load : null;
+  const base = ready?.casual ?? ready?.tactical ?? clubs?.home ?? clubs?.away ?? null;
   const sourceId = base?.evidence.find((e) => e.source_event_id)?.source_event_id ?? null;
   const sourceEvent = sourceId ? match.events.find((e) => e.event_id === sourceId) ?? null : null;
   const clock = base ? cardClock(base, match) : null;
 
   return (
     <div className="space-y-4">
-      <Panel
-        title={t('studio.split.title')}
-        actions={
-          (played.length > 0 || latest) && (
-            <label className="flex items-center gap-2 text-xs text-pp-mute">
+      <Panel title={t('studio.split.title')}>
+        {(played.length > 0 || latest) && (
+            <label className="mb-3 flex min-w-0 flex-wrap items-center gap-2 text-xs text-pp-mute">
               <span className="font-semibold">{t('studio.split.pick')}</span>
               <select
                 value={picked ?? ''}
                 onChange={(e) => setPicked(e.target.value || null)}
-                className="min-h-[34px] max-w-[60vw] rounded-lg border border-pp-line bg-pp-deep px-2 text-xs text-white sm:max-w-xs"
+                className="min-h-[44px] w-full min-w-0 max-w-full rounded-lg border border-pp-line bg-pp-deep px-2 text-xs text-white sm:w-auto sm:max-w-md"
               >
-                <option value="">{t('studio.split.latest')}</option>
+                <option value="">
+                  {t('studio.split.latest')}
+                  {autoBookmark ? ` (${autoBookmark.match_clock} · ${autoBookmark.title})` : ''}
+                </option>
                 {played.map((b) => (
                   <option key={b.moment_id} value={b.moment_id}>
                     {b.match_clock} · {b.title}
@@ -84,10 +123,23 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
                 ))}
               </select>
             </label>
-          )
-        }
-      >
-        <p className="text-sm text-pp-mute">{t('studio.split.subtitle')}</p>
+        )}
+        <p className="text-sm text-pp-mute">{t(compare === 'clubs' ? 'heart.subtitle' : 'studio.split.subtitle')}</p>
+        {match.teams && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-pp-mute">
+            <span className="font-semibold">{t('heart.compare')}</span>
+            <Segmented
+              label={t('heart.compare')}
+              value={compare}
+              onChange={setCompare}
+              className="[&>button]:min-h-[44px]"
+              options={[
+                { value: 'persona' as const, label: t('heart.option.persona') },
+                { value: 'clubs' as const, label: t('heart.option.clubs', { home: match.teams.home.short_name, away: match.teams.away.short_name }) },
+              ]}
+            />
+          </div>
+        )}
       </Panel>
 
       {!momentId ? (
@@ -102,7 +154,7 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
         </Panel>
       ) : (
         <>
-          {ready && base && (
+          {(ready || clubs) && base && (
             <div className="rounded-2xl border border-pp-line/70 bg-pp-panel/60 p-3">
               <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
                 <Badge tone="gold">
@@ -124,11 +176,23 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
             </div>
           )}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <VoiceColumn persona="casual" card={ready?.casual ?? null} loading={!ready} />
-            <VoiceColumn persona="tactical" card={ready?.tactical ?? null} loading={!ready} />
-          </div>
+          {compare === 'clubs' && match.teams ? (
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                <ClubColumn team={match.teams.home} card={clubs?.home ?? null} other={clubs?.away ?? null} loading={!clubs} />
+                <ClubColumn team={match.teams.away} card={clubs?.away ?? null} other={clubs?.home ?? null} loading={!clubs} />
+              </div>
+              {clubs && <NumbersVerdict a={clubs.home} b={clubs.away} />}
+              {match.status === 'demo' && <p className="text-xs text-pp-mute">{t('heart.demoNote')}</p>}
+            </>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              <VoiceColumn persona="casual" card={ready?.casual ?? null} loading={!ready} />
+              <VoiceColumn persona="tactical" card={ready?.tactical ?? null} loading={!ready} />
+            </div>
+          )}
 
+          {compare === 'persona' && (
           <Panel
             title={
               <span className="flex items-center gap-2">
@@ -148,7 +212,7 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
                   <span className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-pp-mute">{t(`lang.${o.lang}`)}</span>
                   {!ready ? (
                     <Skeleton lines={1} />
-                  ) : o.card && o.card.language === o.lang ? (
+                  ) : o.card && textLanguage(o.card) === o.lang ? (
                     <span className="font-display text-sm font-semibold text-white">{o.card.headline}</span>
                   ) : (
                     <span className="text-xs text-pp-mute">{t('studio.split.missing')}</span>
@@ -157,6 +221,7 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
               ))}
             </ul>
           </Panel>
+          )}
         </>
       )}
     </div>
@@ -198,7 +263,7 @@ const VoiceColumn: React.FC<{ persona: 'casual' | 'tactical'; card: OverlayCard 
       ) : !card ? (
         <p className="text-sm text-pp-mute">{t('studio.split.missing')}</p>
       ) : (
-        <div dir={card.rtl ? 'rtl' : 'ltr'} lang={card.language}>
+        <div dir={card.rtl ? 'rtl' : 'ltr'} lang={textLanguage(card)}>
           <h3 className="font-display text-xl font-bold leading-tight text-white">{card.headline}</h3>
           {card.body && <p className="mt-2 text-sm leading-relaxed text-slate-200">{card.body}</p>}
           {card.why && (
@@ -209,7 +274,7 @@ const VoiceColumn: React.FC<{ persona: 'casual' | 'tactical'; card: OverlayCard 
           )}
           {card.tactical_tag && (
             <span className="mt-3 inline-block rounded-md border border-pp-line bg-pp-night px-2 py-0.5 text-[11px] font-semibold text-pp-mute">
-              #{card.tactical_tag}
+              <bdi>#{tagLabel(t, card.tactical_tag)}</bdi>
             </span>
           )}
           {persona === 'tactical' && card.evidence.length > 0 && (

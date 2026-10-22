@@ -50,6 +50,11 @@ class FakeStats:
         self._changed = []
         if event.type == "shot" and event.outcome == "goal" and event.team:
             self.score[event.team] += 1
+            self._goals = getattr(self, "_goals", {}) | {event.event_id: event.team}
+        if event.type == "var_review" and event.outcome == "overturned":
+            team = getattr(self, "_goals", {}).pop(event.reviewed_event_id, None)
+            if team is not None:
+                self.score[team] -= 1
         if event.player_id and event.team:
             p = self._players.setdefault(
                 event.player_id, PlayerStats(player_id=event.player_id, team=event.team)
@@ -115,6 +120,28 @@ class FakeCrew:
 
     def process(self, event, metrics, snapshot, players) -> list[MomentBundle]:
         self.process_calls += 1
+        if event.type == "var_review" and event.outcome == "overturned":
+            moment = Moment(
+                moment_id=f"correction-{event.event_id}",
+                kind=MomentKind.CORRECTION,
+                clock_s=event.clock_s,
+                match_clock=event.match_clock,
+                period=event.period,
+                team=event.team,
+                player_ids=[event.player_id] if event.player_id else [],
+                facts={"score_home": snapshot.score_home, "score_away": snapshot.score_away},
+                source_event_ids=[event.event_id, event.reviewed_event_id],
+                priority=95,
+                retracts=[f"goal-{event.reviewed_event_id}"],
+            )
+            expl = Explanation(
+                moment_id=moment.moment_id,
+                why="VAR",
+                tactical_tag="officiating",
+                produced_by="template",
+                evidence=[],
+            )
+            return [MomentBundle(moment=moment, explanation=expl)]
         if not (event.type == "shot" and event.outcome == "goal"):
             return []
         moment = Moment(
@@ -125,7 +152,7 @@ class FakeCrew:
             period=event.period,
             team=event.team,
             player_ids=[event.player_id],
-            facts={"score_home": snapshot.score_home},
+            facts={"score_home": snapshot.score_home, "score_away": snapshot.score_away},
             source_event_ids=[event.event_id],
             priority=90,
         )
@@ -144,7 +171,7 @@ class FakeCrew:
             card_id=f"{m.moment_id}-{profile.persona}-{profile.language}",
             moment_id=m.moment_id,
             kind=m.kind,
-            slot="lower_third",
+            slot="full_screen" if m.kind == MomentKind.CORRECTION else "lower_third",
             priority=m.priority,
             show_at_s=m.clock_s,
             duration_s=8,
@@ -160,10 +187,13 @@ class FakeCrew:
             team=m.team,
             favourite_side=(m.team == profile.favourite_team) if profile.favourite_team else None,
             produced_by="template",
+            retracts=list(m.retracts),
         )
 
     def cards_for(self, bundles, profile, state) -> list[OverlayCard]:
-        return [c for b in bundles if (c := self.render(b, profile)) is not None]
+        from matchmind.crew.producer import select
+
+        return select([c for b in bundles if (c := self.render(b, profile)) is not None], profile, state)
 
     def metric_alerts(self, event, metrics, snapshot, players, profile, state) -> list[OverlayCard]:
         return []
@@ -186,6 +216,12 @@ class FakeCrew:
             generated_at_clock=snapshot.match_clock,
             produced_by="template",
             fact_check=FactCheck(ok=True),
+        )
+
+    def translate_recap(self, english, moments, profile, snapshot) -> Recap:
+        self.translate_calls = getattr(self, "translate_calls", 0) + 1
+        return english.model_copy(
+            update={"language": profile.language, "text_language": "en", "fallback_reason": "translator_off"}
         )
 
     def status(self) -> CrewStatus:
@@ -260,8 +296,48 @@ def session(clock: FakeClock) -> MatchSession:
 
 
 @pytest.fixture(autouse=True)
+def _suite_speed(monkeypatch):
+    """The suite's timings were written for 10x playback; the shipped default is 1x
+    (tests/test_first_visit.py checks that default with this setting removed)."""
+    monkeypatch.setenv("MATCHMIND_DEFAULT_SPEED", "10")
+
+
+@pytest.fixture(autouse=True)
 def _fresh_model_budget(monkeypatch):
     """Each test gets its own process-wide model budget, so tests never share spend."""
     from matchmind.crew import llm
 
     monkeypatch.setattr(llm, "BUDGET", llm.ModelBudget(total=10_000, per_minute=10_000))
+
+
+@pytest.fixture(autouse=True)
+def _fresh_ask_model_limits(monkeypatch):
+    """Ask's own model budget, per-client quota and question cache start empty in every
+    test and are generous, so model-path tests never share spend or cached guesses.
+    Tests of those limits install their own."""
+    from matchmind.ask import model
+
+    monkeypatch.setattr(model, "ASK_BUDGET", llm_budget(10_000))
+    monkeypatch.setattr(model, "ASK_QUOTA", model.ClientQuota(per_window=10_000))
+    monkeypatch.setattr(model, "ASK_CACHE", model.GuessCache(size=0))
+
+
+def llm_budget(n: int):
+    from matchmind.crew import llm
+
+    return llm.ModelBudget(total=n, per_minute=n)
+
+
+@pytest.fixture(autouse=True)
+def _fresh_translator_state(monkeypatch):
+    """Each test gets its own translation budget and cache, and the paid switches off."""
+    from matchmind.crew import translator
+
+    monkeypatch.setattr(
+        translator, "BUDGET", translator.CharacterBudget(total=1_000_000, per_minute=1_000_000)
+    )
+    monkeypatch.setattr(translator, "CACHE", translator.TranslationCache())
+    monkeypatch.delenv("MATCHMIND_TRANSLATOR_ENABLED", raising=False)
+    monkeypatch.delenv("MATCHMIND_AI_ENABLED", raising=False)
+    monkeypatch.delenv("MATCHMIND_LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("MATCHMIND_ORCHESTRATOR", raising=False)

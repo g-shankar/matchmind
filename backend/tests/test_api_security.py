@@ -70,13 +70,16 @@ def test_ws_seek_burst_runs_once_and_playback_goes_on(client, clock):
 def test_rest_seek_burst_gets_429_and_shares_the_throttle_with_ws(client, clock):
     codes = [client.post("/api/match/seek", json={"clock_s": 30}).status_code for _ in range(50)]
     assert codes.count(200) == 1 and codes.count(429) == 49
-    assert client.post("/api/match/reset").status_code == 429  # same window, other route
+    assert client.post("/api/match/reset", json={}).status_code == 429  # same window, other route
     with client.websocket_connect("/ws/match") as ws:
         ws.receive_json()
         ws.send_json({"action": "reset"})
-        assert ws.receive_json() == {"type": "ERROR", "data": {"message": app_mod.TOO_FAST}}
+        assert ws.receive_json() == {
+            "type": "ERROR",
+            "data": {"message": app_mod.TOO_FAST, "code": "jump_too_fast"},
+        }
     clock.t += app_mod.JUMP_INTERVAL_S
-    assert client.post("/api/match/reset").status_code == 200
+    assert client.post("/api/match/reset", json={}).status_code == 200
 
 
 def test_post_routes_are_limited_per_ip(client, clock):
@@ -88,6 +91,62 @@ def test_post_routes_are_limited_per_ip(client, clock):
     assert client.get("/api/match/players").status_code == 200  # reads are not limited
     clock.t += 1
     assert client.post("/api/match/speed", json={"speed_multiplier": 10}).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "path", ["/api/match/moment/goal-MM-TEST-001-00007?lang=pt", "/api/match/recap?lang=pt"]
+)
+def test_routes_that_can_call_the_translator_are_limited_per_ip(client, clock, path):
+    # Moments and recaps in a world language may spend Translator characters: an
+    # anonymous caller must not be able to drain the budget by looping on them.
+    codes = [client.get(path).status_code for _ in range(app_mod.GET_BURST + 5)]
+    assert codes[: app_mod.GET_BURST] == [200] * app_mod.GET_BURST
+    assert set(codes[app_mod.GET_BURST :]) == {429}
+    assert client.get(path).json() == {"detail": app_mod.TOO_MANY}
+    assert client.post("/api/match/speed", json={"speed_multiplier": 10}).status_code == 200  # own bucket
+    clock.t += 1
+    assert client.get(path).status_code == 200
+
+
+def test_spoofed_forwarded_for_does_not_buy_a_fresh_bucket(client, clock, monkeypatch):
+    # Behind the ingress the real caller is the last X-Forwarded-For entry; a caller
+    # rotating the entries to its left must still share one bucket.
+    monkeypatch.setattr(app_mod, "TRUST_FORWARDED_FOR", True)
+    codes = [
+        client.get(
+            "/api/match/recap?lang=pt", headers={"X-Forwarded-For": f"10.0.0.{i}, 203.0.113.9"}
+        ).status_code
+        for i in range(app_mod.GET_BURST + 10)
+    ]
+    assert codes[: app_mod.GET_BURST] == [200] * app_mod.GET_BURST
+    assert set(codes[app_mod.GET_BURST :]) == {429}
+    other = client.get("/api/match/recap?lang=pt", headers={"X-Forwarded-For": "203.0.113.10"})
+    assert other.status_code == 200  # a different real caller has its own bucket
+
+
+def test_world_language_recap_is_translated_without_the_crew_lock(client):
+    hub = client.app.state.hub
+    seen: list[bool] = []
+    crew = hub.session.crew
+    original = crew.translate_recap
+
+    def watch(*args, **kwargs):
+        seen.append(hub._crew_lock.locked())
+        return original(*args, **kwargs)
+
+    crew.translate_recap = watch
+    r = client.get("/api/match/recap?lang=hi&persona=tactical")
+    assert r.status_code == 200 and r.json()["language"] == "hi"
+    assert seen == [False]  # a slow Translator never holds up playback
+    assert client.get("/api/match/recap?lang=es").json()["language"] == "es"  # studio path unchanged
+    assert seen == [False]
+
+
+def test_public_payloads_carry_no_translator_spend_counters(client):
+    public = {"mode", "available", "breaker_open", "cache_hits", "translated", "fallbacks", "rejections"}
+    assert set(client.get("/api/languages").json()["translator"]) == public
+    assert set(client.get("/api/crew/status").json()["translator"]) == public
+    assert set(client.get("/api/match/snapshot").json()["crew"]["translator"]) == public
 
 
 # --- send queue ---------------------------------------------------------------------------------
@@ -217,3 +276,28 @@ def test_slow_crew_work_does_not_block_playback_controls(clock):
         assert playback["speed_multiplier"] == 1 and players
 
     asyncio.run(main())
+
+
+@pytest.mark.parametrize("route", ["/api/match/reset", "/api/match/seek", "/api/match/speed"])
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {"Content-Type": "application/x-www-form-urlencoded"},  # a plain cross-site form
+        {"Content-Type": "text/plain"},
+        {"Content-Type": "multipart/form-data; boundary=x"},
+        {},
+    ],
+)
+def test_state_changing_posts_need_json(client, clock, route, headers):
+    """A cross-site form can post without a CORS preflight; only JSON needs one."""
+    before = client.get("/api/match/snapshot").json()["playback"]
+    r = client.post(route, content=b'{"clock_s": 30, "speed_multiplier": 10}', headers=headers)
+    assert r.status_code == 415 and r.json() == {"detail": app_mod.JSON_ONLY}
+    assert client.get("/api/match/snapshot").json()["playback"] == before
+
+
+def test_reset_with_json_still_works(client, clock):
+    assert client.post("/api/match/reset", json={}).status_code == 200
+    clock.t += app_mod.JUMP_INTERVAL_S
+    r = client.post("/api/match/reset", headers={"Content-Type": "application/json; charset=utf-8"})
+    assert r.status_code == 200

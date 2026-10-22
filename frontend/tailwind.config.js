@@ -52,7 +52,10 @@ export default {
           line: '#34332d',
           mute: '#a19c8f',
           chalk: '#f2efe8',
-          pulse: '#ff3b2f',
+          // Nudged from #ff3b2f so red text also reads at 4.5:1 on the raised panel.
+          pulse: '#ff3e32',
+          // Deeper red for filled buttons, the active tab and tags carrying white text (5.3:1).
+          pulseFill: '#d0261c',
           pulseSoft: '#ff8a80',
           signal: '#ffd400',
           gold: '#ff9f1c',
@@ -70,6 +73,9 @@ export default {
         'slide-up': 'wipeIn 0.35s cubic-bezier(0.2, 0.9, 0.2, 1) forwards',
         'draw-line': 'drawLine 1.2s ease-out forwards',
         heartbeat: 'heartbeat 1.6s ease-in-out infinite',
+        'retract-out': 'retractOut 1.4s ease-in forwards',
+        'stamp-in': 'stampIn 0.45s cubic-bezier(0.2, 0.9, 0.2, 1) forwards',
+        'score-flash': 'scoreFlash 1.2s ease-out 2',
       },
       keyframes: {
         fadeIn: { '0%': { opacity: '0' }, '100%': { opacity: '1' } },
@@ -78,6 +84,19 @@ export default {
           '100%': { clipPath: 'inset(0 0 0 0)', opacity: '1' },
         },
         drawLine: { '0%': { strokeDashoffset: '120' }, '100%': { strokeDashoffset: '0' } },
+        retractOut: {
+          '0%': { opacity: '1', transform: 'none', filter: 'none' },
+          '35%': { opacity: '1', transform: 'none', filter: 'grayscale(1)' },
+          '100%': { opacity: '0', transform: 'translateY(6%) scale(0.96)', filter: 'grayscale(1)', visibility: 'hidden' },
+        },
+        stampIn: {
+          '0%': { opacity: '0', transform: 'scale(1.35) rotate(-4deg)' },
+          '100%': { opacity: '1', transform: 'scale(1) rotate(-2deg)' },
+        },
+        scoreFlash: {
+          '0%, 100%': { backgroundColor: 'rgba(34,34,30,1)' },
+          '40%': { backgroundColor: 'rgba(208,38,28,0.9)' },
+        },
         heartbeat: {
           '0%, 100%': { transform: 'scale(1)', opacity: '1' },
           '15%': { transform: 'scale(1.35)', opacity: '0.8' },

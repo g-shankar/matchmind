@@ -1,0 +1,264 @@
+// PitchPulse: Fabric Real-Time Intelligence (Eventhouse) / Azure Data Explorer
+//
+// STATUS: Not connected yet. This file has not been run against a live Eventhouse; no capacity,
+// Eventstream or Event Hubs data connection exists for PitchPulse yet. See README.md in this
+// folder for the owner-run steps.
+//
+// Two tables, two feeds:
+//   MatchEvents          the raw Event Hubs `match-events` stream (the simulator's JSON, one event per
+//                        message, schema 1.0 from backend/src/matchmind/schema/events.py). Live today
+//                        on the producer side: `matchmind-sim live --sink eventhub`.
+//   MatchEventsEnriched  the same events plus the stats engine's numbers (xG, pressure index, ...).
+//                        The columns are the `events` table of the Lakehouse export. File shape:
+//                        `matchmind-lakehouse enrich`. A live enriched stream (stats engine -> a second
+//                        event hub) is planned, not built.
+// Numbers come from the stats engine. The queries below only count, sum or take the latest value.
+// `labels` (simulator ground truth for evaluation) is deliberately not ingested.
+// Run each block on its own (the Eventhouse query editor splits blocks at blank lines).
+
+// ---------------------------------------------------------------- 1. tables and mappings
+
+.create-merge table MatchEvents (
+    schema_version: string,
+    event_id: string,
+    match_id: string,
+    seq: long,
+    ts: datetime,
+    period: long,
+    clock_s: real,
+    match_clock: string,
+    type: string,
+    team: string,
+    player_id: string,
+    receiver_id: string,
+    possession_id: long,
+    start_x: real,
+    start_y: real,
+    end_x: real,
+    end_y: real,
+    outcome: string,
+    ball_speed_mps: real,
+    player_speed_mps: real,
+    under_pressure: bool,
+    pressure_players: dynamic,
+    body_part: string,
+    freeze_frame: dynamic,
+    tracking: dynamic,
+    lineups: dynamic,
+    reviewed_event_id: string,
+    review_reason: string,
+    details: dynamic
+)
+
+.create-or-alter table MatchEvents ingestion json mapping "MatchEventsMapping"
+```
+[
+  {"column":"schema_version","datatype":"string","Properties":{"Path":"$.schema_version"}},
+  {"column":"event_id","datatype":"string","Properties":{"Path":"$.event_id"}},
+  {"column":"match_id","datatype":"string","Properties":{"Path":"$.match_id"}},
+  {"column":"seq","datatype":"long","Properties":{"Path":"$.seq"}},
+  {"column":"ts","datatype":"datetime","Properties":{"Path":"$.ts"}},
+  {"column":"period","datatype":"long","Properties":{"Path":"$.period"}},
+  {"column":"clock_s","datatype":"real","Properties":{"Path":"$.clock_s"}},
+  {"column":"match_clock","datatype":"string","Properties":{"Path":"$.match_clock"}},
+  {"column":"type","datatype":"string","Properties":{"Path":"$.type"}},
+  {"column":"team","datatype":"string","Properties":{"Path":"$.team"}},
+  {"column":"player_id","datatype":"string","Properties":{"Path":"$.player_id"}},
+  {"column":"receiver_id","datatype":"string","Properties":{"Path":"$.receiver_id"}},
+  {"column":"possession_id","datatype":"long","Properties":{"Path":"$.possession_id"}},
+  {"column":"start_x","datatype":"real","Properties":{"Path":"$.start.x"}},
+  {"column":"start_y","datatype":"real","Properties":{"Path":"$.start.y"}},
+  {"column":"end_x","datatype":"real","Properties":{"Path":"$.end.x"}},
+  {"column":"end_y","datatype":"real","Properties":{"Path":"$.end.y"}},
+  {"column":"outcome","datatype":"string","Properties":{"Path":"$.outcome"}},
+  {"column":"ball_speed_mps","datatype":"real","Properties":{"Path":"$.ball_speed_mps"}},
+  {"column":"player_speed_mps","datatype":"real","Properties":{"Path":"$.player_speed_mps"}},
+  {"column":"under_pressure","datatype":"bool","Properties":{"Path":"$.under_pressure"}},
+  {"column":"pressure_players","datatype":"dynamic","Properties":{"Path":"$.pressure_players"}},
+  {"column":"body_part","datatype":"string","Properties":{"Path":"$.body_part"}},
+  {"column":"freeze_frame","datatype":"dynamic","Properties":{"Path":"$.freeze_frame"}},
+  {"column":"tracking","datatype":"dynamic","Properties":{"Path":"$.tracking"}},
+  {"column":"lineups","datatype":"dynamic","Properties":{"Path":"$.lineups"}},
+  {"column":"reviewed_event_id","datatype":"string","Properties":{"Path":"$.reviewed_event_id"}},
+  {"column":"review_reason","datatype":"string","Properties":{"Path":"$.review_reason"}},
+  {"column":"details","datatype":"dynamic","Properties":{"Path":"$.details"}}
+]
+```
+
+.create-merge table MatchEventsEnriched (
+    match_id: string,
+    event_id: string,
+    seq: long,
+    ts: datetime,
+    period: long,
+    clock_s: real,
+    match_clock: string,
+    minute: long,
+    five_min_bucket: long,
+    type: string,
+    team_id: string,
+    opponent_id: string,
+    is_home: bool,
+    player_id: string,
+    receiver_id: string,
+    possession_id: long,
+    start_x: real,
+    start_y: real,
+    end_x: real,
+    end_y: real,
+    att_start_x: real,
+    att_start_y: real,
+    outcome: string,
+    body_part: string,
+    ball_speed_mps: real,
+    player_speed_mps: real,
+    under_pressure: bool,
+    pressure_count: long,
+    pass_type: string,
+    details_json: string,
+    truth_labels: string,
+    pitch_zone: string,
+    pass_distance_m: real,
+    pass_difficulty: long,
+    progressive: bool,
+    forward_m: real,
+    ball_speed_kmh: real,
+    player_speed_kmh: real,
+    sprint: bool,
+    fast_shot: bool,
+    xg: real,
+    distance_to_goal_m: real,
+    xt_delta: real,
+    has_better_option: bool,
+    has_unfound_run: bool,
+    score_home: long,
+    score_away: long,
+    xg_home: real,
+    xg_away: real,
+    shots_home: long,
+    shots_away: long,
+    momentum: real,
+    pressure_home: real,
+    pressure_away: real,
+    possession_home_pct: real,
+    control_chaos: real,
+    tempo: string
+)
+
+.create-or-alter table MatchEventsEnriched ingestion json mapping "MatchEventsEnrichedMapping"
+```
+[
+  {"column":"match_id","datatype":"string","Properties":{"Path":"$.match_id"}},
+  {"column":"event_id","datatype":"string","Properties":{"Path":"$.event_id"}},
+  {"column":"seq","datatype":"long","Properties":{"Path":"$.seq"}},
+  {"column":"ts","datatype":"datetime","Properties":{"Path":"$.ts"}},
+  {"column":"period","datatype":"long","Properties":{"Path":"$.period"}},
+  {"column":"clock_s","datatype":"real","Properties":{"Path":"$.clock_s"}},
+  {"column":"match_clock","datatype":"string","Properties":{"Path":"$.match_clock"}},
+  {"column":"minute","datatype":"long","Properties":{"Path":"$.minute"}},
+  {"column":"five_min_bucket","datatype":"long","Properties":{"Path":"$.five_min_bucket"}},
+  {"column":"type","datatype":"string","Properties":{"Path":"$.type"}},
+  {"column":"team_id","datatype":"string","Properties":{"Path":"$.team_id"}},
+  {"column":"opponent_id","datatype":"string","Properties":{"Path":"$.opponent_id"}},
+  {"column":"is_home","datatype":"bool","Properties":{"Path":"$.is_home"}},
+  {"column":"player_id","datatype":"string","Properties":{"Path":"$.player_id"}},
+  {"column":"receiver_id","datatype":"string","Properties":{"Path":"$.receiver_id"}},
+  {"column":"possession_id","datatype":"long","Properties":{"Path":"$.possession_id"}},
+  {"column":"start_x","datatype":"real","Properties":{"Path":"$.start_x"}},
+  {"column":"start_y","datatype":"real","Properties":{"Path":"$.start_y"}},
+  {"column":"end_x","datatype":"real","Properties":{"Path":"$.end_x"}},
+  {"column":"end_y","datatype":"real","Properties":{"Path":"$.end_y"}},
+  {"column":"att_start_x","datatype":"real","Properties":{"Path":"$.att_start_x"}},
+  {"column":"att_start_y","datatype":"real","Properties":{"Path":"$.att_start_y"}},
+  {"column":"outcome","datatype":"string","Properties":{"Path":"$.outcome"}},
+  {"column":"body_part","datatype":"string","Properties":{"Path":"$.body_part"}},
+  {"column":"ball_speed_mps","datatype":"real","Properties":{"Path":"$.ball_speed_mps"}},
+  {"column":"player_speed_mps","datatype":"real","Properties":{"Path":"$.player_speed_mps"}},
+  {"column":"under_pressure","datatype":"bool","Properties":{"Path":"$.under_pressure"}},
+  {"column":"pressure_count","datatype":"long","Properties":{"Path":"$.pressure_count"}},
+  {"column":"pass_type","datatype":"string","Properties":{"Path":"$.pass_type"}},
+  {"column":"details_json","datatype":"string","Properties":{"Path":"$.details_json"}},
+  {"column":"truth_labels","datatype":"string","Properties":{"Path":"$.truth_labels"}},
+  {"column":"pitch_zone","datatype":"string","Properties":{"Path":"$.pitch_zone"}},
+  {"column":"pass_distance_m","datatype":"real","Properties":{"Path":"$.pass_distance_m"}},
+  {"column":"pass_difficulty","datatype":"long","Properties":{"Path":"$.pass_difficulty"}},
+  {"column":"progressive","datatype":"bool","Properties":{"Path":"$.progressive"}},
+  {"column":"forward_m","datatype":"real","Properties":{"Path":"$.forward_m"}},
+  {"column":"ball_speed_kmh","datatype":"real","Properties":{"Path":"$.ball_speed_kmh"}},
+  {"column":"player_speed_kmh","datatype":"real","Properties":{"Path":"$.player_speed_kmh"}},
+  {"column":"sprint","datatype":"bool","Properties":{"Path":"$.sprint"}},
+  {"column":"fast_shot","datatype":"bool","Properties":{"Path":"$.fast_shot"}},
+  {"column":"xg","datatype":"real","Properties":{"Path":"$.xg"}},
+  {"column":"distance_to_goal_m","datatype":"real","Properties":{"Path":"$.distance_to_goal_m"}},
+  {"column":"xt_delta","datatype":"real","Properties":{"Path":"$.xt_delta"}},
+  {"column":"has_better_option","datatype":"bool","Properties":{"Path":"$.has_better_option"}},
+  {"column":"has_unfound_run","datatype":"bool","Properties":{"Path":"$.has_unfound_run"}},
+  {"column":"score_home","datatype":"long","Properties":{"Path":"$.score_home"}},
+  {"column":"score_away","datatype":"long","Properties":{"Path":"$.score_away"}},
+  {"column":"xg_home","datatype":"real","Properties":{"Path":"$.xg_home"}},
+  {"column":"xg_away","datatype":"real","Properties":{"Path":"$.xg_away"}},
+  {"column":"shots_home","datatype":"long","Properties":{"Path":"$.shots_home"}},
+  {"column":"shots_away","datatype":"long","Properties":{"Path":"$.shots_away"}},
+  {"column":"momentum","datatype":"real","Properties":{"Path":"$.momentum"}},
+  {"column":"pressure_home","datatype":"real","Properties":{"Path":"$.pressure_home"}},
+  {"column":"pressure_away","datatype":"real","Properties":{"Path":"$.pressure_away"}},
+  {"column":"possession_home_pct","datatype":"real","Properties":{"Path":"$.possession_home_pct"}},
+  {"column":"control_chaos","datatype":"real","Properties":{"Path":"$.control_chaos"}},
+  {"column":"tempo","datatype":"string","Properties":{"Path":"$.tempo"}}
+]
+```
+
+// Near-real-time ingestion: batch for at most 10 s instead of the 5 minute default.
+.alter table MatchEvents policy ingestionbatching @'{"MaximumBatchingTimeSpan":"00:00:10","MaximumNumberOfItems":500,"MaximumRawDataSizeMB":256}'
+
+.alter table MatchEventsEnriched policy ingestionbatching @'{"MaximumBatchingTimeSpan":"00:00:10","MaximumNumberOfItems":500,"MaximumRawDataSizeMB":256}'
+
+// Synthetic demo data: keep it for a week.
+.alter-merge table MatchEvents policy retention softdelete = 7d
+
+.alter-merge table MatchEventsEnriched policy retention softdelete = 7d
+
+// ---------------------------------------------------------------- 2. real-time queries
+// All of them follow the newest match in the table.
+
+// Live xG race: cumulative expected goals and score at the end of each match minute.
+let matchId = toscalar(MatchEventsEnriched | top 1 by ts desc | project match_id);
+MatchEventsEnriched
+| where match_id == matchId
+| summarize arg_max(seq, xg_home, xg_away, score_home, score_away) by minute
+| project minute, xg_home, xg_away, score_home, score_away
+| order by minute asc
+| render linechart with (title = "Live xG race (home vs away)")
+
+// Pressure by five-minute window: mean and peak of each club's pressure index (0-100).
+let matchId = toscalar(MatchEventsEnriched | top 1 by ts desc | project match_id);
+MatchEventsEnriched
+| where match_id == matchId
+| summarize avg_pressure_home = round(avg(pressure_home), 1), avg_pressure_away = round(avg(pressure_away), 1),
+            peak_pressure_home = max(pressure_home), peak_pressure_away = max(pressure_away)
+    by five_min_bucket
+| order by five_min_bucket asc
+
+// Sprint leaders: sprints (faster than 8 m/s, flagged by the stats engine) and top speed.
+let matchId = toscalar(MatchEventsEnriched | top 1 by ts desc | project match_id);
+MatchEventsEnriched
+| where match_id == matchId and sprint == true
+| summarize sprints = count(), top_speed_kmh = max(player_speed_kmh) by team_id, player_id
+| top 10 by sprints desc, top_speed_kmh desc
+
+// Better-option count: shots where a clearly better pass was on, and runs where the ball never came.
+let matchId = toscalar(MatchEventsEnriched | top 1 by ts desc | project match_id);
+MatchEventsEnriched
+| where match_id == matchId
+| summarize shots = countif(type == "shot"),
+            better_option_shots = countif(has_better_option == true),
+            unfound_runs = countif(has_unfound_run == true)
+    by team_id
+
+// Raw stream check (MatchEvents only): goals and event mix of the newest match.
+let matchId = toscalar(MatchEvents | top 1 by ts desc | project match_id);
+MatchEvents
+| where match_id == matchId
+| summarize events = count(), shots = countif(type == "shot"), goals = countif(type == "shot" and outcome == "goal")
+    by team
+| order by events desc

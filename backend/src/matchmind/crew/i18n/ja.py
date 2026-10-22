@@ -39,6 +39,13 @@ PACK = {
         "shots_home": "ホームのシュート数",
         "shots_away": "アウェイのシュート数",
         "appearance_n": "クラブ出場数",
+        "ruled_out_clock": "取り消されたゴール（得点時刻）",
+        "xt_stopped": "防いだ脅威（xT）",
+        "own_goal_distance_m": "自陣ゴールからの距離",
+        "p_tackles_won": "タックル成功数",
+        "last_ditch": "最後の砦（自陣ペナルティエリア内）",
+        "distance_km": "走行距離（トラッキング推定）",
+        "sprint_m": "スプリント距離",
     },
     "zones": {
         "Penalty Box": "ペナルティエリア",
@@ -57,6 +64,7 @@ PACK = {
     "card_name": {"yellow": "イエローカード", "red": "レッドカード"},
     "card_name_cap": {"yellow": "イエローカード", "red": "レッドカード"},
     "card_action": {"yellow": "に警告", "red": "が退場"},
+    "var_reason": {"offside": "オフサイド", "handball": "ハンド", "foul": "ファウル"},
     "fav_goal": {
         "for": "応援チームにゴール！{player_short}",
         "against": "{player_short}のゴールで応援チームが失点",
@@ -114,7 +122,7 @@ PACK = {
             "fantasy": [
                 (
                     "{player_short}に{card_name}",
-                    "ポイントは減点。{player_short}の今日の成績：{p_goals}ゴール、{p_assists}アシスト、{p_xg} xG。",
+                    "{player_short}の今日の成績：{p_goals}ゴール、{p_assists}アシスト、{p_xg} xG。",
                 )
             ],
             "player_spotlight": [
@@ -363,6 +371,62 @@ PACK = {
                 )
             ],
         },
+        "key_tackle": {
+            "casual": [
+                (
+                    "{player_short}の決定的なタックル",
+                    "{player}が自陣ゴールから{own_goal_distance_m}mの位置で{victim_short}からボールを奪いました。{team}は危機を脱出。",
+                ),
+                (
+                    "{player_short}の決定的なタックル",
+                    "{player}が自陣ゴールから{own_goal_distance_m}mの位置でボールを奪いました。{team}は危機を脱出。",
+                ),
+            ],
+            "tactical": [
+                (
+                    "キータックル：{player_short}",
+                    "自陣ゴールから{own_goal_distance_m}mの守備ゾーンで奪取し、{opp}の{xt_stopped} xTの脅威を断ちました。{player_short}のタックル成功は今日{p_tackles_won}回。",
+                )
+            ],
+            "fantasy": [
+                (
+                    "{player_short}が攻撃を断つ",
+                    "{player_short}の守備：ここまでタックル成功{p_tackles_won}回。今回は自陣ゴールから{own_goal_distance_m}mの位置です。",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "{player_short}がボール奪取",
+                    "自陣ゴールから{own_goal_distance_m}mでのタックルで{xt_stopped} xTの脅威を消しました。今日のタックル成功：{p_tackles_won}回。",
+                )
+            ],
+        },
+        "correction": {
+            "casual": [
+                (
+                    "ノーゴール！VARで{player_short}の得点取り消し",
+                    "{ruled_out_clock}の{player}のゴールは、VARの確認で{reason_phrase}により取り消されました。スコアは{home} {score_home}-{score_away} {away}のまま。",
+                )
+            ],
+            "tactical": [
+                (
+                    "VAR：{player_short}のゴールを取り消し",
+                    "{reason_phrase}で判定が覆りました。スコアは{home} {score_home}-{score_away} {away}に戻ります。",
+                )
+            ],
+            "fantasy": [
+                (
+                    "ゴール取り消し：{player_short}",
+                    "VARで{reason_phrase}のためゴールは取り消し、シュートは記録に残ります。{player_short}の今日の成績：{p_goals}ゴール、シュート{p_shots}本で{p_xg} xG。",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "ノーゴール！VARで{player_short}の得点取り消し",
+                    "{ruled_out_clock}の{player}のゴールは、VARの確認で{reason_phrase}により取り消されました。スコアは{home} {score_home}-{score_away} {away}のまま。",
+                )
+            ],
+        },
         "milestone.kick_off": {
             "casual": [
                 (
@@ -419,7 +483,7 @@ PACK = {
             "fantasy": [
                 (
                     "試合終了：{home} {score_home}-{score_away} {away}",
-                    "最終xG：{home} {xg_home}、{away} {xg_away}。ポイントを確認しましょう。",
+                    "最終xG：{home} {xg_home}、{away} {xg_away}。シュート数は{shots_home}対{shots_away}。",
                 )
             ],
         },
@@ -477,6 +541,12 @@ PACK = {
         "hard_pass": [
             "難易度{difficulty_scale}点中{pass_difficulty}点は、成功させられる選手が少ないパスです。"
         ],
+        "key_tackle": [
+            "ゴールから{own_goal_distance_m}mでのタックルが、{opp}の{xt_stopped} xTの脅威を消しました。"
+        ],
+        "correction": [
+            "VARが{ruled_out_clock}のゴールを{reason_phrase}で取り消し、スコアは{home} {score_home}-{score_away} {away}に戻りました。"
+        ],
         "milestone.kick_off": ["試合が始まりました。"],
         "milestone.half_time": ["前半の期待ゴールは{xg_home}対{xg_away}。"],
         "milestone.full_time": ["最終的な期待ゴールは{xg_home}対{xg_away}。"],
@@ -531,4 +601,312 @@ PACK = {
         "focus": "{focus}：パス{focus_passes}本中{focus_passes_completed}本成功、走行距離は推定{focus_distance_km}km、"
         "最高速度は時速{focus_top_speed_kmh}km。",
     },
+}
+
+# テンプレートが `{g_<用語>}` として使うサッカー用語（docs/LANGUAGES.md）。
+PACK["glossary"] = {
+    "box": "ペナルティエリア",
+    "keeper": "キーパー",
+    "back_line": "最終ライン",
+    "equaliser": "同点ゴール",
+    "comeback": "反撃",
+    "let_off": "命拾い",
+    "rocket": "弾丸シュート",
+}
+
+_SCORE = "{home} {score_home}-{score_away} {away}"
+
+# クラブ目線（crew/club_heart.py）：同じ事実を、応援する側から伝える。
+PACK["heart"] = {
+    "goal_for": {
+        "casual": [
+            (
+                "応援チームにゴール！{player_short}",
+                "{player}が{distance_m}mから{g_keeper}を破りました。" + _SCORE + "。",
+            ),
+        ],
+        "tactical": [
+            (
+                "{player_short}、{xg} xGを決める",
+                "{zone}の{distance_m}mから。{match_clock}時点で" + _SCORE + "。",
+            ),
+        ],
+        "fantasy": [
+            (
+                "{player_short}のゴールで応援チーム得点",
+                "{player_short}の今日の成績：{p_goals}ゴール、シュート{p_shots}本で{p_xg} xG。このチャンスは{xg} xG。",
+            ),
+        ],
+    },
+    "goal_for_level": {
+        "casual": [
+            (
+                "同点！{player_short}が応援チームを救う",
+                "{player}が{match_clock}に{g_equaliser}。" + _SCORE + "、{g_comeback}開始です。",
+            ),
+        ],
+        "tactical": [
+            (
+                "{player_short}が{xg} xGで同点弾",
+                "{zone}の{distance_m}mから。{match_clock}時点で" + _SCORE + "。",
+            ),
+        ],
+    },
+    "goal_for_pull_back": {
+        "casual": [
+            (
+                "{player_short}が点差を縮める！",
+                "{match_clock}時点で" + _SCORE + "。応援チームはまだ戦える、{g_comeback}はここから。",
+            ),
+        ],
+        "tactical": [
+            (
+                "点差を縮める：{player_short}、{xg} xG",
+                "{zone}の{distance_m}mから。{match_clock}時点で" + _SCORE + "。",
+            ),
+        ],
+    },
+    "goal_for_lead": {
+        "casual": [
+            (
+                "ゴール！{player_short}で応援チームが勝ち越し",
+                "{player}が{match_clock}にゴール。" + _SCORE + "。",
+            ),
+        ],
+        "tactical": [
+            (
+                "勝ち越し：{player_short}、{xg} xG",
+                "{match_clock}、{zone}の{distance_m}mから。" + _SCORE + "。",
+            ),
+        ],
+    },
+    "goal_against": {
+        "casual": [
+            (
+                "{player_short}のゴールで応援チームが失点",
+                "{match_clock}時点で" + _SCORE + "。まだ反撃の時間があります。",
+            ),
+        ],
+        "tactical": [
+            (
+                "失点：{player_short}、{xg} xG",
+                "{zone}の{distance_m}mから。{match_clock}時点で" + _SCORE + "、まだ時間はあります。",
+            ),
+        ],
+        "fantasy": [
+            (
+                "{player_short}のゴールで応援チームが失点",
+                "{player_short}の今日の成績：{p_goals}ゴール、シュート{p_shots}本で{p_xg} xG。このチャンスは{xg} xG。",
+            ),
+        ],
+    },
+    "goal_against_level": {
+        "casual": [
+            (
+                "追いつかれる：{player_short}が同点弾",
+                "{match_clock}時点で" + _SCORE + "。応援チームは気持ちを切り替えたいところ。",
+            ),
+        ],
+        "tactical": [
+            (
+                "相手の{g_equaliser}：{player_short}、{xg} xG",
+                "{zone}の{distance_m}mから。{match_clock}時点で" + _SCORE + "。",
+            ),
+        ],
+    },
+    "goal_against_lead_cut": {
+        "casual": [
+            (
+                "{player_short}のゴールでリードが縮まる",
+                "{match_clock}時点で" + _SCORE + "。応援チームはまだリード、落ち着いて。",
+            ),
+        ],
+        "tactical": [
+            (
+                "リード縮小：{player_short}、{xg} xG",
+                "{zone}の{distance_m}mから。{match_clock}時点でまだリード：" + _SCORE + "。",
+            ),
+        ],
+    },
+    "goal_against_late": {
+        "casual": [
+            (
+                "痛恨の失点：{player_short}",
+                "{match_clock}時点で" + _SCORE + "。この時間帯の失点は応援チームにとって痛い。",
+            ),
+        ],
+        "tactical": [
+            (
+                "終盤の失点：{player_short}、{xg} xG",
+                "{match_clock}、{zone}の{distance_m}mから。" + _SCORE + "。",
+            ),
+        ],
+    },
+    "card_own": {
+        "casual": [
+            (
+                "{player_short}に{card_name}",
+                "{match_clock}、{player}に{card_name}。応援チームは冷静さが必要です。",
+            ),
+        ],
+    },
+    "card_rival": {
+        "casual": [
+            (
+                "{player_short}に{card_name}",
+                "{match_clock}、{player}に{card_name}。応援チームにとってはチャンスです。",
+            ),
+        ],
+    },
+    "let_off": {
+        "casual": [
+            (
+                "応援チーム、{g_let_off}！",
+                "{team}の{player}がゴールまで{distance_m}mで決定機も、結果は{outcome_phrase}。"
+                "こうしたチャンスが決まる確率は約{xg_pct}%です。",
+            ),
+        ],
+        "tactical": [
+            (
+                "危険：{team}に{xg} xGのチャンス",
+                "{player_short}が{zone}の{distance_m}mからシュートも、{outcome_phrase}。応援チームの{g_back_line}が破られました。",
+            ),
+        ],
+    },
+    "let_off_shot": {
+        "casual": [
+            (
+                "{g_let_off}：{player_short}の{g_rocket}",
+                "{player}が{distance_m}mから時速{shot_speed_kmh}kmのシュート、結果は{outcome_phrase}。応援チームは助かりました。",
+            ),
+        ],
+    },
+    "let_off_choice": {
+        "casual": [
+            (
+                "{g_let_off}：{player_short}はシュートを選択",
+                "{teammate_short}がフリーで、パスの価値はシュートの{times_better}倍でした。応援チームは助かりました。",
+            ),
+        ],
+        "tactical": [
+            (
+                "{g_let_off}：{player_short}が{teammate_short}を使わず",
+                "シュートは{shot_xg} xG、{pass_distance_m}mのパスは成功率{pass_success_pct}%でした。応援チームは助かりました。",
+            ),
+        ],
+    },
+    "let_off_run": {
+        "casual": [
+            (
+                "{g_let_off}：{runner_short}の動き出しは見逃された",
+                "{runner}が応援チームの{g_back_line}の裏を取りましたが、{player_short}はパスを出しませんでした。"
+                "決定率{projected_xg_pct}%のチャンスになり得ました。",
+            ),
+        ],
+        "tactical": [
+            (
+                "{g_let_off}：{runner_short}が{clear_of_line_m}m抜け出す",
+                "{pass_on_clock}、{runner_short}は応援チームの{g_back_line}を越えていました。"
+                "パスが出ていれば{projected_xg} xGのチャンスでした。",
+            ),
+        ],
+    },
+    "lesson_choice": {
+        "casual": [
+            (
+                "次は{teammate_short}を見つけよう",
+                "{player_short}はシュートを選びましたが、{teammate_short}へのパスは{times_better}倍の価値がありました。"
+                "応援チームの次への課題です。",
+            ),
+        ],
+        "tactical": [
+            (
+                "課題：{teammate_short}へのパス",
+                "シュートは{shot_xg} xG、{pass_distance_m}mのパスは成功率{pass_success_pct}%で、その先に{alt_xg} xG。"
+                "より良い選択肢がありました。",
+            ),
+        ],
+    },
+    "lesson_run": {
+        "casual": [
+            (
+                "{runner_short}の動き出しはパスに値した",
+                "{runner}は{g_back_line}を{clear_of_line_m}m抜けていました。次は{player_short}が見つけられるはずです。",
+            ),
+        ],
+        "tactical": [
+            (
+                "見逃された動き出し：{runner_short}、{clear_of_line_m}m",
+                "{pass_on_clock}にスルーパスの選択肢があり、{projected_xg} xGのチャンスでした。次は{player_short}が見つけたい。",
+            ),
+        ],
+    },
+    "pressure_for": {
+        "casual": [
+            (
+                "応援チームが押し込む",
+                "応援チームが{spell_min}分間、{opp}を押し込んでいます。この勢いを続けたい。",
+            ),
+        ],
+    },
+    "hold_firm": {
+        "casual": [
+            (
+                "耐えどころ：{team}が猛攻",
+                "{team}が{spell_min}分間、応援チームを押し込んでいます。{g_box}からボールを遠ざけたい。",
+            ),
+        ],
+        "tactical": [
+            (
+                "劣勢：{team}のプレス指数{pressure_index}",
+                "プレッシャー指数{pressure_index}が{spell_min}分間継続、{team}のフィールドティルトは{team_field_tilt_pct}%。",
+            ),
+        ],
+    },
+    "momentum_against": {
+        "casual": [
+            (
+                "警戒：{team}が主導権",
+                "勢いの指標が{window_min}分間で{momentum_change}ポイント{team}に傾きました。応援チームは立て直しが必要です。",
+            ),
+        ],
+        "tactical": [
+            (
+                "モメンタムが応援チームに不利",
+                "モメンタムが{window_min}分間で{momentum_change}ポイント変動、{team}のフィールドティルトは{team_field_tilt_pct}%。",
+            ),
+        ],
+    },
+    "full_time_won": {"casual": [("試合終了：応援チームの勝利！", _SCORE + "。喜びたい結果です。")]},
+    "full_time_lost": {"casual": [("試合終了：応援チームは敗戦", _SCORE + "。次に向けて立て直しです。")]},
+    "full_time_drawn": {"casual": [("試合終了：引き分け", _SCORE + "。勝ち点を分け合いました。")]},
+}
+PACK["metric"]["momentum_against"] = [
+    ("警戒：モメンタムが{team}へ", "モメンタムが{change}ポイント{team}に傾き、応援チームには逆風です。"),
+]
+PACK["heart"]["attack_stopped"] = {
+    "casual": [
+        (
+            "{player_short}が応援チームの攻撃を止める",
+            "{player}が自陣ゴールから{own_goal_distance_m}mでボールを奪いました。応援チームは仕切り直しです。",
+        ),
+    ],
+    "tactical": [
+        (
+            "攻撃阻止：{xt_stopped} xTを消す",
+            "{player_short}が自陣の守備ゾーン、ゴールから{own_goal_distance_m}mで奪取。応援チームは組み立て直しです。",
+        ),
+    ],
+}
+
+# ネタバレなしのキャッチアップ（crew/spoilers.py）：スコア、得点、VAR判定を伏せた
+# ここまでの流れ。`recap.story_facts` の事実だけを使う。
+PACK["story"] = {
+    "title": "ここまでの流れ：{home}対{away}",
+    "headline": "スコアを見ずに追いつく",
+    "p1": "{generated_at}時点：期待ゴールは{xg_home}対{xg_away}、シュートは{shots_home}本対{shots_away}本。",
+    "p2": "決定機は{n_big_chances}回、押し込む時間帯は{n_pressure_spells}回、流れの変化は{n_momentum_swings}回ありました。",
+    "on_top": "いま優勢なのは{on_top}です。",
+    "level": "いまはどちらも優勢ではありません。",
+    "watch": "パスの方が良かったシュート{n_better_options}回と、使われなかった裏抜け{n_unfound_runs}回に注目。",
 }

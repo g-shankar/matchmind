@@ -1,0 +1,198 @@
+- banner:
+  - heading "PitchPulse" [level=1]
+  - paragraph: Fact-checked match explanations, in your language
+  - text: Synthetic replay NBR 2-3 HCY Full time
+  - button "Play" [disabled]:
+    - img
+  - radiogroup "Playback speed":
+    - radio "1x"
+    - radio "10x"
+    - radio "60x" [checked]
+  - button "Restart match":
+    - img
+  - button "Recap"
+- navigation "Views":
+  - button "Studio"
+  - button "Broadcast"
+  - button "Fan vs Analyst"
+  - button "Player focus"
+  - button "My match"
+  - button "Under the hood"
+- text: I'm a
+- radiogroup "I'm a":
+  - radio "Fan" [checked]
+  - radio "Analyst"
+  - radio "Stats scout"
+- button "Catch up"
+- 'button "Read aloud: off"'
+- text: Language
+- combobox "Language"
+- text: "World languages: off AI crew: template mode"
+- main:
+  - region "Full time":
+    - heading "Full time" [level=2]
+    - paragraph: Everyone watching shares one match clock, and this match has already finished. Start it again from kick-off, or read the recap.
+    - button "Watch from kick-off"
+    - button "Read the recap"
+    - button "Not now":
+      - img
+  - 'figure "Football pitch: Full time by at 90+5:19."':
+    - img "Number 10, Elias Varga, Harbour City": "10"
+    - img "Number 9, Ivan Petrov, Harbour City": "9"
+    - img "Number 1, Tomas Reyner, Northbridge FC": "1"
+    - img "Number 5, Jonah Vries, Northbridge FC": "5"
+    - img "Number 2, Callum Okafor, Northbridge FC": "2"
+    - img "Number 3, Duarte Nogueira, Harbour City": "3"
+    - img "Number 11, Jaden Clarke, Harbour City": "11"
+    - img "Number 7, Mateo Rios, Harbour City": "7"
+    - img "Number 7, Dev Mallick, Northbridge FC": "7"
+    - img "Number 8, Kai Watanabe, Harbour City": "8"
+    - img "Number 8, Rory Achterberg, Northbridge FC": "8"
+    - img "Number 9, Adam Kerrigan, Northbridge FC": "9"
+  - heading "Control vs Chaos" [level=2]
+  - text: "Tempo: Furious chaos"
+  - img "Control vs chaos index -0.45"
+  - text: Chaos Control
+  - paragraph: "-0.45"
+  - text: Possession (last 5 min) NBR 46% 54% HCY Momentum NBR
+  - meter "Momentum"
+  - text: HCY +12 Pressure index NBR 33 HCY 48 xG 2.59 | 1.89 Shots 18 | 14 Tempo Furious chaos Events per minute 26.2
+  - heading "Jump to moment" [level=2]
+  - text: Starts a few seconds before the moment.
+  - list:
+    - listitem:
+      - 'button "Jump to 00:00: Kick-off: Northbridge FC v Harbour City"': "00:00 Kick-off: Northbridge FC v Harbour City"
+    - listitem:
+      - 'button "Jump to 00:53: Big chance for Kerrigan!"': 00:53 Big chance for Kerrigan!
+    - listitem:
+      - 'button "Jump to 03:26: Northbridge FC piling on the pressure"': 03:26 Northbridge FC piling on the pressure
+    - listitem:
+      - 'button "Jump to 06:38: Harbour City piling on the pressure"': 06:38 Harbour City piling on the pressure
+    - listitem:
+      - 'button "Jump to 12:46: Northbridge FC piling on the pressure"': 12:46 Northbridge FC piling on the pressure
+    - listitem:
+      - 'button "Jump to 13:38: Northbridge FC take control"': 13:38 Northbridge FC take control
+    - listitem:
+      - 'button "Jump to 20:09: Harbour City take control"': 20:09 Harbour City take control
+    - listitem:
+      - 'button "Jump to 21:53: Harbour City piling on the pressure"': 21:53 Harbour City piling on the pressure
+    - listitem:
+      - 'button "Jump to 23:20: GOAL! Kerrigan scores for Northbridge FC"': 23:20 GOAL! Kerrigan scores for Northbridge FC
+    - listitem:
+      - 'button "Jump to 27:21: Yellow card for Clarke"': 27:21 Yellow card for Clarke
+    - listitem:
+      - 'button "Jump to 29:25: Big chance for Kerrigan!"': 29:25 Big chance for Kerrigan!
+    - listitem:
+      - 'button "Jump to 30:47: Yellow card for Varga"': 30:47 Yellow card for Varga
+    - listitem:
+      - 'button "Jump to 32:25: Northbridge FC piling on the pressure"': 32:25 Northbridge FC piling on the pressure
+    - listitem:
+      - 'button "Jump to 34:12: Northbridge FC take control"': 34:12 Northbridge FC take control
+    - listitem:
+      - 'button "Jump to 34:16: Should Asante have passed?"': 34:16 Should he have passed? Should Asante have passed?
+    - listitem:
+      - 'button "Jump to 36:21: Big chance for Petrov!"': 36:21 Big chance for Petrov!
+    - listitem:
+      - 'button "Jump to 39:11: GOAL! Asante scores for Northbridge FC"': 39:11 GOAL! Asante scores for Northbridge FC Ruled out by VAR
+    - listitem:
+      - 'button "Jump to 40:22: No goal! VAR rules out Asante"': 40:22 No goal! VAR rules out Asante 3 moments
+    - listitem:
+      - 'button "Jump to 41:36: GOAL! Ferrante scores for Northbridge FC"': 41:36 GOAL! Ferrante scores for Northbridge FC
+    - listitem:
+      - 'button "Jump to 45+0:22: Northbridge FC take control"': 45+0:22 Northbridge FC take control
+    - listitem:
+      - 'button "Jump to 45+2:06: Half-time: Northbridge FC 2-0 Harbour City"': "45+2:06 Half-time: Northbridge FC 2-0 Harbour City"
+    - listitem:
+      - 'button "Jump to 53:06: Red card for Lindqvist"': 53:06 Red card for Lindqvist
+    - listitem:
+      - 'button "Jump to 54:56: Harbour City piling on the pressure"': 54:56 Harbour City piling on the pressure
+    - listitem:
+      - 'button "Jump to 61:16: Petrov''s run went unseen"': 61:16 Run not found Petrov's run went unseen
+    - listitem:
+      - 'button "Jump to 62:07: Northbridge FC piling on the pressure"': 62:07 Northbridge FC piling on the pressure
+    - listitem:
+      - 'button "Jump to 67:28: GOAL! Varga scores for Harbour City"': 67:28 GOAL! Varga scores for Harbour City
+    - listitem:
+      - 'button "Jump to 70:02: 100th club appearance for Varga"': 70:02 100th club appearance for Varga
+    - listitem:
+      - 'button "Jump to 72:13: Harbour City piling on the pressure"': 72:13 Harbour City piling on the pressure
+    - listitem:
+      - 'button "Jump to 75:38: Harbour City piling on the pressure"': 75:38 Harbour City piling on the pressure
+    - listitem:
+      - 'button "Jump to 78:55: Should Rios have passed?"': 78:55 Should he have passed? Should Rios have passed?
+    - listitem:
+      - 'button "Jump to 84:22: GOAL! Petrov scores for Harbour City"': 84:22 GOAL! Petrov scores for Harbour City
+    - listitem:
+      - 'button "Jump to 90+1:35: Northbridge FC piling on the pressure"': 90+1:35 Northbridge FC piling on the pressure
+    - listitem:
+      - 'button "Jump to 90+1:38: Northbridge FC take control"': 90+1:38 Northbridge FC take control
+    - listitem:
+      - 'button "Jump to 90+2:24: GOAL! Clarke scores for Harbour City"': 90+2:24 GOAL! Clarke scores for Harbour City
+    - listitem:
+      - 'button "Jump to 90+5:19: Full-time: Northbridge FC 2-3 Harbour City"': "90+5:19 Full-time: Northbridge FC 2-3 Harbour City"
+  - group: How the crew runs (technical) Which services write the text and how fast. Also in Under the hood.
+  - heading "Ask the studio" [level=2]
+  - paragraph: Questions about this match, answered from the stats engine as of the match clock.
+  - search:
+    - text: Your question
+    - textbox "Your question":
+      - /placeholder: Who has run the furthest?
+    - button "Ask"
+  - paragraph: 0 of 200 characters
+  - group "Suggested questions":
+    - list:
+      - listitem:
+        - button "What is the score?"
+      - listitem:
+        - button "Who has the most xG?"
+      - listitem:
+        - button "Who has run the furthest?"
+      - listitem:
+        - button "Who is the fastest?"
+      - listitem:
+        - button "Who is on top right now?"
+      - listitem:
+        - button "Should he have passed?"
+      - listitem:
+        - button "What is xG?"
+  - heading "Match story feed" [level=2]
+  - text: Newest first
+  - tablist "Feed sections":
+    - tab "Crew stories 3" [selected]
+    - tab "Live events 30"
+  - tabpanel "Crew stories 3":
+    - article:
+      - text: 90+1:38 Momentum swing Template
+      - heading "Northbridge FC take control" [level=3]
+      - paragraph: "The game has swung towards Northbridge FC: momentum moved 45 points in 5 minutes."
+      - text: Why it matters
+      - paragraph: "Momentum moved 45 points in 5 minutes: control has changed hands."
+      - text: "#Momentum"
+      - button "Evidence (5)"
+      - button "Show your working"
+    - article:
+      - text: 90+5:19 Milestone Template
+      - 'heading "Full-time: Northbridge FC 2-3 Harbour City" [level=3]'
+      - paragraph: It is all over. Northbridge FC had 18 shots and Harbour City had 14 shots.
+      - text: Why it matters
+      - paragraph: "Final expected goals: 2.59 to 1.89."
+      - text: "#Game state"
+      - button "Evidence (6)"
+      - button "Show your working"
+    - article:
+      - text: 90+2:24 Goal Template
+      - heading "GOAL! Clarke scores for Harbour City" [level=3]
+      - paragraph: Jaden Clarke · Elias Varga
+      - paragraph: Jaden Clarke finishes it, set up by Elias Varga. It's Northbridge FC 2-3 Harbour City.
+      - text: Why it matters
+      - paragraph: The score is now Northbridge FC 2-3 Harbour City, from a 0.09 xG chance.
+      - text: "#Finishing"
+      - button "Evidence (5)"
+      - button "Show your working"
+- contentinfo "About this demo":
+  - heading "About this demo" [level=2]
+  - paragraph: PitchPulse explains the moments that matter in a match for a fan, an analyst or a stats scout, in their language. Every number comes from the stats engine, and a fact-checker checks each sentence before it is shown.
+  - paragraph: All clubs, players and matches here are invented (synthetic data). No real league, club, player or broadcaster is shown.
+  - paragraph: In this demo the explanations are written from fact-checked templates; paid AI services are switched off.
+  - button "How it works"
+  - paragraph: Made by the PitchPulse team as a hackathon entry, 2026.

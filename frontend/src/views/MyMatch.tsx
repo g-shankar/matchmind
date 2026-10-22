@@ -7,6 +7,9 @@ import type { MatchViewState, MetricSample } from '../state/matchStore';
 import { playerName, teamById } from '../lib/teams';
 import { CardItem } from './PlayerFocus';
 import type { ViewProps } from './types';
+import { ScoreValue } from '../components/CatchUp';
+import { AskStudio } from '../components/AskStudio';
+import { inkOn } from '../lib/contrast';
 
 type Side = 'home' | 'away';
 const METRICS: FocusMetric[] = ['pressure', 'xg', 'pass_difficulty', 'top_speed', 'momentum'];
@@ -17,7 +20,7 @@ export function favouriteSide(teams: Teams | null, favourite: string | null): Si
 }
 
 /** Score from the favourite's point of view (home first when there is none). */
-export function perspectiveScore(score: { home: number; away: number }, side: Side | null) {
+export function perspectiveScore(score: { home: number | null; away: number | null }, side: Side | null) {
   return side === 'away' ? { us: score.away, them: score.home } : { us: score.home, them: score.away };
 }
 
@@ -74,19 +77,24 @@ const Sparkline: React.FC<{ series: { values: number[]; color: string }[]; label
 
 const ClubButton: React.FC<{ team: TeamInfo; on: boolean; onPick: () => void }> = ({ team, on, onPick }) => {
   const { t } = useI18n();
+  // The club's playing style comes from the server in English; known styles have a table entry
+  // in every interface language, and an unknown one is shown as English, marked as such.
+  const styleKey = `team.style.${team.style}`;
+  const style = team.style ? t(styleKey) : null;
+  const styleKnown = style !== styleKey;
   return (
     <button
       type="button"
       aria-pressed={on}
       onClick={onPick}
-      className={cx('relative min-h-[96px] overflow-hidden rounded-2xl border-2 bg-pp-deep p-3 text-start transition', on ? 'shadow-lg' : 'opacity-80 hover:opacity-100')}
+      className={cx('relative min-h-[96px] overflow-hidden rounded-2xl border-2 bg-pp-deep p-3 text-start transition', on && 'shadow-lg')}
       style={{ borderColor: on ? team.primary_color : `${team.primary_color}55`, boxShadow: on ? `0 0 24px ${team.primary_color}44` : undefined }}
     >
       <span aria-hidden className="absolute inset-y-0 start-0 w-2" style={{ background: `linear-gradient(${team.primary_color}, ${team.secondary_color})` }} />
       <span className="flex items-center gap-2 ps-2">
         <span
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-extrabold"
-          style={{ background: team.primary_color, color: team.secondary_color }}
+          style={{ background: team.primary_color, color: inkOn(team.primary_color) }}
         >
           {team.short_name}
         </span>
@@ -96,7 +104,11 @@ const ClubButton: React.FC<{ team: TeamInfo; on: boolean; onPick: () => void }> 
         </span>
         {on && <Heart className="h-5 w-5 shrink-0" style={{ color: team.primary_color, fill: team.primary_color }} aria-hidden />}
       </span>
-      {team.style && <span className="mt-2 block ps-2 text-xs leading-snug text-slate-300">{team.style}</span>}
+      {team.style && (
+        <span lang={styleKnown ? undefined : 'en'} className="mt-2 block ps-2 text-xs leading-snug text-slate-300">
+          {styleKnown ? style : team.style}
+        </span>
+      )}
     </button>
   );
 };
@@ -284,15 +296,15 @@ export const MyMatch: React.FC<ViewProps> = ({ match, actions }) => {
             {side ? <Heart className="h-5 w-5" style={{ color: theme, fill: theme }} aria-hidden /> : <Info className="h-5 w-5 text-pp-mute" aria-hidden />}
             {side ? t('fan.my.yourClub', { name: us.name }) : t('fan.my.neutral')}
           </h2>
-          <div className="flex items-center gap-3" aria-label={`${us.name} ${score.us}, ${them.name} ${score.them}`} data-testid="perspective-score">
+          <div className="flex items-center gap-3" aria-label={`${us.name} ${score.us ?? t('catchup.hiddenValue')}, ${them.name} ${score.them ?? t('catchup.hiddenValue')}`} data-testid="perspective-score">
             <span className="flex flex-col items-center text-[10px] uppercase text-pp-mute">
               <span className="font-bold text-white">{us.short_name}</span>
               {side && t('fan.my.us')}
             </span>
             <span className="flex items-center font-display text-4xl font-extrabold tabular-nums text-white">
-              <span style={{ color: side ? theme : undefined }}>{score.us}</span>
+              <span style={{ color: side ? theme : undefined }}><ScoreValue value={score.us} /></span>
               <span className="mx-1 text-pp-mute">–</span>
-              <span>{score.them}</span>
+              <span><ScoreValue value={score.them} /></span>
             </span>
             <span className="flex flex-col items-center text-[10px] uppercase text-pp-mute">
               <span className="font-bold text-white">{them.short_name}</span>
@@ -325,6 +337,7 @@ export const MyMatch: React.FC<ViewProps> = ({ match, actions }) => {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-7">
+          <AskStudio match={match} actions={actions} compact />
           {state && (
             <Panel title={t('fan.my.numbers')}>
               <div className="mb-2 flex items-center justify-between text-[11px] font-semibold text-pp-mute">

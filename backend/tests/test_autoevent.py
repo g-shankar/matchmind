@@ -192,6 +192,9 @@ def test_held_out_match_scores_as_well(held_out):
     assert r.passes.precision >= 0.97 and r.passes.recall >= 0.97
     assert r.shots.recall >= 0.8 and r.shots.precision >= 0.8
     assert r.speed_mae_kmh <= 2.0
+    assert r.interceptions.precision >= 0.9 and r.interceptions.recall >= 0.9
+    assert r.tackles.precision >= 0.8 and r.tackles.recall >= 0.8
+    assert r.pressure.recall >= 0.85 and r.pressure.precision >= 0.6
 
 
 def test_every_detection_is_labelled_synthetic(demo):
@@ -253,14 +256,15 @@ def test_a_pass_and_shot_close_together_keep_their_kinds(demo_events):
 
 
 def test_evaluate_matches_the_api_contract(demo_events):
-    status = evaluate(short_match(demo_events, 600))
+    status = evaluate(short_match(demo_events, 600), pixel_seconds=0)
     data = status.model_dump()
-    assert set(data) == {"source", "label", "passes_detected_pct", "speed_mae_kmh", "events_checked"}
+    # The original five fields stay; the benchmark only adds optional ones.
+    assert {"source", "label", "passes_detected_pct", "speed_mae_kmh", "events_checked"} <= set(data)
     assert data["source"] == "synthetic_tracking"
     assert data["label"] == LABEL == "Detected from synthetic tracking, not video"
     assert 90 <= data["passes_detected_pct"] <= 100
     assert data["events_checked"] > 100
-    assert evaluate(short_match(demo_events, 600)) == status
+    assert evaluate(short_match(demo_events, 600), pixel_seconds=0) == status
 
 
 # -------------------------------------------------------------------- CLI

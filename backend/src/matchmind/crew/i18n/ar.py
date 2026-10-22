@@ -40,6 +40,13 @@ PACK = {
         "shots_home": "تسديدات أصحاب الأرض",
         "shots_away": "تسديدات الضيوف",
         "appearance_n": "المشاركات مع النادي",
+        "ruled_out_clock": "هدف ملغى (سُجل عند)",
+        "xt_stopped": "الخطر الذي أُوقف (xT)",
+        "own_goal_distance_m": "المسافة عن مرماه",
+        "p_tackles_won": "التدخلات الناجحة",
+        "last_ditch": "تدخل أخير (داخل منطقته)",
+        "distance_km": "المسافة حتى الآن (تقدير التتبع)",
+        "sprint_m": "طول الانطلاقة",
     },
     "zones": {
         "Penalty Box": "منطقة الجزاء",
@@ -58,6 +65,7 @@ PACK = {
     "card_name": {"yellow": "بطاقة صفراء", "red": "بطاقة حمراء"},
     "card_name_cap": {"yellow": "بطاقة صفراء", "red": "بطاقة حمراء"},
     "card_action": {"yellow": "ينال إنذارًا", "red": "يُطرد"},
+    "var_reason": {"offside": "التسلل", "handball": "لمسة اليد", "foul": "خطأ"},
     "fav_goal": {
         "for": "هدف لفريقك! {player_short} يسجل",
         "against": "{player_short} يسجل في مرمى فريقك",
@@ -117,7 +125,7 @@ PACK = {
             "fantasy": [
                 (
                     "{card_name_cap} لـ{player_short}",
-                    "خصم من النقاط. {player_short} اليوم: الأهداف {p_goals}، الصناعة {p_assists}، و{p_xg} xG.",
+                    "{player_short} {card_action}. أرقامه اليوم: الأهداف {p_goals}، الصناعة {p_assists}، و{p_xg} xG.",
                 )
             ],
             "player_spotlight": [
@@ -373,6 +381,66 @@ PACK = {
                 )
             ],
         },
+        "key_tackle": {
+            "casual": [
+                (
+                    "تدخل حاسم من {player_short}",
+                    "{player} يفتك الكرة من {victim_short} على بعد {own_goal_distance_m} م من مرماه. "
+                    "{team} تتنفس الصعداء.",
+                ),
+                (
+                    "تدخل حاسم من {player_short}",
+                    "{player} يستعيد الكرة على بعد {own_goal_distance_m} م من مرماه. {team} تتنفس الصعداء.",
+                ),
+            ],
+            "tactical": [
+                (
+                    "تدخل مفتاحي: {player_short}",
+                    "استعادة في الثلث الدفاعي على بعد {own_goal_distance_m} م، حيث بلغ خطر {opp} "
+                    "{xt_stopped} xT. التدخلات الناجحة لـ{player_short}: {p_tackles_won}.",
+                )
+            ],
+            "fantasy": [
+                (
+                    "{player_short} يوقف الهجمة",
+                    "عمل دفاعي من {player_short}: التدخلات الناجحة حتى الآن {p_tackles_won}. "
+                    "هذا التدخل على بعد {own_goal_distance_m} م من مرماه.",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "{player_short} يستعيد الكرة",
+                    "تدخل على بعد {own_goal_distance_m} م من مرماه ألغى خطرًا بقيمة {xt_stopped} xT. "
+                    "التدخلات الناجحة اليوم: {p_tackles_won}.",
+                )
+            ],
+        },
+        "correction": {
+            "casual": [
+                (
+                    "لا هدف! الـVAR يلغي هدف {player_short}",
+                    "أُلغي هدف {player} عند {ruled_out_clock} بداعي {reason_phrase} بعد مراجعة الـVAR. تبقى النتيجة {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+            "tactical": [
+                (
+                    "الـVAR: إلغاء هدف {player_short}",
+                    "أُلغي القرار بعد المراجعة بداعي {reason_phrase}. تعود النتيجة إلى {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+            "fantasy": [
+                (
+                    "هدف ملغى: {player_short}",
+                    "الـVAR يلغي الهدف بداعي {reason_phrase}، والتسديدة تبقى محسوبة. {player_short} اليوم: الأهداف {p_goals}، التسديدات {p_shots}، و{p_xg} xG.",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "لا هدف! الـVAR يلغي هدف {player_short}",
+                    "أُلغي هدف {player} عند {ruled_out_clock} بداعي {reason_phrase} بعد مراجعة الـVAR. تبقى النتيجة {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+        },
         "milestone.kick_off": {
             "casual": [
                 (
@@ -429,7 +497,7 @@ PACK = {
             "fantasy": [
                 (
                     "النهاية: {home} {score_home}-{score_away} {away}",
-                    "xG النهائي: {home} {xg_home}، {away} {xg_away}. راجع نقاطك.",
+                    "xG النهائي: {home} {xg_home}، {away} {xg_away}. التسديدات: {shots_home} مقابل {shots_away}.",
                 )
             ],
         },
@@ -484,6 +552,12 @@ PACK = {
         "rocket_shot": ["بسرعة {shot_speed_kmh} كم/س لا يملك الحارس وقتًا للتصرف."],
         "distance_milestone": ["نحو {milestone_km} كم تقديريًا تظهر الجهد خلف تنظيم {team}."],
         "hard_pass": ["صعوبة {pass_difficulty} من {difficulty_scale} تعني تمريرة لا ينجح فيها إلا القليل."],
+        "key_tackle": [
+            "بتدخل على بعد {own_goal_distance_m} م من المرمى، أُلغي خطر بقيمة {xt_stopped} xT من {opp}."
+        ],
+        "correction": [
+            "ألغى الـVAR هدف {ruled_out_clock} بداعي {reason_phrase}: تعود النتيجة إلى {home} {score_home}-{score_away} {away}."
+        ],
         "milestone.kick_off": ["انطلقت المباراة."],
         "milestone.half_time": ["بين الشوطين، الأهداف المتوقعة {xg_home} مقابل {xg_away}."],
         "milestone.full_time": ["الأهداف المتوقعة النهائية: {xg_home} مقابل {xg_away}."],
@@ -538,4 +612,310 @@ PACK = {
         "focus": "{focus}: {focus_passes_completed} تمريرة ناجحة من {focus_passes}، ونحو {focus_distance_km} كم "
         "تقديريًا، وأعلى سرعة {focus_top_speed_kmh} كم/س.",
     },
+}
+
+# مفردات كرة القدم التي تستخدمها القوالب بصيغة `{g_<المصطلح>}` (docs/LANGUAGES.md).
+PACK["glossary"] = {
+    "box": "منطقة الجزاء",
+    "keeper": "الحارس",
+    "back_line": "خط الدفاع",
+    "equaliser": "هدف التعادل",
+    "comeback": "العودة في النتيجة",
+    "let_off": "نجاة",
+    "rocket": "قذيفة",
+}
+
+_SCORE = "{home} {score_home}-{score_away} {away}"
+
+# قلب النادي (crew/club_heart.py): الحقائق نفسها، تُروى من جهة المشجع.
+PACK["heart"] = {
+    "goal_for": {
+        "casual": [
+            (
+                "هدف لفريقك! {player_short} يسجل",
+                "{player} يهزم {g_keeper} من {distance_m} م. النتيجة: " + _SCORE + ".",
+            ),
+        ],
+        "tactical": [
+            (
+                "{player_short} يحوّل {xg} xG لصالح فريقك",
+                "تسديدة من {distance_m} م في {zone}. " + _SCORE + " عند {match_clock}.",
+            ),
+        ],
+        "fantasy": [
+            (
+                "هدف {player_short} لفريقك",
+                "{player_short} اليوم: الأهداف {p_goals}، والتسديدات {p_shots}، و{p_xg} xG. قيمة هذه الفرصة {xg} xG.",
+            ),
+        ],
+    },
+    "goal_for_level": {
+        "casual": [
+            (
+                "تعادل! {player_short} يعيد فريقك",
+                "{player} يسجل {g_equaliser} عند {match_clock}. " + _SCORE + "، و{g_comeback} بدأت.",
+            ),
+        ],
+        "tactical": [
+            (
+                "{player_short} يعادل من فرصة {xg} xG",
+                "تسديدة من {distance_m} م في {zone}. " + _SCORE + " عند {match_clock}.",
+            ),
+        ],
+    },
+    "goal_for_pull_back": {
+        "casual": [
+            (
+                "{player_short} يقلص الفارق!",
+                _SCORE + " عند {match_clock}. فريقك عاد إلى المباراة، و{g_comeback} تبدأ من هنا.",
+            ),
+        ],
+        "tactical": [
+            (
+                "فريقك يقلص الفارق: {player_short}، {xg} xG",
+                "تسديدة من {distance_m} م في {zone}. " + _SCORE + " عند {match_clock}.",
+            ),
+        ],
+    },
+    "goal_for_lead": {
+        "casual": [
+            ("هدف! {player_short} يضع فريقك في المقدمة", "{player} يسجل عند {match_clock}. " + _SCORE + "."),
+        ],
+        "tactical": [
+            (
+                "تقدم لفريقك: {player_short}، {xg} xG",
+                "تسديدة من {distance_m} م في {zone} عند {match_clock}. " + _SCORE + ".",
+            ),
+        ],
+    },
+    "goal_against": {
+        "casual": [
+            ("{player_short} يسجل في مرمى فريقك", _SCORE + " عند {match_clock}. ما زال لدى فريقك وقت للرد."),
+        ],
+        "tactical": [
+            (
+                "هدف في مرمى فريقك: {player_short}، {xg} xG",
+                "تسديدة من {distance_m} م في {zone}. "
+                + _SCORE
+                + " عند {match_clock}، وما زال هناك وقت للرد.",
+            ),
+        ],
+        "fantasy": [
+            (
+                "{player_short} يسجل في مرمى فريقك",
+                "{player_short} اليوم: الأهداف {p_goals}، والتسديدات {p_shots}، و{p_xg} xG. قيمة هذه الفرصة {xg} xG.",
+            ),
+        ],
+    },
+    "goal_against_level": {
+        "casual": [
+            (
+                "تعادل: {player_short} يدرك التعادل",
+                _SCORE + " عند {match_clock}. على فريقك أن يستعيد تركيزه ويبدأ من جديد.",
+            ),
+        ],
+        "tactical": [
+            (
+                "{g_equaliser} للمنافس: {player_short}، {xg} xG",
+                "تسديدة من {distance_m} م في {zone}. " + _SCORE + " عند {match_clock}.",
+            ),
+        ],
+    },
+    "goal_against_lead_cut": {
+        "casual": [
+            (
+                "{player_short} يقلص تقدم فريقك",
+                _SCORE + " عند {match_clock}. فريقك ما زال متقدمًا، والهدوء مطلوب.",
+            ),
+        ],
+        "tactical": [
+            (
+                "تقليص الفارق: {player_short}، {xg} xG",
+                "تسديدة من {distance_m} م في {zone}. فريقك ما زال متقدمًا عند {match_clock}: " + _SCORE + ".",
+            ),
+        ],
+    },
+    "goal_against_late": {
+        "casual": [
+            (
+                "ضربة متأخرة: {player_short} يسجل",
+                _SCORE + " عند {match_clock}. ضربة قاسية لفريقك في هذا الوقت المتأخر.",
+            ),
+        ],
+        "tactical": [
+            (
+                "ضربة متأخرة: {player_short}، {xg} xG",
+                "تسديدة من {distance_m} م في {zone} عند {match_clock}. " + _SCORE + ".",
+            ),
+        ],
+    },
+    "card_own": {
+        "casual": [
+            (
+                "{card_name_cap} لـ{player_short}",
+                "{player} {card_action} عند {match_clock}. فريقك يحتاج إلى الهدوء الآن.",
+            ),
+        ],
+    },
+    "card_rival": {
+        "casual": [
+            (
+                "{card_name_cap} لـ{player_short}",
+                "{player} {card_action} عند {match_clock}. فرصة لفريقك لاستغلال الأفضلية.",
+            ),
+        ],
+    },
+    "let_off": {
+        "casual": [
+            (
+                "{g_let_off} لفريقك!",
+                "{player} أتيحت له فرصة واضحة لصالح {team} على بعد {distance_m} م، لكن {outcome_phrase}. "
+                "فرص كهذه تدخل الشباك في نحو {xg_pct}% من المرات.",
+            ),
+        ],
+        "tactical": [
+            (
+                "خطر: فرصة {xg} xG لصالح {team}",
+                "{player_short} يسدد من {distance_m} م في {zone}، لكن {outcome_phrase}. انكشف {g_back_line} لدى فريقك.",
+            ),
+        ],
+    },
+    "let_off_shot": {
+        "casual": [
+            (
+                "{g_let_off}: {g_rocket} من {player_short}",
+                "{player} يسدد بسرعة {shot_speed_kmh} كم/س من {distance_m} م، و{outcome_phrase}. فريقك ينجو.",
+            ),
+        ],
+    },
+    "let_off_choice": {
+        "casual": [
+            (
+                "{g_let_off}: {player_short} فضّل التسديد",
+                "{teammate_short} كان حرًا، والتمريرة كانت تساوي {times_better} أضعاف التسديدة. فريقك نجا.",
+            ),
+        ],
+        "tactical": [
+            (
+                "فريقك ينجو: {player_short} تجاهل {teammate_short}",
+                "التسديدة {shot_xg} xG؛ والتمريرة لمسافة {pass_distance_m} م كانت نسبة نجاحها {pass_success_pct}%. "
+                "فريقك نجا.",
+            ),
+        ],
+    },
+    "let_off_run": {
+        "casual": [
+            (
+                "{g_let_off}: لم يرَ أحد انطلاقة {runner_short}",
+                "{runner} اخترق خلف {g_back_line} لدى فريقك، لكن {player_short} لم يمرر الكرة. "
+                "كانت ستصبح فرصة بنسبة {projected_xg_pct}%.",
+            ),
+        ],
+        "tactical": [
+            (
+                "{g_let_off}: {runner_short} متقدم بـ{clear_of_line_m} م",
+                "{runner_short} تجاوز {g_back_line} لدى فريقك عند {pass_on_clock}؛ والتمريرة كانت ستصنع فرصة "
+                "{projected_xg} xG. {player_short} لم يرها.",
+            ),
+        ],
+    },
+    "lesson_choice": {
+        "casual": [
+            (
+                "في المرة القادمة، ابحث عن {teammate_short}",
+                "{player_short} سدد، لكن التمريرة إلى {teammate_short} كانت تساوي {times_better} أضعاف التسديدة. "
+                "درس يتعلم منه فريقك.",
+            ),
+        ],
+        "tactical": [
+            (
+                "درس: التمريرة إلى {teammate_short}",
+                "التسديدة {shot_xg} xG؛ والتمريرة لمسافة {pass_distance_m} م كانت نسبة نجاحها {pass_success_pct}% "
+                "وخلفها {alt_xg} xG. الكرة الأفضل كانت متاحة.",
+            ),
+        ],
+    },
+    "lesson_run": {
+        "casual": [
+            (
+                "انطلاقة {runner_short} كانت تستحق الكرة",
+                "{runner} كان متقدمًا بـ{clear_of_line_m} م على {g_back_line}؛ وفي المرة القادمة يستطيع {player_short} "
+                "إيجاده. كانت ستصبح فرصة بنسبة {projected_xg_pct}%.",
+            ),
+        ],
+        "tactical": [
+            (
+                "انطلاقة بلا تمريرة: {runner_short}، {clear_of_line_m} م",
+                "التمريرة البينية كانت متاحة عند {pass_on_clock}: فرصة {projected_xg} xG. "
+                "في المرة القادمة يستطيع {player_short} إيجاده.",
+            ),
+        ],
+    },
+    "pressure_for": {
+        "casual": [
+            ("فريقك يضغط بقوة", "فريقك يحاصر {opp} منذ {spell_min} دقائق. استمروا هكذا."),
+        ],
+    },
+    "hold_firm": {
+        "casual": [
+            (
+                "الصمود: {team} يضغط",
+                "{team} يحاصر فريقك منذ {spell_min} دقائق. حان وقت الصمود وإبعاد الكرة عن {g_box}.",
+            ),
+        ],
+        "tactical": [
+            (
+                "تحت الضغط: {team} عند {pressure_index}",
+                "مؤشر الضغط {pressure_index} لمدة {spell_min} دقائق، مع سيطرة على الملعب بنسبة {team_field_tilt_pct}% "
+                "ضد فريقك.",
+            ),
+        ],
+    },
+    "momentum_against": {
+        "casual": [
+            (
+                "تحذير: {team} يفرض سيطرته",
+                "تحرك الزخم {momentum_change} نقطة نحو {team} في {window_min} دقائق. فريقك يحتاج إلى رد.",
+            ),
+        ],
+        "tactical": [
+            (
+                "الزخم يتحول ضد فريقك",
+                "تحرك الزخم {momentum_change} نقطة في {window_min} دقائق؛ و{team} يسيطر على الملعب بنسبة "
+                "{team_field_tilt_pct}%.",
+            ),
+        ],
+    },
+    "full_time_won": {"casual": [("النهاية: فوز لفريقك!", _SCORE + ". نتيجة تستحق الاحتفال.")]},
+    "full_time_lost": {"casual": [("النهاية: خسارة لفريقك", _SCORE + ". حان وقت النهوض من جديد.")]},
+    "full_time_drawn": {"casual": [("النهاية: تعادل", _SCORE + ". نقطة لكل فريق.")]},
+}
+PACK["metric"]["momentum_against"] = [
+    ("تحذير: الزخم لصالح {team}", "تحرك الزخم {change} نقطة نحو {team}، بعيدًا عن فريقك."),
+]
+PACK["heart"]["attack_stopped"] = {
+    "casual": [
+        (
+            "{player_short} يوقف هجمة فريقك",
+            "{player} استعاد الكرة على بعد {own_goal_distance_m} م من مرماه. فريقك يبدأ من جديد.",
+        ),
+    ],
+    "tactical": [
+        (
+            "هجمة أُوقفت: أُلغي خطر بقيمة {xt_stopped} xT",
+            "{player_short} استعادها في ثلثه الدفاعي على بعد {own_goal_distance_m} م. على فريقك إعادة البناء.",
+        ),
+    ],
+}
+
+# ملخص بلا حرق للنتيجة (crew/spoilers.py): قصة المباراة دون النتيجة أو الأهداف
+# أو قرارات الفيديو. الحقائق من `recap.story_facts` فقط.
+PACK["story"] = {
+    "title": "القصة حتى الآن: {home} ضد {away}",
+    "headline": "تابع ما فاتك دون النتيجة",
+    "p1": "عند الدقيقة {generated_at}: الأهداف المتوقعة {xg_home} مقابل {xg_away}، من {shots_home} و{shots_away} تسديدة.",
+    "p2": "رصدنا فرصا كبيرة: {n_big_chances}، وفترات ضغط: {n_pressure_spells}، وتحولات في الزخم: {n_momentum_swings}.",
+    "on_top": "{on_top} هو الطرف الأفضل الآن.",
+    "level": "لا أفضلية لأي فريق الآن.",
+    "watch": "شاهد تسديدات كان التمرير فيها أفضل: {n_better_options}، وانطلاقات بلا تمريرة: {n_unfound_runs}.",
 }

@@ -17,7 +17,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY backend/ ./backend/
-RUN pip install "./backend[azure]" \
+RUN pip install "./backend[azure,ai,foundry,agent-framework,observability]" \
     && useradd --system --uid 10001 --home-dir /app --shell /usr/sbin/nologin pitchpulse
 COPY --from=frontend /src/frontend/dist ./static
 
@@ -27,7 +27,8 @@ ENV MATCHMIND_MATCH_FILE=/app/backend/data/matches/MM-DEMO-001.jsonl \
     MATCHMIND_STATIC_DIR=/app/static \
     MATCHMIND_HOST=0.0.0.0 \
     PORT=8000 \
-    FORWARDED_ALLOW_IPS=*
+    FORWARDED_ALLOW_IPS=* \
+    MATCHMIND_TRUST_FORWARDED_FOR=true
 
 USER 10001
 EXPOSE 8000

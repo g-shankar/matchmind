@@ -33,7 +33,7 @@ export const Badge: React.FC<{ tone?: 'pulse' | 'signal' | 'gold' | 'mute'; clas
   children,
 }) => {
   const tones = {
-    pulse: 'bg-pp-pulse text-white',
+    pulse: 'bg-pp-pulseFill text-white',
     signal: 'bg-pp-signal text-pp-night',
     gold: 'bg-pp-gold text-pp-night',
     mute: 'border border-pp-line bg-pp-deep text-pp-mute',
@@ -58,15 +58,18 @@ export function Segmented<T extends string | number>({
   onChange,
   label,
   className,
+  dir,
 }: {
   options: { value: T; label: React.ReactNode; title?: string }[];
   value: T;
   onChange: (v: T) => void;
   label: string;
   className?: string;
+  /** Keep the options' order on a right-to-left page (speeds read 1x, 10x, 60x everywhere). */
+  dir?: 'ltr' | 'rtl';
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className={cx('flex items-stretch border border-pp-line bg-pp-deep', className)}>
+    <div role="radiogroup" aria-label={label} dir={dir} className={cx('flex items-stretch border border-pp-line bg-pp-deep', className)}>
       {options.map((o) => (
         <button
           key={String(o.value)}
@@ -76,7 +79,7 @@ export function Segmented<T extends string | number>({
           title={o.title}
           onClick={() => onChange(o.value)}
           className={cx(
-            'min-h-[32px] border-b-2 px-2.5 font-display text-[13px] font-bold uppercase tracking-broadcast transition',
+            'min-h-[44px] min-w-[44px] border-b-2 px-2.5 font-display text-[13px] font-bold uppercase tracking-broadcast transition',
             value === o.value ? 'border-pp-pulse bg-pp-chalk text-pp-night' : 'border-transparent text-pp-mute hover:text-pp-chalk',
           )}
         >

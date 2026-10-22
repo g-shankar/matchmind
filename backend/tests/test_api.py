@@ -28,7 +28,9 @@ SNAPSHOT_KEYS = {
     "bookmarks",
     "players",
     "crew",
+    "languages",
     "auto_eventing",
+    "cue_sheet",
 }
 STATE_KEYS = {
     "match_id",
@@ -99,16 +101,28 @@ PLAYER_KEYS = {
     "pass_accuracy",
     "key_passes",
     "shots",
+    "shots_on_target",
     "goals",
     "assists",
     "xg",
     "xa",
     "tackles_won",
+    "tackles_lost",
+    "tackles_attempted",
+    "tackle_success_pct",
     "interceptions",
     "top_speed_kmh",
     "sprints",
     "distance_km",
+    "walk_km",
+    "jog_km",
+    "run_km",
+    "sprint_km",
+    "physical_source",
     "carry_distance_m",
+    "name",
+    "number",
+    "position",
 }
 
 
@@ -142,7 +156,11 @@ def pump(client: TestClient, clock: FakeClock | None = None, seconds: float = 0.
 
 
 def recv(ws, type_: str) -> dict:
+    """The next message of `type_`. CUES (the cue sheet stream that follows each
+    tick) is skipped unless asked for; tests/test_cues.py covers it."""
     msg = ws.receive_json()
+    while msg["type"] == "CUES" and type_ != "CUES":
+        msg = ws.receive_json()
     assert msg["type"] == type_, msg
     return msg["data"]
 
@@ -170,6 +188,7 @@ def test_snapshot_shape_matches_contract(client, clock):
         "favourite_team": None,
         "focus_player_id": None,
         "focus_metric": None,
+        "spoilers": True,
     }
     assert data["clock"] == "00:00" and data["home_score"] == 0
     assert data["teams"]["home"]["name"] == "Northbridge FC"
@@ -196,7 +215,7 @@ def test_teams_route(client):
 def test_bookmarks_route(client):
     data = client.get("/api/match/bookmarks").json()
     assert [b["match_clock"] for b in data] == ["01:00", "46:40"]
-    assert set(data[0]) == {"moment_id", "kind", "match_clock", "clock_s", "period", "title"}
+    assert set(data[0]) == {"moment_id", "kind", "match_clock", "clock_s", "period", "title", "ruled_out"}
 
 
 def test_moment_route_and_404(client):
@@ -220,7 +239,10 @@ def test_recap_route(client):
 def test_bad_query_gets_plain_400(client):
     r = client.get("/api/match/recap?persona=hacker")
     assert r.status_code == 400
-    assert r.json() == {"detail": "Check persona: the value is missing or not allowed."}
+    assert r.json() == {
+        "detail": "Check persona: the value is missing or not allowed.",
+        "code": "bad_request",
+    }
 
 
 def test_players_route(client, clock):
@@ -244,12 +266,14 @@ def test_rest_playback_controls(client, clock):
     r = client.post("/api/match/seek", json={"clock_s": 9000, "period": 2})
     assert r.status_code == 400 and r.json() == {"detail": "That time is after full time."}
     clock.t += 1
-    r = client.post("/api/match/reset")
+    r = client.post("/api/match/reset", json={})
     assert r.json()["is_running"] is True and r.json()["clock_s"] == 0
 
 
 def test_crew_routes(client):
-    assert client.get("/api/crew/status").json()["mode"] == "template"
+    status = client.get("/api/crew/status").json()
+    assert status["mode"] == "template"
+    assert status["provider"] == "templates" and status["orchestrator"] == "in_process"
     traces = client.get("/api/crew/trace?limit=5").json()
     assert traces[0]["steps"][0]["agent"] == "spotter"
     assert client.get("/api/crew/trace?limit=0").status_code == 400
@@ -300,7 +324,7 @@ def test_app_created_at_import_and_loads_lazily():
 def test_ws_initial_snapshot_then_ticks_in_order(client, clock):
     with client.websocket_connect("/ws/match") as ws:
         snap = recv(ws, "INITIAL_SNAPSHOT")
-        assert set(snap) == SNAPSHOT_KEYS
+        assert set(snap) == SNAPSHOT_KEYS | {"recent_events"}  # the pitch's last events (WS only)
         pump(client, clock, 0.6)  # 60 match seconds at the default 10x
         seqs = []
         for _ in range(4):
@@ -331,6 +355,7 @@ def test_ws_set_view_changes_only_that_connection(client, clock):
         profile = recv(a, "PROFILE_CHANGED")
         assert profile["persona"] == "tactical" and profile["language"] == "ar"
         assert recv(a, "PERSONA_CHANGED") == {"persona": "tactical"}
+        assert recv(a, "INITIAL_SNAPSHOT")["profile"]["language"] == "ar"  # new language: fresh snapshot
         pump(client, clock, 0.6)
         last_a = [recv(a, "MATCH_TICK") for _ in range(4)][-1]
         last_b = [recv(b, "MATCH_TICK") for _ in range(4)][-1]  # b got ticks, no PROFILE_CHANGED
@@ -400,6 +425,7 @@ def test_ws_shared_playback_reaches_everyone(client, clock):
         a.send_json({"action": "toggle_pause"})
         assert recv(a, "PLAYBACK_CONTROL")["is_running"] is False
         assert recv(b, "PLAYBACK_CONTROL")["is_running"] is False
+        clock.t += 1  # pause and speed changes share a 0.3 s throttle
         b.send_json({"action": "set_speed", "speed_multiplier": 1})
         assert recv(a, "PLAYBACK_CONTROL")["speed_multiplier"] == 1
         assert recv(b, "PLAYBACK_CONTROL")["speed_multiplier"] == 1
@@ -424,6 +450,7 @@ def test_ws_match_end_sends_recap_for_the_viewer(client, clock):
         ws.send_json({"action": "set_view", "persona": "tactical", "language": "es"})
         recv(ws, "PROFILE_CHANGED")
         recv(ws, "PERSONA_CHANGED")
+        recv(ws, "INITIAL_SNAPSHOT")  # a language change brings a fresh snapshot
         pump(client, clock, 100)
         ticks = [recv(ws, "MATCH_TICK") for _ in range(9)]
         assert ticks[-1]["event"]["type"] == "match_end"
@@ -494,6 +521,75 @@ def test_public_origin_from_env(monkeypatch, session, clock, tmp_path):
         recv(ws, "INITIAL_SNAPSHOT")
 
 
+def _static_app(session, clock, tmp_path, public_origin, origins=()):
+    static = tmp_path / "static"
+    static.mkdir(exist_ok=True)
+    (static / "index.html").write_text("<!doctype html><title>PitchPulse</title>")
+    return create_app(
+        session=session,
+        tick_interval=None,
+        allowed_origins=list(origins),
+        static_dir=static,
+        clock=clock,
+        public_origin=public_origin,
+    )
+
+
+def test_csp_connect_src_names_the_public_origin_and_its_websocket_twin(session, clock, tmp_path):
+    """LC-14: the page may open sockets only to this server's own origin and the listed ones."""
+    app = _static_app(
+        session, clock, tmp_path, "https://pitchpulse.example", origins=["http://localhost:3000"]
+    )
+    with TestClient(app) as c:
+        csp = c.get("/").headers["content-security-policy"]
+    directives = dict(d.strip().split(" ", 1) for d in csp.split(";"))
+    assert directives["connect-src"].split() == [
+        "'self'",
+        "https://pitchpulse.example",
+        "wss://pitchpulse.example",
+        "http://localhost:3000",
+        "ws://localhost:3000",
+    ]
+
+
+def test_pages_carry_a_content_security_policy_and_api_routes_do_not(session, clock, tmp_path):
+    app = _static_app(
+        session, clock, tmp_path, "", origins=["https://api.pitchpulse.example", "bad; script-src *"]
+    )
+    with TestClient(app) as c:
+        page = c.get("/")
+        api = c.get("/api/health")
+    csp = page.headers["content-security-policy"]
+    directives = dict(d.strip().split(" ", 1) for d in csp.split(";"))
+    assert directives["default-src"] == "'self'"
+    assert directives["script-src"] == "'self'"
+    assert directives["frame-ancestors"] == "'none'"
+    assert directives["img-src"] == "'self' data:"
+    assert directives["media-src"] == "'self'"
+    assert directives["style-src"] == "'self' 'unsafe-inline'"
+    connect = directives["connect-src"].split()
+    # Launch checks LC-14: only listed origins and their WebSocket twins, never any ws:/wss: host.
+    assert connect[0] == "'self'"
+    assert "ws:" not in connect and "wss:" not in connect
+    assert {"https://api.pitchpulse.example", "wss://api.pitchpulse.example"} <= set(connect)
+    assert "*" not in csp and "bad" not in csp  # a malformed origin never widens the policy
+    assert "content-security-policy" not in api.headers
+    assert page.headers["x-content-type-options"] == "nosniff"
+
+
+def test_hsts_only_when_the_public_origin_is_https(session, clock, tmp_path):
+    for own, expected in (
+        ("https://pitchpulse.example", True),
+        ("http://localhost:8000", False),
+        ("", False),
+    ):
+        app = _static_app(session, clock, tmp_path, own)
+        with TestClient(app) as c:
+            for path in ("/", "/api/health"):
+                hsts = c.get(path).headers.get("strict-transport-security")
+                assert (hsts == "max-age=31536000; includeSubDomains") if expected else hsts is None
+
+
 def test_ws_rate_limit(client):
     with client.websocket_connect("/ws/match") as ws:
         recv(ws, "INITIAL_SNAPSHOT")
@@ -536,3 +632,43 @@ def test_demo_match_with_real_stats_engine(clock):
         pump(c, clock, 100)
         assert recv(ws, "MATCH_TICK")["state"]["period"] == 2
     assert s.ended and s.score == (2, 3)
+
+
+# --- Languages -------------------------------------------------------------------------------
+
+
+def test_languages_route_lists_studio_and_world_languages(client):
+    data = client.get("/api/languages").json()
+    assert data["translator"]["mode"] == "off" and data["translator"]["available"] is False
+    by_code = {lang["code"]: lang for lang in data["languages"]}
+    assert list(by_code)[:5] == ["en", "es", "fr", "ar", "ja"] and len(by_code) == 13
+    assert by_code["es"] == {
+        "code": "es",
+        "name": "Español",
+        "english_name": "Spanish",
+        "source": "studio",
+        "available": True,
+        "rtl": False,
+        "reason": None,
+    }
+    assert by_code["zh-Hans"]["source"] == "translator" and by_code["zh-Hans"]["available"] is False
+    assert by_code["zh-Hans"]["reason"] == "translator_off"
+    snapshot = client.get("/api/match/snapshot").json()
+    assert snapshot["languages"] == data["languages"]
+    assert snapshot["crew"]["translator"]["mode"] == "off"
+
+
+def test_world_language_is_accepted_in_rest_and_set_view(client):
+    r = client.get("/api/match/moment/goal-MM-TEST-001-00007?lang=zh-Hans")
+    assert r.status_code == 200 and r.json()["language"] == "zh-Hans"
+    assert client.get("/api/match/recap?lang=sw").status_code == 200
+    assert client.get("/api/match/recap?lang=xx").status_code == 400
+    with client.websocket_connect("/ws/match") as ws:
+        recv(ws, "INITIAL_SNAPSHOT")
+        ws.send_json({"action": "set_view", "language": "pt"})
+        assert recv(ws, "PROFILE_CHANGED")["language"] == "pt"
+        recv(ws, "PERSONA_CHANGED")
+        recv(ws, "INITIAL_SNAPSHOT")
+        ws.send_json({"action": "set_view", "language": "klingon"})
+        message = recv(ws, "ERROR")["message"]
+        assert "zh-Hans" in message and "ko" in message

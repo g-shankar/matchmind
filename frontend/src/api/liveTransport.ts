@@ -1,5 +1,5 @@
-import type { ClientAction, Language, OverlayCard, PersonaType, Recap, ServerMessage } from './contract';
-import { apiBase, wsUrl, type MatchTransport, type MessageHandler } from './transport';
+import type { AskAnswer, AskRequest, AskResult, ClientAction, Language, OverlayCard, PersonaType, Recap, ServerMessage } from './contract';
+import { apiBase, wsUrl, type MatchTransport, type MessageHandler, type WsView } from './transport';
 
 export interface LiveCallbacks {
   onMessage: MessageHandler;
@@ -15,9 +15,9 @@ export class LiveTransport implements MatchTransport {
   private closedByUs = false;
   private readonly base: string;
 
-  constructor(callbacks: LiveCallbacks, base = apiBase()) {
+  constructor(callbacks: LiveCallbacks, base = apiBase(), view?: WsView) {
     this.base = base;
-    this.ws = new WebSocket(wsUrl(base));
+    this.ws = new WebSocket(wsUrl(base, view));
     this.ws.onopen = () => {
       this.opened = true;
       callbacks.onOpen();
@@ -50,9 +50,27 @@ export class LiveTransport implements MatchTransport {
     return this.getJson<OverlayCard>(`/api/match/moment/${encodeURIComponent(momentId)}?${q}`);
   }
 
-  async getRecap(persona: PersonaType, language: Language): Promise<Recap | null> {
+  async getRecap(persona: PersonaType, language: Language, spoilers = true): Promise<Recap | null> {
     const q = new URLSearchParams({ persona, lang: language });
+    if (!spoilers) q.set('spoilers', 'false');
     return this.getJson<Recap>(`/api/match/recap?${q}`);
+  }
+
+  // The question goes in the body, never the URL, so it stays out of access logs.
+  async ask(request: AskRequest): Promise<AskResult> {
+    try {
+      const res = await fetch(`${this.base}/api/ask`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        cache: 'no-store',
+      });
+      if (res.status === 429) return { ok: false, failure: 'busy' };
+      if (!res.ok) return { ok: false, failure: 'unavailable' };
+      return { ok: true, answer: (await res.json()) as AskAnswer };
+    } catch {
+      return { ok: false, failure: 'unavailable' };
+    }
   }
 
   close() {
