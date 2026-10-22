@@ -1,26 +1,19 @@
 // Ask the studio (docs/ASK.md): one short question, or a suggested chip, answered
 // by the server from the stats engine as of the match clock. The answer is
 // plain text from a template; the numbers behind it are shown as evidence and
-// each cited moment links to its audit ("how we know").
+// each cited moment opens its claim audit ("how we know", components/ClaimAudit).
 import React, { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, MessageCircleQuestion, Search, Volume2 } from 'lucide-react';
 import { ASK_CHIPS, ASK_MAX_CHARS, type AskAnswer, type AskChip, type AskFailure } from '../api/contract';
-import { apiBase } from '../api/transport';
 import { useI18n } from '../i18n';
 import { useReadAloud } from '../lib/speech';
 import type { MatchViewState } from '../state/matchStore';
 import type { MatchActions } from '../state/useMatch';
 import { factValue } from './BroadcastOverlay';
+import { AuditDrawer } from './ClaimAudit';
 import { Badge, Panel, cx } from './ui';
 
-export const OPEN_AUDIT_EVENT = 'pitchpulse:open-audit';
 const MAX_LINKS = 3;
-
-/** Asks the audit drawer (when the page has one) to open a moment; true when something handled it. */
-export function requestAudit(momentId: string): boolean {
-  const ev = new CustomEvent(OPEN_AUDIT_EVENT, { detail: { momentId }, cancelable: true });
-  return !window.dispatchEvent(ev);
-}
 
 type Result = { answer: AskAnswer } | { failure: AskFailure };
 
@@ -30,7 +23,8 @@ export const AskStudio: React.FC<{ match: MatchViewState; actions: MatchActions;
   const [text, setText] = useState('');
   const [pending, setPending] = useState<AskChip | 'text' | null>(null);
   const [result, setResult] = useState<Result | null>(null);
-  const [auditNote, setAuditNote] = useState(false);
+  const [auditId, setAuditId] = useState<string | null>(null);
+  const opener = useRef<HTMLElement | null>(null);
   const speech = useReadAloud();
   const seq = useRef(0);
   const inputId = useRef(`ask-${Math.random().toString(36).slice(2, 8)}`).current;
@@ -39,7 +33,6 @@ export const AskStudio: React.FC<{ match: MatchViewState; actions: MatchActions;
   const run = async (input: { question: string } | { chip: AskChip }, kind: AskChip | 'text') => {
     const mine = ++seq.current;
     setPending(kind);
-    setAuditNote(false);
     const res = await actions.ask(input);
     if (mine !== seq.current) return; // a newer question replaced this one
     setPending(null);
@@ -61,10 +54,9 @@ export const AskStudio: React.FC<{ match: MatchViewState; actions: MatchActions;
     void run({ question: q.slice(0, ASK_MAX_CHARS) }, 'text');
   };
 
-  const howWeKnow = (momentId: string) => {
-    if (requestAudit(momentId)) return;
-    if (actions.isDemo()) return setAuditNote(true);
-    window.open(`${apiBase()}/api/match/moment/${encodeURIComponent(momentId)}/audit`, '_blank', 'noopener,noreferrer');
+  const howWeKnow = (momentId: string, from: HTMLElement) => {
+    opener.current = from;
+    setAuditId(momentId);
   };
 
   return (
@@ -141,11 +133,21 @@ export const AskStudio: React.FC<{ match: MatchViewState; actions: MatchActions;
             answer={result.answer}
             match={match}
             onHowWeKnow={howWeKnow}
-            auditNote={auditNote}
             onSpeak={speech.enabled ? () => speech.speak(result.answer.answer, result.answer.text_language) : undefined}
           />
         )}
       </div>
+      {auditId && (
+        <AuditDrawer
+          momentId={auditId}
+          persona={match.profile.persona}
+          language={match.profile.language}
+          onClose={() => {
+            setAuditId(null);
+            opener.current?.focus();
+          }}
+        />
+      )}
     </Panel>
   );
 };
@@ -153,10 +155,9 @@ export const AskStudio: React.FC<{ match: MatchViewState; actions: MatchActions;
 const AnswerCard: React.FC<{
   answer: AskAnswer;
   match: MatchViewState;
-  onHowWeKnow: (momentId: string) => void;
-  auditNote: boolean;
+  onHowWeKnow: (momentId: string, from: HTMLElement) => void;
   onSpeak?: () => void;
-}> = ({ answer, match, onHowWeKnow, auditNote, onSpeak }) => {
+}> = ({ answer, match, onHowWeKnow, onSpeak }) => {
   const i18n = useI18n();
   const { t } = i18n;
   const answered = answer.status === 'answered' || answer.status === 'not_yet';
@@ -213,7 +214,7 @@ const AnswerCard: React.FC<{
           {links.map((id) => {
             const b = bookmark(id);
             return (
-              <button key={id} type="button" onClick={() => onHowWeKnow(id)} className="min-h-[32px] text-pp-signal underline decoration-dotted underline-offset-2 hover:text-pp-chalk">
+              <button key={id} type="button" aria-haspopup="dialog" onClick={(e) => onHowWeKnow(id, e.currentTarget)} className="min-h-[32px] text-pp-signal underline decoration-dotted underline-offset-2 hover:text-pp-chalk">
                 {t('ask.howWeKnow')}
                 {b ? <span className="ltr-nums"> · {b.match_clock}</span> : null}
               </button>
@@ -221,7 +222,6 @@ const AnswerCard: React.FC<{
           })}
         </div>
       )}
-      {auditNote && <p className="mt-1 text-[11px] text-pp-mute">{t('ask.howWeKnowLive')}</p>}
     </article>
   );
 };

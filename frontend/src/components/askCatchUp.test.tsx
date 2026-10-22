@@ -1,6 +1,6 @@
 import type React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { AskAnswer, AskResult, Bookmark } from '../api/contract';
 import { DEFAULT_PROFILE } from '../api/mockServer';
 import { I18nProvider } from '../i18n';
@@ -8,7 +8,8 @@ import { resetReadAloudForTests, voiceFor } from '../lib/speech';
 import { initialMatchState, type MatchViewState } from '../state/matchStore';
 import type { MatchActions } from '../state/useMatch';
 import { makeFixture } from '../test/fixture';
-import { AskStudio, OPEN_AUDIT_EVENT } from './AskStudio';
+import { AskStudio } from './AskStudio';
+import { audit, fetchStub } from '../test/insights';
 import { CatchUpBanner, CatchUpButton, ScoreValue, keyMoments } from './CatchUp';
 import { ReadAloudCards, ReadAloudToggle } from './ReadAloud';
 
@@ -30,7 +31,6 @@ const actionsMock = (over: Partial<MatchActions> = {}): MatchActions => ({
   loadRecap: vi.fn().mockResolvedValue(null),
   setSpoilers: vi.fn(),
   ask: vi.fn().mockResolvedValue({ ok: false, failure: 'unavailable' }),
-  isDemo: vi.fn(() => false),
   ...over,
 });
 
@@ -118,42 +118,18 @@ describe('AskStudio', () => {
     expect(screen.getByRole('button', { name: 'Who has the most xG?' })).toBeTruthy();
   });
 
-  it('"how we know" asks the audit drawer to open the moment', async () => {
-    const ask = vi.fn().mockResolvedValue({ ok: true, answer: answer() });
-    const seen: string[] = [];
-    const onOpen = (e: Event) => {
-      seen.push((e as CustomEvent<{ momentId: string }>).detail.momentId);
-      e.preventDefault();
-    };
-    window.addEventListener(OPEN_AUDIT_EVENT, onOpen);
-    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+  it('"how we know" opens the claim audit for the cited moment', async () => {
+    const ask = vi.fn().mockResolvedValue({ ok: true, answer: answer({ moment_ids: ['M-2'] }) });
+    const fetch = vi.fn(fetchStub({ '/api/match/moment/M-2/audit': audit() }));
+    vi.stubGlobal('fetch', fetch);
     try {
       ui(<AskStudio match={matchWith()} actions={actionsMock({ ask })} />);
       fireEvent.click(screen.getByRole('button', { name: 'Who has the most xG?' }));
       fireEvent.click(await screen.findByRole('button', { name: /How we know/ }));
-      expect(seen).toEqual(['M-1']);
-      expect(open).not.toHaveBeenCalled();
+      expect(await screen.findByRole('dialog')).toBeTruthy();
+      await waitFor(() => expect(String(fetch.mock.calls[0]?.[0])).toMatch(/\/api\/match\/moment\/M-2\/audit$/));
     } finally {
-      window.removeEventListener(OPEN_AUDIT_EVENT, onOpen);
-      open.mockRestore();
-    }
-  });
-
-  it('without a drawer, opens the audit on the live server, or says where it is in the demo', async () => {
-    const ask = vi.fn().mockResolvedValue({ ok: true, answer: answer() });
-    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
-    try {
-      ui(<AskStudio match={matchWith()} actions={actionsMock({ ask })} />);
-      fireEvent.click(screen.getByRole('button', { name: 'Who has the most xG?' }));
-      fireEvent.click(await screen.findByRole('button', { name: /How we know/ }));
-      expect(open.mock.calls[0][0]).toMatch(/\/api\/match\/moment\/M-1\/audit$/);
-      cleanup();
-      ui(<AskStudio match={matchWith()} actions={actionsMock({ ask, isDemo: () => true })} />);
-      fireEvent.click(screen.getByRole('button', { name: 'Who has the most xG?' }));
-      fireEvent.click(await screen.findByRole('button', { name: /How we know/ }));
-      expect(screen.getByText(/full audit of each moment is on the live server/)).toBeTruthy();
-    } finally {
-      open.mockRestore();
+      vi.unstubAllGlobals();
     }
   });
 });

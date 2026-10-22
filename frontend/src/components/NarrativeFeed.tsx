@@ -29,6 +29,7 @@ import { TranslationTag } from './LanguagePicker';
 import type { ViewProps } from '../views/types';
 import { playerName, shortName, teamById } from '../lib/teams';
 import { Badge, Panel, TeamDot, cx } from './ui';
+import { ShowWorkingButton } from './ClaimAudit';
 
 export interface NarrativeFeedProps extends ViewProps {
   onOpenReplay: (card: OverlayCard) => void;
@@ -314,6 +315,7 @@ const StoryCard: React.FC<{
             {open ? t('studio.feed.hideEvidence') : t('studio.feed.showEvidence', { count: card.evidence.length })}
           </button>
         )}
+        <ShowWorkingButton momentId={card.moment_id} persona={card.persona} language={card.language} />
         {card.replay && (
           <button
             type="button"

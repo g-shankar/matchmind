@@ -5,6 +5,7 @@ import { useI18n } from '../i18n';
 import { playerById, shortName } from '../lib/teams';
 import { Pitch2D, decimalsOf, evidenceLabel, fmtFact, fmtUnit, pct, withClock } from './Pitch2D';
 import { Badge, cx } from './ui';
+import { ShowWorkingButton } from './ClaimAudit';
 import { TranslationTag } from './LanguagePicker';
 import { isTranslationReason, textLanguage } from '../lib/languages';
 
@@ -240,6 +241,11 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
           </div>
         )}
       </div>
+      {!card.moment_id.startsWith('metric:') && (
+        <div className="mt-3 flex justify-end">
+          <ShowWorkingButton momentId={card.moment_id} persona={card.persona} language={card.language} />
+        </div>
+      )}
     </section>
   );
 };

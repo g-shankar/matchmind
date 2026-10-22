@@ -7,13 +7,14 @@ import studio from './studio';
 import fan from './fan';
 import world from './world';
 import cues from './cues';
+import trust from './trust';
 import ask from './ask';
 
 export const UI_LANGUAGES = ['en', 'es', 'ar'] as const;
 export type UiLanguage = (typeof UI_LANGUAGES)[number];
 export type StringTable = Record<UiLanguage, Record<string, string>>;
 
-export const tables: Record<string, StringTable> = { core, pitch, broadcast, studio, fan, world, cues, ask };
+export const tables: Record<string, StringTable> = { core, pitch, broadcast, studio, fan, world, cues, trust, ask };
 
 export const mergedStrings: Record<UiLanguage, Record<string, string>> = {
   en: {},

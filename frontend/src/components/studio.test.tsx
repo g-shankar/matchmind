@@ -28,7 +28,6 @@ const actionsMock = (over: Partial<MatchActions> = {}): MatchActions => ({
   loadRecap: vi.fn().mockResolvedValue(null),
   setSpoilers: vi.fn(),
   ask: vi.fn().mockResolvedValue({ ok: false, failure: 'unavailable' }),
-  isDemo: vi.fn(() => false),
   ...over,
 });
 

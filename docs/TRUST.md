@@ -182,3 +182,28 @@ Said plainly, because a clean checker report can still hide these:
 - **Model mode at scale.** Everything above was measured in template mode. The
   same checks run on model text, but the model path has not been evaluated on
   live output (owner-approved spend).
+
+## In the app
+
+- **Show your working** on every studio story card and full replay opens the
+  moment audit in a side drawer: each sentence with its numbers and names
+  marked inline (matched fact, no matching fact, or nothing to check), the fact
+  key and value each one binds to, the source event ids, the fact-check result,
+  the parity table, the crew trace with timings, VAR retract and ruled-out
+  links, and the list of what is not checked.
+- **Crew health** (studio, under the moment list) polls `/api/crew/status`
+  every 5 s: provider and orchestrator (the ones not in use are labelled "off
+  until deployed"), fallback and rejection rates with their counts, moments per
+  minute, per-agent p50/p95, breakers and the translator.
+- **Under the hood** (`#lab`) shows the metric registry, basic stats, the
+  synthetic auto-eventing benchmark, dataset downloads, the MCP endpoint and the
+  broadcast outputs (OBS capture URL, cue-sheet link).
+- **Offline demo.** `frontend/scripts/build_demo_fixture.py` also writes
+  `frontend/public/demo/demo-insights.json` (about 1 MB, loaded only when a
+  panel opens): an audit for every demo moment, worked out by the server's own
+  claim and fact-check code against the demo's own card text, plus the metric
+  registry, the benchmark and the dataset index. There is no crew trace in the
+  recording and the app says so; basic stats, downloads, the MCP endpoint and
+  the cue-sheet feed say they need the live server. Three demo goal cards carry
+  a parity note (the Arabic stats-scout text writes "two key passes" as a word
+  where English prints "2"); the audit shows it as reported.
