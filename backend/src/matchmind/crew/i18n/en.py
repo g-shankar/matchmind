@@ -42,6 +42,12 @@ PACK = {
         "shots_home": "Home shots",
         "shots_away": "Away shots",
         "appearance_n": "Club appearances",
+        "xt_stopped": "Threat stopped (xT)",
+        "own_goal_distance_m": "Distance from own goal",
+        "p_tackles_won": "Tackles won",
+        "last_ditch": "Last-ditch (own box)",
+        "distance_km": "Distance so far (tracking est.)",
+        "sprint_m": "Sprint length",
     },
     "zones": {
         "Penalty Box": "penalty box",
@@ -377,6 +383,40 @@ PACK = {
                 )
             ],
         },
+        "key_tackle": {
+            "casual": [
+                (
+                    "Big tackle by {player_short}",
+                    "{player} takes the ball off {victim_short} {own_goal_distance_m} m from his own goal. "
+                    "Danger over for {team}.",
+                ),
+                (
+                    "Big tackle by {player_short}",
+                    "{player} wins the ball {own_goal_distance_m} m from his own goal. Danger over for {team}.",
+                ),
+            ],
+            "tactical": [
+                (
+                    "Key tackle: {player_short}",
+                    "Won in the defensive third, {own_goal_distance_m} m out, where {opp} carried {xt_stopped} xT. "
+                    "{player_short} has {p_tackles_won|tackle won|tackles won} today.",
+                )
+            ],
+            "fantasy": [
+                (
+                    "{player_short} stops the attack",
+                    "Defensive work from {player_short}: {p_tackles_won|tackle won|tackles won} so far. "
+                    "This one came {own_goal_distance_m} m from his own goal.",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "{player_short} wins it back",
+                    "A tackle {own_goal_distance_m} m from his own goal takes away a {xt_stopped} xT threat. "
+                    "Tackles won today: {p_tackles_won}.",
+                )
+            ],
+        },
         "milestone.kick_off": {
             "casual": [
                 (
@@ -491,6 +531,9 @@ PACK = {
         ],
         "hard_pass": [
             "A difficulty rating of {pass_difficulty} out of {difficulty_scale} is a pass few players complete."
+        ],
+        "key_tackle": [
+            "Won {own_goal_distance_m} m from goal, the tackle took away a {xt_stopped} xT threat from {opp}."
         ],
         "milestone.kick_off": ["The match is under way."],
         "milestone.half_time": ["At the break expected goals read {xg_home} to {xg_away}."],

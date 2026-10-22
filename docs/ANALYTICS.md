@@ -67,8 +67,8 @@ Row counts of the bundled dataset (5 matches in `backend/data/matches`), checked
 | `players` | dim | 22 | Fictional squads, 11 per club |
 | `matches` | dim | 5 | One row per match: score, xG, seed, kick-off |
 | `events` | fact | 10433 | Every event, with stats-engine metrics (xG, pass difficulty, pressure, xT, sprint) and the running match state (score, cumulative xG, momentum, five-minute pressure index) |
-| `moments` | fact | 358 | Spotter output: kind, priority, players, facts as JSON |
-| `moment_facts` | fact | 5933 | The same facts, one row per fact (text and numeric value) |
+| `moments` | fact | 328 | Spotter output: kind, priority, players, facts as JSON |
+| `moment_facts` | fact | 5801 | The same facts, one row per fact (text and numeric value) |
 | `better_options` | fact | 6 | "Should he have passed?": shot vs best pass, and unfound runs, with positions |
 | `player_match` | fact | 110 | Per-player aggregates for one match |
 | `team_match` | fact | 10 | Per-club aggregates for one match |

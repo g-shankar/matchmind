@@ -39,6 +39,12 @@ PACK = {
         "shots_home": "ホームのシュート数",
         "shots_away": "アウェイのシュート数",
         "appearance_n": "クラブ出場数",
+        "xt_stopped": "防いだ脅威（xT）",
+        "own_goal_distance_m": "自陣ゴールからの距離",
+        "p_tackles_won": "タックル成功数",
+        "last_ditch": "最後の砦（自陣ペナルティエリア内）",
+        "distance_km": "走行距離（トラッキング推定）",
+        "sprint_m": "スプリント距離",
     },
     "zones": {
         "Penalty Box": "ペナルティエリア",
@@ -363,6 +369,36 @@ PACK = {
                 )
             ],
         },
+        "key_tackle": {
+            "casual": [
+                (
+                    "{player_short}の決定的なタックル",
+                    "{player}が自陣ゴールから{own_goal_distance_m}mの位置で{victim_short}からボールを奪いました。{team}は危機を脱出。",
+                ),
+                (
+                    "{player_short}の決定的なタックル",
+                    "{player}が自陣ゴールから{own_goal_distance_m}mの位置でボールを奪いました。{team}は危機を脱出。",
+                ),
+            ],
+            "tactical": [
+                (
+                    "キータックル：{player_short}",
+                    "自陣ゴールから{own_goal_distance_m}mの守備ゾーンで奪取し、{opp}の{xt_stopped} xTの脅威を断ちました。{player_short}のタックル成功は今日{p_tackles_won}回。",
+                )
+            ],
+            "fantasy": [
+                (
+                    "{player_short}が攻撃を断つ",
+                    "{player_short}の守備：ここまでタックル成功{p_tackles_won}回。今回は自陣ゴールから{own_goal_distance_m}mの位置です。",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "{player_short}がボール奪取",
+                    "自陣ゴールから{own_goal_distance_m}mでのタックルで{xt_stopped} xTの脅威を消しました。今日のタックル成功：{p_tackles_won}回。",
+                )
+            ],
+        },
         "milestone.kick_off": {
             "casual": [
                 (
@@ -476,6 +512,9 @@ PACK = {
         ],
         "hard_pass": [
             "難易度{difficulty_scale}点中{pass_difficulty}点は、成功させられる選手が少ないパスです。"
+        ],
+        "key_tackle": [
+            "ゴールから{own_goal_distance_m}mでのタックルが、{opp}の{xt_stopped} xTの脅威を消しました。"
         ],
         "milestone.kick_off": ["試合が始まりました。"],
         "milestone.half_time": ["前半の期待ゴールは{xg_home}対{xg_away}。"],

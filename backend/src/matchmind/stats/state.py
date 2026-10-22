@@ -20,7 +20,8 @@ from matchmind.simulator.script import HALF_S, format_clock
 
 from . import metrics
 from .better_option import analyse_run, analyse_shot, shot_chance_quality
-from .models import EventMetrics, MatchStateSnapshot, PlayerStats, TeamWindow
+from .models import EventMetrics, MatchStateSnapshot, PlayerStats, SprintTag, TeamTotals, TeamWindow
+from .physical import PhysicalTimeline
 
 WINDOW_S = 300.0  # rolling window: the last five minutes of match clock
 MOMENTUM_TAU_S = 120.0  # momentum smoothing time constant
@@ -36,6 +37,8 @@ ON_BALL = {
     EventType.RECOVERY,
 }
 TURNOVER_TYPES = {EventType.INTERCEPTION, EventType.TACKLE}
+# PPDA: the opponent's own 60% of the pitch (docs/METRICS.md).
+PPDA_ZONE_U = 0.6 * pitch.LENGTH
 
 
 @dataclass(frozen=True)
@@ -98,9 +101,12 @@ class StatsEngine:
         self._score = {home_id: 0, away_id: 0}
         self._xg = {home_id: 0.0, away_id: 0.0}
         self._shots = {home_id: 0, away_id: 0}
+        self._totals = {home_id: TeamTotals(team=home_id), away_id: TeamTotals(team=away_id)}
+        self._physical: PhysicalTimeline | None = None
+        self._efforts_after: tuple[int, float] | None = None
 
     @classmethod
-    def replay(cls, events: Iterable[Event]) -> StatsEngine:
+    def replay(cls, events: Iterable[Event], physical: PhysicalTimeline | None = None) -> StatsEngine:
         """Build an engine and run every event through it."""
         events = list(events)
         if not events:
@@ -111,11 +117,27 @@ class StatsEngine:
         if not home or not away:
             raise ValueError("the first event must be a match_start naming home and away")
         engine = cls(start.match_id, home, away)
+        if physical is not None:
+            engine.attach_physical(physical)
         for event in events:
             engine.process(event)
         return engine
 
     # ----------------------------------------------------------- public
+
+    def attach_physical(self, timeline: PhysicalTimeline) -> None:
+        """Take distance, speed bands, sprints and top speed from the synthetic
+        tracking timeline (stats.physical) instead of the event-based estimate.
+        Attach before the first event."""
+        if timeline.match_id != self.match_id:
+            raise ValueError("the physical timeline is for another match")
+        if self._last_seq >= 0:
+            raise ValueError("attach the physical timeline before processing events")
+        self._physical = timeline
+
+    @property
+    def physical(self) -> PhysicalTimeline | None:
+        return self._physical
 
     def process(self, event: Event) -> EventMetrics:
         """Update the state with one event and return its metrics.
@@ -146,7 +168,12 @@ class StatsEngine:
 
         m = self._event_metrics(event)
         self._count_players(event, m)
-        self._track_distance(event)
+        self._count_team(event)
+        if self._physical is not None:
+            m.sprint_efforts = self._sprints_since_last(event)
+            self._apply_physical(event)
+        else:
+            self._track_distance(event)
         self._window.append(self._mark(event, m))
         self._trim_window()
         self._update_momentum()
@@ -159,6 +186,10 @@ class StatsEngine:
 
     def players(self) -> dict[str, PlayerStats]:
         return {pid: p.model_copy() for pid, p in sorted(self._players.items())}
+
+    def team_totals(self) -> dict[str, TeamTotals]:
+        """Whole-match counting stats per team so far (copies)."""
+        return {team: t.model_copy() for team, t in self._totals.items()}
 
     def changed_players(self) -> list[PlayerStats]:
         """Players whose stats the last processed event changed."""
@@ -269,6 +300,8 @@ class StatsEngine:
         p = self._players.get(pid)
         if p is None:
             p = self._players[pid] = PlayerStats(player_id=pid, team=team)
+            if self._physical is not None:
+                p.physical_source = "synthetic_tracking"
             self._changed.add(pid)
         return p
 
@@ -279,10 +312,11 @@ class StatsEngine:
         self._changed.add(actor.player_id)
         if e.type in ON_BALL:
             actor.touches += 1
-        if m.player_speed_kmh is not None:
-            actor.top_speed_kmh = max(actor.top_speed_kmh, m.player_speed_kmh)
-        if m.sprint:
-            actor.sprints += 1
+        if self._physical is None:  # with tracking, speed comes from the tracking instead
+            if m.player_speed_kmh is not None:
+                actor.top_speed_kmh = max(actor.top_speed_kmh, m.player_speed_kmh)
+            if m.sprint:
+                actor.sprints += 1
 
         if e.type == EventType.PASS:
             actor.passes += 1
@@ -295,6 +329,12 @@ class StatsEngine:
                 actor.carry_distance_m = round(
                     actor.carry_distance_m + pitch.dist((e.start.x, e.start.y), (e.end.x, e.end.y)), 1
                 )
+            beaten = e.details.get("opponent_id")
+            if e.type == EventType.DRIBBLE and e.outcome == Outcome.COMPLETE and isinstance(beaten, str):
+                # The defender took on the dribbler and lost: a challenge lost.
+                defender = self._player(beaten, self._other(e.team))
+                defender.tackles_lost += 1
+                self._changed.add(defender.player_id)
         elif e.type == EventType.SHOT:
             self._count_shot(e, actor, m.chance_quality or 0.0)
         elif e.type == EventType.TACKLE and e.outcome == Outcome.WON:
@@ -302,12 +342,46 @@ class StatsEngine:
         elif e.type == EventType.INTERCEPTION:
             actor.interceptions += 1
 
+    def _other(self, team: str) -> str:
+        return self.away_id if team == self.home_id else self.home_id
+
+    def _count_team(self, e: Event) -> None:
+        """Whole-match team totals, PPDA parts included."""
+        if e.team not in self._totals:
+            return
+        mine, theirs = self._totals[e.team], self._totals[self._other(e.team)]
+        u = self._att((e.start.x, e.start.y), e.team)[0] if e.start else None
+        if e.type == EventType.PASS:
+            mine.passes += 1
+            mine.passes_completed += e.outcome == Outcome.COMPLETE
+            if u is not None and u < PPDA_ZONE_U:
+                theirs.ppda_opponent_passes += 1  # a pass the other side allowed in our own 60%
+        elif e.type == EventType.SHOT:
+            mine.shots += 1
+            mine.shots_on_target += e.outcome in (Outcome.GOAL, Outcome.SAVED)
+            mine.goals += e.outcome == Outcome.GOAL
+        elif e.type == EventType.TACKLE and e.outcome == Outcome.WON:
+            mine.tackles_won += 1
+        elif e.type == EventType.INTERCEPTION:
+            mine.interceptions += 1
+        elif e.type == EventType.FOUL:
+            mine.fouls += 1
+        if e.type == EventType.DRIBBLE and e.outcome == Outcome.COMPLETE and e.details.get("opponent_id"):
+            theirs.tackles_lost += 1
+            if u is not None and u < PPDA_ZONE_U:
+                theirs.ppda_defensive_actions += 1  # their challenge, in our own 60%
+        defensive = e.type in (EventType.TACKLE, EventType.INTERCEPTION, EventType.FOUL)
+        if defensive and u is not None and u >= pitch.LENGTH - PPDA_ZONE_U:  # in the opponent's own 60%
+            mine.ppda_defensive_actions += 1
+
     def _count_shot(self, e: Event, shooter: PlayerStats, xg: float) -> None:
         team = shooter.team
         shooter.shots += 1
         shooter.xg = round(shooter.xg + xg, 3)
         self._shots[team] = self._shots.get(team, 0) + 1
         self._xg[team] = self._xg.get(team, 0.0) + xg
+        if team in self._totals:
+            self._totals[team].xg = round(self._xg[team], 3)
         goal = e.outcome == Outcome.GOAL
         if goal:
             shooter.goals += 1
@@ -323,6 +397,47 @@ class StatsEngine:
                 passer.assists += 1
             self._changed.add(passer.player_id)
             del self._last_pass_in_poss[poss]  # one shot per pass
+
+    # ------------------------------------------- tracking (stats.physical)
+
+    def _apply_physical(self, e: Event) -> None:
+        """Copy each player's tracking numbers at this clock. A player counts as
+        changed only when his distance (to 0.1 km), sprints or top speed move, so
+        ticks do not carry all 22 players every time."""
+        assert self._physical is not None
+        for pid, ph in self._physical.at(e.period, e.clock_s).items():
+            p = self._players.get(pid)
+            if p is None:
+                continue
+            if (
+                round(p.distance_km, 1) == round(ph.distance_km, 1)
+                and p.sprints == ph.sprints
+                and p.top_speed_kmh == ph.top_speed_kmh
+            ):
+                continue
+            p.distance_km = ph.distance_km
+            p.walk_km, p.jog_km, p.run_km, p.sprint_km = ph.walk_km, ph.jog_km, ph.run_km, ph.sprint_km
+            p.sprints = ph.sprints
+            p.top_speed_kmh = ph.top_speed_kmh
+            self._changed.add(pid)
+
+    def _sprints_since_last(self, e: Event) -> list[SprintTag]:
+        assert self._physical is not None
+        until = (e.period, e.clock_s)
+        if self._efforts_after is not None and until <= self._efforts_after:
+            return []
+        found = self._physical.efforts_between(self._efforts_after, until)
+        self._efforts_after = until
+        return [
+            SprintTag(
+                player_id=f.player_id,
+                period=f.period,
+                peak_clock_s=f.peak_s,
+                peak_kmh=f.peak_kmh,
+                distance_m=f.distance_m,
+            )
+            for f in found
+        ]
 
     # ----------------------------------------------- distance estimate
 

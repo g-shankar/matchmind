@@ -12,7 +12,7 @@ from typing import Any
 from matchmind.crew.contracts import CrewStatus, OverlayCard, ViewerProfile
 from matchmind.crew.languages import language_list
 from matchmind.schema import Event
-from matchmind.simulator.teams import Team
+from matchmind.simulator.teams import Team, get_team
 from matchmind.stats.models import EventMetrics, MatchStateSnapshot, PlayerStats
 
 from .session import Bookmark, MatchSession, Tick
@@ -78,9 +78,19 @@ def control_chaos_payload(snapshot: MatchStateSnapshot) -> dict[str, Any]:
     }
 
 
+def player_identity(player_id: str, team_id: str) -> dict[str, Any]:
+    """Name, shirt number and position from our fictional squads (None when unknown)."""
+    try:
+        p = get_team(team_id).player(player_id)
+    except KeyError:
+        return {"name": None, "number": None, "position": None}
+    return {"name": p.name, "number": p.number, "position": p.position}
+
+
 def player_payload(stats: PlayerStats) -> dict[str, Any]:
     data = stats.model_dump()
     data["pass_accuracy"] = stats.pass_accuracy
+    data.update(player_identity(stats.player_id, stats.team))
     return data
 
 

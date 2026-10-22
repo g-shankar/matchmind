@@ -105,11 +105,22 @@ PLAYER_KEYS = {
     "xg",
     "xa",
     "tackles_won",
+    "tackles_lost",
+    "tackles_attempted",
+    "tackle_success_pct",
     "interceptions",
     "top_speed_kmh",
     "sprints",
     "distance_km",
+    "walk_km",
+    "jog_km",
+    "run_km",
+    "sprint_km",
+    "physical_source",
     "carry_distance_m",
+    "name",
+    "number",
+    "position",
 }
 
 

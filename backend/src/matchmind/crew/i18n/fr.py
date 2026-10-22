@@ -39,6 +39,12 @@ PACK = {
         "shots_home": "Tirs domicile",
         "shots_away": "Tirs extérieur",
         "appearance_n": "Matchs avec le club",
+        "xt_stopped": "Menace stoppée (xT)",
+        "own_goal_distance_m": "Distance de son but",
+        "p_tackles_won": "Tacles gagnés",
+        "last_ditch": "Dernier rempart (dans sa surface)",
+        "distance_km": "Distance (est. par suivi)",
+        "sprint_m": "Longueur du sprint",
     },
     "zones": {
         "Penalty Box": "la surface",
@@ -375,6 +381,40 @@ PACK = {
                 )
             ],
         },
+        "key_tackle": {
+            "casual": [
+                (
+                    "Gros tacle de {player_short}",
+                    "{player} prend le ballon à {victim_short} à {own_goal_distance_m} m de son but. "
+                    "{team} respire.",
+                ),
+                (
+                    "Gros tacle de {player_short}",
+                    "{player} récupère le ballon à {own_goal_distance_m} m de son but. {team} respire.",
+                ),
+            ],
+            "tactical": [
+                (
+                    "Tacle décisif : {player_short}",
+                    "Gagné dans le tiers défensif, à {own_goal_distance_m} m, là où {opp} pesait {xt_stopped} xT. "
+                    "{player_short} compte {p_tackles_won|tacle gagné|tacles gagnés}.",
+                )
+            ],
+            "fantasy": [
+                (
+                    "{player_short} stoppe l'attaque",
+                    "Travail défensif de {player_short} : {p_tackles_won|tacle gagné|tacles gagnés} jusqu'ici. "
+                    "Celui-ci à {own_goal_distance_m} m de son but.",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "{player_short} récupère le ballon",
+                    "Un tacle à {own_goal_distance_m} m de son but qui efface une menace de {xt_stopped} xT. "
+                    "Tacles gagnés aujourd'hui : {p_tackles_won}.",
+                )
+            ],
+        },
         "milestone.kick_off": {
             "casual": [
                 (
@@ -494,6 +534,9 @@ PACK = {
         ],
         "hard_pass": [
             "Une difficulté de {pass_difficulty} sur {difficulty_scale}, c'est une passe que peu de joueurs réussissent."
+        ],
+        "key_tackle": [
+            "Gagné à {own_goal_distance_m} m du but, ce tacle retire à {opp} une menace de {xt_stopped} xT."
         ],
         "milestone.kick_off": ["Le match est lancé."],
         "milestone.half_time": ["À la pause, les buts attendus sont de {xg_home} à {xg_away}."],
