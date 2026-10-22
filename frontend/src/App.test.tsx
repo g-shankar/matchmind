@@ -124,7 +124,8 @@ describe('replay modal', () => {
     shell(m, actions);
     fireEvent.click(screen.getByRole('button', { name: /34:16/ }));
     const dialog = await screen.findByRole('dialog');
-    expect(dialog.contains(document.activeElement)).toBe(true);
+    // Focus moves in once the replay content has loaded (it is split into its own chunk).
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
     expect(dialog.getAttribute('aria-labelledby')).toBe('replay-R-1');
     fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
