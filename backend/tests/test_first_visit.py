@@ -5,6 +5,8 @@ API docs switch."""
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -170,6 +172,20 @@ def test_every_session_message_has_a_code():
     names = ("MATCH_FINISHED", "BAD_SPEED", "BAD_TIME", "NO_SUCH_HALF", "NOT_PLAYED_YET", "AFTER_FULL_TIME")
     for name in names:
         assert getattr(session_mod, name) in app_mod.ERROR_CODES
+
+
+def test_every_rate_limit_refusal_has_a_code():
+    """Pause/speed, jump and view refusals each reach the app as a code it can translate."""
+    expected = {
+        "CONTROL_TOO_FAST": "control_too_fast",
+        "TOO_FAST": "jump_too_fast",
+        "VIEW_TOO_FAST": "view_too_fast",
+    }
+    for name, code in expected.items():
+        assert app_mod.ERROR_CODES[getattr(app_mod, name)] == code
+    toasts = (Path(__file__).resolve().parents[2] / "frontend" / "src" / "i18n" / "toasts.ts").read_text()
+    for code in set(app_mod.ERROR_CODES.values()):
+        assert f"'{code}'" in toasts, code
 
 
 @pytest.mark.parametrize(

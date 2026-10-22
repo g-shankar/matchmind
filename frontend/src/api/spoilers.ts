@@ -41,6 +41,8 @@ export function spoilerFreeSnapshot(d: SnapshotData): SnapshotData {
     recent_cards: spoilerFreeCards(d.recent_cards),
     bookmarks: spoilerFreeBookmarks(d.bookmarks),
     players: d.players.map(scrubPlayer),
+    // The last events seed the pitch and feed; their score-bearing text goes too.
+    ...(d.recent_events ? { recent_events: d.recent_events.map(scrubEvent) } : {}),
     // The cue sheet carries the scorebug, so a catch-up viewer gets none.
     cue_sheet: null,
   };

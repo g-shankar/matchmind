@@ -361,7 +361,7 @@ Server -> client. Every message is `{ "type": ..., "data": ... }`.
 | `PROFILE_CHANGED` | `ViewerProfile` | after this connection's `set_view` |
 | `PERSONA_CHANGED` | `{ persona }` | kept for the old frontend; sent with `PROFILE_CHANGED` |
 | `MATCH_END` | `{ recap: Recap }` | full time, for this connection's persona and language |
-| `ERROR` | `{ message, code }` | invalid action (plain words, no stack traces). `code` is stable for translation: `jump_too_fast`, `view_too_fast`, `too_many_actions`, `match_finished`, `bad_speed`, `bad_time`, `no_such_half`, `not_played_yet`, `after_full_time`, `unknown_club`, `unknown_player`, `loading`, `oops`, else `other` |
+| `ERROR` | `{ message, code }` | invalid action (plain words, no stack traces). `code` is stable for translation: `jump_too_fast`, `view_too_fast`, `control_too_fast`, `too_many_actions`, `match_finished`, `bad_speed`, `bad_time`, `no_such_half`, `not_played_yet`, `after_full_time`, `unknown_club`, `unknown_player`, `loading`, `oops`, else `other` |
 
 ```ts
 interface Playback {
@@ -396,6 +396,10 @@ Seek and reset are shared, so they are throttled for everyone: at most one
 every 0.5 s across WebSocket and REST together. A seek or reset inside that
 window is refused (WebSocket `ERROR` "Jumping around too fast. Wait a moment
 and try again.", REST 429 with the same `detail`); nothing is queued.
+Pause and speed changes share their own throttle: at most one every 0.3 s for
+everyone (WebSocket `ERROR` "Playback was just changed. Wait a moment and try
+again.", REST 429). A double tap on pause is therefore one change, and asking for
+the speed already set answers with the current playback and changes nothing.
 
 Client -> server. `{ "action": ..., ... }` as JSON text, max 4 KB, unknown
 actions, unknown fields and bad values get `ERROR`. Each connection may send
@@ -407,7 +411,9 @@ itself, from `MATCHMIND_PUBLIC_ORIGIN`. The `Host` header is never trusted for
 this. A refused origin, a full server (`MATCHMIND_MAX_CONNECTIONS`) or too many
 connections from one IP (`MATCHMIND_MAX_CONN_PER_IP`) closes with code 1008. A
 viewer that falls more than 4 MB behind on messages is disconnected with code
-1013 (try again later); reconnecting gets a fresh `INITIAL_SNAPSHOT`.
+1013 (try again later); reconnecting gets a fresh `INITIAL_SNAPSHOT`. All send
+queues together are capped (`MATCHMIND_SEND_QUEUE_TOTAL_BYTES`, default 192 MB);
+once that is spent, viewers more than 256 KB behind are disconnected the same way.
 
 | action | fields | effect |
 |---|---|---|
@@ -415,7 +421,7 @@ viewer that falls more than 4 MB behind on messages is disconnected with code
 | `set_speed` | `speed_multiplier: 1 \| 10 \| 60` | shared |
 | `reset` | | shared |
 | `seek` | `clock_s: number`, `period?: 1 \| 2` | shared; replays stats to that point (no cards on the way), then `INITIAL_SNAPSHOT` with the moments before that point as `recent_cards` |
-| `set_view` | any subset of `ViewerProfile` | this connection only; `PROFILE_CHANGED`, cards from now on follow it. `null` clears `favourite_team`, `focus_player_id` or `focus_metric`; the club and player must be in this match |
+| `set_view` | any subset of `ViewerProfile` | this connection only; `PROFILE_CHANGED`, cards from now on follow it. `null` clears `favourite_team`, `focus_player_id` or `focus_metric`; the club and player must be in this match (an unknown one gets `ERROR` and is left out; the other fields still apply) |
 | `set_persona` | `persona`, `spotlight_player_id?` | old alias for `set_view` (`spotlight_player_id` sets `focus_player_id`) |
 
 ### Catch-up mode (`spoilers: false`)
@@ -528,7 +534,7 @@ interface MatchSource {
 ```ts
 // POST /api/ask. Exactly one of question (free text, refused past 200 characters)
 // or chip ('score' | 'top_xg' | 'furthest' | 'fastest' | 'on_top' | 'better_option'
-// | 'explain_xg'). Body at most 2 KB (413), unknown fields 400. Shares the GET rate
+// | 'explain_xg'). Body at most 2 KB (413), JSON only (any other Content-Type 415), unknown fields 400. Shares the GET rate
 // limit bucket of /api/match/moment and /api/match/recap. The question is never
 // echoed back or logged.
 interface AskAnswer {
@@ -549,7 +555,7 @@ interface AskAnswer {
 ```
 
 Errors: `{ "detail": "plain words" }` with 400 or 404 (429 for a seek or reset
-inside the 0.5 s throttle, or more than about 2 POSTs a second, bursts of 10,
+inside the 0.5 s throttle, a speed change inside the 0.3 s playback throttle, or more than about 2 POSTs a second, bursts of 10,
 from one client IP, or more than about 3 `GET /api/match/moment` and
 `GET /api/match/recap` requests a second, bursts of 30, from one client IP, a bucket the
 moment audit shares; 503 while the match is still loading, 500 with a generic

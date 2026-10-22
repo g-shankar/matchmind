@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { JUMP_GAP_MS, JumpPacer, VIEW_BURST, ViewPacer, type PacerClock } from './pacer';
+import { CONTROL_GAP_MS, ControlPacer, JUMP_GAP_MS, JumpPacer, VIEW_BURST, ViewPacer, type PacerClock } from './pacer';
 
 function fakeClock() {
   let t = 0;
@@ -72,5 +72,36 @@ describe('JumpPacer', () => {
     advance(JUMP_GAP_MS);
     pacer.push(4);
     expect(sent).toEqual([1, 3, 4]);
+  });
+});
+
+describe('ControlPacer', () => {
+  type A = { action: 'toggle_pause' } | { action: 'set_speed'; speed_multiplier: number };
+  const toggle: A = { action: 'toggle_pause' };
+  const speed = (n: number): A => ({ action: 'set_speed', speed_multiplier: n });
+
+  it('keeps pause and speed at least the server gap (300 ms) apart, without losing a tap', () => {
+    const { clock, advance } = fakeClock();
+    const sent: { at: number; a: A }[] = [];
+    const pacer = new ControlPacer<A>((a) => sent.push({ at: clock.now(), a }), clock);
+    pacer.push(toggle);
+    pacer.push(speed(10));
+    pacer.push(speed(60)); // the newest speed wins
+    pacer.push(toggle);
+    for (let i = 0; i < 40; i++) advance(50);
+    expect(sent.map((s) => s.a)).toEqual([toggle, toggle, speed(60)]);
+    for (let i = 1; i < sent.length; i++) expect(sent[i].at - sent[i - 1].at).toBeGreaterThanOrEqual(CONTROL_GAP_MS);
+    expect(CONTROL_GAP_MS).toBeGreaterThan(300);
+  });
+
+  it('lets two waiting pause taps cancel out instead of flickering', () => {
+    const { clock, advance } = fakeClock();
+    const sent: A[] = [];
+    const pacer = new ControlPacer<A>((a) => sent.push(a), clock);
+    pacer.push(toggle);
+    pacer.push(toggle);
+    pacer.push(toggle);
+    advance(2000);
+    expect(sent).toEqual([toggle]); // three taps: paused once, the next two undo each other
   });
 });

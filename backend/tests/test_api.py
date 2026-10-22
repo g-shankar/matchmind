@@ -421,6 +421,7 @@ def test_ws_shared_playback_reaches_everyone(client, clock):
         a.send_json({"action": "toggle_pause"})
         assert recv(a, "PLAYBACK_CONTROL")["is_running"] is False
         assert recv(b, "PLAYBACK_CONTROL")["is_running"] is False
+        clock.t += 1  # pause and speed changes share a 0.3 s throttle
         b.send_json({"action": "set_speed", "speed_multiplier": 1})
         assert recv(a, "PLAYBACK_CONTROL")["speed_multiplier"] == 1
         assert recv(b, "PLAYBACK_CONTROL")["speed_multiplier"] == 1

@@ -54,6 +54,7 @@ merged. Test files below are in `backend/tests/` unless a path says otherwise.
 | Cross-site use from an unlisted origin | CORS allow-list from `MATCHMIND_ALLOWED_ORIGINS`, no credentials, no `*` | `test_api.py::test_cors_allows_listed_origin_and_rejects_others` |
 | Flooding routes that can spend (moment, recap, audit, cue sheet, Ask) | Per-IP token buckets; client IP is the last `X-Forwarded-For` entry, so a spoofed header buys nothing | `test_api_security.py::test_routes_that_can_call_the_translator_are_limited_per_ip`, `::test_spoofed_forwarded_for_does_not_buy_a_fresh_bucket`, `::test_post_routes_are_limited_per_ip` |
 | Seek/speed/reset storms moving the shared clock | Shared throttle across REST and WebSocket; one seek per burst | `test_api_security.py::test_ws_seek_burst_runs_once_and_playback_goes_on`, `::test_rest_seek_burst_gets_429_and_shares_the_throttle_with_ws` |
+| Pause/speed storms freezing the match and flooding every viewer | Own shared throttle (one change per 0.3 s for everyone); same speed again is a no-op | `test_extreme_cases.py::test_ec2_pause_storm_changes_playback_once_per_window`, `::test_ec2_rest_speed_shares_the_throttle_and_a_retry_is_a_no_op` |
 | Bad seek values | Closed request models and range checks | `test_session.py::test_seek_rejects_bad_times` |
 | Shared caches holding live responses | `Cache-Control: no-store` on every `/api` route except dataset downloads (public synthetic files) | `test_dataset.py::test_api_other_routes_stay_no_store`, `test_ask.py::test_rest_answers_and_never_caches` |
 | Leaking spend counters | Translator and model spend stay inside the server | `test_api_security.py::test_public_payloads_carry_no_translator_spend_counters` |
@@ -66,7 +67,7 @@ merged. Test files below are in `backend/tests/` unless a path says otherwise.
 | Connection from an unlisted origin, or trusting `Host` | Origin allow-list; the server's own public origin only when it serves the frontend; `Host` is never trusted | `test_api.py::test_ws_rejects_unlisted_origin`, `::test_ws_allows_listed_origin_and_never_trusts_host`, `::test_ws_allows_own_public_origin_only_when_serving_the_frontend` |
 | Oversized or malformed messages | Size cap, every action validated | `test_api.py::test_ws_oversize_message_rejected` |
 | Many connections from one IP | Per-IP connection cap; slots reserved before accept | `test_api_security.py::test_connections_are_capped_per_ip`, `::test_slots_are_reserved_before_accept` |
-| A slow reader exhausting memory | Bounded send queue in bytes; overflow closes the connection | `test_api_security.py::test_send_queue_overflow_really_closes_the_connection`, `::test_send_queue_counts_bytes_and_frees_them_when_sent` |
+| A slow reader exhausting memory | Bounded send queue in bytes; overflow closes the connection; one byte budget for all queues together | `test_api_security.py::test_send_queue_overflow_really_closes_the_connection`, `::test_send_queue_counts_bytes_and_frees_them_when_sent`, `test_extreme_cases.py::test_ec1_stalled_viewers_cannot_pin_more_than_the_shared_budget` |
 | `set_view` storms forcing cue-sheet rebuilds | Per-connection limit; bounded incremental cue compiles per tick | `test_cue_load.py::test_set_view_is_rate_limited_per_connection` |
 | Action rate | Per-connection token bucket | `test_api.py::test_ws_rate_limit`, `::test_rate_limiter_refills` |
 

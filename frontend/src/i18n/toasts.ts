@@ -10,6 +10,7 @@ export type ToastLanguage = (typeof TOAST_LANGUAGES)[number];
 export const TOAST_CODES = [
   'jump_too_fast',
   'view_too_fast',
+  'control_too_fast',
   'too_many_actions',
   'match_finished',
   'bad_speed',
@@ -30,6 +31,7 @@ export const TOASTS: Record<ToastLanguage, Record<ToastCode, string>> = {
   en: {
     jump_too_fast: 'Jumping around too fast. Wait a moment and try again.',
     view_too_fast: 'Changing the view too fast. Wait a moment and try again.',
+    control_too_fast: 'Playback was just changed. Wait a moment and try again.',
     too_many_actions: 'Too many taps at once. Wait a moment and try again.',
     match_finished: 'The match has finished. Restart or jump back to watch it again.',
     bad_speed: 'Pick a speed of 1x, 10x or 60x.',
@@ -47,6 +49,7 @@ export const TOASTS: Record<ToastLanguage, Record<ToastCode, string>> = {
   es: {
     jump_too_fast: 'Estás saltando demasiado rápido. Espera un momento y vuelve a intentarlo.',
     view_too_fast: 'Estás cambiando la vista demasiado rápido. Espera un momento y vuelve a intentarlo.',
+    control_too_fast: 'La reproducción acaba de cambiar. Espera un momento y vuelve a intentarlo.',
     too_many_actions: 'Demasiados toques a la vez. Espera un momento y vuelve a intentarlo.',
     match_finished: 'El partido ha terminado. Reinícialo o vuelve atrás para verlo otra vez.',
     bad_speed: 'Elige una velocidad de 1x, 10x o 60x.',
@@ -64,6 +67,7 @@ export const TOASTS: Record<ToastLanguage, Record<ToastCode, string>> = {
   fr: {
     jump_too_fast: 'Vous sautez trop vite. Attendez un instant et réessayez.',
     view_too_fast: 'Vous changez de vue trop vite. Attendez un instant et réessayez.',
+    control_too_fast: 'La lecture vient d’être modifiée. Attendez un instant et réessayez.',
     too_many_actions: 'Trop d’actions à la fois. Attendez un instant et réessayez.',
     match_finished: 'Le match est terminé. Relancez-le ou revenez en arrière pour le revoir.',
     bad_speed: 'Choisissez une vitesse de 1x, 10x ou 60x.',
@@ -81,6 +85,7 @@ export const TOASTS: Record<ToastLanguage, Record<ToastCode, string>> = {
   ar: {
     jump_too_fast: 'أنت تنتقل بسرعة كبيرة. انتظر لحظة ثم حاول مرة أخرى.',
     view_too_fast: 'أنت تغيّر العرض بسرعة كبيرة. انتظر لحظة ثم حاول مرة أخرى.',
+    control_too_fast: 'تم تغيير التشغيل للتو. انتظر لحظة ثم حاول مرة أخرى.',
     too_many_actions: 'نقرات كثيرة في وقت واحد. انتظر لحظة ثم حاول مرة أخرى.',
     match_finished: 'انتهت المباراة. أعد تشغيلها أو ارجع إلى لحظة سابقة لمشاهدتها مجددًا.',
     bad_speed: 'اختر سرعة 1x أو 10x أو 60x.',
@@ -98,6 +103,7 @@ export const TOASTS: Record<ToastLanguage, Record<ToastCode, string>> = {
   ja: {
     jump_too_fast: '移動が速すぎます。少し待ってからもう一度お試しください。',
     view_too_fast: '表示の切り替えが速すぎます。少し待ってからもう一度お試しください。',
+    control_too_fast: '再生が変更されたばかりです。少し待ってからもう一度お試しください。',
     too_many_actions: '操作が多すぎます。少し待ってからもう一度お試しください。',
     match_finished: '試合は終了しました。最初から再生するか、前の場面に戻ってご覧ください。',
     bad_speed: '速度は 1x、10x、60x から選んでください。',

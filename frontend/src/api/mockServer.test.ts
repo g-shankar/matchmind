@@ -75,6 +75,21 @@ describe('MockMatchServer', () => {
     server.close();
   });
 
+  it('refuses a seek past full time or to a bad time, like the live server (EC-8)', async () => {
+    const { server, messages } = await start();
+    for (const action of [
+      { action: 'seek' as const, clock_s: 99_999 },
+      { action: 'seek' as const, clock_s: Number.NaN },
+      { action: 'seek' as const, clock_s: -5 },
+      { action: 'seek' as const, clock_s: 10, period: 3 },
+    ]) {
+      const before = messages.length;
+      server.send(action);
+      expect(messages.slice(before).map((m) => m.type)).toEqual(['ERROR']);
+    }
+    server.close();
+  });
+
   it('sends a metric alert only for the focus metric', async () => {
     const { server, messages } = await start({ focus_metric: 'pressure' });
     server.step(0.25);

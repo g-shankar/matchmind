@@ -5,10 +5,13 @@
 // - Views (`set_view`): a token bucket like the server's (bursts of 3, then 1 a second).
 //   Changes that arrive while no token is free are merged and sent as one when it is.
 // - Jumps (`seek`, `reset`): at most one per gap; a newer jump replaces a waiting one.
+// - Playback (`toggle_pause`, `set_speed`): at most one per gap, shared like the server's.
+//   Two waiting pause taps undo each other; a newer speed replaces a waiting one.
 
 export const VIEW_BURST = 3;
 export const VIEW_PER_SECOND = 1;
 export const JUMP_GAP_MS = 600; // the server allows one jump per 500 ms, for everyone
+export const CONTROL_GAP_MS = 350; // the server allows one pause or speed change per 300 ms
 
 type Timer = ReturnType<typeof setTimeout>;
 
@@ -113,5 +116,53 @@ export class JumpPacer<A> {
     if (this.timer) this.clock.clearTimeout(this.timer);
     this.timer = null;
     this.pending = null;
+  }
+}
+
+type ControlAction = { action: 'toggle_pause' } | { action: 'set_speed' };
+
+export class ControlPacer<A extends ControlAction> {
+  private lastAt = -Infinity;
+  private toggle: A | null = null; // a waiting pause tap
+  private speed: A | null = null; // the newest waiting speed
+  private timer: Timer | null = null;
+
+  constructor(
+    private readonly send: (action: A) => void,
+    private readonly clock: PacerClock = realClock,
+  ) {}
+
+  push(action: A) {
+    const now = this.clock.now();
+    if (!this.timer && !this.toggle && !this.speed && now - this.lastAt >= CONTROL_GAP_MS) {
+      this.lastAt = now;
+      this.send(action);
+      return;
+    }
+    if (action.action === 'toggle_pause') this.toggle = this.toggle ? null : action;
+    else this.speed = action;
+    this.schedule();
+  }
+
+  private schedule() {
+    if (this.timer || (!this.toggle && !this.speed)) return;
+    this.timer = this.clock.setTimeout(() => {
+      this.timer = null;
+      const next = this.toggle ?? this.speed;
+      if (next === this.toggle) this.toggle = null;
+      else this.speed = null;
+      if (next) {
+        this.lastAt = this.clock.now();
+        this.send(next);
+      }
+      this.schedule();
+    }, Math.max(0, this.lastAt + CONTROL_GAP_MS - this.clock.now()));
+  }
+
+  dispose() {
+    if (this.timer) this.clock.clearTimeout(this.timer);
+    this.timer = null;
+    this.toggle = null;
+    this.speed = null;
   }
 }

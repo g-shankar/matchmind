@@ -5,7 +5,9 @@ import { DEFAULT_PROFILE } from '../api/defaults';
 import type { MatchTransport } from '../api/transport';
 import { initialMatchState, matchReducer } from './matchStore';
 import { ALL_LANGUAGES } from '../lib/languages';
-import { JumpPacer, ViewPacer } from './pacer';
+import { ControlPacer, JumpPacer, ViewPacer } from './pacer';
+
+type ControlAction = Extract<ClientAction, { action: 'toggle_pause' | 'set_speed' }>;
 
 const PROFILE_KEY = 'pitchpulse.profile';
 const LIVE_TIMEOUT_MS = 2500;
@@ -93,6 +95,8 @@ export function useMatch() {
   viewPacer.current ??= new ViewPacer<ViewerProfile>((changes) => transportRef.current?.send({ action: 'set_view', ...changes }));
   const jumpPacer = useRef<JumpPacer<ClientAction> | null>(null);
   jumpPacer.current ??= new JumpPacer<ClientAction>((action) => transportRef.current?.send(action));
+  const controlPacer = useRef<ControlPacer<ControlAction> | null>(null);
+  controlPacer.current ??= new ControlPacer<ControlAction>((action) => transportRef.current?.send(action));
 
   useEffect(() => {
     let disposed = false;
@@ -173,6 +177,7 @@ export function useMatch() {
       disposed = true;
       viewPacer.current?.dispose();
       jumpPacer.current?.dispose();
+      controlPacer.current?.dispose();
       timers.forEach(clearTimeout);
       timers = [];
       transportRef.current?.close();
@@ -205,8 +210,8 @@ export function useMatch() {
   );
 
   const actions = {
-    togglePause: () => send({ action: 'toggle_pause' }),
-    setSpeed: (speed_multiplier: SpeedMultiplier) => send({ action: 'set_speed', speed_multiplier }),
+    togglePause: () => controlPacer.current?.push({ action: 'toggle_pause' }),
+    setSpeed: (speed_multiplier: SpeedMultiplier) => controlPacer.current?.push({ action: 'set_speed', speed_multiplier }),
     reset: () => jumpPacer.current?.push({ action: 'reset' }),
     seek: (clock_s: number, period?: number) => jumpPacer.current?.push({ action: 'seek', clock_s, ...(period ? { period } : {}) }),
     setView,

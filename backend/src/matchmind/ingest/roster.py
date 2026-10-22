@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from pathlib import Path
 from typing import Any
 
@@ -59,7 +60,9 @@ def line_for(position: str) -> str:
 
 def check_name(value: str, what: str) -> str:
     """A person or club name: plain letters, and never a real one from the banned list."""
-    value = " ".join(value.split())
+    # NFC first: "é" typed as e + combining accent (some keyboards and file systems) is the
+    # same name as the single character, not an odd one.
+    value = unicodedata.normalize("NFC", " ".join(value.split()))
     if not 2 <= len(value) <= 40 or not NAME_RE.match(value):
         raise ValueError(f"{what} '{value[:40]}' must be 2-40 letters (spaces, ' . - allowed)")
     if banned_names_in(value):

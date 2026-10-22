@@ -991,7 +991,10 @@ class MatchSession:
             EventType.PERIOD_START,
         ):
             target += 1
-        start, stats = max((cp for cp in self._checkpoints if cp[0] < target), key=lambda cp: cp[0])
+        # target is 0 only for a live match that has nothing but its match_start yet.
+        start, stats = max(
+            (cp for cp in self._checkpoints if cp[0] < target or cp[0] == 0), key=lambda cp: cp[0]
+        )
         before = [b for idx, b in self._bundle_index if idx < target]
         self.crew.reset()
         self.crew.restore(before)
@@ -1014,7 +1017,7 @@ class MatchSession:
             # screen with an empty pitch looked like the jump had done nothing.
             self.is_running = True
         self.ended = False
-        self._position = self._tl[target - 1]
+        self._position = self._tl[target - 1] if target else 0.0
         if self.events[target].period == period:
             # Land on the requested clock so the wait for the next event is right.
             self._position = max(self._position, clock_s + (self._tl[target] - self.events[target].clock_s))

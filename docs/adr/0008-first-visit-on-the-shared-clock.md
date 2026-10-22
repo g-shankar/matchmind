@@ -42,10 +42,11 @@ of the clock" can never read ahead). Around it:
 
 The rate limits from earlier security reviews stay as they were: `set_view` in
 bursts of 3 then 1 a second per connection, one seek or reset every 0.5 s for
-everyone. The app now spaces its own requests to fit them (it merges quick
-audience or language changes into one `set_view`, and sends only the last of
-several quick jumps), and every refusal it shows is translated from a stable
-error `code`.
+everyone, and one pause or speed change every 0.3 s for everyone. The app now
+spaces its own requests to fit them (it merges quick audience or language
+changes into one `set_view`, sends only the last of several quick jumps, and
+keeps pause and speed 350 ms apart, two waiting pause taps undoing each other),
+and every refusal it shows is translated from a stable error `code`.
 
 ## Alternatives considered
 

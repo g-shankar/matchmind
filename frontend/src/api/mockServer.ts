@@ -411,8 +411,18 @@ export class MockMatchServer implements MatchTransport {
         this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
         return;
       case 'seek': {
+        // Same refusals as the live server: nothing moves on a bad time.
+        if (!Number.isFinite(action.clock_s) || action.clock_s < 0 || (action.period !== undefined && action.period !== 1 && action.period !== 2)) {
+          this.emit({ type: 'ERROR', data: { message: 'Seek needs clock_s, a time in seconds from kick-off (and optionally period 1 or 2).', code: 'other' } });
+          return;
+        }
+        const index = seekIndex(this.fixture.ticks, action.clock_s, action.period);
+        if (index >= this.fixture.ticks.length) {
+          this.emit({ type: 'ERROR', data: { message: 'That time is after full time.', code: 'after_full_time' } });
+          return;
+        }
         const wasEnded = this.ended;
-        this.jumpTo(seekIndex(this.fixture.ticks, Math.max(0, action.clock_s), action.period));
+        this.jumpTo(index);
         // A jump back into a finished match plays from there, as on the server.
         if (wasEnded && !this.ended) this.running = true;
         this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
@@ -425,7 +435,7 @@ export class MockMatchServer implements MatchTransport {
             ? { persona: action.persona, ...(action.spotlight_player_id !== undefined ? { focus_player_id: action.spotlight_player_id } : {}) }
             : (({ action: _a, ...rest }) => rest)(action);
         if ('spoilers' in changes && typeof changes.spoilers !== 'boolean') {
-          this.emit({ type: 'ERROR', data: { message: 'Check spoilers: it must be true or false.' } });
+          this.emit({ type: 'ERROR', data: { message: 'Check spoilers: it must be true or false.', code: 'other' } });
           return;
         }
         const revealChanged = 'spoilers' in changes && changes.spoilers !== this.profile.spoilers;

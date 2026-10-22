@@ -62,11 +62,20 @@ MAX_MESSAGE_BYTES = 4096
 MAX_CONNECTIONS = int(os.environ.get("MATCHMIND_MAX_CONNECTIONS", "200"))
 MAX_CONN_PER_IP = int(os.environ.get("MATCHMIND_MAX_CONN_PER_IP", "20"))
 SEND_QUEUE_BYTES = 4 * 1024 * 1024  # per connection; a viewer this far behind is dropped
+# All send queues together, so viewers that stop reading cannot pin MAX_CONNECTIONS x 4 MB
+# (the container has 1 GiB). Once it is spent, a viewer more than SEND_QUEUE_SHARE_BYTES
+# behind is dropped; viewers that keep up (a few KB queued) are never dropped for it.
+SEND_QUEUE_TOTAL_BYTES = int(os.environ.get("MATCHMIND_SEND_QUEUE_TOTAL_BYTES", str(192 * 1024 * 1024)))
+SEND_QUEUE_SHARE_BYTES = 256 * 1024
 JUMP_INTERVAL_S = 0.5  # at most one seek or reset per half second, for everyone
 # When nobody has watched for this long, the next visitor starts a fresh match at kick-off
 # and the default speed instead of landing at full time (docs/adr/0006-one-shared-match-clock.md).
 # 0 turns it off. Never applies to a live stream.
 IDLE_REWIND_S = float(os.environ.get("MATCHMIND_IDLE_REWIND_S", "300"))
+# Pause and speed, shared by everyone: without it 20 connections from one address toggled
+# pause about 190 times a second, froze the match and flooded every viewer. Also turns a
+# double tap on pause into one change.
+CONTROL_INTERVAL_S = 0.3
 VIEW_BURST, VIEW_PER_SECOND = 3, 1.0  # set_view per connection
 # Events of new cue-sheet compiling per playback step (shared by every viewer). An audience
 # never seen before costs one pass over the match so far (about 2,000 events at full time);
@@ -89,6 +98,7 @@ DEFAULT_ORIGINS = "http://localhost:5173,http://localhost:3000"
 OOPS = "Something went wrong on our side. Please try again."
 TOO_FAST = "Jumping around too fast. Wait a moment and try again."
 TOO_MANY = "Too many requests. Wait a moment and try again."
+CONTROL_TOO_FAST = "Playback was just changed. Wait a moment and try again."
 VIEW_TOO_FAST = "Changing the view too fast. Wait a moment and try again."
 TOO_MANY_ACTIONS = "Too many actions at once. Wait a moment and try again."
 LOADING = "The match is still loading. Try again in a moment."
@@ -102,6 +112,7 @@ ERROR_CODES: dict[str, str] = {
     OOPS: "oops",
     TOO_FAST: "jump_too_fast",
     VIEW_TOO_FAST: "view_too_fast",
+    CONTROL_TOO_FAST: "control_too_fast",
     TOO_MANY_ACTIONS: "too_many_actions",
     LOADING: "loading",
     NO_CLUB_HERE: "unknown_club",
@@ -311,14 +322,24 @@ class RateLimiter:
         return False
 
 
+class SendBudget:
+    """Bytes queued for sending across every connection (one per hub)."""
+
+    def __init__(self, total: int | None = None) -> None:
+        self.total = SEND_QUEUE_TOTAL_BYTES if total is None else total
+        self.used = 0
+
+
 class Connection:
     def __init__(
         self,
         ws: WebSocket,
         clock: Callable[[], float],
         on_drop: Callable[[Connection], None] | None = None,
+        budget: SendBudget | None = None,
     ) -> None:
         self.ws = ws
+        self.budget = budget
         self.profile = ViewerProfile()
         self.view_state = ViewerState()  # what the producer remembers for this viewer
         # set_view starts a new cue sheet: about one a second per viewer (bursts of 3, so
@@ -340,11 +361,31 @@ class Connection:
         if self.closed:
             return
         text = json.dumps(payload, separators=(",", ":"))  # ASCII: one byte per character
-        if self.queued_bytes + len(text) > SEND_QUEUE_BYTES:
+        size = len(text)
+        if self.queued_bytes + size > SEND_QUEUE_BYTES:
             self.overflow()
             return
-        self.queued_bytes += len(text)
+        budget = self.budget
+        if (
+            budget is not None
+            and budget.used + size > budget.total
+            and self.queued_bytes + size > SEND_QUEUE_SHARE_BYTES
+        ):
+            self.overflow()  # memory is short and this viewer is far behind
+            return
+        self._charge(size)
         self.queue.put_nowait(text)
+
+    def _charge(self, size: int) -> None:
+        self.queued_bytes += size
+        if self.budget is not None:
+            self.budget.used += size
+
+    def _release(self, size: int) -> None:
+        size = min(size, self.queued_bytes)
+        self.queued_bytes -= size
+        if self.budget is not None:
+            self.budget.used = max(0, self.budget.used - size)
 
     def error(self, text: str) -> None:
         self.send(view.message("ERROR", {"message": text, "code": ERROR_CODES.get(text, "other")}))
@@ -359,17 +400,18 @@ class Connection:
         if self.closed:
             return
         self.closed = True
-        self._drain()
+        self.drain_queue()
         if self.writer_task is not None:
             self.writer_task.cancel()
         if self._on_drop is not None:
             self._on_drop(self)
         self._closer = asyncio.get_running_loop().create_task(self._close_socket(CLOSE_TRY_AGAIN))
 
-    def _drain(self) -> None:
+    def drain_queue(self) -> None:
+        """Empty the queue and give its bytes back to the shared budget."""
         while not self.queue.empty():
             self.queue.get_nowait()
-        self.queued_bytes = 0
+        self._release(self.queued_bytes)
 
     async def _close_socket(self, code: int) -> None:
         with contextlib.suppress(Exception):
@@ -380,7 +422,7 @@ class Connection:
             text = await self.queue.get()
             if text is None:
                 break
-            self.queued_bytes = max(0, self.queued_bytes - len(text))
+            self._release(len(text))
             try:
                 await self.ws.send_text(text)
             except Exception:  # noqa: BLE001 - the socket went away
@@ -398,9 +440,11 @@ class Hub:
         self._lock = asyncio.Lock()  # playback lock: quick session state work only
         self._crew_lock = asyncio.Lock()  # crew work, in order; taken before the playback lock
         self._last_jump: float | None = None
+        self._last_control: float | None = None
         self._slots = 0  # WebSocket slots reserved (before accept)
         self._idle_since: float | None = None  # when the last viewer left (None: someone is here)
         self._slots_per_ip: dict[str, int] = {}
+        self.send_budget = SendBudget()
 
     # --- connection slots ----------------------------------------------------------------------
 
@@ -597,12 +641,25 @@ class Hub:
     # --- shared playback controls (used by WebSocket and REST) -------------------------------
 
     async def toggle_pause(self) -> dict[str, Any]:
-        await self.run(self.session.toggle_pause)
+        session = self.session
+        self._claim_control()
+        await self.run(session.toggle_pause)
         return self._announce_playback()
 
     async def set_speed(self, speed: int) -> dict[str, Any]:
-        await self.run(self.session.set_speed, speed)
+        session = self.session
+        if session.speed == speed:
+            return session.playback()  # nothing changes: a retry is answered, not broadcast
+        self._claim_control()
+        await self.run(session.set_speed, speed)
         return self._announce_playback()
+
+    def _claim_control(self) -> None:
+        """One shared throttle for pause and speed (WebSocket and REST alike)."""
+        now = self.clock()
+        if self._last_control is not None and now - self._last_control < CONTROL_INTERVAL_S:
+            raise HTTPException(status_code=429, detail=CONTROL_TOO_FAST)
+        self._last_control = now
 
     def _announce_playback(self) -> dict[str, Any]:
         playback = self.session.playback()
@@ -866,6 +923,11 @@ def create_app(
     async def ask(request: Request) -> dict[str, Any]:
         """One question about the match, answered from the stats engine as of the playback
         clock. Shares the per-IP bucket of the paid-path GET routes and MCP."""
+        # JSON only: a form or text/plain POST is a "simple" cross-site request a browser
+        # sends from any page without a CORS preflight.
+        media = request.headers.get("content-type", "").split(";")[0].strip().lower()
+        if media != "application/json":
+            raise HTTPException(status_code=415, detail="Send the question as JSON.")
         declared = request.headers.get("content-length")
         if declared is not None and declared.isdigit() and int(declared) > ASK_BODY_MAX:
             raise HTTPException(status_code=413, detail=ASK_TOO_BIG)
@@ -1023,7 +1085,7 @@ def create_app(
         writer: asyncio.Task[None] | None = None
         try:
             await ws.accept()
-            conn = Connection(ws, hub.clock, on_drop=hub.drop)
+            conn = Connection(ws, hub.clock, on_drop=hub.drop, budget=hub.send_budget)
             rewind = hub.join(conn)
             writer = conn.start()
             if rewind:
@@ -1039,6 +1101,8 @@ def create_app(
             if writer is not None and not writer.done():  # a dropped viewer's writer is already cancelled
                 with contextlib.suppress(Exception):
                     await asyncio.wait_for(writer, timeout=2)
+            if conn is not None:
+                conn.drain_queue()  # whatever a stuck writer left behind goes back to the budget
 
     async def _serve(ws: WebSocket, conn: Connection) -> None:
         await hub.send_snapshots([conn])
@@ -1110,13 +1174,17 @@ def create_app(
 
     def _set_view(conn: Connection, changes: dict[str, Any]) -> None:
         session = hub.session
+        # An unknown club or player (e.g. a choice saved during another match) is left out
+        # with a message; the rest still applies, so catch-up mode is never lost with it.
         team = changes.get("favourite_team")
         if team is not None and not session.is_known_team(team):
             conn.error(NO_CLUB_HERE)
-            return
+            changes.pop("favourite_team")
         player = changes.get("focus_player_id")
         if player is not None and not session.is_known_player(player):
             conn.error(NO_PLAYER_HERE)
+            changes.pop("focus_player_id")
+        if not changes:
             return
         for key in ("persona", "language", "spoilers"):
             if key in changes and changes[key] is None:

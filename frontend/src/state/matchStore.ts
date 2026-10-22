@@ -18,6 +18,7 @@ import type {
   XY,
 } from '../api/contract';
 import { DEFAULT_PROFILE } from '../api/defaults';
+import { spoilerFreeSnapshot, spoilerFreeTick } from '../api/spoilers';
 import { defaultLanguages } from '../lib/languages';
 import { applyCues, initialCueState, retractedByCards, ruleOut, startSheet, type CueViewState } from './cues';
 
@@ -168,7 +169,31 @@ export function matchReducer(state: MatchViewState, action: MatchAction): MatchV
   }
 }
 
-function applyMessage(state: MatchViewState, m: ServerMessage): MatchViewState {
+// Catch-up mode is the viewer's own choice: only the viewer turns it off (setView).
+// The server learns it from the set_view sent on (re)connect, so the first snapshot
+// and any tick or cue that races ahead of it are for the default audience and carry
+// the result. While catch-up is on here, those are scrubbed (or dropped) before they
+// reach the screen, and a snapshot or profile echo never switches catch-up off.
+export function catchUpGuard(state: MatchViewState, m: ServerMessage): ServerMessage | null {
+  if (state.profile.spoilers !== false) return m;
+  switch (m.type) {
+    case 'INITIAL_SNAPSHOT':
+      if (m.data.profile?.spoilers === false) return m;
+      return { type: 'INITIAL_SNAPSHOT', data: { ...spoilerFreeSnapshot(m.data), profile: { ...m.data.profile, spoilers: false } } };
+    case 'MATCH_TICK':
+      return m.data.score == null ? m : { type: 'MATCH_TICK', data: spoilerFreeTick(m.data) };
+    case 'CUES':
+      return null; // the cue sheet carries the scorebug; a catch-up viewer gets none
+    case 'PROFILE_CHANGED':
+      return m.data.spoilers === false ? m : { type: 'PROFILE_CHANGED', data: { ...m.data, spoilers: false } };
+    default:
+      return m;
+  }
+}
+
+function applyMessage(state: MatchViewState, message: ServerMessage): MatchViewState {
+  const m = catchUpGuard(state, message);
+  if (m === null) return state;
   switch (m.type) {
     case 'INITIAL_SNAPSHOT': {
       const d = m.data;

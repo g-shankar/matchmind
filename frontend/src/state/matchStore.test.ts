@@ -114,3 +114,65 @@ describe('malformed frames', () => {
     expect(matchReducer(s, { type: 'message', message: bad })).toBe(s);
   });
 });
+
+describe('catch-up guard (extreme cases EC-3)', () => {
+  // On every (re)connect the server's first snapshot is for the default audience: it
+  // carries the result until the set_view sent on open reaches the server.
+  const f = makeFixture();
+  const goal = cardForMoment(f.moments[0], DEFAULT_PROFILE)!;
+  const snapshot = (profile = DEFAULT_PROFILE, score: number | null = 2) => ({
+    type: 'INITIAL_SNAPSHOT' as const,
+    data: {
+      match_id: 'T-1', clock: '50:00', period: 2, home_score: score, away_score: score === null ? null : 1, teams: f.teams,
+      state: state(3000, score === null ? { score_home: null, score_away: null } : { score_home: score, score_away: 1 }),
+      control_chaos: f.ticks[0].control_chaos, profile,
+      playback: { is_running: true, speed_multiplier: 10 as const, clock_s: 3000, match_clock: '50:00', period: 2, ended: false },
+      recent_cards: [goal], bookmarks: [], players: [], crew: f.crew, auto_eventing: null,
+    },
+  });
+  const catchUp = () => initialMatchState({ ...DEFAULT_PROFILE, spoilers: false });
+
+  it('a default-audience snapshot never shows the result to a catch-up viewer', () => {
+    expect(goal.kind).toBe('goal');
+    const s = matchReducer(catchUp(), { type: 'message', message: snapshot() });
+    expect(s.score).toEqual({ home: null, away: null });
+    expect(s.state?.score_home ?? null).toBeNull();
+    expect(s.cards).toEqual([]);
+    expect(s.profile.spoilers).toBe(false);
+  });
+
+  it('the last events in a default-audience snapshot lose their score and shot outcome', () => {
+    const shot = event(7, 2990, { type: 'shot', outcome: 'goal', details: { score_home: 2, score_away: 1, assist_id: 'AAA-10' } });
+    const base = snapshot();
+    const s = matchReducer(catchUp(), { type: 'message', message: { ...base, data: { ...base.data, recent_events: [shot] } } });
+    expect(s.events).toHaveLength(1);
+    expect(s.events[0].outcome).toBeNull();
+    expect(s.events[0].details).not.toHaveProperty('score_home');
+    expect(s.events[0].details).not.toHaveProperty('assist_id');
+    expect(s.lastEvent?.outcome).toBeNull();
+  });
+
+  it('a tick or cue that races ahead of set_view is scrubbed or dropped', () => {
+    let s = matchReducer(catchUp(), { type: 'message', message: snapshot() });
+    const data: TickData = { ...f.ticks[1], cards: [], score: { home: 2, away: 1 } };
+    s = matchReducer(s, { type: 'message', message: { type: 'MATCH_TICK', data } });
+    expect(s.score).toEqual({ home: null, away: null });
+    const before = s;
+    s = matchReducer(s, { type: 'message', message: { type: 'CUES', data: { cues: [], active: null } } as never });
+    expect(s).toBe(before);
+  });
+
+  it('a profile echo does not switch catch-up off; the viewer revealing does', () => {
+    let s = matchReducer(catchUp(), { type: 'message', message: { type: 'PROFILE_CHANGED', data: DEFAULT_PROFILE } });
+    expect(s.profile.spoilers).toBe(false);
+    s = matchReducer(s, { type: 'profile', changes: { spoilers: true } });
+    s = matchReducer(s, { type: 'message', message: snapshot() });
+    expect(s.score).toEqual({ home: 2, away: 1 });
+  });
+
+  it('the server-confirmed catch-up snapshot passes through unchanged', () => {
+    const s = matchReducer(catchUp(), { type: 'message', message: snapshot({ ...DEFAULT_PROFILE, spoilers: false }, null) });
+    expect(s.cards.map((c) => c.moment_id)).toEqual([goal.moment_id]);
+    expect(s.profile.spoilers).toBe(false);
+  });
+});
