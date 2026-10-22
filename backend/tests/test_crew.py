@@ -32,6 +32,7 @@ from matchmind.stats.models import (
     PlayerStats,
     TeamWindow,
     UnfoundRun,
+    VarDecision,
 )
 
 CREW_DIR = Path(__file__).resolve().parents[1] / "src" / "matchmind" / "crew"
@@ -296,6 +297,52 @@ def all_moments():
                 away=window(field_tilt_pct=80.0, pressure_index=48.0, shots=3, xg=0.4),
             ),
         )
+    # A second goal, ruled out by VAR a minute later (the correction moment).
+    add(
+        ev(
+            397,
+            EventType.SHOT,
+            1420.0,
+            team="NBR",
+            player_id="NBR-10",
+            outcome=Outcome.GOAL,
+            details={"assist_id": "NBR-7", "score_home": 2, "score_away": 0},
+        ),
+        EventMetrics(event_id="T-00397", chance_quality=0.21, distance_to_goal_m=14.0),
+        snap(1420.0, momentum=55.0, score_home=2),
+    )
+    add(
+        ev(
+            398,
+            EventType.VAR_REVIEW,
+            1480.0,
+            team="NBR",
+            player_id="NBR-10",
+            outcome=Outcome.OVERTURNED,
+            reviewed_event_id="T-00397",
+            review_reason="offside",
+            details={"score_home": 1, "score_away": 0},
+        ),
+        EventMetrics(
+            event_id="T-00398",
+            var_decision=VarDecision(
+                review_event_id="T-00398",
+                reviewed_event_id="T-00397",
+                outcome="overturned",
+                reason="offside",
+                team="NBR",
+                player_id="NBR-10",
+                assist_id="NBR-7",
+                reviewed_clock="23:40",
+                reviewed_period=1,
+                reviewed_clock_s=1420.0,
+                goal_removed=True,
+                score_home=1,
+                score_away=0,
+            ),
+        ),
+        snap(1480.0, momentum=55.0, score_home=1),
+    )
     add(
         ev(
             400,

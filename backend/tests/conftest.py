@@ -50,6 +50,11 @@ class FakeStats:
         self._changed = []
         if event.type == "shot" and event.outcome == "goal" and event.team:
             self.score[event.team] += 1
+            self._goals = getattr(self, "_goals", {}) | {event.event_id: event.team}
+        if event.type == "var_review" and event.outcome == "overturned":
+            team = getattr(self, "_goals", {}).pop(event.reviewed_event_id, None)
+            if team is not None:
+                self.score[team] -= 1
         if event.player_id and event.team:
             p = self._players.setdefault(
                 event.player_id, PlayerStats(player_id=event.player_id, team=event.team)
@@ -115,6 +120,28 @@ class FakeCrew:
 
     def process(self, event, metrics, snapshot, players) -> list[MomentBundle]:
         self.process_calls += 1
+        if event.type == "var_review" and event.outcome == "overturned":
+            moment = Moment(
+                moment_id=f"correction-{event.event_id}",
+                kind=MomentKind.CORRECTION,
+                clock_s=event.clock_s,
+                match_clock=event.match_clock,
+                period=event.period,
+                team=event.team,
+                player_ids=[event.player_id] if event.player_id else [],
+                facts={"score_home": snapshot.score_home, "score_away": snapshot.score_away},
+                source_event_ids=[event.event_id, event.reviewed_event_id],
+                priority=95,
+                retracts=[f"goal-{event.reviewed_event_id}"],
+            )
+            expl = Explanation(
+                moment_id=moment.moment_id,
+                why="VAR",
+                tactical_tag="officiating",
+                produced_by="template",
+                evidence=[],
+            )
+            return [MomentBundle(moment=moment, explanation=expl)]
         if not (event.type == "shot" and event.outcome == "goal"):
             return []
         moment = Moment(
@@ -125,7 +152,7 @@ class FakeCrew:
             period=event.period,
             team=event.team,
             player_ids=[event.player_id],
-            facts={"score_home": snapshot.score_home},
+            facts={"score_home": snapshot.score_home, "score_away": snapshot.score_away},
             source_event_ids=[event.event_id],
             priority=90,
         )
@@ -144,7 +171,7 @@ class FakeCrew:
             card_id=f"{m.moment_id}-{profile.persona}-{profile.language}",
             moment_id=m.moment_id,
             kind=m.kind,
-            slot="lower_third",
+            slot="full_screen" if m.kind == MomentKind.CORRECTION else "lower_third",
             priority=m.priority,
             show_at_s=m.clock_s,
             duration_s=8,
@@ -160,10 +187,13 @@ class FakeCrew:
             team=m.team,
             favourite_side=(m.team == profile.favourite_team) if profile.favourite_team else None,
             produced_by="template",
+            retracts=list(m.retracts),
         )
 
     def cards_for(self, bundles, profile, state) -> list[OverlayCard]:
-        return [c for b in bundles if (c := self.render(b, profile)) is not None]
+        from matchmind.crew.producer import select
+
+        return select([c for b in bundles if (c := self.render(b, profile)) is not None], profile, state)
 
     def metric_alerts(self, event, metrics, snapshot, players, profile, state) -> list[OverlayCard]:
         return []

@@ -39,6 +39,7 @@ PACK = {
         "shots_home": "ホームのシュート数",
         "shots_away": "アウェイのシュート数",
         "appearance_n": "クラブ出場数",
+        "ruled_out_clock": "取り消されたゴール（得点時刻）",
     },
     "zones": {
         "Penalty Box": "ペナルティエリア",
@@ -57,6 +58,7 @@ PACK = {
     "card_name": {"yellow": "イエローカード", "red": "レッドカード"},
     "card_name_cap": {"yellow": "イエローカード", "red": "レッドカード"},
     "card_action": {"yellow": "に警告", "red": "が退場"},
+    "var_reason": {"offside": "オフサイド", "handball": "ハンド", "foul": "ファウル"},
     "fav_goal": {
         "for": "応援チームにゴール！{player_short}",
         "against": "{player_short}のゴールで応援チームが失点",
@@ -363,6 +365,32 @@ PACK = {
                 )
             ],
         },
+        "correction": {
+            "casual": [
+                (
+                    "ノーゴール！VARで{player_short}の得点取り消し",
+                    "{ruled_out_clock}の{player}のゴールは、VARの確認で{reason_phrase}により取り消されました。スコアは{home} {score_home}-{score_away} {away}のまま。",
+                )
+            ],
+            "tactical": [
+                (
+                    "VAR：{player_short}のゴールを取り消し",
+                    "{reason_phrase}で判定が覆りました。スコアは{home} {score_home}-{score_away} {away}に戻ります。",
+                )
+            ],
+            "fantasy": [
+                (
+                    "ゴール取り消し：{player_short}",
+                    "VARで{reason_phrase}のためゴールは取り消し、シュートは記録に残ります。{player_short}の今日の成績：{p_goals}ゴール、シュート{p_shots}本で{p_xg} xG。",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "ノーゴール！VARで{player_short}の得点取り消し",
+                    "{ruled_out_clock}の{player}のゴールは、VARの確認で{reason_phrase}により取り消されました。スコアは{home} {score_home}-{score_away} {away}のまま。",
+                )
+            ],
+        },
         "milestone.kick_off": {
             "casual": [
                 (
@@ -476,6 +504,9 @@ PACK = {
         ],
         "hard_pass": [
             "難易度{difficulty_scale}点中{pass_difficulty}点は、成功させられる選手が少ないパスです。"
+        ],
+        "correction": [
+            "VARが{ruled_out_clock}のゴールを{reason_phrase}で取り消し、スコアは{home} {score_home}-{score_away} {away}に戻りました。"
         ],
         "milestone.kick_off": ["試合が始まりました。"],
         "milestone.half_time": ["前半の期待ゴールは{xg_home}対{xg_away}。"],

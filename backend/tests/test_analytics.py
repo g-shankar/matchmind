@@ -15,7 +15,7 @@ from matchmind.analytics.build import build_tables, process_match
 from matchmind.analytics.cli import main as cli_main
 from matchmind.analytics.labels import split_for
 from matchmind.analytics.schema import ALL_TABLES, BY_NAME, EVENTS, STAR_TABLES
-from matchmind.schema import Event, EventType, Point
+from matchmind.schema import Event, EventType, Outcome, Point
 from matchmind.simulator.publisher import read_jsonl, write_jsonl
 from matchmind.stats.better_option import analyse_shot, shot_alternative
 from matchmind.stats.metrics import to_attacking
@@ -95,8 +95,16 @@ def test_row_counts_follow_the_source(bundled, bundled_events):
     assert {r["match_id"]: r["events"] for r in bundled["matches"]} == counts
 
 
-def test_aggregates_agree_with_the_events(bundled):
+def test_aggregates_agree_with_the_events(bundled, bundled_events):
     by_match = {r["match_id"]: r for r in bundled["matches"]}
+    # A goal a VAR review overturned is still a shot but not a goal (docs/METRICS.md).
+    ruled_out = {
+        e.reviewed_event_id
+        for m in bundled_events
+        for e in m
+        if e.type == EventType.VAR_REVIEW and e.outcome == Outcome.OVERTURNED
+    }
+    assert ruled_out, "the demo match has a goal ruled out by VAR"
     for tm in bundled["team_match"]:
         match = by_match[tm["match_id"]]
         side = "home" if tm["is_home"] else "away"
@@ -105,7 +113,9 @@ def test_aggregates_agree_with_the_events(bundled):
             r for r in bundled["events"] if r["match_id"] == tm["match_id"] and r["team_id"] == tm["team_id"]
         ]
         assert tm["shots"] == sum(r["type"] == "shot" for r in shots)
-        goals = sum(r["type"] == "shot" and r["outcome"] == "goal" for r in shots)
+        goals = sum(
+            r["type"] == "shot" and r["outcome"] == "goal" and r["event_id"] not in ruled_out for r in shots
+        )
         assert tm["goals"] == goals
         cards = [r for r in shots if r["type"] == "card"]
         assert tm["yellow_cards"] + tm["red_cards"] == len(cards)

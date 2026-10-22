@@ -45,6 +45,8 @@
     freeze_frame: dynamic,
     tracking: dynamic,
     lineups: dynamic,
+    reviewed_event_id: string,
+    review_reason: string,
     details: dynamic
 )
 
@@ -77,6 +79,8 @@
   {"column":"freeze_frame","datatype":"dynamic","Properties":{"Path":"$.freeze_frame"}},
   {"column":"tracking","datatype":"dynamic","Properties":{"Path":"$.tracking"}},
   {"column":"lineups","datatype":"dynamic","Properties":{"Path":"$.lineups"}},
+  {"column":"reviewed_event_id","datatype":"string","Properties":{"Path":"$.reviewed_event_id"}},
+  {"column":"review_reason","datatype":"string","Properties":{"Path":"$.review_reason"}},
   {"column":"details","datatype":"dynamic","Properties":{"Path":"$.details"}}
 ]
 ```

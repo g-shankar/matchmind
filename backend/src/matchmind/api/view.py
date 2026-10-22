@@ -10,7 +10,9 @@ from dataclasses import asdict
 from typing import Any
 
 from matchmind.crew.contracts import CrewStatus, OverlayCard, ViewerProfile
+from matchmind.crew.cues import Cue
 from matchmind.crew.languages import language_list
+from matchmind.crew.producer import ViewerState
 from matchmind.schema import Event
 from matchmind.simulator.teams import Team
 from matchmind.stats.models import EventMetrics, MatchStateSnapshot, PlayerStats
@@ -127,8 +129,38 @@ def languages_payload(status: CrewStatus) -> list[dict[str, Any]]:
     return [info.model_dump() for info in language_list(status.translator.available)]
 
 
-def snapshot_payload(session: MatchSession, profile: ViewerProfile) -> dict[str, Any]:
-    """INITIAL_SNAPSHOT.data for one viewer profile."""
+def cue_payload(cue: Cue) -> dict[str, Any]:
+    return cue.model_dump(mode="json")
+
+
+def cue_sheet_state(state: ViewerState | None) -> dict[str, Any] | None:
+    """Where this viewer's cue sheet stands: its id, the last seq already compiled
+    and the cues on air right now. Clients start their cue state from this."""
+    if state is None or state.cues is None:
+        return None
+    return {
+        "sheet_id": state.cues.sheet_id,
+        "last_seq": state.cues.seq,
+        "active": [cue_payload(c) for c in state.cue_active or []],
+    }
+
+
+def cues_message(state: ViewerState, cues: list[Cue]) -> dict[str, Any] | None:
+    """CUES for one viewer: new cues of their sheet, plus (once, when the sheet was
+    started mid-match) the cues already on air. None when there is nothing to send."""
+    if state.cues is None or (not cues and state.cue_active is None):
+        return None
+    data: dict[str, Any] = {"sheet_id": state.cues.sheet_id, "cues": [cue_payload(c) for c in cues]}
+    if state.cue_active is not None:
+        data["active"] = [cue_payload(c) for c in state.cue_active]
+        state.cue_active = None
+    return message("CUES", data)
+
+
+def snapshot_payload(
+    session: MatchSession, profile: ViewerProfile, state: ViewerState | None = None
+) -> dict[str, Any]:
+    """INITIAL_SNAPSHOT.data for one viewer profile (and their fresh cue sheet state)."""
     snap = session.snapshot
     home, away = session.score
     crew = session.crew_status()
@@ -149,6 +181,7 @@ def snapshot_payload(session: MatchSession, profile: ViewerProfile) -> dict[str,
         "crew": crew.model_dump(),
         "languages": languages_payload(crew),
         "auto_eventing": session.auto_eventing,
+        "cue_sheet": cue_sheet_state(state),
     }
 
 

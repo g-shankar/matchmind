@@ -44,7 +44,7 @@ from matchmind.crew.contracts import (
 from matchmind.crew.producer import ViewerState
 
 from . import view
-from .session import MatchSession, SessionError, Tick, build_session
+from .session import CUE_PAGE_MAX, MatchSession, SessionError, Tick, build_session
 
 logger = logging.getLogger("pitchpulse.api")
 
@@ -304,8 +304,17 @@ class Hub:
 
     # --- broadcasting ------------------------------------------------------------------------
 
-    def _snapshot_messages(self, conns: list[Connection], profiles: list[ViewerProfile]) -> list[dict]:
-        return [view.message("INITIAL_SNAPSHOT", view.snapshot_payload(self.session, p)) for p in profiles]
+    def _snapshot_messages(self, profiles: list[ViewerProfile]) -> tuple[list[ViewerState], list[dict]]:
+        """Fresh producer memory and cue sheet per viewer (compiled up to now, shared
+        between viewers with the same profile), and their INITIAL_SNAPSHOT."""
+        states = [self.session.viewer_state(p) for p in profiles]
+        messages = []
+        for profile, state in zip(profiles, states, strict=True):
+            messages.append(
+                view.message("INITIAL_SNAPSHOT", view.snapshot_payload(self.session, profile, state))
+            )
+            state.cue_active = None  # the snapshot carried it
+        return states, messages
 
     async def send_snapshots(self, conns: list[Connection]) -> None:
         async with self._crew_lock:
@@ -317,8 +326,9 @@ class Hub:
         profiles = [c.profile.model_copy() for c in conns]
         for conn in conns:
             conn.view_state = ViewerState()
-        messages = await asyncio.to_thread(self._snapshot_messages, conns, profiles)
-        for conn, msg in zip(conns, messages, strict=True):
+        states, messages = await asyncio.to_thread(self._snapshot_messages, profiles)
+        for conn, state, msg in zip(conns, states, messages, strict=True):
+            conn.view_state = state
             conn.send(msg)
 
     def broadcast(self, payload: dict[str, Any]) -> None:
@@ -331,13 +341,20 @@ class Hub:
         """Crew work for ticks already played: moments, then cards and recaps per viewer."""
         session = self.session
         out: list[list[dict]] = [[] for _ in conns]
+        for i, profile in enumerate(profiles):
+            if conns[i].view_state.cues is None:  # new profile: start its sheet where these ticks begin
+                conns[i].view_state = session.viewer_state(profile, ticks[0].index)
         for tick in ticks:
             tick = session.crew_tick(tick)
             shared = view.tick_shared(tick)
             for i, profile in enumerate(profiles):
-                cards = session.cards_for(tick.bundles, profile, conns[i].view_state, tick)
+                state = conns[i].view_state
+                cards = session.cards_for(tick.bundles, profile, state, tick)
                 data = dict(shared, cards=[view.card_payload(c) for c in cards])
                 out[i].append(view.message("MATCH_TICK", data))
+                cues = view.cues_message(state, session.tick_cues(tick, cards, state))
+                if cues is not None:
+                    out[i].append(cues)
             if tick.is_last:
                 for i, profile in enumerate(profiles):
                     recap = session.recap(profile)
@@ -574,6 +591,19 @@ def create_app(
         english, moments, snap = await hub.run_crew(hub.session.recap_source, profile)
         result = await asyncio.to_thread(hub.session.translate_recap, english, moments, snap, profile)
         return result.model_dump(mode="json")
+
+    @app.get("/api/match/cue-sheet", dependencies=limited_get)
+    async def cue_sheet(
+        persona: Persona = "casual",
+        lang: Language = "en",
+        favourite_team: str | None = Query(default=None, max_length=32),
+        since_seq: int = Query(default=0, ge=0, le=1_000_000),
+        limit: int = Query(default=CUE_PAGE_MAX, ge=1, le=CUE_PAGE_MAX),
+    ) -> dict[str, Any]:
+        """The compiled cue sheet so far (docs/CUE-SHEET.md). Template text only, so it
+        never calls a paid service; compiled off the event loop and cached per position."""
+        profile = _profile(persona, lang, favourite_team)
+        return await asyncio.to_thread(hub.session.cue_sheet, profile, since_seq, limit)
 
     @app.post("/api/match/seek", dependencies=limited)
     async def seek(body: SeekBody) -> dict[str, Any]:

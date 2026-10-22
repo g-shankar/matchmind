@@ -55,6 +55,7 @@ PRIORITY: dict[str, int] = {
     "milestone.half_time": 75,
     "milestone.full_time": 90,
     "milestone.player": 50,
+    "correction": 95,
 }
 
 _APPEARANCE = re.compile(r"^(\d{1,4})(?:st|nd|rd|th) club appearance$")
@@ -103,6 +104,11 @@ class _State:
     last_burst: dict[str, tuple[int, float]] = field(default_factory=dict)
     last_hard_pass: tuple[int, float] | None = None
     distance_done: dict[str, float] = field(default_factory=dict)
+
+
+def goal_moment_id(shot_event_id: str) -> str:
+    """The id the spotter gives the goal moment of a shot."""
+    return f"{MomentKind.GOAL.value}-{shot_event_id}"
 
 
 def _elapsed(period: int, clock_s: float) -> float:
@@ -215,6 +221,7 @@ class Spotter:
         out: list[Moment] = []
         out += self._milestones(event, snapshot, players)
         out += self._shots(event, metrics, snapshot, players)
+        out += self._correction(event, metrics, snapshot, players)
         out += self._card(event, snapshot, players)
         out += self._better_option(event, metrics, snapshot, players)
         out += self._unfound_run(event, metrics, snapshot, players)
@@ -325,6 +332,38 @@ class Spotter:
                 )
             )
         return out
+
+    def _correction(self, event, metrics: EventMetrics, snapshot, players) -> list[Moment]:
+        """A VAR review that took a goal off the score: one correction moment that
+        rules the goal moment out. A review that changed nothing (the goal stands,
+        or it was already ruled out, or it names an unknown event) says nothing."""
+        vd = metrics.var_decision
+        if vd is None or not vd.goal_removed or not vd.team or not vd.player_id:
+            return []
+        facts = self._base(snapshot, vd.team)
+        facts.update(self._player_facts("player", vd.player_id, players))
+        if "player" not in facts:
+            return []
+        facts.update(
+            decision=vd.outcome,
+            reason=vd.reason or "offside",
+            score_home=vd.score_home,
+            score_away=vd.score_away,
+        )
+        if vd.reviewed_clock:
+            facts["ruled_out_clock"] = vd.reviewed_clock
+        moment = self._moment(
+            MomentKind.CORRECTION,
+            "correction",
+            event,
+            snapshot,
+            facts,
+            vd.team,
+            [vd.player_id] + ([vd.assist_id] if vd.assist_id else []),
+            source_ids=[event.event_id, vd.reviewed_event_id],
+        )
+        moment.retracts = [goal_moment_id(vd.reviewed_event_id)]
+        return [moment]
 
     def _card(self, event, snapshot, players) -> list[Moment]:
         if event.type != EventType.CARD or not event.team or not event.player_id:
