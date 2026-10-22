@@ -106,6 +106,14 @@ async def _events(ctx: ToolContext, a: m.EventsIn) -> dict[str, Any]:
     return {"count": len(events), "events": events}
 
 
+async def _metric_registry(ctx: ToolContext, a: m.NoInput) -> dict[str, Any]:
+    return reads.metric_registry()
+
+
+async def _basic_stats(ctx: ToolContext, a: m.NoInput) -> dict[str, Any]:
+    return await reads.basic_stats(ctx.hub)
+
+
 async def _simulate(ctx: ToolContext, a: m.SimulateIn) -> dict[str, Any]:
     return await reads.simulate(a.seed, a.home)
 
@@ -160,6 +168,20 @@ register(ToolSpec(
     m.PlayerStatsIn, m.PlayersOut, _players,
 ))  # fmt: skip
 register(ToolSpec(
+    "get_basic_stats", "Basic match stats",
+    "Counting stats so far per team and per fictional player: possession, pass accuracy with its "
+    "denominator, shots and on target, tackles, interceptions, PPDA, and distance and top speed "
+    "estimated from synthetic tracking. Same payload as GET /api/match/stats/basic.",
+    m.NoInput, m.BasicStatsOut, _basic_stats,
+))  # fmt: skip
+register(ToolSpec(
+    "get_metric_registry", "Metric registry",
+    "Every metric the stats engine computes: formula, units, source events, window, range, "
+    "quality flag and limitations, plus the metrics it does not compute. Same payload as "
+    "GET /api/metrics.",
+    m.NoInput, m.MetricRegistryOut, _metric_registry,
+))  # fmt: skip
+register(ToolSpec(
     "get_team_rosters", "Team rosters",
     "Both fictional clubs: names, colours, formation, style and squad. Same payload as GET /api/teams.",
     m.NoInput, m.TeamsOut, _teams,
@@ -191,5 +213,5 @@ register(ToolSpec(
 ))  # fmt: skip
 
 # Planned (not built here; each will be one register(...) line when its accessor lands):
-# get_cue_sheet, get_metric_registry, export_dataset, audit_claims. See docs/MCP.md.
-PLANNED_TOOLS: tuple[str, ...] = ("get_metric_registry", "export_dataset", "audit_claims")
+# export_dataset, audit_claims. See docs/MCP.md.
+PLANNED_TOOLS: tuple[str, ...] = ("export_dataset", "audit_claims")

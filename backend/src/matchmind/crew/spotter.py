@@ -14,14 +14,17 @@ import re
 from collections import deque
 from dataclasses import dataclass, field
 
-from matchmind.crew.contracts import FactValue, Moment, MomentKind
+from matchmind.crew.contracts import FactValue, Moment, MomentKind, PlayerRef
 from matchmind.schema import Event, EventType, Outcome
+from matchmind.simulator import pitch
 from matchmind.simulator.teams import Team
+from matchmind.stats import metrics as stats_metrics
 from matchmind.stats.metrics import DISTANCE_MILESTONES_KM, ROCKET_SHOT_KMH, SPEED_BURST_KMH
 from matchmind.stats.models import EventMetrics, MatchStateSnapshot, PlayerStats
 
-# Distance is a lower-bound estimate from the event stream (roughly 0.2-3.8 km
-# per player over a match), so milestones sit low and the text says "estimated".
+# Distance milestones and tracking speed bursts need the synthetic tracking
+# (stats.physical); without it distance is a sparse lower bound and milestones
+# never fire. Texts say the distance is estimated.
 BIG_CHANCE_XG = 0.3
 HARD_PASS_DIFFICULTY = 60
 HARD_PASS_GAP_S = 90.0
@@ -37,6 +40,12 @@ PRESSURE_INDEX = 45.0
 PRESSURE_TILT_PCT = 70.0
 PRESSURE_SPELL_S = 180.0
 DIFFICULTY_SCALE = 100
+# Key tackle: won in the tackler's own third (attacking-frame x < 35) where the
+# attackers' expected threat at the spot was at least 0.09 (about the last 25 m
+# in front of goal). Inside the own box it is "last-ditch". One per 5 minutes.
+KEY_TACKLE_OWN_THIRD_U = 35.0
+KEY_TACKLE_XT = 0.09
+KEY_TACKLE_GAP_S = 300.0
 
 PRIORITY: dict[str, int] = {
     "goal": 95,
@@ -51,6 +60,7 @@ PRIORITY: dict[str, int] = {
     "rocket_shot": 55,
     "distance_milestone": 30,
     "hard_pass": 45,
+    "key_tackle": 62,
     "milestone.kick_off": 50,
     "milestone.half_time": 75,
     "milestone.full_time": 90,
@@ -103,7 +113,9 @@ class _State:
     pressure_fired: dict[str, bool] = field(default_factory=dict)
     last_burst: dict[str, tuple[int, float]] = field(default_factory=dict)
     last_hard_pass: tuple[int, float] | None = None
-    distance_done: dict[str, float] = field(default_factory=dict)
+    distance_done: dict[str, float] = field(default_factory=dict)  # team -> highest milestone reached
+    last_key_tackle: tuple[int, float] | None = None
+    prev_event: Event | None = None
 
 
 def goal_moment_id(shot_event_id: str) -> str:
@@ -121,13 +133,42 @@ class Spotter:
     def __init__(self, teams: dict[str, Team]) -> None:
         self.teams = teams
         self._names: dict[str, tuple[str, str]] = {}
+        self._refs: dict[str, PlayerRef] = {}
         for team in teams.values():
             for p in team.players:
                 self._names[p.player_id] = (p.name, team.team_id)
+                self._refs[p.player_id] = PlayerRef(
+                    player_id=p.player_id,
+                    name=p.name,
+                    number=p.number,
+                    team=team.team_id,
+                    position=p.position,
+                )
         self.state = _State()
 
     def reset(self) -> None:
         self.state = _State()
+
+    def restore(self, moments: list[Moment]) -> None:
+        """After a reset for a jump: remember the once-only and rate-limited
+        moments already made, so playing on does not repeat them."""
+        st = self.state
+        for m in moments:
+            when = (m.period, m.clock_s)
+            if m.kind == MomentKind.DISTANCE_MILESTONE and m.team:
+                km = m.facts.get("milestone_km")
+                if isinstance(km, int | float) and not isinstance(km, bool):
+                    st.distance_done[m.team] = max(st.distance_done.get(m.team, 0.0), float(km))
+            elif m.kind == MomentKind.SPEED_BURST and m.player_ids:
+                st.last_burst[m.player_ids[0]] = when
+            elif m.kind == MomentKind.KEY_TACKLE:
+                st.last_key_tackle = when
+            elif m.kind == MomentKind.HARD_PASS:
+                st.last_hard_pass = when
+
+    def player_refs(self, player_ids: list[str]) -> list[PlayerRef]:
+        """Name, shirt number, team and position of each known player, in order."""
+        return [self._refs[p].model_copy() for p in player_ids if p in self._refs]
 
     # ---------------------------------------------------------- helpers
 
@@ -181,6 +222,7 @@ class Spotter:
                     p_key_passes=ps.key_passes,
                     sprints=ps.sprints,
                     top_speed_kmh=r1(ps.top_speed_kmh),
+                    p_tackles_won=ps.tackles_won,
                 )
         return facts
 
@@ -196,6 +238,7 @@ class Spotter:
         suffix: str = "",
         source_ids: list[str] | None = None,
     ) -> Moment:
+        ids = [p for p in player_ids if p]
         return Moment(
             moment_id=f"{kind.value}{suffix}-{event.event_id}",
             kind=kind,
@@ -203,7 +246,8 @@ class Spotter:
             match_clock=event.match_clock,
             period=event.period,
             team=team_id,
-            player_ids=[p for p in player_ids if p],
+            player_ids=ids,
+            players=self.player_refs(ids),
             facts=facts,
             source_event_ids=source_ids or [event.event_id],
             priority=PRIORITY[key],
@@ -226,10 +270,15 @@ class Spotter:
         out += self._better_option(event, metrics, snapshot, players)
         out += self._unfound_run(event, metrics, snapshot, players)
         out += self._hard_pass(event, metrics, snapshot, players)
-        out += self._speed_burst(event, metrics, snapshot, players)
+        out += self._key_tackle(event, snapshot, players)
+        if metrics.sprint_efforts is not None:
+            out += self._tracked_bursts(event, metrics, snapshot, players)
+        else:
+            out += self._speed_burst(event, metrics, snapshot, players)
         out += self._distance(event, snapshot, players)
         out += self._momentum(event, snapshot)
         out += self._pressure(event, snapshot)
+        self.state.prev_event = event
         return out
 
     # ------------------------------------------------------- milestones
@@ -509,21 +558,71 @@ class Spotter:
             )
         ]
 
-    def _distance(self, event, snapshot, players: dict[str, PlayerStats]) -> list[Moment]:
+    def _tracked_bursts(self, event, metrics: EventMetrics, snapshot, players) -> list[Moment]:
+        """Speed bursts from the synthetic tracking: a sprint that peaked at or
+        over the burst line since the last event, at most one per player per
+        20 minutes."""
         out: list[Moment] = []
-        for pid in sorted(players):
-            ps = players[pid]
-            done = self.state.distance_done.get(pid, 0.0)
-            crossed = [km for km in DISTANCE_MILESTONES_KM if done < km <= ps.distance_km]
+        for sprint in metrics.sprint_efforts or []:
+            pid = sprint.player_id
+            known = self._names.get(pid)
+            if known is None or sprint.peak_kmh < SPEED_BURST_KMH:
+                continue
+            now = _elapsed(sprint.period, sprint.peak_clock_s)
+            last = self.state.last_burst.get(pid)
+            if last is not None and 0 <= now - _elapsed(*last) < SPEED_BURST_GAP_S:
+                continue
+            team = known[1]
+            facts = self._base(snapshot, team)
+            facts.update(self._player_facts("player", pid, players))
+            facts["speed_kmh"] = r1(sprint.peak_kmh)
+            facts["speed_threshold_kmh"] = int(SPEED_BURST_KMH)
+            facts["top_speed_kmh"] = max(float(facts.get("top_speed_kmh", 0.0)), r1(sprint.peak_kmh))
+            facts["sprints"] = max(int(facts.get("sprints", 0)), 1)
+            facts["sprint_m"] = int(round(sprint.distance_m))
+            facts["source"] = "synthetic_tracking"
+            self.state.last_burst[pid] = (sprint.period, sprint.peak_clock_s)
+            out.append(
+                self._moment(
+                    MomentKind.SPEED_BURST,
+                    "speed_burst",
+                    event,
+                    snapshot,
+                    facts,
+                    team,
+                    [pid],
+                    suffix=f"-{pid}",
+                )
+            )
+        return out
+
+    def _distance(self, event, snapshot, players: dict[str, PlayerStats]) -> list[Moment]:
+        """The first player in each team to pass each distance milestone (5 and
+        10 km, from synthetic tracking)."""
+        out: list[Moment] = []
+        for team_id in sorted({ps.team for ps in players.values()}):
+            squad = [
+                ps
+                for ps in players.values()
+                if ps.team == team_id and ps.physical_source == "synthetic_tracking"
+            ]
+            if not squad:
+                continue
+            leader = max(squad, key=lambda ps: (ps.distance_km, ps.player_id))
+            done = self.state.distance_done.get(team_id, 0.0)
+            crossed = [km for km in DISTANCE_MILESTONES_KM if done < km <= leader.distance_km]
             if not crossed:
                 continue
             km = max(crossed)
-            self.state.distance_done[pid] = km
-            facts = self._base(snapshot, ps.team)
-            facts.update(self._player_facts("player", pid, players))
+            self.state.distance_done[team_id] = km
+            facts = self._base(snapshot, team_id)
+            facts.update(self._player_facts("player", leader.player_id, players))
             if "player" not in facts:
                 continue
             facts["milestone_km"] = int(km) if float(km).is_integer() else r1(km)
+            facts["distance_km"] = r1(leader.distance_km)
+            facts["team_first"] = True
+            facts["source"] = "synthetic_tracking"
             out.append(
                 self._moment(
                     MomentKind.DISTANCE_MILESTONE,
@@ -531,12 +630,60 @@ class Spotter:
                     event,
                     snapshot,
                     facts,
-                    ps.team,
-                    [pid],
-                    suffix=f"-{pid}-{facts['milestone_km']}",
+                    team_id,
+                    [leader.player_id],
+                    suffix=f"-{leader.player_id}-{facts['milestone_km']}",
                 )
             )
         return out
+
+    # --------------------------------------------------------- defending
+
+    def _key_tackle(self, event: Event, snapshot, players) -> list[Moment]:
+        """A tackle won in the tackler's own third that stops a dangerous attack
+        (the attackers' expected threat at the spot is at least KEY_TACKLE_XT)."""
+        if (
+            event.type != EventType.TACKLE
+            or event.outcome != Outcome.WON
+            or not event.team
+            or not event.player_id
+            or event.start is None
+        ):
+            return []
+        spot = (event.start.x, event.start.y)
+        attackers = self._opponent(event.team, snapshot)
+        own = stats_metrics.to_attacking(spot, event.team, snapshot.home_id)
+        theirs = stats_metrics.to_attacking(spot, attackers, snapshot.home_id)
+        threat = stats_metrics.xt(*theirs)
+        if own[0] >= KEY_TACKLE_OWN_THIRD_U or threat < KEY_TACKLE_XT:
+            return []
+        now = _elapsed(event.period, event.clock_s)
+        last = self.state.last_key_tackle
+        if last is not None and 0 <= now - _elapsed(*last) < KEY_TACKLE_GAP_S:
+            return []
+        facts = self._base(snapshot, event.team)
+        facts.update(self._player_facts("player", event.player_id, players))
+        if "player" not in facts:
+            return []
+        ids = [event.player_id]
+        prev = self.state.prev_event
+        if (
+            prev is not None
+            and prev.type == EventType.DRIBBLE
+            and prev.outcome == Outcome.INCOMPLETE
+            and prev.team == attackers
+            and prev.player_id
+        ):
+            facts.update(self._player_facts("victim", prev.player_id, players))
+            if "victim" in facts:
+                ids.append(prev.player_id)
+        facts.update(
+            xt_stopped=r2(threat),
+            own_goal_distance_m=int(round(pitch.distance_to_goal(theirs))),
+            last_ditch=pitch.in_box(theirs),
+        )
+        self.state.last_key_tackle = (event.period, event.clock_s)
+        return [self._moment(MomentKind.KEY_TACKLE, "key_tackle", event, snapshot, facts, event.team, ids)]
 
     # ---------------------------------------------------------- team flow
 

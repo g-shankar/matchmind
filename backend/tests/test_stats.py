@@ -86,7 +86,7 @@ def test_pass_angle_and_lane_helpers():
 def test_broadcast_thresholds():
     assert metrics.SPEED_BURST_KMH == 30.0
     assert metrics.ROCKET_SHOT_KMH == 100.0
-    assert metrics.DISTANCE_MILESTONES_KM == (2.0, 3.0)
+    assert metrics.DISTANCE_MILESTONES_KM == (5.0, 10.0)
 
 
 def test_pressure_index_and_tempo():

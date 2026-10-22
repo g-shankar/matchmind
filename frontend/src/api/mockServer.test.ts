@@ -98,6 +98,12 @@ describe('cardForMoment', () => {
     expect(card?.headline).toBe('Finish from 0.31 xG');
   });
 
+  it('carries player identities from the recording onto the card', () => {
+    const who = { player_id: m.player_ids[0] ?? 'AAA-10', name: 'Test Player', number: 10, team: 'AAA', position: 'ST' };
+    expect(cardForMoment({ ...m, players: [who] }, DEFAULT_PROFILE)?.players).toEqual([who]);
+    expect(cardForMoment(m, DEFAULT_PROFILE)?.players).toBeUndefined();
+  });
+
   it('never pretends to translate: world languages are English with translator_off', () => {
     const card = cardForMoment(m, { ...DEFAULT_PROFILE, language: 'pt' });
     expect(card?.language).toBe('pt');

@@ -44,12 +44,14 @@ find that moment." or "Check limit: the value is missing or not allowed."
 | tool | inputs | output | same as |
 |---|---|---|---|
 | `get_match_snapshot` | none | the live match for the default viewer: clock, score, `state`, `control_chaos`, `playback`, `recent_cards`, `bookmarks`, `players`, `crew`, `languages`, `auto_eventing` | `GET /api/match/snapshot` |
-| `list_moments` | `kind?` (goal, card, big_chance, better_option, unfound_run, momentum_swing, pressure_spell, milestone), `period?` (1, 2), `from_clock_s?`, `to_clock_s?` (0 to 10000), `played_only?` (default false), `limit?` (1 to 200, default 50) | `{ count, moments: Bookmark[] }`, earliest first | `GET /api/match/bookmarks`, filtered |
+| `list_moments` | `kind?` (goal, card, big_chance, better_option, unfound_run, momentum_swing, pressure_spell, key_tackle, milestone, correction), `period?` (1, 2), `from_clock_s?`, `to_clock_s?` (0 to 10000), `played_only?` (default false), `limit?` (1 to 200, default 50) | `{ count, moments: Bookmark[] }`, earliest first | `GET /api/match/bookmarks`, filtered |
 | `get_moment` | `moment_id` | `{ moment, explanation, replay, played }`: the moment's `facts` (the only numbers any agent may say about it), the analyst's `evidence`, its `source_event_ids`, and whether the live position has reached it | engine (the moment as spotted, before any persona voices it) |
 | `get_overlay_card` | `moment_id`, `persona?` (casual, tactical, fantasy, player_spotlight), `language?` (en, es, fr, ar, ja, pt, de, hi, zh-Hans, sw, id, tr, ko), `favourite_team?` (club id) | `OverlayCard` | `GET /api/match/moment/{moment_id}` |
 | `get_recap` | `persona?`, `language?` | `Recap` (so far, or the full match after full time) | `GET /api/match/recap` |
 | `get_cue_sheet` | `persona?`, `language?`, `favourite_team?`, `since_seq?`, `limit?` (1 to 500, default 100) | `CueSheetPage`: numbered broadcast cues so far, including VAR retract and supersede (see CUE-SHEET.md) | `GET /api/match/cue-sheet` |
 | `get_player_stats` | `player_id?` (fictional id like `NBR-9`; omit for everyone) | `{ players: PlayerStats[] }` | `GET /api/match/players` |
+| `get_basic_stats` | none | `BasicStats`: possession, pass accuracy (with its denominator), shots and on target, tackles, interceptions, PPDA, distance and top speed (estimated from synthetic tracking), per team and per player, match so far | `GET /api/match/stats/basic` |
+| `get_metric_registry` | none | `MetricRegistry`: each metric's formula, units, source events, window, range, quality flag and limitations, plus the metrics not computed | `GET /api/metrics` |
 | `get_team_rosters` | none | `{ home, away }` with name, colours, formation, style and squad | `GET /api/teams` |
 | `get_crew_status` | `trace_limit?` (0 to 100, default 20) | `{ status: CrewStatus, traces: CrewTrace[] }` | `GET /api/crew/status` + `GET /api/crew/trace` |
 | `get_auto_eventing` | none | `AutoEventingStatus` (events detected from synthetic tracking, not video, scored against the simulator) | `GET /api/auto-eventing` |
@@ -80,7 +82,6 @@ their accessor lands. They are not listed by the server until then.
 
 | tool | planned purpose |
 |---|---|
-| `get_metric_registry` | every metric with its definition, unit and source |
 | `export_dataset` | a bundled synthetic match as events and stats |
 | `audit_claims` | which numbers in crew text were checked against which facts |
 

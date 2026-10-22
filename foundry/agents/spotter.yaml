@@ -354,6 +354,16 @@ contract:
             - $ref: '#/$defs/UnfoundRun'
             - type: 'null'
             default: null
+          sprint_efforts:
+            anyOf:
+            - items:
+                $ref: '#/$defs/SprintTag'
+              type: array
+            - type: 'null'
+            default: null
+            description: 'Sprints (from synthetic tracking) that peaked since the previous event; None when no tracking
+              is attached. Internal: not sent to clients.'
+            title: Sprint Efforts
           var_decision:
             anyOf:
             - $ref: '#/$defs/VarDecision'
@@ -581,6 +591,10 @@ contract:
             default: 0
             title: Shots
             type: integer
+          shots_on_target:
+            default: 0
+            title: Shots On Target
+            type: integer
           goals:
             default: 0
             title: Goals
@@ -600,6 +614,11 @@ contract:
           tackles_won:
             default: 0
             title: Tackles Won
+            type: integer
+          tackles_lost:
+            default: 0
+            description: 'Challenges lost: dribbled past by the ball carrier.'
+            title: Tackles Lost
             type: integer
           interceptions:
             default: 0
@@ -621,6 +640,32 @@ contract:
             default: 0.0
             title: Distance Km
             type: number
+          walk_km:
+            default: 0.0
+            title: Walk Km
+            type: number
+          jog_km:
+            default: 0.0
+            title: Jog Km
+            type: number
+          run_km:
+            default: 0.0
+            title: Run Km
+            type: number
+          sprint_km:
+            default: 0.0
+            title: Sprint Km
+            type: number
+          physical_source:
+            default: event_estimate
+            description: 'synthetic_tracking: distance, speed bands, sprints and top speed come from the 25 Hz synthetic
+              tracking. event_estimate: distance is a lower bound from event positions and sprints/top speed come
+              from recorded action speeds.'
+            enum:
+            - synthetic_tracking
+            - event_estimate
+            title: Physical Source
+            type: string
         required:
         - player_id
         - team
@@ -651,6 +696,32 @@ contract:
         - foul
         title: ReviewReason
         type: string
+      SprintTag:
+        description: A sprint seen in the synthetic tracking (stats.physical).
+        properties:
+          player_id:
+            title: Player Id
+            type: string
+          period:
+            title: Period
+            type: integer
+          peak_clock_s:
+            title: Peak Clock S
+            type: number
+          peak_kmh:
+            title: Peak Kmh
+            type: number
+          distance_m:
+            title: Distance M
+            type: number
+        required:
+        - player_id
+        - period
+        - peak_clock_s
+        - peak_kmh
+        - distance_m
+        title: SprintTag
+        type: object
       TeamWindow:
         description: Rolling five-minute numbers for one team.
         properties:
@@ -916,6 +987,12 @@ contract:
               type: string
             title: Player Ids
             type: array
+          players:
+            description: Identity of each player in player_ids, same order.
+            items:
+              $ref: '#/$defs/PlayerRef'
+            title: Players
+            type: array
           facts:
             additionalProperties:
               anyOf:
@@ -965,10 +1042,39 @@ contract:
         - rocket_shot
         - distance_milestone
         - hard_pass
+        - key_tackle
         - milestone
         - correction
         title: MomentKind
         type: string
+      PlayerRef:
+        description: |-
+          A player's resolved identity, so overlays can tag him by name and shirt
+          number without a second lookup. Names come from our fictional squads.
+        properties:
+          player_id:
+            title: Player Id
+            type: string
+          name:
+            title: Name
+            type: string
+          number:
+            title: Number
+            type: integer
+          team:
+            title: Team
+            type: string
+          position:
+            title: Position
+            type: string
+        required:
+        - player_id
+        - name
+        - number
+        - team
+        - position
+        title: PlayerRef
+        type: object
     properties:
       moments:
         items:

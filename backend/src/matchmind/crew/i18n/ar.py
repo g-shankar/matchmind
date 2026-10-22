@@ -41,6 +41,12 @@ PACK = {
         "shots_away": "تسديدات الضيوف",
         "appearance_n": "المشاركات مع النادي",
         "ruled_out_clock": "هدف ملغى (سُجل عند)",
+        "xt_stopped": "الخطر الذي أُوقف (xT)",
+        "own_goal_distance_m": "المسافة عن مرماه",
+        "p_tackles_won": "التدخلات الناجحة",
+        "last_ditch": "تدخل أخير (داخل منطقته)",
+        "distance_km": "المسافة حتى الآن (تقدير التتبع)",
+        "sprint_m": "طول الانطلاقة",
     },
     "zones": {
         "Penalty Box": "منطقة الجزاء",
@@ -375,6 +381,40 @@ PACK = {
                 )
             ],
         },
+        "key_tackle": {
+            "casual": [
+                (
+                    "تدخل حاسم من {player_short}",
+                    "{player} يفتك الكرة من {victim_short} على بعد {own_goal_distance_m} م من مرماه. "
+                    "{team} تتنفس الصعداء.",
+                ),
+                (
+                    "تدخل حاسم من {player_short}",
+                    "{player} يستعيد الكرة على بعد {own_goal_distance_m} م من مرماه. {team} تتنفس الصعداء.",
+                ),
+            ],
+            "tactical": [
+                (
+                    "تدخل مفتاحي: {player_short}",
+                    "استعادة في الثلث الدفاعي على بعد {own_goal_distance_m} م، حيث بلغ خطر {opp} "
+                    "{xt_stopped} xT. التدخلات الناجحة لـ{player_short}: {p_tackles_won}.",
+                )
+            ],
+            "fantasy": [
+                (
+                    "{player_short} يوقف الهجمة",
+                    "عمل دفاعي من {player_short}: التدخلات الناجحة حتى الآن {p_tackles_won}. "
+                    "هذا التدخل على بعد {own_goal_distance_m} م من مرماه.",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "{player_short} يستعيد الكرة",
+                    "تدخل على بعد {own_goal_distance_m} م من مرماه ألغى خطرًا بقيمة {xt_stopped} xT. "
+                    "التدخلات الناجحة اليوم: {p_tackles_won}.",
+                )
+            ],
+        },
         "correction": {
             "casual": [
                 (
@@ -512,6 +552,9 @@ PACK = {
         "rocket_shot": ["بسرعة {shot_speed_kmh} كم/س لا يملك الحارس وقتًا للتصرف."],
         "distance_milestone": ["نحو {milestone_km} كم تقديريًا تظهر الجهد خلف تنظيم {team}."],
         "hard_pass": ["صعوبة {pass_difficulty} من {difficulty_scale} تعني تمريرة لا ينجح فيها إلا القليل."],
+        "key_tackle": [
+            "بتدخل على بعد {own_goal_distance_m} م من المرمى، أُلغي خطر بقيمة {xt_stopped} xT من {opp}."
+        ],
         "correction": [
             "ألغى الـVAR هدف {ruled_out_clock} بداعي {reason_phrase}: تعود النتيجة إلى {home} {score_home}-{score_away} {away}."
         ],
@@ -850,3 +893,17 @@ PACK["heart"] = {
 PACK["metric"]["momentum_against"] = [
     ("تحذير: الزخم لصالح {team}", "تحرك الزخم {change} نقطة نحو {team}، بعيدًا عن فريقك."),
 ]
+PACK["heart"]["attack_stopped"] = {
+    "casual": [
+        (
+            "{player_short} يوقف هجمة فريقك",
+            "{player} استعاد الكرة على بعد {own_goal_distance_m} م من مرماه. فريقك يبدأ من جديد.",
+        ),
+    ],
+    "tactical": [
+        (
+            "هجمة أُوقفت: أُلغي خطر بقيمة {xt_stopped} xT",
+            "{player_short} استعادها في ثلثه الدفاعي على بعد {own_goal_distance_m} م. على فريقك إعادة البناء.",
+        ),
+    ],
+}

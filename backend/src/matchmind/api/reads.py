@@ -197,6 +197,21 @@ async def languages(hub: HubLike) -> dict[str, Any]:
     return {"languages": view.languages_payload(status), "translator": status.translator.model_dump()}
 
 
+# --- Metric registry and basic stats ------------------------------------------------------------
+
+
+def metric_registry() -> dict[str, Any]:
+    """GET /api/metrics: every metric we compute, how, and the ones we do not."""
+    from matchmind.stats.registry import registry_payload
+
+    return registry_payload()
+
+
+async def basic_stats(hub: HubLike) -> dict[str, Any]:
+    """GET /api/match/stats/basic: counting stats per team and per player, match so far."""
+    return await hub.run(view.basic_stats_payload, hub.session)
+
+
 def auto_eventing(hub: HubLike) -> dict[str, Any]:
     result = hub.session.auto_eventing
     if result is None:

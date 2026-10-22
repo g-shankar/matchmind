@@ -125,9 +125,56 @@ export function EventMetricChips({ e }: { e: MatchEvent }) {
   return <div className="flex flex-wrap items-center gap-1.5 text-[11px]">{chips}</div>;
 }
 
+const BANDS = ['walk', 'jog', 'run', 'sprint'] as const;
+const BAND_COLORS: Record<(typeof BANDS)[number], string> = {
+  walk: 'bg-slate-500',
+  jog: 'bg-pp-signal/70',
+  run: 'bg-pp-gold',
+  sprint: 'bg-pp-pulse',
+};
+
+/** Distance split by speed band, as a bar with a legend (synthetic tracking only). */
+export const SpeedBands: React.FC<{ stats: PlayerStats }> = ({ stats }) => {
+  const { t, num } = useI18n();
+  const km = { walk: stats.walk_km ?? 0, jog: stats.jog_km ?? 0, run: stats.run_km ?? 0, sprint: stats.sprint_km ?? 0 };
+  const total = km.walk + km.jog + km.run + km.sprint;
+  if (total <= 0) return null;
+  const fmt = (v: number) => num(v, 2);
+  return (
+    <div className="mt-2" data-testid="speed-bands">
+      <p className="text-[11px] text-pp-mute">{t('fan.stat.bands')}</p>
+      <div
+        role="img"
+        aria-label={t('fan.stat.bandsAria', { walk: fmt(km.walk), jog: fmt(km.jog), run: fmt(km.run), sprint: fmt(km.sprint) })}
+        className="mt-1 flex h-2.5 w-full overflow-hidden rounded-sm bg-pp-night"
+        dir="ltr"
+      >
+        {BANDS.map((b) => (
+          <span key={b} className={BAND_COLORS[b]} style={{ width: `${(100 * km[b]) / total}%` }} />
+        ))}
+      </div>
+      <ul className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px]" aria-hidden>
+        {BANDS.map((b) => (
+          <li key={b} className="flex items-center gap-1">
+            <span className={cx('inline-block h-2 w-2 rounded-sm', BAND_COLORS[b])} />
+            <span className="text-pp-mute">{t(`fan.stat.band.${b}`)}</span>
+            <span className="ltr-nums font-mono text-white" data-band={b}>
+              {fmt(km[b])}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
 const StatCard: React.FC<{ stats: PlayerStats | undefined }> = ({ stats }) => {
   const { t, num } = useI18n();
-  if (!stats || stats.touches === 0) return <p className="py-6 text-center text-sm text-pp-mute">{t('fan.follow.noTouches')}</p>;
+  if (!stats || (stats.touches === 0 && !stats.distance_km)) {
+    return <p className="py-6 text-center text-sm text-pp-mute">{t('fan.follow.noTouches')}</p>;
+  }
+  const tracked = stats.physical_source === 'synthetic_tracking';
+  const attempted = stats.tackles_attempted ?? stats.tackles_won;
   const rows: [string, string][] = [
     ['fan.stat.touches', num(stats.touches)],
     ['fan.stat.passes', `${num(stats.passes_completed)}/${num(stats.passes)}`],
@@ -138,22 +185,42 @@ const StatCard: React.FC<{ stats: PlayerStats | undefined }> = ({ stats }) => {
     ['fan.stat.assists', num(stats.assists)],
     ['fan.stat.xg', num(stats.xg, 2)],
     ['fan.stat.xa', num(stats.xa, 2)],
-    ['fan.stat.tackles', num(stats.tackles_won)],
+    stats.tackles_attempted !== undefined
+      ? ['fan.stat.tacklesOf', `${num(stats.tackles_won)}/${num(attempted)}`]
+      : ['fan.stat.tackles', num(stats.tackles_won)],
     ['fan.stat.interceptions', num(stats.interceptions)],
     ['fan.stat.topSpeed', `${num(stats.top_speed_kmh, 1)} ${t('unit.kmh')}`],
     ['fan.stat.sprints', num(stats.sprints)],
-    ['fan.stat.distance', `${num(stats.distance_km, 2)} ${t('unit.km')}`],
   ];
+  const distanceKey = tracked ? 'fan.stat.distanceTracked' : 'fan.stat.distance';
   return (
     <dl className="grid grid-cols-2 gap-2 sm:grid-cols-3">
       {rows.map(([k, v]) => (
-        <div key={k} className={cx('rounded-xl border border-pp-line/60 bg-pp-deep/60 p-2.5', k === 'fan.stat.distance' && 'col-span-2 sm:col-span-3')}>
+        <div key={k} className="rounded-xl border border-pp-line/60 bg-pp-deep/60 p-2.5">
           <dt className="text-[11px] text-pp-mute">{t(k)}</dt>
           <dd className="ltr-nums font-display text-lg font-bold text-white" data-stat={k}>
             {v}
           </dd>
         </div>
       ))}
+      <div className="col-span-2 rounded-xl border border-pp-line/60 bg-pp-deep/60 p-2.5 sm:col-span-3">
+        <dt className="flex flex-wrap items-baseline justify-between gap-x-2 text-[11px] text-pp-mute">
+          <span>{t(distanceKey)}</span>
+          {tracked && (
+            <span className="text-[10px] uppercase tracking-wider text-pp-gold" data-testid="tracking-label">
+              {t('fan.stat.trackingLabel')}
+            </span>
+          )}
+        </dt>
+        <dd className="ltr-nums font-display text-lg font-bold text-white" data-stat="fan.stat.distance">
+          {`${num(stats.distance_km, tracked ? 1 : 2)} ${t('unit.km')}`}
+        </dd>
+        {tracked && (
+          <dd>
+            <SpeedBands stats={stats} />
+          </dd>
+        )}
+      </div>
     </dl>
   );
 };

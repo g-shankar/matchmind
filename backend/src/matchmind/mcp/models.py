@@ -32,6 +32,7 @@ from matchmind.crew.contracts import (
 from matchmind.crew.cues import Cue, CueTime
 from matchmind.simulator.teams import TEAMS
 from matchmind.stats.models import MatchStateSnapshot, PlayerStats
+from matchmind.stats.registry import MetricDef, NotComputed
 
 MOMENT_ID = r"^[A-Za-z0-9_.:+-]{1,80}$"
 TEAM_ID = r"^[A-Z]{2,5}$"
@@ -193,6 +194,14 @@ class CueSheetOut(BaseModel):
     cues: list[Cue]
 
 
+class PlayerStatsOut(PlayerStats):
+    """A player's stats with his identity from the fictional squads."""
+
+    name: str | None = Field(default=None, description="Fictional name")
+    number: int | None = Field(default=None, description="Shirt number")
+    position: str | None = Field(default=None, description="Position code, e.g. ST")
+
+
 class SnapshotOut(BaseModel):
     """INITIAL_SNAPSHOT.data for the default viewer profile."""
 
@@ -208,7 +217,7 @@ class SnapshotOut(BaseModel):
     playback: Playback
     recent_cards: list[OverlayCard]
     bookmarks: list[BookmarkOut]
-    players: list[PlayerStats]
+    players: list[PlayerStatsOut]
     crew: CrewStatus
     languages: list[LanguageInfo]
     auto_eventing: AutoEventingStatus | None
@@ -230,7 +239,7 @@ class MomentDetailOut(BaseModel):
 
 
 class PlayersOut(BaseModel):
-    players: list[PlayerStats]
+    players: list[PlayerStatsOut]
 
 
 class CrewOut(BaseModel):
@@ -299,3 +308,65 @@ class SimulationOut(BaseModel):
     events: int
     goals: list[GoalOut]
     final_state: MatchStateSnapshot
+
+
+class MetricRegistryOut(BaseModel):
+    """GET /api/metrics."""
+
+    quality_flags: dict[str, str] = Field(description="What each quality flag means")
+    metrics: list[MetricDef]
+    not_computed: list[NotComputed] = Field(description="Metrics we do not compute, and why")
+
+
+class BasicTeamOut(BaseModel):
+    team_id: str
+    name: str = Field(description="Fictional club name")
+    possession_pct: float | None
+    passes_completed: int
+    passes_attempted: int
+    pass_accuracy_pct: float | None
+    shots: int
+    shots_on_target: int
+    goals: int
+    tackles_won: int
+    tackles_attempted: int
+    interceptions: int
+    fouls: int
+    ppda: float | None
+    ppda_opponent_passes: int
+    ppda_defensive_actions: int
+    distance_km: float
+    top_speed_kmh: float
+
+
+class BasicPlayerOut(BaseModel):
+    player_id: str
+    team: str
+    name: str | None = Field(description="Fictional name")
+    number: int | None
+    position: str | None
+    passes_completed: int
+    passes_attempted: int
+    pass_accuracy_pct: float | None
+    shots: int
+    shots_on_target: int
+    goals: int
+    tackles_won: int
+    tackles_attempted: int
+    interceptions: int
+    distance_km: float
+    sprints: int
+    top_speed_kmh: float
+
+
+class BasicStatsOut(BaseModel):
+    """GET /api/match/stats/basic."""
+
+    match_id: str
+    clock: str
+    period: int
+    pass_accuracy_denominator: str
+    physical_source: Literal["synthetic_tracking", "event_estimate"]
+    physical_label: str
+    teams: dict[str, BasicTeamOut]
+    players: list[BasicPlayerOut]

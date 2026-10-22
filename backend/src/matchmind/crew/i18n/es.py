@@ -40,6 +40,12 @@ PACK = {
         "shots_away": "Disparos visitante",
         "appearance_n": "Partidos con el club",
         "ruled_out_clock": "Gol anulado (marcado en)",
+        "xt_stopped": "Amenaza frenada (xT)",
+        "own_goal_distance_m": "Distancia a su portería",
+        "p_tackles_won": "Entradas ganadas",
+        "last_ditch": "Al límite (en su área)",
+        "distance_km": "Distancia (est. por seguimiento)",
+        "sprint_m": "Longitud del esprint",
     },
     "zones": {
         "Penalty Box": "el área",
@@ -377,6 +383,40 @@ PACK = {
                 )
             ],
         },
+        "key_tackle": {
+            "casual": [
+                (
+                    "Gran entrada de {player_short}",
+                    "{player} le roba el balón a {victim_short} a {own_goal_distance_m} m de su portería. "
+                    "{team} respira.",
+                ),
+                (
+                    "Gran entrada de {player_short}",
+                    "{player} recupera el balón a {own_goal_distance_m} m de su portería. {team} respira.",
+                ),
+            ],
+            "tactical": [
+                (
+                    "Entrada clave: {player_short}",
+                    "Recuperación en el tercio defensivo, a {own_goal_distance_m} m, donde {opp} acumulaba "
+                    "{xt_stopped} xT. {player_short} suma {p_tackles_won|entrada ganada|entradas ganadas}.",
+                )
+            ],
+            "fantasy": [
+                (
+                    "{player_short} corta el ataque",
+                    "Trabajo defensivo de {player_short}: {p_tackles_won|entrada ganada|entradas ganadas} "
+                    "hasta ahora. Esta, a {own_goal_distance_m} m de su portería.",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "{player_short} recupera el balón",
+                    "Una entrada a {own_goal_distance_m} m de su portería que anula una amenaza de "
+                    "{xt_stopped} xT. Entradas ganadas hoy: {p_tackles_won}.",
+                )
+            ],
+        },
         "correction": {
             "casual": [
                 (
@@ -519,6 +559,9 @@ PACK = {
         ],
         "hard_pass": [
             "Una dificultad de {pass_difficulty} sobre {difficulty_scale} es un pase que pocos completan."
+        ],
+        "key_tackle": [
+            "Ganada a {own_goal_distance_m} m de la portería, la entrada le quita a {opp} una amenaza de {xt_stopped} xT."
         ],
         "correction": [
             "El VAR anuló el gol del {ruled_out_clock} por {reason_phrase}: el marcador vuelve a {home} {score_home}-{score_away} {away}."
@@ -878,3 +921,17 @@ PACK["heart"] = {
 PACK["metric"]["momentum_against"] = [
     ("Aviso: impulso para {team}", "El impulso se movió {change} puntos hacia {team}, lejos de tu equipo."),
 ]
+PACK["heart"]["attack_stopped"] = {
+    "casual": [
+        (
+            "{player_short} corta el ataque de tu equipo",
+            "{player} recuperó el balón a {own_goal_distance_m} m de su portería. Tu equipo vuelve a empezar.",
+        ),
+    ],
+    "tactical": [
+        (
+            "Ataque cortado: {xt_stopped} xT anulados",
+            "{player_short} la ganó en su tercio, a {own_goal_distance_m} m. Tu equipo debe rehacer la jugada.",
+        ),
+    ],
+}

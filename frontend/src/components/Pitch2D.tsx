@@ -270,6 +270,14 @@ const Markings: React.FC<{ k: number }> = ({ k }) => {
   );
 };
 
+/** Hover or keyboard focus on a tagged player dot shows his name. */
+interface DotTag {
+  id: string;
+  /** Accessible name and tooltip, e.g. "9, Adam Kerrigan, Northbridge FC". */
+  label: string;
+  onShow: (id: string | null) => void;
+}
+
 const PlayerDot: React.FC<{
   at: XY;
   color: string;
@@ -280,8 +288,28 @@ const PlayerDot: React.FC<{
   glow?: boolean;
   glowId?: string;
   dashed?: boolean;
-}> = ({ at, color, number, r, opacity = 1, ring = '#ffffff', glow, glowId, dashed }) => (
-  <g transform={`translate(${at.x} ${at.y})`} opacity={opacity}>
+  tag?: DotTag;
+}> = ({ at, color, number, r, opacity = 1, ring = '#ffffff', glow, glowId, dashed, tag }) => (
+  <g
+    transform={`translate(${at.x} ${at.y})`}
+    opacity={opacity}
+    {...(tag
+      ? {
+          role: 'img',
+          'aria-label': tag.label,
+          tabIndex: 0,
+          className: 'pp-dot cursor-default',
+          'data-player-dot': tag.id,
+          onMouseEnter: () => tag.onShow(tag.id),
+          onMouseLeave: () => tag.onShow(null),
+          onFocus: () => tag.onShow(tag.id),
+          onBlur: () => tag.onShow(null),
+        }
+      : {})}
+  >
+    {tag && <title>{tag.label}</title>}
+    {/* A larger, invisible hit area so the dot is easy to hover or tap. */}
+    {tag && <circle r={r * 2} fill="transparent" />}
     {glow && (
       <>
         <circle r={r * 2.4} fill={C.signal} opacity={0.18} filter={glowId ? `url(#${glowId})` : undefined} />
@@ -574,6 +602,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
   const i18n = useI18n();
   const { t, num } = i18n;
   const wrapRef = useRef<HTMLDivElement>(null);
+  const [shownId, setShownId] = useState<string | null>(null);
   const rawId = useId();
   const uid = `pp${rawId.replace(/[^a-zA-Z0-9]/g, '')}`;
   const ids = { glow: `${uid}-glow`, arrow: (c: string) => `${uid}-arrow-${c}` };
@@ -616,6 +645,20 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
           .map(([id, p]) => ({ id, p, age: refClock - p.clock_s, info: playerById(teams, id) }))
           .filter((d) => d.age <= POSITION_MAX_AGE_S && d.age >= -5)
       : [];
+
+  // Name on hover or keyboard focus, for every dot that stands for a known player.
+  const tagFor = (id: string | null | undefined): DotTag | undefined => {
+    const info = playerById(teams, id);
+    if (!info || !id) return undefined;
+    return { id, label: t('pitch.player', { number: info.number, name: info.name, team: info.team.name }), onShow: setShownId };
+  };
+  const shownAt: XY | null = (() => {
+    if (!shownId || replay) return null;
+    if (live?.player_id === shownId && live.start) return live.start;
+    if (live?.receiver_id === shownId && live.outcome === 'complete') return eventEnd(live);
+    if (shownId === focusPlayerId) return focusPos;
+    return positions?.[shownId] ?? null;
+  })();
 
   // Live event pieces.
   const actor = live ? playerById(teams, live.player_id) : null;
@@ -701,6 +744,14 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
       </Label>,
     );
   }
+  const shownInfo = playerById(teams, shownId);
+  if (shownAt && shownInfo && shownId !== focusPlayerId) {
+    labels.push(
+      <Label key="shown" at={shownAt} vb={vb} place="below" tone="signal" testId="player-name-label">
+        <span className="ltr-nums">{shownInfo.number}</span> {shortName(shownInfo.name)}
+      </Label>,
+    );
+  }
 
     const replayLayer = better ? (
     <BetterOptionLayer r={better} ctx={ctx} step={replayStep} />
@@ -746,7 +797,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
       )}
     >
       <svg
-        role="img"
+        role="figure"
         aria-label={aria}
         viewBox={`${vb.x} ${vb.y} ${vb.w} ${vb.h}`}
         preserveAspectRatio="xMidYMid meet"
@@ -759,6 +810,8 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
             .pp-ring { transform-box: fill-box; transform-origin: center; animation: ppRing 1.8s ease-in-out infinite; }
             .pp-flash { transform-box: fill-box; transform-origin: center; animation: ppFlash 1.4s ease-out infinite; }
             .pp-fade { animation: ppFade 0.4s ease-out both; }
+            .pp-dot:focus { outline: none; }
+            .pp-dot:focus-visible { outline: 2px solid ${C.signal}; outline-offset: 1px; }
             @keyframes ppDraw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
             @keyframes ppMarch { to { stroke-dashoffset: -2.6; } }
             @keyframes ppRing { 0%,100% { transform: scale(1); opacity: 0.9; } 50% { transform: scale(1.25); opacity: 0.45; } }
@@ -803,6 +856,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
             r={1.25 * k}
             opacity={clamp(0.85 - (Math.max(0, age) / POSITION_MAX_AGE_S) * 0.6, 0.2, 0.85)}
             ring="rgba(255,255,255,0.6)"
+            tag={tagFor(id)}
           />
         ))}
 
@@ -832,12 +886,12 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
             )}
             {isGoal && liveEnd && <circle cx={liveEnd.x} cy={liveEnd.y} r={4} fill={C.gold} opacity={0.35} className="pp-flash" />}
             {receiver && liveEnd && live.outcome === 'complete' && (
-              <PlayerDot at={liveEnd} color={receiver.team.primary_color} number={receiver.number} r={rr * 0.9} opacity={0.95} />
+              <PlayerDot at={liveEnd} color={receiver.team.primary_color} number={receiver.number} r={rr * 0.9} opacity={0.95} tag={tagFor(live.receiver_id)} />
             )}
             {live.type !== 'shot' && liveEnd && !(receiver && live.outcome === 'complete') && (
               <circle cx={liveEnd.x} cy={liveEnd.y} r={0.7 * k} fill="#ffffff" className="pp-fade" />
             )}
-            <PlayerDot at={live.start} color={actor?.team.primary_color ?? C.mute} number={actor?.number} r={rr} />
+            <PlayerDot at={live.start} color={actor?.team.primary_color ?? C.mute} number={actor?.number} r={rr} tag={tagFor(live.player_id)} />
           </g>
         )}
 
@@ -845,7 +899,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
         {!replay && focusPos && focusInfo && (
           <g>
             <circle cx={focusPos.x} cy={focusPos.y} r={2.8 * k} fill="none" stroke="#ffffff" strokeWidth={0.35 * k} className="pp-ring" />
-            <PlayerDot at={focusPos} color={focusInfo.team.primary_color} number={focusInfo.number} r={rr} ring={C.signal} />
+            <PlayerDot at={focusPos} color={focusInfo.team.primary_color} number={focusInfo.number} r={rr} ring={C.signal} tag={tagFor(focusPlayerId)} />
           </g>
         )}
 

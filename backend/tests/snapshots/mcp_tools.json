@@ -1435,6 +1435,7 @@
             "rocket_shot",
             "distance_milestone",
             "hard_pass",
+            "key_tackle",
             "milestone",
             "correction"
           ],
@@ -1541,6 +1542,14 @@
                 "type": "string"
               },
               "title": "Player Ids",
+              "type": "array"
+            },
+            "players": {
+              "description": "Identity of each player in player_ids, same order.",
+              "items": {
+                "$ref": "#/$defs/PlayerRef"
+              },
+              "title": "Players",
               "type": "array"
             },
             "priority": {
@@ -1828,7 +1837,42 @@
           "title": "Playback",
           "type": "object"
         },
-        "PlayerStats": {
+        "PlayerRef": {
+          "description": "A player's resolved identity, so overlays can tag him by name and shirt\nnumber without a second lookup. Names come from our fictional squads.",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "number": {
+              "title": "Number",
+              "type": "integer"
+            },
+            "player_id": {
+              "title": "Player Id",
+              "type": "string"
+            },
+            "position": {
+              "title": "Position",
+              "type": "string"
+            },
+            "team": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          "required": [
+            "player_id",
+            "name",
+            "number",
+            "team",
+            "position"
+          ],
+          "title": "PlayerRef",
+          "type": "object"
+        },
+        "PlayerStatsOut": {
+          "description": "A player's stats with his identity from the fictional squads.",
           "properties": {
             "assists": {
               "default": 0,
@@ -1855,10 +1899,41 @@
               "title": "Interceptions",
               "type": "integer"
             },
+            "jog_km": {
+              "default": 0.0,
+              "title": "Jog Km",
+              "type": "number"
+            },
             "key_passes": {
               "default": 0,
               "title": "Key Passes",
               "type": "integer"
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Fictional name",
+              "title": "Name"
+            },
+            "number": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Shirt number",
+              "title": "Number"
             },
             "passes": {
               "default": 0,
@@ -1870,18 +1945,62 @@
               "title": "Passes Completed",
               "type": "integer"
             },
+            "physical_source": {
+              "default": "event_estimate",
+              "description": "synthetic_tracking: distance, speed bands, sprints and top speed come from the 25 Hz synthetic tracking. event_estimate: distance is a lower bound from event positions and sprints/top speed come from recorded action speeds.",
+              "enum": [
+                "synthetic_tracking",
+                "event_estimate"
+              ],
+              "title": "Physical Source",
+              "type": "string"
+            },
             "player_id": {
               "title": "Player Id",
               "type": "string"
+            },
+            "position": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Position code, e.g. ST",
+              "title": "Position"
+            },
+            "run_km": {
+              "default": 0.0,
+              "title": "Run Km",
+              "type": "number"
             },
             "shots": {
               "default": 0,
               "title": "Shots",
               "type": "integer"
             },
+            "shots_on_target": {
+              "default": 0,
+              "title": "Shots On Target",
+              "type": "integer"
+            },
+            "sprint_km": {
+              "default": 0.0,
+              "title": "Sprint Km",
+              "type": "number"
+            },
             "sprints": {
               "default": 0,
               "title": "Sprints",
+              "type": "integer"
+            },
+            "tackles_lost": {
+              "default": 0,
+              "description": "Challenges lost: dribbled past by the ball carrier.",
+              "title": "Tackles Lost",
               "type": "integer"
             },
             "tackles_won": {
@@ -1903,6 +2022,11 @@
               "title": "Touches",
               "type": "integer"
             },
+            "walk_km": {
+              "default": 0.0,
+              "title": "Walk Km",
+              "type": "number"
+            },
             "xa": {
               "default": 0.0,
               "title": "Xa",
@@ -1918,7 +2042,7 @@
             "player_id",
             "team"
           ],
-          "title": "PlayerStats",
+          "title": "PlayerStatsOut",
           "type": "object"
         },
         "Ribbon": {
@@ -2447,7 +2571,7 @@
         },
         "players": {
           "items": {
-            "$ref": "#/$defs/PlayerStats"
+            "$ref": "#/$defs/PlayerStatsOut"
           },
           "title": "Players",
           "type": "array"
@@ -2528,6 +2652,7 @@
                 "unfound_run",
                 "momentum_swing",
                 "pressure_spell",
+                "key_tackle",
                 "milestone",
                 "correction"
               ],
@@ -2857,6 +2982,14 @@
               "title": "Player Ids",
               "type": "array"
             },
+            "players": {
+              "description": "Identity of each player in player_ids, same order.",
+              "items": {
+                "$ref": "#/$defs/PlayerRef"
+              },
+              "title": "Players",
+              "type": "array"
+            },
             "priority": {
               "maximum": 100,
               "minimum": 0,
@@ -2916,11 +3049,46 @@
             "rocket_shot",
             "distance_milestone",
             "hard_pass",
+            "key_tackle",
             "milestone",
             "correction"
           ],
           "title": "MomentKind",
           "type": "string"
+        },
+        "PlayerRef": {
+          "description": "A player's resolved identity, so overlays can tag him by name and shirt\nnumber without a second lookup. Names come from our fictional squads.",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "number": {
+              "title": "Number",
+              "type": "integer"
+            },
+            "player_id": {
+              "title": "Player Id",
+              "type": "string"
+            },
+            "position": {
+              "title": "Position",
+              "type": "string"
+            },
+            "team": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          "required": [
+            "player_id",
+            "name",
+            "number",
+            "team",
+            "position"
+          ],
+          "title": "PlayerRef",
+          "type": "object"
         }
       },
       "properties": {
@@ -3279,11 +3447,46 @@
             "rocket_shot",
             "distance_milestone",
             "hard_pass",
+            "key_tackle",
             "milestone",
             "correction"
           ],
           "title": "MomentKind",
           "type": "string"
+        },
+        "PlayerRef": {
+          "description": "A player's resolved identity, so overlays can tag him by name and shirt\nnumber without a second lookup. Names come from our fictional squads.",
+          "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "number": {
+              "title": "Number",
+              "type": "integer"
+            },
+            "player_id": {
+              "title": "Player Id",
+              "type": "string"
+            },
+            "position": {
+              "title": "Position",
+              "type": "string"
+            },
+            "team": {
+              "title": "Team",
+              "type": "string"
+            }
+          },
+          "required": [
+            "player_id",
+            "name",
+            "number",
+            "team",
+            "position"
+          ],
+          "title": "PlayerRef",
+          "type": "object"
         }
       },
       "description": "Producer output: one timed, machine-readable overlay for one viewer.",
@@ -3385,6 +3588,14 @@
             "type": "string"
           },
           "title": "Player Ids",
+          "type": "array"
+        },
+        "players": {
+          "description": "Identity of each player in player_ids, same order.",
+          "items": {
+            "$ref": "#/$defs/PlayerRef"
+          },
+          "title": "Players",
           "type": "array"
         },
         "priority": {
@@ -3775,6 +3986,7 @@
             "rocket_shot",
             "distance_milestone",
             "hard_pass",
+            "key_tackle",
             "milestone",
             "correction"
           ],
@@ -4740,6 +4952,7 @@
             "rocket_shot",
             "distance_milestone",
             "hard_pass",
+            "key_tackle",
             "milestone",
             "correction"
           ],
@@ -5049,7 +5262,8 @@
     "name": "get_player_stats",
     "outputSchema": {
       "$defs": {
-        "PlayerStats": {
+        "PlayerStatsOut": {
+          "description": "A player's stats with his identity from the fictional squads.",
           "properties": {
             "assists": {
               "default": 0,
@@ -5076,10 +5290,41 @@
               "title": "Interceptions",
               "type": "integer"
             },
+            "jog_km": {
+              "default": 0.0,
+              "title": "Jog Km",
+              "type": "number"
+            },
             "key_passes": {
               "default": 0,
               "title": "Key Passes",
               "type": "integer"
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Fictional name",
+              "title": "Name"
+            },
+            "number": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Shirt number",
+              "title": "Number"
             },
             "passes": {
               "default": 0,
@@ -5091,18 +5336,62 @@
               "title": "Passes Completed",
               "type": "integer"
             },
+            "physical_source": {
+              "default": "event_estimate",
+              "description": "synthetic_tracking: distance, speed bands, sprints and top speed come from the 25 Hz synthetic tracking. event_estimate: distance is a lower bound from event positions and sprints/top speed come from recorded action speeds.",
+              "enum": [
+                "synthetic_tracking",
+                "event_estimate"
+              ],
+              "title": "Physical Source",
+              "type": "string"
+            },
             "player_id": {
               "title": "Player Id",
               "type": "string"
+            },
+            "position": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Position code, e.g. ST",
+              "title": "Position"
+            },
+            "run_km": {
+              "default": 0.0,
+              "title": "Run Km",
+              "type": "number"
             },
             "shots": {
               "default": 0,
               "title": "Shots",
               "type": "integer"
             },
+            "shots_on_target": {
+              "default": 0,
+              "title": "Shots On Target",
+              "type": "integer"
+            },
+            "sprint_km": {
+              "default": 0.0,
+              "title": "Sprint Km",
+              "type": "number"
+            },
             "sprints": {
               "default": 0,
               "title": "Sprints",
+              "type": "integer"
+            },
+            "tackles_lost": {
+              "default": 0,
+              "description": "Challenges lost: dribbled past by the ball carrier.",
+              "title": "Tackles Lost",
               "type": "integer"
             },
             "tackles_won": {
@@ -5124,6 +5413,11 @@
               "title": "Touches",
               "type": "integer"
             },
+            "walk_km": {
+              "default": 0.0,
+              "title": "Walk Km",
+              "type": "number"
+            },
             "xa": {
               "default": 0.0,
               "title": "Xa",
@@ -5139,14 +5433,14 @@
             "player_id",
             "team"
           ],
-          "title": "PlayerStats",
+          "title": "PlayerStatsOut",
           "type": "object"
         }
       },
       "properties": {
         "players": {
           "items": {
-            "$ref": "#/$defs/PlayerStats"
+            "$ref": "#/$defs/PlayerStatsOut"
           },
           "title": "Players",
           "type": "array"
@@ -5159,6 +5453,498 @@
       "type": "object"
     },
     "title": "Player stats"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Counting stats so far per team and per fictional player: possession, pass accuracy with its denominator, shots and on target, tackles, interceptions, PPDA, and distance and top speed estimated from synthetic tracking. Same payload as GET /api/match/stats/basic.",
+    "inputSchema": {
+      "properties": {},
+      "title": "get_basic_statsArguments",
+      "type": "object"
+    },
+    "name": "get_basic_stats",
+    "outputSchema": {
+      "$defs": {
+        "BasicPlayerOut": {
+          "properties": {
+            "distance_km": {
+              "title": "Distance Km",
+              "type": "number"
+            },
+            "goals": {
+              "title": "Goals",
+              "type": "integer"
+            },
+            "interceptions": {
+              "title": "Interceptions",
+              "type": "integer"
+            },
+            "name": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Fictional name",
+              "title": "Name"
+            },
+            "number": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Number"
+            },
+            "pass_accuracy_pct": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pass Accuracy Pct"
+            },
+            "passes_attempted": {
+              "title": "Passes Attempted",
+              "type": "integer"
+            },
+            "passes_completed": {
+              "title": "Passes Completed",
+              "type": "integer"
+            },
+            "player_id": {
+              "title": "Player Id",
+              "type": "string"
+            },
+            "position": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Position"
+            },
+            "shots": {
+              "title": "Shots",
+              "type": "integer"
+            },
+            "shots_on_target": {
+              "title": "Shots On Target",
+              "type": "integer"
+            },
+            "sprints": {
+              "title": "Sprints",
+              "type": "integer"
+            },
+            "tackles_attempted": {
+              "title": "Tackles Attempted",
+              "type": "integer"
+            },
+            "tackles_won": {
+              "title": "Tackles Won",
+              "type": "integer"
+            },
+            "team": {
+              "title": "Team",
+              "type": "string"
+            },
+            "top_speed_kmh": {
+              "title": "Top Speed Kmh",
+              "type": "number"
+            }
+          },
+          "required": [
+            "player_id",
+            "team",
+            "name",
+            "number",
+            "position",
+            "passes_completed",
+            "passes_attempted",
+            "pass_accuracy_pct",
+            "shots",
+            "shots_on_target",
+            "goals",
+            "tackles_won",
+            "tackles_attempted",
+            "interceptions",
+            "distance_km",
+            "sprints",
+            "top_speed_kmh"
+          ],
+          "title": "BasicPlayerOut",
+          "type": "object"
+        },
+        "BasicTeamOut": {
+          "properties": {
+            "distance_km": {
+              "title": "Distance Km",
+              "type": "number"
+            },
+            "fouls": {
+              "title": "Fouls",
+              "type": "integer"
+            },
+            "goals": {
+              "title": "Goals",
+              "type": "integer"
+            },
+            "interceptions": {
+              "title": "Interceptions",
+              "type": "integer"
+            },
+            "name": {
+              "description": "Fictional club name",
+              "title": "Name",
+              "type": "string"
+            },
+            "pass_accuracy_pct": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pass Accuracy Pct"
+            },
+            "passes_attempted": {
+              "title": "Passes Attempted",
+              "type": "integer"
+            },
+            "passes_completed": {
+              "title": "Passes Completed",
+              "type": "integer"
+            },
+            "possession_pct": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Possession Pct"
+            },
+            "ppda": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ppda"
+            },
+            "ppda_defensive_actions": {
+              "title": "Ppda Defensive Actions",
+              "type": "integer"
+            },
+            "ppda_opponent_passes": {
+              "title": "Ppda Opponent Passes",
+              "type": "integer"
+            },
+            "shots": {
+              "title": "Shots",
+              "type": "integer"
+            },
+            "shots_on_target": {
+              "title": "Shots On Target",
+              "type": "integer"
+            },
+            "tackles_attempted": {
+              "title": "Tackles Attempted",
+              "type": "integer"
+            },
+            "tackles_won": {
+              "title": "Tackles Won",
+              "type": "integer"
+            },
+            "team_id": {
+              "title": "Team Id",
+              "type": "string"
+            },
+            "top_speed_kmh": {
+              "title": "Top Speed Kmh",
+              "type": "number"
+            }
+          },
+          "required": [
+            "team_id",
+            "name",
+            "possession_pct",
+            "passes_completed",
+            "passes_attempted",
+            "pass_accuracy_pct",
+            "shots",
+            "shots_on_target",
+            "goals",
+            "tackles_won",
+            "tackles_attempted",
+            "interceptions",
+            "fouls",
+            "ppda",
+            "ppda_opponent_passes",
+            "ppda_defensive_actions",
+            "distance_km",
+            "top_speed_kmh"
+          ],
+          "title": "BasicTeamOut",
+          "type": "object"
+        }
+      },
+      "description": "GET /api/match/stats/basic.",
+      "properties": {
+        "clock": {
+          "title": "Clock",
+          "type": "string"
+        },
+        "match_id": {
+          "title": "Match Id",
+          "type": "string"
+        },
+        "pass_accuracy_denominator": {
+          "title": "Pass Accuracy Denominator",
+          "type": "string"
+        },
+        "period": {
+          "title": "Period",
+          "type": "integer"
+        },
+        "physical_label": {
+          "title": "Physical Label",
+          "type": "string"
+        },
+        "physical_source": {
+          "enum": [
+            "synthetic_tracking",
+            "event_estimate"
+          ],
+          "title": "Physical Source",
+          "type": "string"
+        },
+        "players": {
+          "items": {
+            "$ref": "#/$defs/BasicPlayerOut"
+          },
+          "title": "Players",
+          "type": "array"
+        },
+        "teams": {
+          "additionalProperties": {
+            "$ref": "#/$defs/BasicTeamOut"
+          },
+          "title": "Teams",
+          "type": "object"
+        }
+      },
+      "required": [
+        "match_id",
+        "clock",
+        "period",
+        "pass_accuracy_denominator",
+        "physical_source",
+        "physical_label",
+        "teams",
+        "players"
+      ],
+      "title": "BasicStatsOut",
+      "type": "object"
+    },
+    "title": "Basic match stats"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Every metric the stats engine computes: formula, units, source events, window, range, quality flag and limitations, plus the metrics it does not compute. Same payload as GET /api/metrics.",
+    "inputSchema": {
+      "properties": {},
+      "title": "get_metric_registryArguments",
+      "type": "object"
+    },
+    "name": "get_metric_registry",
+    "outputSchema": {
+      "$defs": {
+        "MetricDef": {
+          "properties": {
+            "edge_cases": {
+              "title": "Edge Cases",
+              "type": "string"
+            },
+            "fields": {
+              "description": "Where it appears: payload.field",
+              "items": {
+                "type": "string"
+              },
+              "title": "Fields",
+              "type": "array"
+            },
+            "formula": {
+              "description": "The formula in words.",
+              "title": "Formula",
+              "type": "string"
+            },
+            "id": {
+              "description": "Stable id; also the API field name where one exists.",
+              "title": "Id",
+              "type": "string"
+            },
+            "limitations": {
+              "title": "Limitations",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "quality": {
+              "enum": [
+                "counted",
+                "calibrated",
+                "heuristic",
+                "estimated_from_synthetic_tracking"
+              ],
+              "title": "Quality",
+              "type": "string"
+            },
+            "range": {
+              "title": "Range",
+              "type": "string"
+            },
+            "scope": {
+              "enum": [
+                "event",
+                "window",
+                "player",
+                "team",
+                "moment"
+              ],
+              "title": "Scope",
+              "type": "string"
+            },
+            "source_events": {
+              "description": "Event types it is counted from.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Source Events",
+              "type": "array"
+            },
+            "symbols": {
+              "description": "The same formula in symbols.",
+              "title": "Symbols",
+              "type": "string"
+            },
+            "units": {
+              "title": "Units",
+              "type": "string"
+            },
+            "window": {
+              "title": "Window",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "scope",
+            "formula",
+            "symbols",
+            "units",
+            "source_events",
+            "window",
+            "range",
+            "quality",
+            "limitations",
+            "edge_cases",
+            "fields"
+          ],
+          "title": "MetricDef",
+          "type": "object"
+        },
+        "NotComputed": {
+          "properties": {
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "reason"
+          ],
+          "title": "NotComputed",
+          "type": "object"
+        }
+      },
+      "description": "GET /api/metrics.",
+      "properties": {
+        "metrics": {
+          "items": {
+            "$ref": "#/$defs/MetricDef"
+          },
+          "title": "Metrics",
+          "type": "array"
+        },
+        "not_computed": {
+          "description": "Metrics we do not compute, and why",
+          "items": {
+            "$ref": "#/$defs/NotComputed"
+          },
+          "title": "Not Computed",
+          "type": "array"
+        },
+        "quality_flags": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "What each quality flag means",
+          "title": "Quality Flags",
+          "type": "object"
+        }
+      },
+      "required": [
+        "quality_flags",
+        "metrics",
+        "not_computed"
+      ],
+      "title": "MetricRegistryOut",
+      "type": "object"
+    },
+    "title": "Metric registry"
   },
   {
     "annotations": {

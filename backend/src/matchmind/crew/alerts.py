@@ -20,7 +20,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from matchmind.crew import club_heart
-from matchmind.crew.contracts import FactValue, Moment, MomentKind, ViewerProfile
+from matchmind.crew.contracts import FactValue, Moment, MomentKind, PlayerRef, ViewerProfile
 from matchmind.crew.producer import ViewerState
 from matchmind.crew.spotter import DIFFICULTY_SCALE, HARD_PASS_DIFFICULTY, _elapsed, r1, r2, surname
 from matchmind.schema import Event, EventType, Outcome
@@ -57,6 +57,13 @@ class AlertWatcher:
     def __init__(self, teams: dict[str, Team]) -> None:
         self.teams = teams
         self.names: dict[str, str] = {p.player_id: p.name for t in teams.values() for p in t.players}
+        self.refs: dict[str, PlayerRef] = {
+            p.player_id: PlayerRef(
+                player_id=p.player_id, name=p.name, number=p.number, team=t.team_id, position=p.position
+            )
+            for t in teams.values()
+            for p in t.players
+        }
 
     def _team_name(self, team_id: str) -> str:
         team = self.teams.get(team_id)
@@ -81,6 +88,7 @@ class AlertWatcher:
             period=event.period,
             team=team,
             player_ids=player_ids,
+            players=[self.refs[p].model_copy() for p in player_ids if p in self.refs],
             facts=facts,
             source_event_ids=[event.event_id],
             priority=priority,

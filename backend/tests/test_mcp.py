@@ -159,6 +159,12 @@ def parity_cases(session: MatchSession) -> list[tuple[str, dict, Any]]:
     async def teams(http):
         return await _get(http, "/api/teams")
 
+    async def basic_stats(http):
+        return await _get(http, "/api/match/stats/basic")
+
+    async def metric_registry(http):
+        return await _get(http, "/api/metrics")
+
     async def crew(http):
         return {
             "status": await _get(http, "/api/crew/status"),
@@ -186,6 +192,8 @@ def parity_cases(session: MatchSession) -> list[tuple[str, dict, Any]]:
         ("get_player_stats", {}, players),
         ("get_player_stats", {"player_id": player_id}, one_player),
         ("get_team_rosters", {}, teams),
+        ("get_basic_stats", {}, basic_stats),
+        ("get_metric_registry", {}, metric_registry),
         ("get_crew_status", {"trace_limit": 5}, crew),
         ("get_auto_eventing", {}, auto_eventing),
         ("get_recent_events", {"limit": 3}, events),
@@ -271,6 +279,29 @@ def test_output_schema_lists_every_top_level_field(real_session):
                 assert set(result.structured_content) == props, name
 
     anyio.run(go)
+
+
+def test_player_identity_reaches_mcp_outputs(real_session):
+    """Players carry name, number and position; moments carry the identity of each player."""
+    app = create_app(session=real_session, tick_interval=None, allowed_origins=[ALLOWED])
+    tackle = next(m for m in real_session.moments_so_far() if len(m.player_ids) >= 1 and m.kind != "goal")
+
+    async def go():
+        async with connected(app) as (client, _):
+            tools = {t.name: t for t in (await client.list_tools()).tools}
+            players = await client.call_tool("get_player_stats", {"player_id": "NBR-9"})
+            moment = await client.call_tool("get_moment", {"moment_id": tackle.moment_id})
+            return tools, players.structured_content, moment.structured_content
+
+    tools, players, moment = anyio.run(go)
+    (row,) = players["players"]
+    assert (row["name"], row["number"], row["position"]) == ("Adam Kerrigan", 9, "ST")
+    assert row["physical_source"] == "synthetic_tracking"
+    schema = tools["get_player_stats"].output_schema
+    assert {"name", "number", "position"} <= set(schema["$defs"]["PlayerStatsOut"]["properties"])
+    refs = moment["moment"]["players"]
+    assert [r["player_id"] for r in refs] == moment["moment"]["player_ids"]
+    assert all(r["name"] and r["number"] for r in refs)
 
 
 # --- Tool list contract -------------------------------------------------------------------------

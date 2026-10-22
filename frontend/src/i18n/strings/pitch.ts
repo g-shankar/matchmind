@@ -26,6 +26,7 @@ const pitch: StringTable = {
     'pitch.aria.run':
       'Replay on the pitch: {runner} ran in behind. The pass from {carrier} was on at {clock}, {m} metres clear of the defensive line.',
     'pitch.aria.focus': 'Following {player}.',
+    'pitch.player': 'Number {number}, {name}, {team}',
     'pitch.story': 'How it unfolded',
     'pitch.step': 'Step {n}',
     'pitch.steps.better.1.title': 'The shot',
@@ -85,6 +86,7 @@ const pitch: StringTable = {
     'pitch.aria.run':
       'Repetición en el campo: {runner} atacó la espalda de la defensa. El pase de {carrier} estaba en el {clock}, a {m} metros por delante de la línea defensiva.',
     'pitch.aria.focus': 'Siguiendo a {player}.',
+    'pitch.player': 'Dorsal {number}, {name}, {team}',
     'pitch.story': 'Cómo ocurrió',
     'pitch.step': 'Paso {n}',
     'pitch.steps.better.1.title': 'El disparo',
@@ -144,6 +146,7 @@ const pitch: StringTable = {
     'pitch.aria.run':
       'إعادة على الملعب: انطلق {runner} خلف الدفاع. كانت تمريرة {carrier} متاحة عند {clock}، متقدّمًا {m} أمتار على خط الدفاع.',
     'pitch.aria.focus': 'متابعة {player}.',
+    'pitch.player': 'الرقم {number}، {name}، {team}',
     'pitch.story': 'كيف جرت اللعبة',
     'pitch.step': 'الخطوة {n}',
     'pitch.steps.better.1.title': 'التسديدة',

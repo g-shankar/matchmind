@@ -196,6 +196,7 @@ class Crew:
         with self._lock:
             for b in bundles:
                 self._bundles[b.moment.moment_id] = b
+            self.spotter.restore([b.moment for b in bundles])
 
     def moments(self) -> list[Moment]:
         with self._lock:

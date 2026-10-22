@@ -39,6 +39,7 @@ the club-heart rule keeps it; the persona filter still applies after it.
 | `unfound_run` | shown | +15 | `lesson_run` | shown | 0 | `let_off_run` | Own unfound run: the run deserved the ball. Rival unfound run: a let-off for the back line. |
 | `momentum_swing` | shown | +15 | kind's own wording | shown | -10 | `momentum_against` | A swing towards the rival is a warning and ranks a little lower than the fan's own moments. |
 | `pressure_spell` | shown | +15 | `pressure_for` | shown | -10 | `hold_firm` | Own pressure: turn the screw. Rival pressure: hold firm. |
+| `key_tackle` | shown | +15 | kind's own wording | shown | -10 | `attack_stopped` | An own key tackle is shown as it is; a rival's is told as your team's attack being stopped. |
 | `speed_burst` | shown | +15 | kind's own wording | dropped | - | - | Rival speed tags are dropped. |
 | `distance_milestone` | shown | +15 | kind's own wording | dropped | - | - | Rival distance tags are dropped. |
 | `hard_pass` | shown | +15 | kind's own wording | dropped | - | - | Rival hard-pass tags are dropped. |

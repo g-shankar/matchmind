@@ -48,11 +48,23 @@ class MomentKind(StrEnum):
     ROCKET_SHOT = "rocket_shot"  # shot speed over the threshold
     DISTANCE_MILESTONE = "distance_milestone"
     HARD_PASS = "hard_pass"  # completed pass with high difficulty
+    KEY_TACKLE = "key_tackle"  # tackle won in the own third that stops a dangerous attack
     MILESTONE = "milestone"  # kick-off, half-time, full-time
     CORRECTION = "correction"  # a VAR review ruled an earlier goal out (supersedes it)
 
 
 FactValue = str | int | float | bool
+
+
+class PlayerRef(BaseModel):
+    """A player's resolved identity, so overlays can tag him by name and shirt
+    number without a second lookup. Names come from our fictional squads."""
+
+    player_id: str
+    name: str
+    number: int
+    team: str
+    position: str
 
 
 class Moment(BaseModel):
@@ -65,6 +77,9 @@ class Moment(BaseModel):
     period: int
     team: str | None = None
     player_ids: list[str] = Field(default_factory=list)
+    players: list[PlayerRef] = Field(
+        default_factory=list, description="Identity of each player in player_ids, same order."
+    )
     facts: dict[str, FactValue] = Field(
         default_factory=dict, description="The only numbers any agent may say about this moment."
     )
@@ -203,6 +218,9 @@ class OverlayCard(BaseModel):
     tactical_tag: str
     evidence: list[Evidence]
     player_ids: list[str] = Field(default_factory=list)
+    players: list[PlayerRef] = Field(
+        default_factory=list, description="Identity of each player in player_ids, same order."
+    )
     team: str | None = None
     favourite_side: bool | None = Field(default=None, description="True when about the viewer's club")
     produced_by: Literal["ai", "template"]

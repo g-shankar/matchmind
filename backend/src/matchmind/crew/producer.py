@@ -2,7 +2,7 @@
 
 Deterministic rules:
 - slot by kind (speed and distance tags go on the pitch, replays to the side
-  panel, goals full screen, the rest as lower thirds);
+  panel, goals full screen, the rest, key tackles included, as lower thirds);
 - persona filter (each audience sees the kinds it cares about);
 - club heart (crew/club_heart.py): with a favourite club, its moments get
   +15 priority and `favourite_side`, rival minor moments are dropped and
@@ -76,6 +76,7 @@ PERSONA_KINDS: dict[str, frozenset[MomentKind]] = {
             MomentKind.BETTER_OPTION,
             MomentKind.UNFOUND_RUN,
             MomentKind.ROCKET_SHOT,
+            MomentKind.KEY_TACKLE,
             MomentKind.MILESTONE,
             MomentKind.CORRECTION,
         }
@@ -189,6 +190,7 @@ def build_card(
             evidence if evidence is not None else bundle.explanation.evidence, profile.language
         ),
         player_ids=list(m.player_ids),
+        players=[p.model_copy() for p in m.players],
         team=m.team,
         favourite_side=fav,
         produced_by=produced_by,

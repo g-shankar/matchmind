@@ -106,6 +106,12 @@ POLICY: tuple[HeartRule, ...] = (
         _rival("hold_firm", boost=-10),
         "Own pressure: turn the screw. Rival pressure: hold firm.",
     ),
+    HeartRule(
+        MomentKind.KEY_TACKLE,
+        _own(),
+        _rival("attack_stopped", boost=-10),
+        "An own key tackle is shown as it is; a rival's is told as your team's attack being stopped.",
+    ),
     HeartRule(MomentKind.SPEED_BURST, _own(), DROP, "Rival speed tags are dropped."),
     HeartRule(MomentKind.DISTANCE_MILESTONE, _own(), DROP, "Rival distance tags are dropped."),
     HeartRule(MomentKind.HARD_PASS, _own(), DROP, "Rival hard-pass tags are dropped."),

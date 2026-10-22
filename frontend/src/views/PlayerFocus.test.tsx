@@ -73,7 +73,40 @@ describe('PlayerFocus', () => {
     expect(stat('fan.stat.xg')).toBe('0.47');
     expect(stat('fan.stat.topSpeed')).toBe('33.4 km/h');
     expect(stat('fan.stat.distance')).toBe('1.83 km');
-    expect(screen.getByText('Distance (on the ball and tracked runs)', { selector: 'dt' })).toBeTruthy();
+    expect(screen.getAllByText('Distance (on the ball and tracked runs)', { selector: 'span' }).length).toBeGreaterThan(0);
+  });
+
+  it('shows tracked distance with its label, speed bands and tackles won of tried', () => {
+    const tracked = stats({
+      distance_km: 10.84, walk_km: 2.85, jog_km: 6.91, run_km: 0.97, sprint_km: 0.08, physical_source: 'synthetic_tracking',
+      tackles_won: 2, tackles_lost: 1, tackles_attempted: 3, tackle_success_pct: 66.7,
+    });
+    const m = matchWith({ players: { 'AAA-9': tracked }, profile: { ...initialMatchState().profile, focus_player_id: 'AAA-9' } });
+    const { container } = renderView(m);
+    const stat = (k: string) => container.querySelector(`[data-stat="${k}"]`)?.textContent;
+    expect(stat('fan.stat.distance')).toBe('10.8 km');
+    expect(screen.getAllByText('Distance covered', { selector: 'span' }).length).toBeGreaterThan(0);
+    expect(screen.getByTestId('tracking-label').textContent).toBe('Estimated from synthetic tracking');
+    expect(stat('fan.stat.tacklesOf')).toBe('2/3');
+    expect(stat('fan.stat.sprints')).toBe('5');
+    expect(stat('fan.stat.topSpeed')).toBe('33.4 km/h');
+    const bands = screen.getByRole('img', { name: /Walk 2.85 km, jog 6.91 km, run 0.97 km, sprint 0.08 km/ });
+    expect(bands.children).toHaveLength(4);
+    expect(container.querySelector('[data-band="sprint"]')?.textContent).toBe('0.08');
+  });
+
+  it('labels the event estimate plainly and has no speed bands without tracking', () => {
+    const m = matchWith({ players: { 'AAA-9': stats() }, profile: { ...initialMatchState().profile, focus_player_id: 'AAA-9' } });
+    renderView(m);
+    expect(screen.queryByTestId('tracking-label')).toBeNull();
+    expect(screen.queryByTestId('speed-bands')).toBeNull();
+  });
+
+  it('shows a keeper with no touches yet but distance covered', () => {
+    const keeper = stats({ touches: 0, distance_km: 2.1, physical_source: 'synthetic_tracking', walk_km: 1, jog_km: 1.1, run_km: 0, sprint_km: 0 });
+    const m = matchWith({ players: { 'AAA-9': keeper }, profile: { ...initialMatchState().profile, focus_player_id: 'AAA-9' } });
+    const { container } = renderView(m);
+    expect(container.querySelector('[data-stat="fan.stat.distance"]')?.textContent).toBe('2.1 km');
   });
 
   it('says no touches yet without stats', () => {

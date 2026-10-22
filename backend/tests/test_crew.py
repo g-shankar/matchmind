@@ -21,7 +21,7 @@ from matchmind.crew.producer import ViewerState, select
 from matchmind.crew.recap import RecapOut, player_of_the_match
 from matchmind.crew.spotter import Spotter
 from matchmind.crew.wording import template_key
-from matchmind.schema import Event, EventType, Outcome
+from matchmind.schema import Event, EventType, Outcome, Point
 from matchmind.simulator.publisher import read_jsonl
 from matchmind.simulator.teams import TEAMS
 from matchmind.stats.models import (
@@ -118,7 +118,8 @@ def players(**overrides) -> dict[str, PlayerStats]:
             tackles_won=1,
             top_speed_kmh=32.4,
             sprints=3,
-            distance_km=2.4,
+            distance_km=5.4,
+            physical_source="synthetic_tracking",
         ),
         "NBR-7": PlayerStats(
             player_id="NBR-7",
@@ -133,7 +134,8 @@ def players(**overrides) -> dict[str, PlayerStats]:
             tackles_won=2,
             top_speed_kmh=31.0,
             sprints=2,
-            distance_km=2.1,
+            distance_km=5.1,
+            physical_source="synthetic_tracking",
         ),
         "HCY-10": PlayerStats(
             player_id="HCY-10",
@@ -147,7 +149,8 @@ def players(**overrides) -> dict[str, PlayerStats]:
             tackles_won=0,
             top_speed_kmh=29.0,
             sprints=1,
-            distance_km=1.5,
+            distance_km=4.5,
+            physical_source="synthetic_tracking",
         ),
     }
     for pid, fields in overrides.items():
@@ -281,7 +284,34 @@ def all_moments():
         ),
         EventMetrics(event_id="T-00009"),
         snap(760.0),
-    )  # distance milestones fire here (players already past 1 and 2 km)
+    )  # the NBR distance milestone fires here (NBR-9 is past 5 km)
+    # Key tackle: an HCY dribble fails 20 m from the NBR goal and NBR-7 wins the ball.
+    add(
+        ev(
+            10,
+            EventType.DRIBBLE,
+            770.0,
+            team="HCY",
+            player_id="HCY-10",
+            start=Point(x=20.0, y=34.0),
+            outcome=Outcome.INCOMPLETE,
+        ),
+        EventMetrics(event_id="T-00010"),
+        snap(770.0),
+    )
+    add(
+        ev(
+            11,
+            EventType.TACKLE,
+            770.4,
+            team="NBR",
+            player_id="NBR-7",
+            start=Point(x=20.0, y=34.0),
+            outcome=Outcome.WON,
+        ),
+        EventMetrics(event_id="T-00011"),
+        snap(770.4),
+    )
     # Momentum swing: flat for 5+ minutes then +55.
     for i, t in enumerate(range(800, 1130, 10)):
         add(ev(100 + i, EventType.PASS, float(t)), EventMetrics(event_id=f"T-{100 + i:05d}"), snap(float(t)))
@@ -432,16 +462,145 @@ def test_spotter_rate_limits_speed_bursts_and_fires_pressure_once():
     assert len(spells) == 1 and spells[0].team == "HCY" and spells[0].facts["team_field_tilt_pct"] == 80
 
 
-def test_distance_milestones_fire_once_each():
+def tracked(pid: str, team: str, km: float) -> PlayerStats:
+    return PlayerStats(player_id=pid, team=team, distance_km=km, physical_source="synthetic_tracking")
+
+
+def test_distance_milestones_fire_once_per_team_for_the_leader():
     sp = Spotter(TEAMS)
     seen = []
-    for i, km in enumerate([0.5, 2.2, 2.3, 3.4]):
-        pl = {"NBR-9": PlayerStats(player_id="NBR-9", team="NBR", distance_km=km)}
+    steps = [(3.0, 2.9, 3.1), (5.2, 5.1, 4.9), (5.3, 5.25, 5.06), (10.4, 10.1, 9.0)]
+    for i, (a, b, c) in enumerate(steps):
+        pl = {
+            "NBR-9": tracked("NBR-9", "NBR", a),
+            "NBR-7": tracked("NBR-7", "NBR", b),
+            "HCY-10": tracked("HCY-10", "HCY", c),
+        }
         seen += [
-            m.facts["milestone_km"]
+            (m.team, m.player_ids[0], m.facts["milestone_km"], m.facts["distance_km"])
             for m in sp.spot(ev(i, EventType.PASS), EventMetrics(event_id="z"), snap(), pl)
+            if m.kind == MomentKind.DISTANCE_MILESTONE
         ]
-    assert seen == [2, 3]
+    # First in each team only: NBR-7 passing 5 km later does not fire, HCY fires on its own.
+    assert seen == [("NBR", "NBR-9", 5, 5.2), ("HCY", "HCY-10", 5, 5.1), ("NBR", "NBR-9", 10, 10.4)]
+
+
+def test_distance_milestones_need_tracking():
+    sp = Spotter(TEAMS)
+    pl = {"NBR-9": PlayerStats(player_id="NBR-9", team="NBR", distance_km=12.0)}  # event estimate
+    assert not [
+        m
+        for m in sp.spot(ev(1, EventType.PASS), EventMetrics(event_id="z"), snap(), pl)
+        if m.kind == MomentKind.DISTANCE_MILESTONE
+    ]
+
+
+def test_restored_spotter_does_not_repeat_once_only_moments():
+    """After a jump the crew is reset and given back the moments already played;
+    the spotter must not fire the same milestone or a rate-limited tag again."""
+    sp = Spotter(TEAMS)
+    pl = {"NBR-9": tracked("NBR-9", "NBR", 5.5)}
+    made = sp.spot(ev(1, EventType.PASS, 600.0), EventMetrics(event_id="a"), snap(600.0), pl)
+    fast = EventMetrics(event_id="b", player_speed_kmh=31.0)
+    made += sp.spot(ev(2, EventType.CARRY, 610.0, team="NBR", player_id="NBR-9"), fast, snap(610.0), pl)
+    assert {m.kind for m in made} >= {MomentKind.DISTANCE_MILESTONE, MomentKind.SPEED_BURST}
+    sp.reset()
+    sp.restore(made)
+    again = sp.spot(ev(3, EventType.CARRY, 620.0, team="NBR", player_id="NBR-9"), fast, snap(620.0), pl)
+    assert again == []
+    fresh = Spotter(TEAMS)
+    assert fresh.spot(ev(3, EventType.CARRY, 620.0, team="NBR", player_id="NBR-9"), fast, snap(620.0), pl)
+
+
+def test_tracked_speed_bursts_come_from_tracking_sprints():
+    from matchmind.stats.models import SprintTag
+
+    sp = Spotter(TEAMS)
+    pl = players()
+    tag = SprintTag(player_id="HCY-10", period=1, peak_clock_s=598.0, peak_kmh=31.6, distance_m=24.0)
+    slow = SprintTag(player_id="NBR-7", period=1, peak_clock_s=599.0, peak_kmh=27.0, distance_m=12.0)
+    # The event's own recorded speed is ignored once tracking is attached.
+    m = EventMetrics(event_id="c", player_speed_kmh=33.0, sprint_efforts=[tag, slow])
+    out = sp.spot(ev(1, EventType.CARRY, 600.0, team="NBR", player_id="NBR-9"), m, snap(600.0), pl)
+    bursts = [x for x in out if x.kind == MomentKind.SPEED_BURST]
+    assert [(b.player_ids, b.team, b.facts["speed_kmh"], b.facts["sprint_m"]) for b in bursts] == [
+        (["HCY-10"], "HCY", 31.6, 24)
+    ]
+    assert bursts[0].facts["top_speed_kmh"] == 31.6  # never below the burst itself
+    none = EventMetrics(event_id="d", player_speed_kmh=33.0, sprint_efforts=[])
+    assert not sp.spot(ev(2, EventType.CARRY, 700.0, team="NBR", player_id="NBR-9"), none, snap(700.0), pl)
+
+
+def key_tackle_moments(sp: Spotter, x: float, y: float = 34.0, t: float = 600.0, seq: int = 1):
+    pl = players()
+    sp.spot(
+        ev(
+            seq,
+            EventType.DRIBBLE,
+            t,
+            team="HCY",
+            player_id="HCY-10",
+            start=Point(x=x, y=y),
+            outcome=Outcome.INCOMPLETE,
+        ),
+        EventMetrics(event_id="e"),
+        snap(t),
+        pl,
+    )
+    out = sp.spot(
+        ev(
+            seq + 1,
+            EventType.TACKLE,
+            t + 0.4,
+            team="NBR",
+            player_id="NBR-7",
+            start=Point(x=x, y=y),
+            outcome=Outcome.WON,
+        ),
+        EventMetrics(event_id="f"),
+        snap(t + 0.4),
+        pl,
+    )
+    return [m for m in out if m.kind == MomentKind.KEY_TACKLE]
+
+
+def test_key_tackle_needs_own_third_and_real_danger():
+    # NBR defend the goal at x = 0. 20 m out, central: the attackers' xT there is 0.135.
+    (kt,) = key_tackle_moments(Spotter(TEAMS), 20.0)
+    assert kt.player_ids == ["NBR-7", "HCY-10"] and kt.team == "NBR"
+    assert kt.facts["xt_stopped"] == 0.14 and kt.facts["own_goal_distance_m"] == 20
+    assert kt.facts["victim_short"] == "Varga" and kt.facts["last_ditch"] is False
+    assert kt.facts["p_tackles_won"] == 2
+    assert [p.number for p in kt.players] == [7, 10] and kt.players[0].name == "Dev Mallick"
+    (box,) = key_tackle_moments(Spotter(TEAMS), 10.0)
+    assert box.facts["last_ditch"] is True
+    assert key_tackle_moments(Spotter(TEAMS), 50.0) == []  # midfield
+    assert key_tackle_moments(Spotter(TEAMS), 30.0, y=3.0) == []  # own third, wide: little danger
+    # The away team defends the goal at x = 105: the same rule mirrored.
+    sp = Spotter(TEAMS)
+    out = sp.spot(
+        ev(
+            1,
+            EventType.TACKLE,
+            600.0,
+            team="HCY",
+            player_id="HCY-10",
+            start=Point(x=85.0, y=34.0),
+            outcome=Outcome.WON,
+        ),
+        EventMetrics(event_id="g"),
+        snap(600.0),
+        players(),
+    )
+    kts = [m for m in out if m.kind == MomentKind.KEY_TACKLE]
+    assert len(kts) == 1 and "victim" not in kts[0].facts
+
+
+def test_key_tackles_are_rate_limited():
+    sp = Spotter(TEAMS)
+    assert key_tackle_moments(sp, 20.0, t=600.0, seq=1)
+    assert key_tackle_moments(sp, 20.0, t=700.0, seq=3) == []
+    assert key_tackle_moments(sp, 20.0, t=920.0, seq=5)
 
 
 # ------------------------------------------------------------ fact-checker

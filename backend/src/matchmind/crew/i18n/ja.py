@@ -40,6 +40,12 @@ PACK = {
         "shots_away": "アウェイのシュート数",
         "appearance_n": "クラブ出場数",
         "ruled_out_clock": "取り消されたゴール（得点時刻）",
+        "xt_stopped": "防いだ脅威（xT）",
+        "own_goal_distance_m": "自陣ゴールからの距離",
+        "p_tackles_won": "タックル成功数",
+        "last_ditch": "最後の砦（自陣ペナルティエリア内）",
+        "distance_km": "走行距離（トラッキング推定）",
+        "sprint_m": "スプリント距離",
     },
     "zones": {
         "Penalty Box": "ペナルティエリア",
@@ -365,6 +371,36 @@ PACK = {
                 )
             ],
         },
+        "key_tackle": {
+            "casual": [
+                (
+                    "{player_short}の決定的なタックル",
+                    "{player}が自陣ゴールから{own_goal_distance_m}mの位置で{victim_short}からボールを奪いました。{team}は危機を脱出。",
+                ),
+                (
+                    "{player_short}の決定的なタックル",
+                    "{player}が自陣ゴールから{own_goal_distance_m}mの位置でボールを奪いました。{team}は危機を脱出。",
+                ),
+            ],
+            "tactical": [
+                (
+                    "キータックル：{player_short}",
+                    "自陣ゴールから{own_goal_distance_m}mの守備ゾーンで奪取し、{opp}の{xt_stopped} xTの脅威を断ちました。{player_short}のタックル成功は今日{p_tackles_won}回。",
+                )
+            ],
+            "fantasy": [
+                (
+                    "{player_short}が攻撃を断つ",
+                    "{player_short}の守備：ここまでタックル成功{p_tackles_won}回。今回は自陣ゴールから{own_goal_distance_m}mの位置です。",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "{player_short}がボール奪取",
+                    "自陣ゴールから{own_goal_distance_m}mでのタックルで{xt_stopped} xTの脅威を消しました。今日のタックル成功：{p_tackles_won}回。",
+                )
+            ],
+        },
         "correction": {
             "casual": [
                 (
@@ -504,6 +540,9 @@ PACK = {
         ],
         "hard_pass": [
             "難易度{difficulty_scale}点中{pass_difficulty}点は、成功させられる選手が少ないパスです。"
+        ],
+        "key_tackle": [
+            "ゴールから{own_goal_distance_m}mでのタックルが、{opp}の{xt_stopped} xTの脅威を消しました。"
         ],
         "correction": [
             "VARが{ruled_out_clock}のゴールを{reason_phrase}で取り消し、スコアは{home} {score_home}-{score_away} {away}に戻りました。"
@@ -845,3 +884,17 @@ PACK["heart"] = {
 PACK["metric"]["momentum_against"] = [
     ("警戒：モメンタムが{team}へ", "モメンタムが{change}ポイント{team}に傾き、応援チームには逆風です。"),
 ]
+PACK["heart"]["attack_stopped"] = {
+    "casual": [
+        (
+            "{player_short}が応援チームの攻撃を止める",
+            "{player}が自陣ゴールから{own_goal_distance_m}mでボールを奪いました。応援チームは仕切り直しです。",
+        ),
+    ],
+    "tactical": [
+        (
+            "攻撃阻止：{xt_stopped} xTを消す",
+            "{player_short}が自陣の守備ゾーン、ゴールから{own_goal_distance_m}mで奪取。応援チームは組み立て直しです。",
+        ),
+    ],
+}

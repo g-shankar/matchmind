@@ -44,6 +44,7 @@ export type MomentKind =
   | 'rocket_shot'
   | 'distance_milestone'
   | 'hard_pass'
+  | 'key_tackle'
   | 'milestone'
   | 'correction';
 export type Slot = 'lower_third' | 'side_panel' | 'pitch_tag' | 'metric_alert' | 'full_screen';
@@ -61,6 +62,15 @@ export interface PlayerInfo {
   number: number;
   position: string;
   line: 'GK' | 'DEF' | 'MID' | 'FWD';
+}
+
+/** A player's resolved identity on moments and cards (server: crew.contracts.PlayerRef). */
+export interface PlayerIdentity {
+  player_id: string;
+  name: string;
+  number: number;
+  team: string;
+  position: string;
 }
 
 export interface TeamInfo {
@@ -191,25 +201,118 @@ export interface ControlChaosState {
   rolling_momentum_home: number;
 }
 
+/** Where distance, speed bands, sprints and top speed came from (docs/METRICS.md). */
+export type PhysicalSource = 'synthetic_tracking' | 'event_estimate';
+
 export interface PlayerStats {
   player_id: string;
   team: string;
+  /** Identity from the squads (sent by the server; optional in older fixtures). */
+  name?: string | null;
+  number?: number | null;
+  position?: string | null;
   touches: number;
   passes: number;
   passes_completed: number;
   pass_accuracy: number;
   key_passes: number;
   shots: number;
+  shots_on_target?: number;
   goals: number;
   assists: number;
   xg: number;
   xa: number;
   tackles_won: number;
+  /** Dribbled past by the ball carrier. */
+  tackles_lost?: number;
+  tackles_attempted?: number;
+  tackle_success_pct?: number;
   interceptions: number;
   top_speed_kmh: number;
   sprints: number;
   distance_km: number;
+  walk_km?: number;
+  jog_km?: number;
+  run_km?: number;
+  sprint_km?: number;
+  physical_source?: PhysicalSource;
   carry_distance_m: number;
+}
+
+/** GET /api/match/stats/basic */
+export interface BasicTeamStats {
+  team_id: string;
+  name: string;
+  possession_pct: number;
+  passes_completed: number;
+  passes_attempted: number;
+  pass_accuracy_pct: number | null;
+  shots: number;
+  shots_on_target: number;
+  goals: number;
+  tackles_won: number;
+  tackles_attempted: number;
+  interceptions: number;
+  fouls: number;
+  ppda: number | null;
+  ppda_opponent_passes: number;
+  ppda_defensive_actions: number;
+  distance_km: number;
+  top_speed_kmh: number;
+}
+
+export interface BasicPlayerStats {
+  player_id: string;
+  team: string;
+  name: string | null;
+  number: number | null;
+  position: string | null;
+  passes_completed: number;
+  passes_attempted: number;
+  pass_accuracy_pct: number | null;
+  shots: number;
+  shots_on_target: number;
+  goals: number;
+  tackles_won: number;
+  tackles_attempted: number;
+  interceptions: number;
+  distance_km: number;
+  sprints: number;
+  top_speed_kmh: number;
+}
+
+export interface BasicStats {
+  match_id: string;
+  clock: string;
+  period: number;
+  pass_accuracy_denominator: string;
+  physical_source: PhysicalSource;
+  physical_label: string;
+  teams: Record<string, BasicTeamStats>;
+  players: BasicPlayerStats[];
+}
+
+export type MetricQuality = 'counted' | 'calibrated' | 'heuristic' | 'estimated_from_synthetic_tracking';
+
+/** GET /api/metrics: the metric registry. */
+export interface MetricRegistry {
+  quality_flags: Record<MetricQuality, string>;
+  metrics: {
+    id: string;
+    name: string;
+    scope: 'event' | 'window' | 'player' | 'team' | 'moment';
+    formula: string;
+    symbols: string;
+    units: string;
+    source_events: string[];
+    window: string;
+    range: string;
+    quality: MetricQuality;
+    limitations: string;
+    edge_cases: string;
+    fields: string[];
+  }[];
+  not_computed: { id: string; name: string; reason: string }[];
 }
 
 export interface BetterOptionReplay {
@@ -294,6 +397,8 @@ export interface OverlayCard {
   tactical_tag: string;
   evidence: Evidence[];
   player_ids: string[];
+  /** Identity of each player in player_ids, same order. */
+  players?: PlayerIdentity[];
   team: string | null;
   favourite_side: boolean | null;
   produced_by: ProducedBy;

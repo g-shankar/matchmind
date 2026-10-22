@@ -326,6 +326,7 @@ class MatchSession:
         clock: Callable[[], float] = time.monotonic,
         base_rate: float | None = None,
         auto_eventing: dict[str, Any] | None = None,
+        physical: Any | None = None,
         live_feed: LiveFeedLike | None = None,
         source: dict[str, Any] | None = None,
     ) -> None:
@@ -342,6 +343,8 @@ class MatchSession:
         self._clock = clock
         self.base_rate = float(base_rate or os.environ.get("MATCHMIND_BASE_RATE") or DEFAULT_BASE_RATE)
         self.auto_eventing = auto_eventing
+        # stats.physical.PhysicalTimeline from synthetic tracking, or None (event estimate).
+        self.physical = physical if physical is not None and physical.match_id == self.match_id else None
         self._feed = live_feed
         self.live_dropped = 0  # live events the load-time pass could not process
         self._waiting_live: tuple[Any, Any] | None = None  # (feed, consumer) before a live match starts
@@ -380,7 +383,11 @@ class MatchSession:
     # --- setup -------------------------------------------------------------------------------
 
     def _new_stats(self) -> StatsEngineLike:
-        return self._engines.stats(self.match_id, self.home_id, self.away_id)
+        stats = self._engines.stats(self.match_id, self.home_id, self.away_id)
+        attach = getattr(stats, "attach_physical", None)
+        if self.physical is not None and attach is not None:
+            attach(self.physical)
+        return stats
 
     def _fresh_live(self) -> _Live:
         live = _Live(stats=self._new_stats())
@@ -487,6 +494,11 @@ class MatchSession:
                     ordered.append(stats[p.player_id])
         ordered.extend(s for pid, s in stats.items() if pid not in self._player_ids)
         return ordered
+
+    def team_totals(self) -> dict[str, Any]:
+        """Whole-match team totals so far, or {} when the engine has none."""
+        totals = getattr(self._live.stats, "team_totals", None)
+        return dict(totals()) if totals is not None else {}
 
     def retracted_so_far(self) -> set[str]:
         """Moment ids that a correction played so far has ruled out."""
@@ -982,13 +994,19 @@ def build_session(match_file: str | Path | None = None, engines: Engines | None 
 def _file_session(
     match_file: str | Path | None, engines: Engines, source: dict[str, Any] | None
 ) -> MatchSession:
+    from matchmind.autoevent.tracking import reuse_renders
+
     feed = load_match_feed(match_file)
+    with reuse_renders():  # both need the tracking feed: draw it once
+        physical = _physical(feed.events)
+        auto = _auto_eventing(feed.events)
     return MatchSession(
         feed.events,
         teams=feed.teams,
         engines=engines,
-        auto_eventing=_auto_eventing(feed.events),
+        auto_eventing=auto,
         source=source or {"source": "file", "format": feed.source},
+        physical=physical,
     )
 
 
@@ -1038,6 +1056,18 @@ def build_live_session(
     )
     session.consumer = consumer  # kept alive with the session
     return session
+
+
+def _physical(events: list[Event]) -> Any | None:
+    """Distance, speed bands and sprints from synthetic tracking; None (the event
+    estimate) if they cannot be worked out. An add-on must never stop the match."""
+    try:
+        from matchmind.stats.physical import timeline_for
+
+        return timeline_for(events)
+    except Exception:  # noqa: BLE001
+        logger.warning("physical stats from synthetic tracking are not available; using the event estimate")
+        return None
 
 
 def _auto_eventing(events: list[Event]) -> dict[str, Any] | None:

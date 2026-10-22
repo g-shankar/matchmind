@@ -30,9 +30,13 @@ from collections import deque
 from pathlib import Path
 from typing import Any
 
+from matchmind.schema import Event
 from matchmind.simulator import pitch
 from matchmind.simulator.teams import get_team
 from matchmind.stats import metrics as M
+from matchmind.stats.physical import LABEL as TRACKING_LABEL
+from matchmind.stats.physical import SOURCE as TRACKING_SOURCE
+from matchmind.stats.physical import PhysicalTimeline, timeline_for
 
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_IN = REPO / "backend" / "data" / "matches" / "MM-DEMO-001.jsonl"
@@ -56,7 +60,11 @@ SWING_MIN = 40.0
 SWING_SD = 1.5
 SWING_MIN_SAMPLES = 50
 SWING_GAP_S = 300.0
-SPEED_BURST_MS = 8.5
+SPEED_BURST_KMH = M.SPEED_BURST_KMH  # tracked sprint peak worth a pitch tag
+SPEED_BURST_GAP_S = 1200.0  # one burst per player per 20 minutes
+KEY_TACKLE_OWN_THIRD_U = 35.0
+KEY_TACKLE_XT = 0.09
+KEY_TACKLE_GAP_S = 300.0
 HARD_PASS_LEVEL = 70
 PITCH_TAG_GAP_S = 20.0
 # Better option / unfound run
@@ -73,9 +81,10 @@ ON_BALL = {"pass", "carry", "dribble", "shot", "interception", "tackle", "cleara
 DURATION = {"lower_third": 8, "side_panel": 12, "full_screen": 15, "pitch_tag": 5}
 
 NOTES = (
-    "Synthetic match, invented clubs and players. distance_km counts on-ball distance (carries and "
-    "dribbles) plus tracked runs in behind only; the engine has no full-match player tracking. "
-    "xt_delta is not computed yet (null). Rolling state uses a 5-minute window of match clock."
+    "Synthetic match, invented clubs and players. distance_km, the speed bands, sprints and top "
+    f"speed are {TRACKING_LABEL.lower()} (25 Hz positions drawn by the engine, smoothed), not "
+    "measured on real players. xt_delta is not computed yet (null). Rolling state uses a 5-minute "
+    "window of match clock."
 )
 
 
@@ -98,6 +107,12 @@ def fmt_clock(clock_s: float, period: int) -> str:
 
 def xy(p: tuple[float, float]) -> dict[str, float]:
     return {"x": rnd(p[0]), "y": rnd(p[1])}
+
+
+def elapsed(period: int, clock_s: float) -> float:
+    """Monotonic match time: period 1 stoppage runs past 2700 s while period 2
+    restarts at 2700 s, so each period gets its own offset."""
+    return (period - 1) * 10_000.0 + clock_s
 
 
 class Ctx:
@@ -529,7 +544,13 @@ def control_chaos_view(state: dict) -> dict[str, Any]:
 
 
 class PlayerBook:
-    def __init__(self, ctx: Ctx) -> None:
+    """Per-player match stats. Physical numbers (distance, speed bands, sprints,
+    top speed) come from the synthetic tracking timeline; everything else is
+    counted from events."""
+
+    def __init__(self, ctx: Ctx, physical: PhysicalTimeline) -> None:
+        self.ctx = ctx
+        self.physical = physical
         self.s: dict[str, dict[str, Any]] = {}
         team_of = {p.player_id: t.team_id for t in ctx.teams.values() for p in t.players}
         for pid, team in team_of.items():
@@ -541,23 +562,58 @@ class PlayerBook:
                 "passes_completed": 0,
                 "key_passes": 0,
                 "shots": 0,
+                "shots_on_target": 0,
                 "goals": 0,
                 "assists": 0,
                 "xg": 0.0,
                 "xa": 0.0,
                 "tackles_won": 0,
+                "tackles_lost": 0,
                 "interceptions": 0,
                 "top_speed_kmh": 0.0,
                 "sprints": 0,
-                "distance_m": 0.0,
+                "distance_km": 0.0,
+                "walk_km": 0.0,
+                "jog_km": 0.0,
+                "run_km": 0.0,
+                "sprint_km": 0.0,
                 "carry_distance_m": 0.0,
             }
 
         self.last_pass: dict[Any, tuple[str, str]] = {}
         self.goal_by: dict[str, tuple[str, str | None]] = {}  # counted goal -> (scorer, assist)
 
+    def track(self, period: int, clock_s: float) -> None:
+        """Copy each player's tracking numbers at this clock. Same rule as the
+        stats engine: a player changes only when his distance (to 0.1 km),
+        sprints or top speed move."""
+        for pid, ph in self.physical.at(period, clock_s).items():
+            st = self.s.get(pid)
+            if st is None:
+                continue
+            if (
+                round(st["distance_km"], 1) == round(ph.distance_km, 1)
+                and st["sprints"] == ph.sprints
+                and st["top_speed_kmh"] == ph.top_speed_kmh
+            ):
+                continue
+            st.update(
+                distance_km=ph.distance_km,
+                walk_km=ph.walk_km,
+                jog_km=ph.jog_km,
+                run_km=ph.run_km,
+                sprint_km=ph.sprint_km,
+                sprints=ph.sprints,
+                top_speed_kmh=ph.top_speed_kmh,
+            )
+
     def process(self, ev: dict, cq: float | None) -> None:
+        self.track(ev["period"], ev["clock_s"])
         pid, t = ev.get("player_id"), ev["type"]
+        if t == "dribble" and ev.get("outcome") == "complete":
+            beaten = ev.get("details", {}).get("opponent_id")
+            if beaten in self.s:
+                self.s[beaten]["tackles_lost"] += 1
         if t == "var_review":
             if ev.get("outcome") == "overturned":
                 scorer, assist = self.goal_by.pop(ev.get("reviewed_event_id") or "", (None, None))
@@ -571,27 +627,9 @@ class PlayerBook:
         st = self.s[pid]
         if t in ON_BALL:
             st["touches"] += 1
-        speed = ev.get("player_speed_mps")
-        if speed is not None:
-            st["top_speed_kmh"] = max(st["top_speed_kmh"], M.kmh(speed) or 0.0)
-            if speed >= M.SPRINT_MS:
-                st["sprints"] += 1
         start, end = ev.get("start"), ev.get("end")
         if t in ("carry", "dribble") and start and end:
-            d = pitch.dist((start["x"], start["y"]), (end["x"], end["y"]))
-            st["carry_distance_m"] += d
-            st["distance_m"] += d
-        if t == "run":
-            path = [
-                (p["x"], p["y"])
-                for f in ev.get("tracking") or []
-                for p in f["players"]
-                if p["player_id"] == pid
-            ]
-            if len(path) >= 2:
-                st["distance_m"] += sum(pitch.dist(a, b) for a, b in zip(path, path[1:], strict=False))
-            elif start and end:
-                st["distance_m"] += pitch.dist((start["x"], start["y"]), (end["x"], end["y"]))
+            st["carry_distance_m"] += pitch.dist((start["x"], start["y"]), (end["x"], end["y"]))
         if t == "pass":
             st["passes"] += 1
             if ev.get("outcome") == "complete":
@@ -600,6 +638,7 @@ class PlayerBook:
                     self.last_pass[ev.get("possession_id")] = (pid, ev["receiver_id"])
         elif t == "shot":
             st["shots"] += 1
+            st["shots_on_target"] += ev.get("outcome") in ("goal", "saved")
             st["xg"] += cq or 0.0
             lp = self.last_pass.get(ev.get("possession_id"))
             if lp and lp[1] == pid and lp[0] in self.s:
@@ -618,25 +657,49 @@ class PlayerBook:
 
     def view(self, pid: str) -> dict[str, Any]:
         st = self.s[pid]
+        p = self.ctx.players[pid]
+        tried = st["tackles_won"] + st["tackles_lost"]
         return {
             "player_id": pid,
             "team": st["team"],
+            "name": p.name,
+            "number": p.number,
+            "position": p.position,
             "touches": st["touches"],
             "passes": st["passes"],
             "passes_completed": st["passes_completed"],
             "pass_accuracy": rnd(100 * st["passes_completed"] / st["passes"], 1) if st["passes"] else 0.0,
             "key_passes": st["key_passes"],
             "shots": st["shots"],
+            "shots_on_target": st["shots_on_target"],
             "goals": st["goals"],
             "assists": st["assists"],
             "xg": rnd(st["xg"]),
             "xa": rnd(st["xa"]),
             "tackles_won": st["tackles_won"],
+            "tackles_lost": st["tackles_lost"],
+            "tackles_attempted": tried,
+            "tackle_success_pct": rnd(100 * st["tackles_won"] / tried, 1) if tried else 0.0,
             "interceptions": st["interceptions"],
             "top_speed_kmh": rnd(st["top_speed_kmh"], 1),
             "sprints": st["sprints"],
-            "distance_km": rnd(st["distance_m"] / 1000, 3),
+            "distance_km": rnd(st["distance_km"], 3),
+            "walk_km": rnd(st["walk_km"], 3),
+            "jog_km": rnd(st["jog_km"], 3),
+            "run_km": rnd(st["run_km"], 3),
+            "sprint_km": rnd(st["sprint_km"], 3),
+            "physical_source": TRACKING_SOURCE,
             "carry_distance_m": rnd(st["carry_distance_m"], 1),
+        }
+
+    def identity(self, pid: str) -> dict[str, Any]:
+        p = self.ctx.players[pid]
+        return {
+            "player_id": pid,
+            "name": p.name,
+            "number": p.number,
+            "team": self.s[pid]["team"],
+            "position": p.position,
         }
 
     def views(self) -> dict[str, dict[str, Any]]:
@@ -1424,6 +1487,129 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
     },
 }
 
+# Moments from synthetic tracking and defending. Distances, sprints and speeds
+# are estimates and the texts say so.
+T.update(
+    {
+        "distance_milestone": {
+            "casual": {
+                "en": (
+                    "{p} passes {km} km (est.)",
+                    "{p} has covered an estimated {km} km, the first {t} player to get there. The engine keeps running.",
+                    "Distance is estimated from synthetic tracking: {dist} km so far.",
+                ),
+                "es": (
+                    "{p} supera {km} km (est.)",
+                    "{p} ya ha recorrido unos {km} km, el primero de {t} en llegar. No para de correr.",
+                    "Distancia estimada a partir de seguimiento sintético: {dist} km hasta ahora.",
+                ),
+                "ar": (
+                    "{p} يتخطى {km} كم (تقديريًا)",
+                    "{p} قطع نحو {km} كم، وهو أول لاعب في {t} يبلغها. لا يتوقف عن الركض.",
+                    "المسافة تقديرية من تتبع اصطناعي: {dist} كم حتى الآن.",
+                ),
+            },
+            "tactical": {
+                "en": (
+                    "Work rate: {p}, {km} km (est.)",
+                    "{p} passes an estimated {km} km with {spr}. Top speed {top} km/h.",
+                    "Covering ground keeps {t}'s shape together; distance is estimated from synthetic tracking.",
+                ),
+                "es": (
+                    "Despliegue: {p}, {km} km (est.)",
+                    "{p} supera {km} km estimados con {spr}. Velocidad punta: {top} km/h.",
+                    "Recorrer metros sostiene el bloque de {t}; la distancia es una estimación de seguimiento sintético.",
+                ),
+                "ar": (
+                    "جهد بدني: {p}، {km} كم تقديريًا",
+                    "{p} يتخطى {km} كم تقديريًا مع {spr}. أعلى سرعة: {top} كم/س.",
+                    "الجري الكثير يحفظ تنظيم {t}؛ والمسافة تقديرية من تتبع اصطناعي.",
+                ),
+            },
+            "fantasy": {
+                "en": (
+                    "{p}: about {km} km covered",
+                    "Plenty of running (distance estimated). In attack: {pxg} xG from {pshots}.",
+                    "Distance is estimated from synthetic tracking; xG measures the chances.",
+                ),
+                "es": (
+                    "{p}: unos {km} km recorridos",
+                    "Mucho trabajo (distancia estimada). En ataque: {pxg} xG con {pshots}.",
+                    "La distancia es una estimación de seguimiento sintético; el xG mide las ocasiones.",
+                ),
+                "ar": (
+                    "{p}: نحو {km} كم",
+                    "ركض كثير (المسافة تقديرية). في الهجوم: {pxg} xG من {pshots}.",
+                    "المسافة تقديرية من تتبع اصطناعي؛ وxG يقيس الفرص.",
+                ),
+            },
+        },
+        "key_tackle": {
+            "casual": {
+                "en": (
+                    "Big tackle by {p}",
+                    "{p} {act} {gd} m from his own goal. Danger over for {t}.",
+                    "{o} were in a dangerous spot; the tackle ended it.",
+                ),
+                "es": (
+                    "Gran entrada de {p}",
+                    "{p} {act} a {gd} m de su portería. {t} respira.",
+                    "{o} estaba en zona de peligro; la entrada lo cortó.",
+                ),
+                "ar": (
+                    "تدخل حاسم من {p}",
+                    "{p} {act} على بعد {gd} م من مرماه. {t} تتنفس الصعداء.",
+                    "كان {o} في منطقة خطرة، وأنهى التدخل الخطر.",
+                ),
+            },
+            "tactical": {
+                "en": (
+                    "Key tackle: {p}",
+                    "Won in the defensive third, {gd} m out, where {o} carried {xt} xT. {p} has {tw} today.",
+                    "Winning it back there takes away a {xt} xT threat.",
+                ),
+                "es": (
+                    "Entrada clave: {p}",
+                    "Recuperación en el tercio defensivo, a {gd} m, donde {o} acumulaba {xt} xT. {p} suma {tw}.",
+                    "Recuperar ahí anula una amenaza de {xt} xT.",
+                ),
+                "ar": (
+                    "تدخل مفتاحي: {p}",
+                    "استعادة في الثلث الدفاعي على بعد {gd} م، حيث بلغ خطر {o} {xt} xT. رصيد {p}: {tw}.",
+                    "الاستعادة هناك تلغي خطرًا بقيمة {xt} xT.",
+                ),
+            },
+            "fantasy": {
+                "en": (
+                    "{p} stops the attack",
+                    "Defensive work from {p}: {tw} so far. This one came {gd} m from his own goal.",
+                    "Tackles won show the defensive side of his game.",
+                ),
+                "es": (
+                    "{p} corta el ataque",
+                    "Trabajo defensivo de {p}: {tw} hasta ahora. Esta, a {gd} m de su portería.",
+                    "Las entradas ganadas muestran su lado defensivo.",
+                ),
+                "ar": (
+                    "{p} يوقف الهجمة",
+                    "عمل دفاعي من {p}: {tw} حتى الآن. هذا التدخل على بعد {gd} م من مرماه.",
+                    "التدخلات الناجحة تُظهر جانبه الدفاعي.",
+                ),
+            },
+        },
+    }
+)
+TACKLES = (
+    ("tackle won", "tackles won"),
+    ("entrada ganada", "entradas ganadas"),
+    ("تدخل ناجح واحد", "تدخلين ناجحين", "تدخلات ناجحة", "تدخلًا ناجحًا"),
+)
+SPRINTS = (
+    ("sprint", "sprints"),
+    ("esprint", "esprints"),
+    ("انطلاقة واحدة", "انطلاقتين", "انطلاقات", "انطلاقة"),
+)
+
 TACTICAL_TAG = {
     "goal": "Finishing",
     "correction": "Officiating",
@@ -1438,6 +1624,8 @@ TACTICAL_TAG = {
     "speed_burst": "Pace",
     "rocket_shot": "Ball striking",
     "hard_pass": "Line-breaking pass",
+    "distance_milestone": "Work rate",
+    "key_tackle": "Defending",
 }
 
 
@@ -1503,6 +1691,16 @@ LABELS_FIXED: dict[str, tuple[str, str]] = {
     "Pass difficulty": ("Dificultad del pase", "صعوبة التمريرة"),
     "End zone": ("Zona de destino", "منطقة الوصول"),
     "Receiver": ("Receptor", "المستلم"),
+    "Distance milestone": ("Hito de distancia", "إنجاز المسافة"),
+    "Distance covered (estimated)": ("Distancia recorrida (estimada)", "المسافة المقطوعة (تقديرية)"),
+    "Sprints": ("Esprints", "الانطلاقات"),
+    "Top speed": ("Velocidad punta", "أعلى سرعة"),
+    "Sprint distance": ("Distancia del esprint", "مسافة الانطلاقة"),
+    "Physical source": ("Origen de los datos físicos", "مصدر البيانات البدنية"),
+    "Expected threat stopped": ("Amenaza esperada anulada", "الخطر المتوقع الذي أُلغي"),
+    "Distance from own goal": ("Distancia a su portería", "المسافة من مرماه"),
+    "Last-ditch (inside own box)": ("Al límite (dentro de su área)", "في اللحظة الأخيرة (داخل منطقته)"),
+    "Dribbler": ("Regateador", "المراوغ"),
 }
 LABELS_NAMED: list[tuple[re.Pattern[str], str, str]] = [
     (re.compile(r"^(?P<n>.+) xG \(match\)$"), "{n}: xG en el partido", "{n}: xG في المباراة"),
@@ -1514,6 +1712,11 @@ LABELS_NAMED: list[tuple[re.Pattern[str], str, str]] = [
         "{n}: التمريرات المفتاحية في المباراة",
     ),
     (re.compile(r"^(?P<n>.+) goals$"), "Goles de {n}", "أهداف {n}"),
+    (
+        re.compile(r"^(?P<n>.+) tackles won \(match\)$"),
+        "{n}: entradas ganadas en el partido",
+        "{n}: التدخلات الناجحة في المباراة",
+    ),
     (
         re.compile(r"^(?P<n>.+) players on the pitch$"),
         "Jugadores de {n} en el campo",
@@ -1601,6 +1804,11 @@ class Spotter:
         self.swings: list[float] = []
         self.last_swing: float | None = None
         self.reds: dict[str, int] = {ctx.home_id: 0, ctx.away_id: 0}
+        self.distance_done: dict[str, float] = {ctx.home_id: 0.0, ctx.away_id: 0.0}
+        self.last_burst: dict[str, float] = {}
+        self.last_key_tackle: float | None = None
+        self.efforts_after: tuple[int, float] | None = None
+        self.prev_event: dict | None = None
 
     def start_period(self) -> None:
         self.last_tag_clock = None
@@ -1623,10 +1831,12 @@ class Spotter:
         player_ids: list[str],
         replay: dict | None = None,
         extra: dict | None = None,
+        *,
+        suffix: str = "",
     ) -> None:
         self.moments.append(
             {
-                "moment_id": f"{ev['event_id']}-{kind}",
+                "moment_id": f"{ev['event_id']}-{kind}{suffix}",
                 "kind": kind,
                 "slot": slot,
                 "priority": priority,
@@ -1637,6 +1847,7 @@ class Spotter:
                 "period": ev["period"],
                 "team": team,
                 "player_ids": player_ids,
+                "players": [self.book.identity(p) for p in player_ids if p in self.book.s],
                 "evidence": evidence,
                 "evidence_labels": {
                     lang: [translate_label(e["label"])[lang] for e in evidence] for lang in ("es", "ar")
@@ -1670,10 +1881,15 @@ class Spotter:
             self.milestone(ev)
         elif t == "run" and run is not None:
             self.unfound_run(ev, run)
+        elif t == "tackle" and ev.get("outcome") == "won":
+            self.key_tackle(ev, state)
         self.pressure_spell(ev, state)
         self.momentum_swing(ev, state)
         if len(self.moments) == before and team and pid in ctx.players:
             self.pitch_tag(ev, metrics, shot)
+        self.tracked_bursts(ev)
+        self.distance(ev)
+        self.prev_event = ev
 
     def goal(self, ev: dict, shot: dict, state: dict) -> None:
         ctx, src, pid, team = self.ctx, ev["event_id"], ev["player_id"], ev["team"]
@@ -2043,6 +2259,188 @@ class Spotter:
         ] + wev
         self.add(ev, "momentum_swing", "side_panel", 60, "momentum_swing", base, wp, evidence, team, [])
 
+    # -- synthetic tracking ------------------------------------------------
+    def tracked_bursts(self, ev: dict) -> None:
+        """Speed bursts from the synthetic tracking: a sprint that peaked at or over
+        the burst line since the last event, at most one per player per 20 minutes."""
+        until = (ev["period"], ev["clock_s"])
+        if self.efforts_after is not None and until <= self.efforts_after:
+            return
+        efforts = self.book.physical.efforts_between(self.efforts_after, until)
+        self.efforts_after = until
+        ctx, src = self.ctx, ev["event_id"]
+        for f in efforts:
+            pid = f.player_id
+            if pid not in ctx.players or f.peak_kmh < SPEED_BURST_KMH:
+                continue
+            now = elapsed(f.period, f.peak_s)
+            last = self.last_burst.get(pid)
+            if last is not None and 0 <= now - last < SPEED_BURST_GAP_S:
+                continue
+            self.last_burst[pid] = now
+            team = self.book.s[pid]["team"]
+            kmh, thr = rnd(f.peak_kmh, 1), int(SPEED_BURST_KMH)
+            sprint_m = round(f.distance_m)
+            pb, pp = player_vars(self.book, pid)
+            base: dict[str, Any] = {
+                "p": ctx.surname(pid),
+                "t": ctx.short(team),
+                "kmh": kmh,
+                "thr": thr,
+            }
+            base.update(pb)
+            evidence = [
+                ev_item("Player speed", kmh, "km/h", src),
+                ev_item("Speed burst threshold", thr, "km/h", src),
+                ev_item("Sprint distance", sprint_m, "m", src),
+                ev_item("Physical source", TRACKING_LABEL, None, src),
+            ] + player_evidence(self.book, pid, src, ctx)
+            self.add(
+                ev,
+                "speed_burst",
+                "pitch_tag",
+                30,
+                "speed_burst",
+                base,
+                pp,
+                evidence,
+                team,
+                [pid],
+                suffix=f"-{pid}",
+            )
+
+    def distance(self, ev: dict) -> None:
+        """The first player in each team past each distance milestone (5 and 10 km,
+        estimated from synthetic tracking)."""
+        ctx, src = self.ctx, ev["event_id"]
+        for team in (ctx.home_id, ctx.away_id):
+            squad = [st for st in self.book.s.values() if st["team"] == team]
+            leader = max(squad, key=lambda st: (st["distance_km"], st["player_id"]))
+            done = self.distance_done[team]
+            crossed = [km for km in M.DISTANCE_MILESTONES_KM if done < km <= leader["distance_km"]]
+            if not crossed:
+                continue
+            km = max(crossed)
+            self.distance_done[team] = km
+            pid = leader["player_id"]
+            v = self.book.view(pid)
+            km_v = int(km) if float(km).is_integer() else rnd(km, 1)
+            dist = rnd(leader["distance_km"], 1)
+            pb, pp = player_vars(self.book, pid)
+            base: dict[str, Any] = {
+                "p": ctx.surname(pid),
+                "t": ctx.short(team),
+                "km": km_v,
+                "dist": dist,
+                "top": v["top_speed_kmh"],
+            }
+            base.update(pb)
+            per = merge(
+                pp,
+                {lang: {"spr": count(v["sprints"], lang, *SPRINTS)} for lang in LANGS},
+            )
+            evidence = [
+                ev_item("Distance milestone", km_v, "km", src),
+                ev_item("Distance covered (estimated)", dist, "km", src),
+                ev_item("Sprints", v["sprints"], None, src),
+                ev_item("Top speed", v["top_speed_kmh"], "km/h", src),
+                ev_item("Physical source", TRACKING_LABEL, None, src),
+            ] + player_evidence(self.book, pid, src, ctx)
+            self.add(
+                ev,
+                "distance_milestone",
+                "pitch_tag",
+                30,
+                "distance_milestone",
+                base,
+                per,
+                evidence,
+                team,
+                [pid],
+                suffix=f"-{pid}-{km_v}",
+            )
+
+    # -- defending -----------------------------------------------------------
+    def key_tackle(self, ev: dict, state: dict) -> None:
+        """A tackle won in the tackler's own third that stops a dangerous attack
+        (the attackers' expected threat at the spot is at least KEY_TACKLE_XT)."""
+        ctx, src, pid, team = (
+            self.ctx,
+            ev["event_id"],
+            ev.get("player_id"),
+            ev.get("team"),
+        )
+        if pid not in ctx.players or not team or not ev.get("start"):
+            return
+        attackers = ctx.other(team)
+        own = ctx.att(ev["start"], team)
+        theirs = ctx.att(ev["start"], attackers)
+        threat = M.xt(*theirs)
+        if own[0] >= KEY_TACKLE_OWN_THIRD_U or threat < KEY_TACKLE_XT:
+            return
+        now = elapsed(ev["period"], ev["clock_s"])
+        if self.last_key_tackle is not None and 0 <= now - self.last_key_tackle < KEY_TACKLE_GAP_S:
+            return
+        self.last_key_tackle = now
+        prev = self.prev_event
+        victim = None
+        if (
+            prev is not None
+            and prev["type"] == "dribble"
+            and prev.get("outcome") == "incomplete"
+            and prev.get("team") == attackers
+            and prev.get("player_id") in ctx.players
+        ):
+            victim = prev["player_id"]
+        xt_v = rnd(threat, 2)
+        gd = round(pitch.distance_to_goal(theirs))
+        last_ditch = pitch.in_box(theirs)
+        tw = self.book.view(pid)["tackles_won"]
+        who = ctx.players[pid].name
+        base: dict[str, Any] = {
+            "p": ctx.surname(pid),
+            "t": ctx.short(team),
+            "o": ctx.short(attackers),
+            "gd": gd,
+            "xt": xt_v,
+        }
+        acts = (
+            {
+                "en": f"takes the ball off {ctx.surname(victim)}",
+                "es": f"le roba el balón a {ctx.surname(victim)}",
+                "ar": f"يفتك الكرة من {ctx.surname(victim)}",
+            }
+            if victim
+            else {
+                "en": "wins the ball",
+                "es": "recupera el balón",
+                "ar": "يستعيد الكرة",
+            }
+        )
+        per = {lang: {"act": acts[lang], "tw": count(tw, lang, *TACKLES)} for lang in LANGS}
+        evidence = [
+            ev_item("Player", who, None, src),
+            ev_item("Expected threat stopped", xt_v, "xT", src),
+            ev_item("Distance from own goal", gd, "m", src),
+            ev_item("Last-ditch (inside own box)", last_ditch, None, src),
+            ev_item(f"{who} tackles won (match)", tw, None, src),
+        ]
+        if victim:
+            evidence.append(ev_item("Dribbler", ctx.players[victim].name, None, src))
+        ids = [pid] + ([victim] if victim else [])
+        self.add(
+            ev,
+            "key_tackle",
+            "lower_third",
+            62,
+            "key_tackle",
+            base,
+            per,
+            evidence,
+            team,
+            ids,
+        )
+
     def pitch_tag(self, ev: dict, metrics: dict, shot: dict | None) -> None:
         clock = ev["clock_s"]
         if self.last_tag_clock is not None and clock - self.last_tag_clock < PITCH_TAG_GAP_S:
@@ -2062,15 +2460,6 @@ class Spotter:
                 ev_item("Chance quality", rnd(shot["cq"]), "xG", src),
             ] + pev
             kind, prio, players = "rocket_shot", 40, [pid]
-        elif (ev.get("player_speed_mps") or 0.0) >= SPEED_BURST_MS:
-            thr = M.kmh(SPEED_BURST_MS)
-            base.update({"kmh": metrics["player_speed_kmh"], "thr": thr})
-            per = pp
-            evidence = [
-                ev_item("Player speed", metrics["player_speed_kmh"], "km/h", src),
-                ev_item("Speed burst threshold", thr, "km/h", src),
-            ] + pev
-            kind, prio, players = "speed_burst", 30, [pid]
         elif (
             ev["type"] == "pass"
             and ev.get("outcome") == "complete"
@@ -2511,7 +2900,7 @@ def build(path: Path) -> tuple[dict, list[dict]]:
     match_id = start["match_id"]
     ctx = Ctx(start["details"]["home"], start["details"]["away"])
     state_engine = StateEngine(match_id, ctx)
-    book = PlayerBook(ctx)
+    book = PlayerBook(ctx, timeline_for([Event.model_validate(e) for e in raw]))
     spotter = Spotter(ctx, book)
     prev_players = book.views()
     ticks: list[dict] = []

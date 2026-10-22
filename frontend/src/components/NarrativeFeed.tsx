@@ -12,6 +12,7 @@ import {
   Play,
   Rocket,
   Route,
+  ShieldCheck,
   Sparkles,
   Split,
   Square,
@@ -45,6 +46,7 @@ export const KIND_ICON: Record<MomentKind, LucideIcon> = {
   rocket_shot: Rocket,
   distance_milestone: Route,
   hard_pass: Crosshair,
+  key_tackle: ShieldCheck,
   milestone: Award,
   correction: Gavel,
 };

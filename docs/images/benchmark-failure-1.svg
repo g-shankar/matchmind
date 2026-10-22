@@ -11,7 +11,7 @@
 <marker id="pressure" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#f472b6"/></marker>
 </defs>
 <rect width="100%" height="100%" fill="#0b1120"/>
-<text x="24.0" y="30" fill="#f8fafc" font-size="20" font-weight="700">Benchmark failure, MM-HOLD-900 at 22:48</text>
+<text x="24.0" y="30" fill="#f8fafc" font-size="20" font-weight="700">Benchmark failure, MM-HOLD-900 at 37:15</text>
 <text x="24.0" y="54" fill="#94a3b8" font-size="14">Synthetic tracking-to-event benchmark (held-out match). Dashed = true event.</text>
 <rect x="543" y="14" width="321" height="24" rx="12" fill="none" stroke="#fbbf24"/>
 <text x="704" y="31" fill="#fbbf24" font-size="13" text-anchor="middle">Detected from synthetic tracking, not video</text>
@@ -22,40 +22,43 @@
 <line x1="24.0" y1="389.3" x2="24.0" y2="330.7" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
 <rect x="732.0" y="198.72000000000003" width="132.0" height="322.56" fill="none" stroke="#e5e7eb" stroke-width="2"/>
 <line x1="864.0" y1="389.3" x2="864.0" y2="330.7" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
-<polyline points="411.7,381.6 415.8,375.2 418.0,371.2 418.0,371.5 418.3,371.6 417.8,371.4 418.2,371.3 418.2,372.2 418.2,371.5 417.8,371.9 418.9,372.0 418.3,371.3 418.4,371.7 417.0,371.1 415.6,368.1 414.6,367.0 413.4,365.0 411.7,361.9 410.6,359.6 409.0,359.4 407.0,356.2 405.1,353.4 404.3,352.0 403.3,349.5 400.6,348.1 399.9,345.8 398.2,343.7 397.3,341.3 394.9,340.2 393.6,337.3 391.8,335.6 390.8,333.2 388.5,331.1 387.9,329.0 386.6,327.2 386.6,327.3 386.5,328.0 386.7,327.8 386.8,327.7 386.5,327.9 386.8,327.6 386.7,327.2 386.9,328.0 386.4,327.4 386.9,327.5 387.2,326.9 385.9,327.4 386.1,328.1 385.9,327.4 385.9,327.4 386.8,328.4 386.1,327.4 386.2,327.8 386.3,327.4 386.9,327.4 386.6,328.1 386.5,327.4 386.6,328.1 386.7,327.8 385.5,327.9 387.1,327.9 386.8,327.5 386.6,327.6 388.3,342.3 389.0,357.5 391.8,372.1 392.6,385.9 393.8,401.1 396.2,416.1 397.2,430.5 398.6,444.3 399.8,459.9 402.2,475.0 402.8,489.4 404.5,503.9 404.9,513.1 405.7,513.9 405.9,514.5 405.2,513.8 405.6,513.4 405.2,513.8 405.1,513.1 405.3,514.2 405.7,513.3 405.2,513.2 405.7,514.3 405.1,513.2 405.4,513.3 405.8,513.7 405.3,513.7 405.6,513.9 405.1,513.7 405.2,513.7 405.2,513.9 405.7,513.9 405.1,513.3 405.3,513.5 405.6,514.1 404.9,513.7 404.9,513.4 405.5,513.5 406.0,513.9 405.5,513.4 405.3,513.5 405.5,513.1 405.1,513.5 405.4,513.4 405.5,513.9 405.1,513.7 405.0,513.6 406.7,508.6 408.4,499.2 410.7,489.0 412.4,479.1 414.4,469.0 416.0,459.7 418.2,449.2 420.2,439.8 422.0,429.4 424.0,420.3 426.0,410.4" fill="none" stroke="#f8fafc" stroke-opacity="0.35" stroke-width="2"/>
-<line x1="386.6" y1="327.6" x2="405.4" y2="513.7" stroke="#f8fafc" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="5 5"/>
-<line x1="405.4" y1="513.7" x2="427.8" y2="401.7" stroke="#f8fafc" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="5 5"/>
-<rect x="399.4" y="507.7" width="12" height="12" fill="none" stroke="#f8fafc" stroke-width="1.5" stroke-dasharray="3 2"/>
-<rect x="399.4" y="507.7" width="12" height="12" fill="none" stroke="#f8fafc" stroke-width="1.5" stroke-dasharray="3 2"/>
-<line x1="386.7" y1="327.8" x2="405.0" y2="513.0" stroke="#fb923c" stroke-width="3.5" stroke-linecap="round" marker-end="url(#incomplete)"/>
-<text x="395.8" y="412.4" fill="#f8fafc" font-size="12" text-anchor="middle">84 km/h</text>
-<line x1="405.0" y1="513.7" x2="428.2" y2="401.8" stroke="#2dd4bf" stroke-width="3.5" stroke-linecap="round" marker-end="url(#complete)"/>
-<text x="416.6" y="449.8" fill="#f8fafc" font-size="12" text-anchor="middle">58 km/h</text>
-<circle cx="116.3" cy="378.6" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
-<circle cx="226.5" cy="552.5" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
-<circle cx="204.8" cy="452.1" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
-<circle cx="202.0" cy="345.0" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
-<circle cx="222.5" cy="236.4" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
-<circle cx="301.9" cy="386.4" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
-<circle cx="341.1" cy="477.5" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
-<circle cx="347.0" cy="335.4" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
-<circle cx="420.0" cy="555.2" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
-<circle cx="433.9" cy="240.5" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
-<circle cx="445.1" cy="384.6" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
-<circle cx="800.6" cy="375.7" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
-<circle cx="668.7" cy="181.8" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
-<circle cx="702.3" cy="316.9" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
-<circle cx="695.7" cy="465.5" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
-<circle cx="671.3" cy="613.2" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
-<circle cx="567.4" cy="332.0" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
-<circle cx="566.6" cy="454.8" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
-<circle cx="429.5" cy="196.1" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
-<circle cx="428.2" cy="401.1" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
-<circle cx="425.1" cy="554.2" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
-<circle cx="339.7" cy="385.2" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
-<circle cx="427.2" cy="404.9" r="4" fill="#ffffff"/>
-<circle cx="405.4" cy="513.7" r="22" fill="none" stroke="#fbbf24" stroke-width="3" stroke-dasharray="6 4"/>
-<text x="24.0" y="680.0" fill="#fbbf24" font-size="14">missed: true interception, detected nothing (NBR-7, ringed)</text>
+<polyline points="628.4,362.4 627.9,362.3 627.5,362.5 628.0,362.7 627.6,361.5 628.4,361.7 628.9,362.0 630.7,349.3 633.2,336.3 636.0,322.0 638.3,307.3 640.1,293.4 642.9,278.5 645.9,265.2 648.0,250.7 650.2,236.8 653.7,223.3 655.5,209.7 658.3,194.2 661.5,180.5 663.2,166.4 665.6,152.7 665.9,152.2 665.7,152.5 666.4,152.3 665.5,152.8 665.7,152.3 665.4,151.3 665.6,152.3 665.3,152.3 665.6,152.6 665.7,152.2 665.8,151.9 666.4,152.9 665.8,152.5 666.0,152.1 665.5,152.4 666.2,151.9 665.3,152.6 667.0,155.4 673.0,167.6 678.8,177.9 684.6,189.4 690.6,200.5 697.1,211.0 702.8,223.0 708.7,234.5 715.0,246.2 721.6,256.3 725.9,267.9 732.4,279.2 745.3,302.7 744.1,302.4 744.2,302.5 744.3,302.8 745.0,302.4 744.2,302.9 744.9,303.2 745.1,302.3 745.4,302.6 744.4,303.0 744.6,303.0 744.9,301.9 732.8,306.5 721.2,311.3 707.9,315.5 696.9,318.6 684.4,323.3 672.5,327.8 659.7,332.0 648.3,336.3 635.9,339.8 624.1,344.6 621.3,344.8 621.2,344.9" fill="none" stroke="#f8fafc" stroke-opacity="0.35" stroke-width="2"/>
+<line x1="628.3" y1="362.3" x2="665.7" y2="152.5" stroke="#f8fafc" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="5 5"/>
+<line x1="665.7" y1="152.5" x2="744.9" y2="302.6" stroke="#f8fafc" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="5 5"/>
+<line x1="744.9" y1="302.6" x2="621.2" y2="345.3" stroke="#f8fafc" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="5 5"/>
+<rect x="615.2" y="339.3" width="12" height="12" fill="none" stroke="#f8fafc" stroke-width="1.5" stroke-dasharray="3 2"/>
+<line x1="628.0" y1="361.9" x2="665.6" y2="152.7" stroke="#2dd4bf" stroke-width="3.5" stroke-linecap="round" marker-end="url(#complete)"/>
+<text x="646.8" y="249.3" fill="#f8fafc" font-size="12" text-anchor="middle">79 km/h</text>
+<line x1="665.4" y1="152.6" x2="744.6" y2="302.1" stroke="#2dd4bf" stroke-width="3.5" stroke-linecap="round" marker-end="url(#complete)"/>
+<text x="705.0" y="219.3" fill="#f8fafc" font-size="12" text-anchor="middle">71 km/h</text>
+<line x1="745.0" y1="302.5" x2="624.2" y2="344.6" stroke="#fb923c" stroke-width="3.5" stroke-linecap="round" marker-end="url(#incomplete)"/>
+<text x="684.6" y="315.6" fill="#f8fafc" font-size="12" text-anchor="middle">73 km/h</text>
+<circle cx="745.0" cy="302.5" r="28.0" fill="none" stroke="#f472b6" stroke-width="1.5" stroke-opacity="0.8"/>
+<circle cx="191.1" cy="351.4" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="384.6" cy="570.1" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="344.4" cy="422.6" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="353.8" cy="266.5" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="363.3" cy="133.2" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="474.7" cy="360.7" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="515.8" cy="455.4" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="543.6" cy="250.4" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="688.8" cy="568.8" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="685.5" cy="139.3" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="699.1" cy="357.8" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="823.4" cy="371.0" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="765.0" cy="194.6" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="800.0" cy="295.4" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="795.5" cy="402.3" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="786.3" cy="512.1" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="728.0" cy="321.6" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="709.5" cy="396.5" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="608.2" cy="222.0" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="632.5" cy="352.1" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="605.2" cy="492.7" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="552.7" cy="365.1" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="620.6" cy="344.8" r="4" fill="#ffffff"/>
+<circle cx="621.2" cy="345.3" r="22" fill="none" stroke="#fbbf24" stroke-width="3" stroke-dasharray="6 4"/>
+<text x="24.0" y="680.0" fill="#fbbf24" font-size="14">missed: true interception, detected nothing (HCY-10, ringed)</text>
 <rect x="24.0" y="692.0" width="14" height="4" fill="#f8fafc"/>
 <text x="44.0" y="698.0" fill="#cbd5e1" font-size="13">true event (simulator), dashed</text>
 <rect x="258.0" y="692.0" width="14" height="4" fill="#2dd4bf"/>

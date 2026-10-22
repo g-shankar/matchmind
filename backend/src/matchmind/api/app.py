@@ -699,6 +699,18 @@ def create_app(
     async def crew_trace(limit: int = Query(default=20, ge=1, le=100)) -> list[dict[str, Any]]:
         return await reads.crew_traces(hub, limit)
 
+    # --- Metric registry and basic stats (docs/METRICS.md) -----------------------------------
+
+    @app.get("/api/metrics")
+    async def metric_registry() -> dict[str, Any]:
+        return reads.metric_registry()
+
+    @app.get("/api/match/stats/basic")
+    async def basic_stats() -> dict[str, Any]:
+        return await reads.basic_stats(hub)
+
+    # --- end metric registry and basic stats ----------------------------------------------------
+
     @app.get("/api/auto-eventing")
     async def auto_eventing() -> dict[str, Any]:
         return reads.auto_eventing(hub)
