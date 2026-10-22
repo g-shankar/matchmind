@@ -49,40 +49,40 @@ Baseline: Naive baseline: every ball-speed spike is a pass, every change of near
 
 ### Tuning split (for reference; optimistic by construction)
 
-Matches: MM-DEMO-001, MM-SYN-001, MM-SYN-002, MM-SYN-003, MM-SYN-004 (seeds 100, 101, 102, 103, 104); 732,204 frames.
+Matches: MM-DEMO-001, MM-SYN-001, MM-SYN-002, MM-SYN-003, MM-SYN-004 (seeds 100, 101, 102, 103, 104); 731,850 frames.
 
 | Class | Support (true) | Detected | Matched | Precision (95% CI) | Recall (95% CI) | F1 |
 |---|---:|---:|---:|---|---|---:|
-| pass | 6453 | 6432 | 6418 | 99.8% (99.6-99.9%) | 99.5% (99.2-99.6%) | 0.996 |
-| shot | 159 | 164 | 154 | 93.9% (89.1-96.7%) | 96.9% (92.8-98.7%) | 0.954 |
-| clearance | 48 | 46 | 46 | 100.0% (92.3-100.0%) | 95.8% (86.0-98.9%) | 0.979 |
-| tackle | 296 | 279 | 260 | 93.2% (89.6-95.6%) | 87.8% (83.6-91.1%) | 0.904 |
-| interception | 1126 | 1111 | 1097 | 98.7% (97.9-99.2%) | 97.4% (96.3-98.2%) | 0.981 |
-| recovery | 57 | 56 | 40 | 71.4% (58.5-81.6%) | 70.2% (57.3-80.5%) | 0.708 |
-| pressure | 1129 | 1677 | 1061 | 63.3% (60.9-65.5%) | 94.0% (92.4-95.2%) | 0.756 |
+| pass | 6499 | 6478 | 6462 | 99.8% (99.6-99.9%) | 99.4% (99.2-99.6%) | 0.996 |
+| shot | 157 | 161 | 151 | 93.8% (88.9-96.6%) | 96.2% (91.9-98.2%) | 0.950 |
+| clearance | 47 | 43 | 43 | 100.0% (91.8-100.0%) | 91.5% (80.1-96.6%) | 0.956 |
+| tackle | 305 | 286 | 268 | 93.7% (90.3-96.0%) | 87.9% (83.7-91.1%) | 0.907 |
+| interception | 1144 | 1128 | 1115 | 98.9% (98.0-99.3%) | 97.5% (96.4-98.2%) | 0.982 |
+| recovery | 54 | 50 | 36 | 72.0% (58.3-82.5%) | 66.7% (53.4-77.8%) | 0.692 |
+| pressure | 1155 | 1719 | 1087 | 63.2% (60.9-65.5%) | 94.1% (92.6-95.3%) | 0.756 |
 
-Kick-speed MAE (matched passes and shots): **1.03 km/h** (95% bootstrap CI 0.98-1.08 km/h, n = 6572). Right receiver on matched complete passes: 99.8%.
+Kick-speed MAE (matched passes and shots): **1.04 km/h** (95% bootstrap CI 1.00-1.09 km/h, n = 6613). Right receiver on matched complete passes: 99.8%.
 
 Confusion matrix (rows: true kind or *spurious*; columns: detected kind or *missed*).
 Pressure is scored separately (it rides on a kick, so it is not a kind of its own here).
 
 | true \ detected | pass | shot | clearance | tackle | interception | recovery | missed | total |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| **pass** | 6418 | 10 | 0 | 0 | 0 | 0 | 25 | 6453 |
-| **shot** | 3 | 154 | 0 | 0 | 0 | 0 | 2 | 159 |
-| **clearance** | 2 | 0 | 46 | 0 | 0 | 0 | 0 | 48 |
-| **tackle** | 0 | 0 | 0 | 260 | 2 | 0 | 34 | 296 |
-| **interception** | 0 | 0 | 0 | 0 | 1097 | 9 | 20 | 1126 |
-| **recovery** | 0 | 0 | 0 | 2 | 4 | 40 | 11 | 57 |
+| **pass** | 6462 | 10 | 0 | 0 | 0 | 0 | 27 | 6499 |
+| **shot** | 3 | 151 | 0 | 0 | 0 | 0 | 3 | 157 |
+| **clearance** | 4 | 0 | 43 | 0 | 0 | 0 | 0 | 47 |
+| **tackle** | 0 | 0 | 0 | 268 | 2 | 0 | 35 | 305 |
+| **interception** | 0 | 0 | 0 | 0 | 1115 | 7 | 22 | 1144 |
+| **recovery** | 0 | 0 | 0 | 1 | 3 | 36 | 14 | 54 |
 | **spurious** | 9 | 0 | 0 | 17 | 8 | 7 | 0 | 41 |
 
 Baseline: Naive baseline: every ball-speed spike is a pass, every change of nearest team is a tackle.
 
 | Class | Support (true) | Detected | Matched | Precision (95% CI) | Recall (95% CI) | F1 |
 |---|---:|---:|---:|---|---|---:|
-| pass | 6453 | 9339 | 6211 | 66.5% (65.5-67.5%) | 96.2% (95.8-96.7%) | 0.787 |
-| tackle | 296 | 4173 | 283 | 6.8% (6.1-7.6%) | 95.6% (92.6-97.4%) | 0.127 |
-| pressure | 1129 | 2562 | 1097 | 42.8% (40.9-44.7%) | 97.2% (96.0-98.0%) | 0.594 |
+| pass | 6499 | 9357 | 6264 | 66.9% (66.0-67.9%) | 96.4% (95.9-96.8%) | 0.790 |
+| tackle | 305 | 4213 | 295 | 7.0% (6.3-7.8%) | 96.7% (94.1-98.2%) | 0.131 |
+| pressure | 1155 | 2592 | 1123 | 43.3% (41.4-45.2%) | 97.2% (96.1-98.0%) | 0.600 |
 
 ## Robustness sweep
 
@@ -102,7 +102,7 @@ Held-out matches MM-HOLD-900, MM-HOLD-901, MM-HOLD-902, with extra noise and dro
 
 > **Rendered synthetic top-down video, not broadcast footage; no real-video model.**
 
-Held-out matches MM-HOLD-900, MM-HOLD-901, MM-HOLD-902, the first 180 s of each, rendered at 320 x 208 px (3 px per metre), 13,500 frames. Vision step: 38.8 s per match window. Recovered player positions: median error 0.018 m (95th percentile 0.369 m); ball: median 0.049 m, recovered in 99.6% of frames where it was tracked.
+Held-out matches MM-HOLD-900, MM-HOLD-901, MM-HOLD-902, the first 180 s of each, rendered at 320 x 208 px (3 px per metre), 13,500 frames. Vision step: 36.8 s per match window. Recovered player positions: median error 0.018 m (95th percentile 0.369 m); ball: median 0.049 m, recovered in 99.6% of frames where it was tracked.
 
 Coordinate path on the same frames:
 
@@ -138,4 +138,4 @@ Kick-speed MAE: coordinate 1.16 km/h, pixels 1.4 km/h.
 - `missed:pass`: MM-HOLD-900 at 00:00 (true pass, detected nothing). ![missed:pass](images/benchmark-failure-4.svg)
 - `spurious:recovery`: MM-HOLD-901 at 77:59 (true nothing, detected recovery). ![spurious:recovery](images/benchmark-failure-5.svg)
 
-Runtime: 296.3 s.
+Runtime: 283.9 s.

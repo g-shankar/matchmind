@@ -1830,8 +1830,9 @@ class Spotter:
         team: str | None,
         player_ids: list[str],
         replay: dict | None = None,
-        suffix: str = "",
         extra: dict | None = None,
+        *,
+        suffix: str = "",
     ) -> None:
         self.moments.append(
             {

@@ -26,8 +26,11 @@ Full generated report: [AUTO-EVENTING-BENCHMARK.md](AUTO-EVENTING-BENCHMARK.md)
    25 frames a second, from a simulated match: the ball follows the events at
    their recorded speeds, the holder stands with it, everyone else holds a
    team shape and runs to where the events need them next (receiving,
-   intercepting, pressing). 5 cm of position noise, short ball dropouts and a
-   ball-in-play flag on every frame.
+   intercepting, pressing). Off the ball, players ease into the shape at
+   jogging pace with a small drift and run back when caught upfield, tuned so
+   the physical stats built on this feed land near real match distances.
+   5 cm of position noise, short ball dropouts and a ball-in-play flag on
+   every frame.
 2. **Detect events from frames only** (`detect.py`). The detector never sees
    the events. It finds who controls the ball in each frame, then:
    - **kicks**: pass (complete, incomplete, out), shot (goal, saved, blocked,
@@ -92,16 +95,16 @@ every frame.
 
 | Class | Support | Detected | Matched | Precision (95% CI) | Recall (95% CI) | F1 |
 |---|---:|---:|---:|---|---|---:|
-| pass | 13210 | 13165 | 13141 | 99.8% (99.7-99.9%) | 99.5% (99.3-99.6%) | 0.997 |
+| pass | 13210 | 13174 | 13143 | 99.8% (99.7-99.8%) | 99.5% (99.4-99.6%) | 0.996 |
 | shot | 252 | 255 | 237 | 92.9% (89.1-95.5%) | 94.0% (90.4-96.4%) | 0.935 |
-| clearance | 93 | 93 | 91 | 97.9% (92.5-99.4%) | 97.9% (92.5-99.4%) | 0.979 |
-| tackle | 649 | 630 | 593 | 94.1% (92.0-95.7%) | 91.4% (89.0-93.3%) | 0.927 |
-| interception | 2226 | 2212 | 2185 | 98.8% (98.2-99.2%) | 98.2% (97.5-98.6%) | 0.985 |
-| recovery | 103 | 109 | 78 | 71.6% (62.5-79.2%) | 75.7% (66.6-83.0%) | 0.736 |
-| pressure | 2285 | 3165 | 2174 | 68.7% (67.0-70.3%) | 95.1% (94.2-96.0%) | 0.798 |
+| clearance | 93 | 88 | 88 | 100.0% (95.8-100.0%) | 94.6% (88.0-97.7%) | 0.972 |
+| tackle | 649 | 641 | 595 | 92.8% (90.6-94.6%) | 91.7% (89.3-93.6%) | 0.922 |
+| interception | 2226 | 2216 | 2186 | 98.7% (98.1-99.1%) | 98.2% (97.6-98.7%) | 0.984 |
+| recovery | 103 | 104 | 79 | 76.0% (66.9-83.2%) | 76.7% (67.7-83.8%) | 0.763 |
+| pressure | 2285 | 3452 | 2174 | 63.0% (61.4-64.6%) | 95.1% (94.2-96.0%) | 0.758 |
 
-Kick-speed error **1.08 km/h** (95% CI 1.02-1.15, n = 13,378 kicks). Right
-receiver on matched complete passes: 99.4%. The tuning split gives similar
+Kick-speed error **1.08 km/h** (95% CI 1.03-1.16, n = 13,380 kicks). Right
+receiver on matched complete passes: 99.8%. The tuning split gives similar
 numbers (see the full report); shots and recoveries have small supports, and
 their intervals are wide.
 
@@ -109,16 +112,16 @@ Confusion matrix (rows: truth or *spurious*; columns: detection or *missed*):
 
 | true \ detected | pass | shot | clearance | tackle | interception | recovery | missed |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| **pass** | 13141 | 18 | 2 | 0 | 0 | 0 | 49 |
+| **pass** | 13143 | 18 | 0 | 0 | 0 | 0 | 49 |
 | **shot** | 8 | 237 | 0 | 0 | 0 | 0 | 7 |
-| **clearance** | 2 | 0 | 91 | 0 | 0 | 0 | 0 |
-| **tackle** | 0 | 0 | 0 | 593 | 4 | 1 | 51 |
-| **interception** | 0 | 0 | 0 | 0 | 2185 | 10 | 31 |
-| **recovery** | 0 | 0 | 0 | 1 | 0 | 78 | 24 |
-| **spurious** | 14 | 0 | 0 | 36 | 23 | 20 | 0 |
+| **clearance** | 5 | 0 | 88 | 0 | 0 | 0 | 0 |
+| **tackle** | 0 | 0 | 0 | 595 | 4 | 0 | 50 |
+| **interception** | 0 | 0 | 0 | 0 | 2186 | 11 | 29 |
+| **recovery** | 0 | 0 | 0 | 1 | 1 | 79 | 22 |
+| **spurious** | 18 | 0 | 0 | 45 | 25 | 14 | 0 |
 
-**Against the naive baseline** (same held-out matches): pass F1 0.792
-(precision 67.1%), tackle F1 0.136 (precision 7.3%), pressure F1 0.619. The
+**Against the naive baseline** (same held-out matches): pass F1 0.793
+(precision 67.1%), tackle F1 0.142 (precision 7.7%), pressure F1 0.597. The
 detector's control and kick rules are what remove the baseline's false
 positives; its recall is similar.
 
@@ -126,12 +129,12 @@ positives; its recall is similar.
 
 | Setting | pass | shot | tackle | interception | recovery | pressure | kick-speed error |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| base feed (5 cm) | 0.997 | 0.925 | 0.940 | 0.983 | 0.733 | 0.808 | 1.08 km/h |
-| 15 cm noise | 0.973 | 0.831 | 0.879 | 0.950 | 0.724 | 0.785 | 3.80 km/h |
-| 30 cm noise | 0.967 | 0.618 | 0.773 | 0.920 | 0.786 | 0.771 | 8.69 km/h |
-| ball dropouts 0.5/s | 0.989 | 0.889 | 0.910 | 0.956 | 0.746 | 0.806 | 2.45 km/h |
-| player occlusion 0.3/s | 0.989 | 0.925 | 0.901 | 0.966 | 0.557 | 0.792 | 1.09 km/h |
-| all of it at once | 0.953 | 0.525 | 0.752 | 0.902 | 0.567 | 0.747 | 9.96 km/h |
+| base feed (5 cm) | 0.997 | 0.931 | 0.927 | 0.985 | 0.807 | 0.767 | 1.09 km/h |
+| 15 cm noise | 0.973 | 0.842 | 0.864 | 0.953 | 0.667 | 0.749 | 3.79 km/h |
+| 30 cm noise | 0.967 | 0.613 | 0.810 | 0.933 | 0.737 | 0.740 | 8.69 km/h |
+| ball dropouts 0.5/s | 0.990 | 0.889 | 0.892 | 0.957 | 0.807 | 0.764 | 2.46 km/h |
+| player occlusion 0.3/s | 0.993 | 0.931 | 0.907 | 0.970 | 0.597 | 0.757 | 1.09 km/h |
+| all of it at once | 0.958 | 0.525 | 0.810 | 0.915 | 0.559 | 0.728 | 9.96 km/h |
 
 Passes and interceptions degrade gently. Shots, clearances and recoveries
 degrade fastest (shots rely on the fitted kick speed and direction;
@@ -141,17 +144,17 @@ on the raw ball.
 
 **Pixel path** (rendered synthetic top-down video, not broadcast footage; no
 real-video model). First 180 s of MM-HOLD-900, -901 and -902, 13,500 frames,
-about 30 s of compute per match window. Recovered player positions: median
-error 0.02 m, 95th percentile 0.36 m; ball median error 0.05 m, recovered in
+about 37 s of compute per match window. Recovered player positions: median
+error 0.02 m, 95th percentile 0.37 m; ball median error 0.05 m, recovered in
 99.6% of frames where it was tracked.
 
 | Class (same frames) | Support | Coordinate path F1 | Pixel path F1 |
 |---|---:|---:|---:|
-| pass | 127 | 0.988 | 0.968 |
-| interception | 18 | 1.000 | 0.757 |
-| tackle | 4 | 1.000 | 0.889 |
+| pass | 127 | 0.988 | 0.972 |
+| interception | 18 | 1.000 | 0.722 |
+| tackle | 4 | 1.000 | 0.750 |
 | shot | 2 | 1.000 | 0.667 |
-| pressure | 21 | 0.760 | 0.735 |
+| pressure | 21 | 0.745 | 0.720 |
 
 The pixel path also makes 4 spurious clearances and 3 spurious recoveries in
 that window, and its kick-speed error is 1.40 km/h against 1.16 km/h. The
@@ -168,15 +171,11 @@ swaps are rare in these windows (two to four players, briefly, per window).
 Drawn by `render_failure_svg` (dashed = true event, coloured = detected,
 yellow ring = the event in question).
 
-1. **Missed interception** (MM-HOLD-900, 22:48). The interceptor loses the
-   ball in a failed dribble 0.6 s later. His spell on the ball is shorter
-   than the 0.3 s the detector needs to call a change of possession, so
-   neither the interception nor the tackle that follows is found.
+1. **Missed interception** (MM-HOLD-900, 37:15). An interception in the
+   event data that the detector does not find.
    ![missed interception](images/benchmark-failure-1.svg)
-2. **Spurious interception** (MM-HOLD-900, 25:26). An opponent standing next
-   to the receiver is briefly the nearest player when a 22 m/s pass arrives,
-   so the detector calls an interception, a short pass and a second
-   interception where the event data has one complete pass.
+2. **Spurious interception** (MM-HOLD-900, 51:24). The detector calls an
+   interception where the event data has none.
    ![spurious interception](images/benchmark-failure-2.svg)
 3. **Clearance read as a pass** (MM-HOLD-901, 46:19). A 37 m clearance is
    reached by an opponent before it settles, so it is not loose for 0.4 s and
@@ -190,16 +189,16 @@ yellow ring = the event in question).
    after goals are found, the two that start the halves are not (6 of 16
    kick-off passes missed in three tuning matches).
    ![missed kick-off](images/benchmark-failure-4.svg)
-5. **Spurious recovery** (MM-HOLD-900, 08:40). A fast cut-back into the box is
-   called a blocked shot, so the teammate's first touch is called a recovery.
-   With no ball height, a hard low pass towards goal and a shot look alike.
+5. **Spurious recovery** (MM-HOLD-901, 77:59). The detector calls a
+   recovery where the event data has none. With no ball height, a hard low
+   pass towards goal and a shot look alike, which is the usual cause.
    ![spurious recovery](images/benchmark-failure-5.svg)
 
 ## Honest limits
 
 - **Circular** (see the top). Pressure is the clearest case: pressers are
   drawn where the event data says they were, so high pressure recall is
-  partly by construction. Its precision (69%) is low because the team-shape
+  partly by construction. Its precision (63%) is low because the team-shape
   model also brings opponents within 3.5 m when the event data says no one
   was pressing.
 - **Synthetic only.** No ball height, spin or bounce; simple player motion; no
