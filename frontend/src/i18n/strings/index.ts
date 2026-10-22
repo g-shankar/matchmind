@@ -12,7 +12,7 @@ import ask from './ask';
 import visit from './visit';
 import guide from './guide';
 
-export const UI_LANGUAGES = ['en', 'es', 'ar'] as const;
+export const UI_LANGUAGES = ['en', 'es', 'fr', 'ar', 'ja'] as const;
 export type UiLanguage = (typeof UI_LANGUAGES)[number];
 export type StringTable = Record<UiLanguage, Record<string, string>>;
 
@@ -21,7 +21,9 @@ export const tables: Record<string, StringTable> = { core, pitch, broadcast, stu
 export const mergedStrings: Record<UiLanguage, Record<string, string>> = {
   en: {},
   es: {},
+  fr: {},
   ar: {},
+  ja: {},
 };
 
 for (const table of Object.values(tables)) {

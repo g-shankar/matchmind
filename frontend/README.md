@@ -2,8 +2,11 @@
 
 React 18 + Vite + Tailwind, TypeScript strict. It shows one synthetic match
 from the Matchmind engine: studio, broadcast overlay, fan vs analyst split,
-player focus and "My match" (favourite club and single-metric mode), in
-English, Spanish and Arabic (right-to-left).
+player focus and "My match" (favourite club and single-metric mode). The
+whole interface is in English, Spanish, French, Arabic (right-to-left) and
+Japanese, the same five languages the crew writes in; every label exists in
+every language (`src/i18n/strings`, enforced by `src/i18n/i18n.test.ts` and
+`src/i18n/uiLanguages.test.tsx`).
 
 ## Run
 

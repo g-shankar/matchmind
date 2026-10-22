@@ -77,6 +77,11 @@ const Sparkline: React.FC<{ series: { values: number[]; color: string }[]; label
 
 const ClubButton: React.FC<{ team: TeamInfo; on: boolean; onPick: () => void }> = ({ team, on, onPick }) => {
   const { t } = useI18n();
+  // The club's playing style comes from the server in English; known styles have a table entry
+  // in every interface language, and an unknown one is shown as English, marked as such.
+  const styleKey = `team.style.${team.style}`;
+  const style = team.style ? t(styleKey) : null;
+  const styleKnown = style !== styleKey;
   return (
     <button
       type="button"
@@ -99,7 +104,11 @@ const ClubButton: React.FC<{ team: TeamInfo; on: boolean; onPick: () => void }> 
         </span>
         {on && <Heart className="h-5 w-5 shrink-0" style={{ color: team.primary_color, fill: team.primary_color }} aria-hidden />}
       </span>
-      {team.style && <span className="mt-2 block ps-2 text-xs leading-snug text-slate-300">{team.style}</span>}
+      {team.style && (
+        <span lang={styleKnown ? undefined : 'en'} className="mt-2 block ps-2 text-xs leading-snug text-slate-300">
+          {styleKnown ? style : team.style}
+        </span>
+      )}
     </button>
   );
 };

@@ -120,8 +120,15 @@ only when the translator is used.
   sits next to the picker.
 - Translated cards and recaps carry a "Translated by Azure AI Translator" tag.
 - Card text is marked with its real language (`lang` attribute), so screen
-  readers and fonts follow it. The app's own labels stay in English, Spanish
-  or Arabic; none of the world languages is right-to-left.
+  readers and fonts follow it. The app's own labels (header, tabs, audience
+  picker, Ask, recap, Under the hood) come in all five studio languages:
+  English, Spanish, French, Arabic and Japanese, so a studio language never
+  shows its cards inside labels in another language. Japanese uses the
+  device's own Japanese fonts (Hiragino Sans, Noto Sans JP, Yu Gothic); nothing
+  extra is downloaded. A world language keeps English labels around the
+  translated cards. None of the world languages is right-to-left. Text the
+  server sends only in English (metric registry, check reasons) is marked
+  `lang="en"` and labelled as English.
 - The offline demo (in-browser replay) never calls Translator. It lists French
   and Japanese as "Not in the offline demo" (the recording holds English,
   Spanish and Arabic text) and world languages as off.
