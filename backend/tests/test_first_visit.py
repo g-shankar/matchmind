@@ -192,3 +192,23 @@ def test_api_docs_off_where_the_app_is_served(tmp_path, monkeypatch, serves_fron
     with TestClient(app) as client:
         assert client.get("/openapi.json").status_code == expect
         assert client.get("/docs").status_code == expect
+
+
+def test_built_app_is_compressed_and_hashed_files_cached(tmp_path):
+    static = tmp_path / "static"
+    (static / "assets").mkdir(parents=True)
+    (static / "index.html").write_text("<!doctype html><title>PitchPulse</title>" + " " * 2000)
+    (static / "assets" / "index-abc123.js").write_text("console.log('pitchpulse');" * 200)
+    clock = FakeClock()
+    app = create_app(
+        session=_session(clock), tick_interval=None, allowed_origins=[ALLOWED], static_dir=static, clock=clock
+    )
+    with TestClient(app) as client:
+        js = client.get("/assets/index-abc123.js", headers={"Accept-Encoding": "gzip"})
+        page = client.get("/", headers={"Accept-Encoding": "gzip"})
+        api = client.get("/api/health")
+    assert js.status_code == 200 and js.headers["content-encoding"] == "gzip"
+    assert js.headers["cache-control"] == "public, max-age=31536000, immutable"
+    assert page.headers["content-encoding"] == "gzip" and page.headers["cache-control"] == "no-cache"
+    assert "content-security-policy" in page.headers
+    assert api.headers["cache-control"] == "no-store"

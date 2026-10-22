@@ -34,6 +34,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from starlette.datastructures import MutableHeaders
+from starlette.middleware.gzip import GZipMiddleware
 
 from matchmind.ask.intents import ChipId
 from matchmind.crew.contracts import (
@@ -636,6 +638,28 @@ class Hub:
 # --- App -------------------------------------------------------------------------------------
 
 
+class _StaticCache:
+    """Cache headers for the built app: Vite's hashed files under /assets/ never change, so
+    they are cached for a year; everything else (index.html) is re-checked each visit."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        immutable = str(scope.get("path", "")).startswith("/assets/")
+
+        async def send_with_cache(message: Any) -> None:
+            if message["type"] == "http.response.start" and message.get("status") == 200:
+                headers = MutableHeaders(scope=message)
+                headers["Cache-Control"] = "public, max-age=31536000, immutable" if immutable else "no-cache"
+            await send(message)
+
+        await self.app(scope, receive, send_with_cache)
+
+
 def _api_docs_from_env(default: bool) -> bool:
     raw = os.environ.get("MATCHMIND_API_DOCS", "").strip().lower()
     if not raw:
@@ -1128,7 +1152,13 @@ def create_app(
     # --- Built frontend ----------------------------------------------------------------------
 
     if serves_frontend:
-        app.mount("/", StaticFiles(directory=static, html=True), name="static")
+        # Compressed, and the hashed build files cached for good, so a phone on a slow network
+        # gets the first screen sooner (the page itself is re-checked on every visit).
+        app.mount(
+            "/",
+            GZipMiddleware(_StaticCache(StaticFiles(directory=static, html=True)), minimum_size=1024),
+            name="static",
+        )
 
     return app
 
