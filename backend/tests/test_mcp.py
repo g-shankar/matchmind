@@ -162,6 +162,9 @@ def parity_cases(session: MatchSession) -> list[tuple[str, dict, Any]]:
     async def basic_stats(http):
         return await _get(http, "/api/match/stats/basic")
 
+    async def basic_stats_catch_up(http):
+        return await _get(http, "/api/match/stats/basic", spoilers="false")
+
     async def metric_registry(http):
         return await _get(http, "/api/metrics")
 
@@ -210,6 +213,7 @@ def parity_cases(session: MatchSession) -> list[tuple[str, dict, Any]]:
         ("get_player_stats", {"player_id": player_id}, one_player),
         ("get_team_rosters", {}, teams),
         ("get_basic_stats", {}, basic_stats),
+        ("get_basic_stats", {"spoilers": False}, basic_stats_catch_up),
         ("get_metric_registry", {}, metric_registry),
         ("get_crew_status", {"trace_limit": 5}, crew),
         ("get_auto_eventing", {}, auto_eventing),

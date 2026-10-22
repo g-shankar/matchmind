@@ -254,7 +254,8 @@ export interface BasicTeamStats {
   pass_accuracy_pct: number | null;
   shots: number;
   shots_on_target: number;
-  goals: number;
+  /** Null in catch-up mode (`?spoilers=false`): a team's goals are the score. */
+  goals: number | null;
   tackles_won: number;
   tackles_attempted: number;
   interceptions: number;
@@ -277,7 +278,8 @@ export interface BasicPlayerStats {
   pass_accuracy_pct: number | null;
   shots: number;
   shots_on_target: number;
-  goals: number;
+  /** Null in catch-up mode (`?spoilers=false`): a team's goals are the score. */
+  goals: number | null;
   tackles_won: number;
   tackles_attempted: number;
   interceptions: number;

@@ -111,8 +111,8 @@ async def _metric_registry(ctx: ToolContext, a: m.NoInput) -> dict[str, Any]:
     return reads.metric_registry()
 
 
-async def _basic_stats(ctx: ToolContext, a: m.NoInput) -> dict[str, Any]:
-    return await reads.basic_stats(ctx.hub)
+async def _basic_stats(ctx: ToolContext, a: m.BasicStatsIn) -> dict[str, Any]:
+    return await reads.basic_stats(ctx.hub, a.spoilers)
 
 
 async def _simulate(ctx: ToolContext, a: m.SimulateIn) -> dict[str, Any]:
@@ -178,8 +178,9 @@ register(ToolSpec(
     "get_basic_stats", "Basic match stats",
     "Counting stats so far per team and per fictional player: possession, pass accuracy with its "
     "denominator, shots and on target, tackles, interceptions, PPDA, and distance and top speed "
-    "estimated from synthetic tracking. Same payload as GET /api/match/stats/basic.",
-    m.NoInput, m.BasicStatsOut, _basic_stats,
+    "estimated from synthetic tracking. Set spoilers false for catch-up mode (goals null). "
+    "Same payload as GET /api/match/stats/basic.",
+    m.BasicStatsIn, m.BasicStatsOut, _basic_stats,
 ))  # fmt: skip
 register(ToolSpec(
     "get_metric_registry", "Metric registry",

@@ -5473,9 +5473,16 @@
       "openWorldHint": false,
       "readOnlyHint": true
     },
-    "description": "Counting stats so far per team and per fictional player: possession, pass accuracy with its denominator, shots and on target, tackles, interceptions, PPDA, and distance and top speed estimated from synthetic tracking. Same payload as GET /api/match/stats/basic.",
+    "description": "Counting stats so far per team and per fictional player: possession, pass accuracy with its denominator, shots and on target, tackles, interceptions, PPDA, and distance and top speed estimated from synthetic tracking. Set spoilers false for catch-up mode (goals null). Same payload as GET /api/match/stats/basic.",
     "inputSchema": {
-      "properties": {},
+      "properties": {
+        "spoilers": {
+          "default": true,
+          "description": "False: catch-up mode, goals per team and per player come back as null.",
+          "title": "Spoilers",
+          "type": "boolean"
+        }
+      },
       "title": "get_basic_statsArguments",
       "type": "object"
     },
@@ -5489,8 +5496,15 @@
               "type": "number"
             },
             "goals": {
-              "title": "Goals",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Goals"
             },
             "interceptions": {
               "title": "Interceptions",
@@ -5615,8 +5629,15 @@
               "type": "integer"
             },
             "goals": {
-              "title": "Goals",
-              "type": "integer"
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Goals"
             },
             "interceptions": {
               "title": "Interceptions",

@@ -835,8 +835,8 @@ def create_app(
         return reads.metric_registry()
 
     @app.get("/api/match/stats/basic")
-    async def basic_stats() -> dict[str, Any]:
-        return await reads.basic_stats(hub)
+    async def basic_stats(spoilers: bool = True) -> dict[str, Any]:
+        return await reads.basic_stats(hub, spoilers)
 
     # --- end metric registry and basic stats ----------------------------------------------------
 

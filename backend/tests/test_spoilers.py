@@ -270,3 +270,21 @@ def test_full_match_catch_up_has_no_var_review_and_no_shot_end(real):
     assert not any(in_goal_mouth(e["end"]) for e in shots)
     assert not [e for e in events if e["type"] == "var_review"]
     assert not [e for e in events if e["details"].get("pass_type") == "kickoff"]
+
+
+def test_basic_stats_take_the_flag(real):
+    """The Lab's counting stats carry goals per team and player: none in catch-up mode."""
+    session, clock = real
+    session.reset()
+    app = create_app(session=session, tick_interval=None, allowed_origins=[ALLOWED], clock=clock)
+    with TestClient(app) as client:
+        client.post("/api/match/seek", json={"clock_s": 85 * 60, "period": 2})
+        full = client.get("/api/match/stats/basic").json()
+        assert sum(t["goals"] for t in full["teams"].values()) >= 4
+        free = client.get("/api/match/stats/basic?spoilers=false").json()
+        assert client.get("/api/match/stats/basic?spoilers=nope").status_code == 400
+    assert len(free["teams"]) == 2 and all(t["goals"] is None for t in free["teams"].values())
+    assert free["players"] and all(p["goals"] is None for p in free["players"])
+    assert not leaks(free)
+    # Everything else tells the same story.
+    assert [t["shots"] for t in free["teams"].values()] == [t["shots"] for t in full["teams"].values()]

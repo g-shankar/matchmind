@@ -105,9 +105,10 @@ def _pct(part: int, whole: int) -> float | None:
     return round(100 * part / whole, 1) if whole else None
 
 
-def basic_stats_payload(session: MatchSession) -> dict[str, Any]:
+def basic_stats_payload(session: MatchSession, spoilers: bool = True) -> dict[str, Any]:
     """GET /api/match/stats/basic: plain counting stats per team and per player,
-    with the denominators beside the percentages (docs/METRICS.md)."""
+    with the denominators beside the percentages (docs/METRICS.md). With `spoilers`
+    false (catch-up mode) goals are null: a team's goals are the score."""
     from matchmind.stats.physical import LABEL as TRACKING_LABEL
 
     totals = session.team_totals()
@@ -130,7 +131,7 @@ def basic_stats_payload(session: MatchSession) -> dict[str, Any]:
             "pass_accuracy_pct": _pct(t.passes_completed, t.passes),
             "shots": t.shots,
             "shots_on_target": t.shots_on_target,
-            "goals": t.goals,
+            "goals": t.goals if spoilers else None,
             "tackles_won": t.tackles_won,
             "tackles_attempted": t.tackles_won + t.tackles_lost,
             "interceptions": t.interceptions,
@@ -159,7 +160,7 @@ def basic_stats_payload(session: MatchSession) -> dict[str, Any]:
                 "pass_accuracy_pct": _pct(p.passes_completed, p.passes),
                 "shots": p.shots,
                 "shots_on_target": p.shots_on_target,
-                "goals": p.goals,
+                "goals": p.goals if spoilers else None,
                 "tackles_won": p.tackles_won,
                 "tackles_attempted": p.tackles_attempted,
                 "interceptions": p.interceptions,
