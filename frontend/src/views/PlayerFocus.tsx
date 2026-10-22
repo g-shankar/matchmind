@@ -181,8 +181,9 @@ const StatCard: React.FC<{ stats: PlayerStats | undefined }> = ({ stats }) => {
     ['fan.stat.accuracy', `${num(stats.pass_accuracy)}%`],
     ['fan.stat.keyPasses', num(stats.key_passes)],
     ['fan.stat.shots', num(stats.shots)],
-    ['fan.stat.goals', num(stats.goals)],
-    ['fan.stat.assists', num(stats.assists)],
+    // Null in catch-up mode: the result stays hidden.
+    ['fan.stat.goals', stats.goals == null ? t('catchup.hiddenValue') : num(stats.goals)],
+    ['fan.stat.assists', stats.assists == null ? t('catchup.hiddenValue') : num(stats.assists)],
     ['fan.stat.xg', num(stats.xg, 2)],
     ['fan.stat.xa', num(stats.xa, 2)],
     stats.tackles_attempted !== undefined

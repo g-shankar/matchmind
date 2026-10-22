@@ -3,6 +3,10 @@
 // app keeps working when the backend is unreachable. It only re-sends numbers
 // that are in the recording; it never computes new stats.
 import type {
+  AskAnswer,
+  AskChip,
+  AskRequest,
+  AskResult,
   Bookmark,
   ClientAction,
   ControlChaosState,
@@ -34,6 +38,7 @@ import type { MatchTransport, MessageHandler } from './transport';
 import { metricAlertText } from './mockText';
 import { DemoCueSheet, type DemoCueMoment } from './mockCues';
 import { defaultLanguages, isWorldLanguage } from '../lib/languages';
+import { SPOILER_KINDS, isSpoilerCard, spoilerFreeSnapshot, spoilerFreeTick } from './spoilers';
 
 export interface FixtureTick {
   event: MatchEvent;
@@ -86,12 +91,40 @@ export interface DemoFixture {
   recaps: Partial<Record<PersonaType, Partial<Record<Language, Recap>>>>;
 }
 
+/** public/demo/demo-ask.json, written by frontend/scripts/build_demo_ask.py from this recording. */
+export interface DemoStory {
+  title: string;
+  headline: string;
+  summary_paragraphs: string[];
+  stats: Recap['stats'];
+  fact_check: { ok: boolean; reasons: string[] };
+  key_moment_ids: string[];
+}
+
+export interface DemoAskCheckpoint {
+  tick_index: number;
+  clock: string;
+  period: number;
+  clock_s: number;
+  answers: Partial<Record<Language, Partial<Record<AskChip, AskAnswer>>>>;
+  stories: Partial<Record<Language, DemoStory>>;
+}
+
+export interface DemoAsk {
+  match_id: string;
+  checkpoint_s: number;
+  chips: AskChip[];
+  hidden: Partial<Record<Language, string>>;
+  checkpoints: DemoAskCheckpoint[];
+}
+
 export const DEFAULT_PROFILE: ViewerProfile = {
   persona: 'casual',
   language: 'en',
   favourite_team: null,
   focus_player_id: null,
   focus_metric: null,
+  spoilers: true,
 };
 
 const STEP_MS = 100;
@@ -293,11 +326,21 @@ export class MockMatchServer implements MatchTransport {
   private newSheet = false; // the next CUES carries `active` (profile changed)
   /** Every moment id a correction in the recording rules out. */
   private readonly retractable: Set<string>;
+  /** Moments a catch-up viewer must not see: goals, corrections, anything on a scoring event. */
+  private readonly spoilerMoments: Set<string>;
+  private askData: DemoAsk | null = null;
+  private askLoad: Promise<DemoAsk | null> | null = null;
 
   constructor(
     private readonly fixture: DemoFixture,
     private readonly emit: MessageHandler,
-    options: { profile?: Partial<ViewerProfile>; speed?: SpeedMultiplier; autoplay?: boolean } = {},
+    options: {
+      profile?: Partial<ViewerProfile>;
+      speed?: SpeedMultiplier;
+      autoplay?: boolean;
+      /** The recorded answers; loaded from public/demo when left out. */
+      askData?: DemoAsk | null;
+    } = {},
   ) {
     this.profile = { ...DEFAULT_PROFILE, ...options.profile };
     this.speed = options.speed ?? 1;
@@ -315,6 +358,16 @@ export class MockMatchServer implements MatchTransport {
       this.momentsByEvent.set(m.event_id, list);
     }
     this.retractable = new Set(fixture.moments.flatMap((m) => m.retracts ?? []));
+    const scoring = new Set(
+      fixture.ticks.filter((t) => t.event.outcome === 'goal' || t.event.type === 'var_review').map((t) => t.event.event_id),
+    );
+    this.spoilerMoments = new Set(
+      fixture.moments
+        .filter((m) => SPOILER_KINDS.includes(m.kind) || (m.retracts?.length ?? 0) > 0 || scoring.has(m.event_id))
+        .map((m) => m.moment_id),
+    );
+    if (options.askData !== undefined) this.askData = options.askData;
+    if (!this.profile.spoilers) void this.loadAsk(); // the end-of-match story needs it
     this.sheet = new DemoCueSheet(fixture.match_id, this.profile, fixture.teams);
     queueMicrotask(() => {
       this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
@@ -333,7 +386,9 @@ export class MockMatchServer implements MatchTransport {
     if (this.next >= this.fixture.ticks.length && !this.ended) {
       this.ended = true;
       this.running = false;
-      const recap = this.recapFor(this.profile.persona, this.profile.language);
+      const recap = this.profile.spoilers
+        ? this.recapFor(this.profile.persona, this.profile.language)
+        : this.storyFor(this.profile.persona, this.profile.language);
       if (recap) this.emit({ type: 'MATCH_END', data: { recap } });
       this.emit({ type: 'PLAYBACK_CONTROL', data: this.playback() });
     }
@@ -370,11 +425,22 @@ export class MockMatchServer implements MatchTransport {
           action.action === 'set_persona'
             ? { persona: action.persona, ...(action.spotlight_player_id !== undefined ? { focus_player_id: action.spotlight_player_id } : {}) }
             : (({ action: _a, ...rest }) => rest)(action);
+        if ('spoilers' in changes && typeof changes.spoilers !== 'boolean') {
+          this.emit({ type: 'ERROR', data: { message: 'Check spoilers: it must be true or false.' } });
+          return;
+        }
+        const revealChanged = 'spoilers' in changes && changes.spoilers !== this.profile.spoilers;
         this.profile = { ...this.profile, ...changes } as ViewerProfile;
         this.rebuildSheet(this.next);
         this.newSheet = true;
         this.emit({ type: 'PROFILE_CHANGED', data: this.profile });
         this.emit({ type: 'PERSONA_CHANGED', data: { persona: this.profile.persona } });
+        // Hiding or revealing the result: one fresh snapshot, as the live server does.
+        if (revealChanged) {
+          this.newSheet = false;
+          if (!this.profile.spoilers) void this.loadAsk();
+          this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
+        }
         return;
       }
       default:
@@ -393,13 +459,87 @@ export class MockMatchServer implements MatchTransport {
     return cardForMoment(m, { ...DEFAULT_PROFILE, persona, language, favourite_team: favouriteTeam });
   }
 
-  async getRecap(persona: PersonaType, language: Language): Promise<Recap | null> {
-    return this.recapFor(persona, language);
+  async getRecap(persona: PersonaType, language: Language, spoilers = true): Promise<Recap | null> {
+    if (spoilers) return this.recapFor(persona, language);
+    await this.loadAsk();
+    return this.storyFor(persona, language);
+  }
+
+  // Only the suggested questions were recorded: the demo cannot read typed questions.
+  async ask(request: AskRequest): Promise<AskResult> {
+    if (!request.chip) return { ok: false, failure: 'needs_live' };
+    const data = await this.loadAsk();
+    const point = this.checkpoint(data);
+    if (!data || !point) return { ok: false, failure: 'unavailable' };
+    const lang: Language = DEMO_LANGUAGES.includes(request.lang) ? request.lang : 'en';
+    const recorded = point.answers[lang]?.[request.chip];
+    if (!recorded) return { ok: false, failure: 'unavailable' };
+    const answer: AskAnswer = { ...recorded, language: request.lang, spoilers: request.spoilers };
+    if (!request.spoilers && request.chip === 'score') {
+      return {
+        ok: true,
+        answer: { ...answer, status: 'hidden', answer: data.hidden[lang] ?? '', evidence: [], moment_ids: [], facts: {} },
+      };
+    }
+    return { ok: true, answer };
   }
 
   close() {
     if (this.timer) clearInterval(this.timer);
     this.timer = null;
+  }
+
+  private loadAsk(): Promise<DemoAsk | null> {
+    if (this.askData) return Promise.resolve(this.askData);
+    this.askLoad ??= loadDemoAsk()
+      .then((d) => (this.askData = d))
+      .catch(() => {
+        this.askLoad = null; // try again on the next question
+        return null;
+      });
+    return this.askLoad;
+  }
+
+  /** The latest recorded checkpoint at or before what has been played: nothing later is read. */
+  private checkpoint(data: DemoAsk | null): DemoAskCheckpoint | null {
+    if (!data) return null;
+    const played = Math.max(0, this.next - 1);
+    let best: DemoAskCheckpoint | null = null;
+    for (const c of data.checkpoints) if (c.tick_index <= played) best = c;
+    return best;
+  }
+
+  private storyFor(persona: PersonaType, language: Language): Recap | null {
+    const point = this.checkpoint(this.askData);
+    if (!point) return null;
+    const shown: Language = DEMO_LANGUAGES.includes(language) ? language : 'en';
+    const story = point.stories[shown];
+    if (!story) return null;
+    const byId = new Map(this.fixture.moments.map((m) => [m.moment_id, m]));
+    const key_moments = story.key_moment_ids
+      .map((id) => byId.get(id))
+      .filter((m): m is FixtureMoment => !!m && !this.spoilerMoments.has(m.moment_id))
+      .map((m) => ({ match_clock: m.match_clock, kind: m.kind, headline: pickText(m, persona, shown).text.headline, moment_id: m.moment_id }));
+    return {
+      match_id: this.fixture.match_id,
+      persona,
+      language,
+      rtl: shown === 'ar',
+      title: story.title,
+      headline: story.headline,
+      summary_paragraphs: story.summary_paragraphs,
+      key_moments,
+      player_of_the_match_id: null,
+      player_of_the_match: null,
+      stats: story.stats,
+      generated_at_clock: point.clock,
+      produced_by: 'template',
+      fact_check: story.fact_check,
+      text_language: shown,
+      translated_by: null,
+      fallback_reason: languageFallback(language, shown),
+      spoiler_free: true,
+    };
   }
 
   private recapFor(persona: PersonaType, language: Language): Recap | null {
@@ -492,21 +632,24 @@ export class MockMatchServer implements MatchTransport {
     const tick = this.fixture.ticks[i];
     this.applyPlayers(tick);
     const cards = this.cardsFor(i, true);
+    const data = {
+      event: tick.event,
+      clock: tick.clock,
+      period: tick.period,
+      score: tick.score,
+      state: tick.state,
+      control_chaos: tick.control_chaos,
+      cards,
+      players_changed: tick.players_changed,
+    };
+    const spoilerFree = !this.profile.spoilers;
     this.emit({
       type: 'MATCH_TICK',
-      data: {
-        event: tick.event,
-        clock: tick.clock,
-        period: tick.period,
-        score: tick.score,
-        state: tick.state,
-        control_chaos: tick.control_chaos,
-        cards,
-        players_changed: tick.players_changed,
-      },
+      data: spoilerFree ? spoilerFreeTick({ ...data, cards: cards.filter((c) => !this.spoilerMoments.has(c.moment_id)) }) : data,
     });
     const cues = this.feedSheet(i, cards);
-    if (cues.length || this.newSheet) {
+    // The cue sheet carries the scorebug: a catch-up viewer gets none.
+    if (!spoilerFree && (cues.length || this.newSheet)) {
       const active = this.newSheet ? this.sheet.active(this.vtimes[i]) : undefined;
       this.newSheet = false;
       this.emit({ type: 'CUES', data: { sheet_id: this.sheet.sheetId, cues, ...(active ? { active } : {}) } });
@@ -526,6 +669,18 @@ export class MockMatchServer implements MatchTransport {
   }
 
   private snapshot(): SnapshotData {
+    const full = this.fullSnapshot();
+    if (this.profile.spoilers) return full;
+    const free = spoilerFreeSnapshot(full);
+    const hidden = (id: string) => this.spoilerMoments.has(id);
+    return {
+      ...free,
+      recent_cards: free.recent_cards.filter((c) => !hidden(c.moment_id) && !isSpoilerCard(c)),
+      bookmarks: free.bookmarks.filter((b) => !hidden(b.moment_id)),
+    };
+  }
+
+  private fullSnapshot(): SnapshotData {
     const ticks = this.fixture.ticks;
     const last = this.next > 0 ? ticks[this.next - 1] : ticks[0];
     const recent: OverlayCard[] = [];
@@ -575,6 +730,12 @@ export class MockMatchServer implements MatchTransport {
         ruled_out: this.retractable.has(m.moment_id),
       }));
   }
+}
+
+export async function loadDemoAsk(url = `${import.meta.env.BASE_URL}demo/demo-ask.json`): Promise<DemoAsk> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`demo answers ${res.status}`);
+  return (await res.json()) as DemoAsk;
 }
 
 export async function loadDemoFixture(url = `${import.meta.env.BASE_URL}demo/demo-match.json`): Promise<DemoFixture> {

@@ -41,11 +41,19 @@ def leaks(payload: Any, path: str = "") -> list[str]:
                 found.append(here)
             if key == "scorebug" and value:
                 found.append(here)
-            if key in ("fact_keys", "label_key") and set(value if isinstance(value, list) else [value]) & SPOILER_FACT_KEYS:
-                found.append(f"{here}={value!r}")
-            if key in ("headline", "body", "title", "answer", "summary_paragraphs", "sentence") and SCORELINE.search(
-                str(value)
+            if (
+                key in ("fact_keys", "label_key")
+                and set(value if isinstance(value, list) else [value]) & SPOILER_FACT_KEYS
             ):
+                found.append(f"{here}={value!r}")
+            if key in (
+                "headline",
+                "body",
+                "title",
+                "answer",
+                "summary_paragraphs",
+                "sentence",
+            ) and SCORELINE.search(str(value)):
                 found.append(f"{here}={value!r}")
             found += leaks(value, here)
     elif isinstance(payload, list):
@@ -84,7 +92,9 @@ def test_catch_up_hides_the_result_on_the_websocket_and_reveal_brings_it_back(fa
         assert [m["type"] for m in msgs] == ["PROFILE_CHANGED", "PERSONA_CHANGED", "INITIAL_SNAPSHOT"]
         assert msgs[0]["data"]["spoilers"] is False
         snap = msgs[-1]["data"]
-        assert snap["home_score"] is None and snap["state"]["score_home"] is None and snap["cue_sheet"] is None
+        assert (
+            snap["home_score"] is None and snap["state"]["score_home"] is None and snap["cue_sheet"] is None
+        )
         assert not leaks(snap)
         clock.t += 1000
         client.portal.call(client.app.state.hub.pump)

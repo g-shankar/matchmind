@@ -10,6 +10,7 @@ import type { ViewProps } from '../views/types';
 import { Badge, cx } from './ui';
 import { Pitch2D } from './Pitch2D';
 import { ReplayCard } from './ReplayCard';
+import { ScoreValue } from './CatchUp';
 
 type Layer = 'scorebug' | Slot;
 const LAYERS: Layer[] = ['scorebug', 'lower_third', 'side_panel', 'pitch_tag', 'metric_alert', 'full_screen'];
@@ -235,7 +236,7 @@ const Scorebug: React.FC<ViewProps & { corrected?: boolean }> = ({ match, correc
           key={corrected ? 'corrected' : 'live'}
           className={cx('ltr-nums flex items-center bg-pp-raised px-[clamp(6px,1vw,12px)] text-[1.15em]', corrected && 'animate-score-flash')}
         >
-          {score.home} - {score.away}
+          <ScoreValue value={score.home} /> - <ScoreValue value={score.away} />
         </span>
         {corrected && (
           <span

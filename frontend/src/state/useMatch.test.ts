@@ -4,7 +4,13 @@ import { sanitizeProfile } from './useMatch';
 describe('sanitizeProfile', () => {
   it('keeps only known fields with allowed values', () => {
     const p = sanitizeProfile({ x: 1, persona: 'bogus', language: 'ar', favourite_team: 'NBR', focus_player_id: '<b>', focus_metric: 'xg' });
-    expect(p).toEqual({ persona: 'casual', language: 'ar', favourite_team: 'NBR', focus_player_id: null, focus_metric: 'xg' });
+    expect(p).toEqual({ persona: 'casual', language: 'ar', favourite_team: 'NBR', focus_player_id: null, focus_metric: 'xg', spoilers: true });
+  });
+
+  it('keeps catch-up mode only as a real boolean', () => {
+    expect(sanitizeProfile({ spoilers: false }).spoilers).toBe(false);
+    expect(sanitizeProfile({ spoilers: 'false' }).spoilers).toBe(true);
+    expect(sanitizeProfile({}).spoilers).toBe(true);
   });
 
   it('falls back to defaults for junk', () => {
@@ -26,6 +32,26 @@ describe('urlProfile', () => {
     const base = { ...DEFAULT_PROFILE, persona: 'fantasy' as const, language: 'ar' as const };
     expect(urlProfile(base, '?persona=boss&lang=xx&club=<script>')).toMatchObject({ persona: 'fantasy', language: 'ar', favourite_team: null });
     expect(urlProfile(base, '')).toEqual(base);
+  });
+});
+
+describe('catch-up link', () => {
+  it('?catchup=1 and ?spoilers=0 open in catch-up mode and are never saved', async () => {
+    const { urlProfile, saveProfileChanges } = await import('./useMatch');
+    const { DEFAULT_PROFILE } = await import('../api/mockServer');
+    expect(urlProfile(DEFAULT_PROFILE, '?catchup=1').spoilers).toBe(false);
+    expect(urlProfile(DEFAULT_PROFILE, '?spoilers=0').spoilers).toBe(false);
+    expect(urlProfile(DEFAULT_PROFILE, '?spoilers=1').spoilers).toBe(true);
+    expect(urlProfile(DEFAULT_PROFILE, '?catchup=yes').spoilers).toBe(true);
+    localStorage.clear();
+    window.history.replaceState(null, '', '/?catchup=1');
+    try {
+      saveProfileChanges({ language: 'es' });
+      expect(JSON.parse(localStorage.getItem('pitchpulse.profile') ?? '{}').spoilers).toBe(true);
+    } finally {
+      window.history.replaceState(null, '', '/');
+      localStorage.clear();
+    }
   });
 });
 

@@ -22,9 +22,13 @@ If the match server cannot be reached within a few seconds, the app says so
 and plays an **offline demo**: a recording of the engine's demo match
 (`public/demo/demo-match.json`) replayed in the browser with the same
 messages. Rebuild it with `python frontend/scripts/build_demo_fixture.py` from
-the repo root (needs the backend package installed).
+the repo root (needs the backend package installed). The offline demo's
+"Ask the studio" answers and catch-up stories (`public/demo/demo-ask.json`) are
+recorded from that file with `PYTHONPATH=backend/src python
+frontend/scripts/build_demo_ask.py`; a backend test fails when they are stale.
 
 URL options: `?demo=1` forces the offline demo, `?live=1` never falls back,
+`?catchup=1` opens in catch-up mode (score hidden until the viewer reveals it),
 `?t=2056&p=1&pause=1` opens at a match moment (clock seconds and half),
 `#studio | #overlay | #split | #follow | #fan` picks the screen.
 

@@ -95,6 +95,9 @@ export interface ViewerProfile {
   favourite_team: string | null;
   focus_player_id: string | null;
   focus_metric: FocusMetric | null;
+  /** False: catch-up mode. The server leaves out the score, goals, VAR outcomes and
+   * anything else that gives the result away until the viewer reveals it. */
+  spoilers: boolean;
 }
 
 export interface Evidence {
@@ -177,8 +180,9 @@ export interface MatchState {
   period: number;
   home_id: string;
   away_id: string;
-  score_home: number;
-  score_away: number;
+  /** Null for a viewer in catch-up mode (spoilers off). */
+  score_home: number | null;
+  score_away: number | null;
   home: TeamWindow;
   away: TeamWindow;
   momentum: number;
@@ -218,8 +222,9 @@ export interface PlayerStats {
   key_passes: number;
   shots: number;
   shots_on_target?: number;
-  goals: number;
-  assists: number;
+  /** Null for a viewer in catch-up mode (spoilers off). */
+  goals: number | null;
+  assists: number | null;
   xg: number;
   xa: number;
   tackles_won: number;
@@ -443,6 +448,8 @@ export interface Recap {
   translated_by?: TranslatedBy | null;
   fallback_reason?: string | null;
   claims?: Claim[];
+  /** True for the spoiler-free story so far (catch-up mode): no score, scorers or VAR outcomes. */
+  spoiler_free?: boolean;
 }
 
 export interface AgentLatency {
@@ -659,8 +666,9 @@ export interface SnapshotData {
   match_id: string;
   clock: string;
   period: number;
-  home_score: number;
-  away_score: number;
+  /** Null for a viewer in catch-up mode (spoilers off). */
+  home_score: number | null;
+  away_score: number | null;
   teams: Teams;
   state: MatchState;
   control_chaos: ControlChaosState;
@@ -681,7 +689,8 @@ export interface TickData {
   event: MatchEvent;
   clock: string;
   period: number;
-  score: { home: number; away: number };
+  /** Null for a viewer in catch-up mode (spoilers off). */
+  score: { home: number; away: number } | null;
   state: MatchState;
   control_chaos: ControlChaosState;
   cards: OverlayCard[];
@@ -761,3 +770,54 @@ export interface MomentAudit {
   /** A goal VAR later ruled out: the correction's moment id. */
   ruled_out_by?: string | null;
 }
+
+// --- Ask the studio: POST /api/ask and the ask_studio MCP tool (docs/ASK.md) ---
+
+/** Suggested questions: sent as an id, never as text. */
+export type AskChip = 'score' | 'top_xg' | 'furthest' | 'fastest' | 'on_top' | 'better_option' | 'explain_xg';
+export const ASK_CHIPS: AskChip[] = ['score', 'top_xg', 'furthest', 'fastest', 'on_top', 'better_option', 'explain_xg'];
+export const ASK_MAX_CHARS = 200;
+
+export type AskStatus = 'answered' | 'refused' | 'hidden' | 'clarify' | 'not_yet';
+export type AskRefusal =
+  | 'empty'
+  | 'too_long'
+  | 'markup'
+  | 'injection'
+  | 'off_topic'
+  | 'unknown_player'
+  | 'real_name'
+  | 'fact_check';
+
+export interface AskRequest {
+  question?: string;
+  chip?: AskChip;
+  lang: Language;
+  spoilers: boolean;
+}
+
+export interface AskAnswer {
+  status: AskStatus;
+  reason: AskRefusal | null;
+  intent: { kind: string; team: string | null; player_id: string | null; metric: string | null } | null;
+  understood_by: 'chip' | 'rules' | 'model' | null;
+  /** Plain text: render as text, never as HTML. */
+  answer: string;
+  language: Language;
+  text_language: Language;
+  rtl: boolean;
+  as_of: { clock: string; period: number; clock_s: number; ended: boolean };
+  spoilers: boolean;
+  facts?: Record<string, FactValue>;
+  evidence: Evidence[];
+  claims?: Claim[];
+  source_event_ids?: string[];
+  moment_ids: string[];
+  metric: { id: string; name: string; formula: string; quality: string } | null;
+  produced_by: 'template';
+  fact_check: { ok: boolean; reasons: string[] };
+}
+
+/** Why an answer could not be fetched at all (shown as one plain sentence). */
+export type AskFailure = 'needs_live' | 'busy' | 'unavailable';
+export type AskResult = { ok: true; answer: AskAnswer } | { ok: false; failure: AskFailure };

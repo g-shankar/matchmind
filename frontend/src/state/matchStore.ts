@@ -42,7 +42,8 @@ export interface MatchViewState {
   matchId: string | null;
   clock: string;
   period: number;
-  score: { home: number; away: number };
+  /** Null sides while the viewer is in catch-up mode (spoilers off). */
+  score: { home: number | null; away: number | null };
   teams: Teams | null;
   state: MatchState | null;
   controlChaos: ControlChaosState | null;
@@ -209,7 +210,7 @@ function applyMessage(state: MatchViewState, m: ServerMessage): MatchViewState {
         ...state,
         clock: d.clock,
         period: d.period,
-        score: d.score,
+        score: d.score ?? { home: null, away: null },
         state: d.state,
         controlChaos: d.control_chaos,
         events: [...state.events, d.event].slice(-MAX_EVENTS),

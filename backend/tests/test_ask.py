@@ -508,3 +508,39 @@ def test_question_text_is_never_logged(client, caplog):
         client.post("/api/ask", json={"question": secret})
         client.post("/api/ask", json={"question": "Who has the most zebra-canary passes?"})
     assert "zebra-canary" not in caplog.text
+
+
+# --- The offline demo's recorded answers --------------------------------------------------------
+
+
+def test_demo_answers_are_current_and_never_read_ahead():
+    """frontend/public/demo/demo-ask.json is what build_demo_ask.py writes from the demo
+    recording today, and each checkpoint only knows what was played by then."""
+    import importlib.util
+    import json
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[2]
+    script = repo / "frontend" / "scripts" / "build_demo_ask.py"
+    fixture_path = repo / "frontend" / "public" / "demo" / "demo-match.json"
+    out_path = repo / "frontend" / "public" / "demo" / "demo-ask.json"
+    if not (script.exists() and fixture_path.exists() and out_path.exists()):
+        pytest.skip("frontend demo files are not in this checkout")
+    spec = importlib.util.spec_from_file_location("build_demo_ask", script)
+    mod = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(mod)
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    data, problems = mod.build(fixture)
+    assert not problems, problems[:5]
+    assert mod.serialise(data) == out_path.read_bytes(), "run frontend/scripts/build_demo_ask.py"
+    ticks = fixture["ticks"]
+    for point in data["checkpoints"]:
+        tick = ticks[point["tick_index"]]
+        assert point["clock"] == tick["clock"]
+        for lang, by_chip in point["answers"].items():
+            assert by_chip["score"]["as_of"]["clock"] == tick["clock"]
+            assert f"{tick['score']['home']}-{tick['score']['away']}" in by_chip["score"]["answer"], lang
+        for story in point["stories"].values():
+            assert not set(story["stats"]) & SPOILER_FACT_KEYS
+            assert not re.search(r"\b\d+\s?[-–]\s?\d+\b", " ".join(story["summary_paragraphs"]))
