@@ -26,7 +26,7 @@ Rules:
 type StudioLanguage = 'en' | 'es' | 'fr' | 'ar' | 'ja';    // 'ar' is right-to-left
 type WorldLanguage = 'pt' | 'de' | 'hi' | 'zh-Hans' | 'sw' | 'id' | 'tr' | 'ko';
 type Language = StudioLanguage | WorldLanguage;
-type PersonaType = 'casual' | 'tactical' | 'fantasy' | 'player_spotlight';
+type PersonaType = 'casual' | 'tactical' | 'fantasy' | 'player_spotlight';  // 'fantasy' is shown as "Stats scout"
 type FocusMetric = 'pressure' | 'xg' | 'pass_difficulty' | 'top_speed' | 'momentum';
 type MomentKind =
   | 'goal' | 'card' | 'big_chance' | 'better_option' | 'unfound_run'
@@ -262,8 +262,9 @@ viewer that falls more than 4 MB behind on messages is disconnected with code
 | `set_persona` | `persona`, `spotlight_player_id?` | old alias for `set_view` (`spotlight_player_id` sets `focus_player_id`) |
 
 Cards in `MATCH_TICK` are already filtered and ordered for the connection's
-profile: persona and language applied, favourite club's moments boosted,
-`focus_player_id` moments always kept, `focus_metric` changes sent as
+profile: persona and language applied, club heart for the favourite club
+(its moments boosted, rival minor moments dropped, fan's-side framing: see
+docs/PERSONALISATION.md), `focus_player_id` moments always kept, `focus_metric` changes sent as
 `slot: 'metric_alert'`, speed and distance tags as `slot: 'pitch_tag'`.
 The server gets these from the crew: `render(bundle, profile)` for each moment,
 plus, when the crew provides it, `metric_alerts(snapshot, players, profile)` for

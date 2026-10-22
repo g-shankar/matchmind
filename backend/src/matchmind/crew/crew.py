@@ -425,7 +425,7 @@ class Crew:
                 continue
             v = localise_teams(dict(m.facts), lang, fav_name)
             try:
-                headline, body = fill_first(pack(lang)["metric"][alert.metric], v, lang)
+                headline, body = fill_first(pack(lang)["metric"][alert.template], v, lang)
             except MissingFact:
                 continue
             if not check_all({"headline": headline, "body": body}, m.facts, lang).ok:

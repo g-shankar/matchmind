@@ -115,7 +115,10 @@ behaviour: |-
   - slot by kind (speed and distance tags go on the pitch, replays to the side
     panel, goals full screen, the rest as lower thirds);
   - persona filter (each audience sees the kinds it cares about);
-  - the favourite club's moments get +15 priority and `favourite_side`;
+  - club heart (crew/club_heart.py): with a favourite club, its moments get
+    +15 priority and `favourite_side`, rival minor moments are dropped and
+    rival build-up ranks a little lower (one policy table, documented in
+    docs/PERSONALISATION.md);
   - moments about the focus player are always kept and boosted;
   - de-duplicated by moment id per viewer;
   - at most one lower third per 8 s of match clock (extra ones move to the

@@ -209,3 +209,4 @@ Every linked acceptance criterion has evidence; format/lint, typecheck, unit, in
 - When the roster in `teams.py` changes, regenerate `backend/data/matches` or the dataset check fails.
 - In a multi-line CI `run:` block, `! grep ...` fails the step only on the last line (bash -e ignores negated commands); use `if grep ...; then exit 1; fi`.
 - Key rate limits and connection caps on the last X-Forwarded-For entry (added by the ingress), never the first; and keep paid per-request work (translation) off routes anyone can loop on.
+- Persona voices use only stats we compute: no game points, bonus systems or real-league fantasy branding (the "Stats scout" persona keeps the API value `fantasy`).
