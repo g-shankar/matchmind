@@ -79,7 +79,7 @@ export function Segmented<T extends string | number>({
           title={o.title}
           onClick={() => onChange(o.value)}
           className={cx(
-            'min-h-[32px] border-b-2 px-2.5 font-display text-[13px] font-bold uppercase tracking-broadcast transition',
+            'min-h-[44px] min-w-[44px] border-b-2 px-2.5 font-display text-[13px] font-bold uppercase tracking-broadcast transition',
             value === o.value ? 'border-pp-pulse bg-pp-chalk text-pp-night' : 'border-transparent text-pp-mute hover:text-pp-chalk',
           )}
         >

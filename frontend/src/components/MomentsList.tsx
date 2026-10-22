@@ -1,6 +1,6 @@
 import type { Bookmark, MomentKind } from '../api/contract';
-import React, { useMemo } from 'react';
-import { Award, Clock, History } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Award, ChevronDown, Clock, History, Play } from 'lucide-react';
 import { useI18n } from '../i18n';
 import type { ViewProps } from '../views/types';
 import { Panel, cx } from './ui';
@@ -30,6 +30,12 @@ export const MomentsList: React.FC<ViewProps & { onJump?: (b: Bookmark) => void 
   );
   const groups = useMemo(() => groupByClock(bookmarks), [bookmarks]);
   const jump = onJump ?? ((b: Bookmark) => actions.seek(seekTarget(b.clock_s), b.period));
+  // The moments with a step-by-step replay come first, in their own short row; the long
+  // list of every moment folds away under it (open by default only when there are none).
+  const keyReplays = useMemo(() => bookmarks.filter((b) => isSpecialKind(b.kind)), [bookmarks]);
+  const [showAll, setShowAll] = useState<boolean | null>(null);
+  const allOpen = showAll ?? keyReplays.length === 0;
+  const listId = useMemo(() => `moments-all-${Math.random().toString(36).slice(2, 8)}`, []);
 
   return (
     <Panel
@@ -41,10 +47,56 @@ export const MomentsList: React.FC<ViewProps & { onJump?: (b: Bookmark) => void 
       }
       actions={<span className="hidden text-[11px] text-pp-mute sm:inline">{t('studio.moments.hint')}</span>}
     >
+      {bookmarks.length > 0 && keyReplays.length > 0 && (
+        <section aria-labelledby={`${listId}-key`} className="mb-3" data-testid="key-replays">
+          <h3 id={`${listId}-key`} className="font-display text-sm font-extrabold uppercase italic tracking-broadcast text-pp-gold">
+            {t('guide.moments.key')}
+          </h3>
+          <p className="mb-2 text-[11px] text-pp-mute">{t('guide.moments.keyHint')}</p>
+          <ul className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            {keyReplays.map((b) => {
+              const past = compareMoments(b, now) <= 0;
+              const title = b.title;
+              return (
+                <li key={b.moment_id}>
+                  <button
+                    type="button"
+                    onClick={() => jump(b)}
+                    aria-label={t('studio.moments.jump', { clock: b.match_clock, title })}
+                    className="flex min-h-[44px] w-full items-center gap-2 border border-pp-gold/70 bg-pp-gold/10 px-3 py-1.5 text-start text-sm text-pp-gold hover:border-pp-pulse sm:w-auto sm:max-w-[320px]"
+                  >
+                    <Play className="h-4 w-4 shrink-0" aria-hidden />
+                    <span className="ltr-nums shrink-0 font-bold text-pp-signal">{b.match_clock}</span>
+                    <span className="min-w-0">
+                      <span className="line-clamp-1 block font-semibold">{title}</span>
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-pp-mute">
+                        {t(`kind.${b.kind}`)}
+                        {!past && ` · ${t('guide.moments.keyComing')}`}
+                      </span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
+      {bookmarks.length > 0 && keyReplays.length > 0 && (
+        <button
+          type="button"
+          aria-expanded={allOpen}
+          aria-controls={listId}
+          onClick={() => setShowAll(!allOpen)}
+          className="mb-2 inline-flex min-h-[44px] items-center gap-1.5 border border-pp-line bg-pp-deep px-3 font-display text-sm font-bold uppercase tracking-broadcast text-pp-chalk hover:border-pp-signal"
+        >
+          <ChevronDown className={cx('h-4 w-4 transition', allOpen && 'rotate-180')} aria-hidden />
+          {allOpen ? t('guide.moments.hideAll') : t('guide.moments.showAll', { n: groups.length })}
+        </button>
+      )}
       {bookmarks.length === 0 ? (
         <p className="py-3 text-center text-sm text-pp-mute">{t('studio.moments.empty')}</p>
-      ) : (
-        <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
+      ) : !allOpen ? null : (
+        <ul id={listId} className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
           {groups.map(({ lead: b, count }) => {
             const past = compareMoments(b, now) <= 0;
             const special = isSpecialKind(b.kind);

@@ -104,6 +104,7 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
   const [recapLoading, setRecapLoading] = useState(false);
   const [focus, setFocus] = useState<Focus | null>(null);
   const [ftDismissed, setFtDismissed] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const stageRef = useRef<HTMLDivElement>(null);
   const source = useSourceKind(match.status);
 
@@ -223,13 +224,13 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
             <SourceBadge status={match.status} source={source} />
           </div>
           <div className="ms-auto flex min-w-0 items-center gap-2">
-            <Scoreline match={match} />
+            <Scoreline match={match} source={source} />
             <button
               type="button"
               onClick={actions.togglePause}
               disabled={playback.ended}
-              aria-label={playback.is_running ? t('play.pause') : t('play.play')}
-              title={playback.is_running ? t('play.pause') : t('play.play')}
+              aria-label={playback.is_running ? t('guide.pause') : t('guide.play')}
+              title={playback.is_running ? t('guide.pause') : t('guide.play')}
               className="flex h-11 w-11 shrink-0 items-center justify-center border border-pp-line bg-pp-panel text-white hover:border-pp-pulse disabled:opacity-40"
             >
               {playback.is_running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
@@ -237,6 +238,18 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
             <div className="hidden items-center gap-2 sm:flex">
               <SpeedAndRestart match={match} actions={actions} />
             </div>
+            <button
+              type="button"
+              onClick={() => setAboutOpen(true)}
+              aria-haspopup="dialog"
+              aria-label={t('guide.about.label')}
+              title={t('guide.about.label')}
+              data-testid="about-open"
+              className="flex h-11 w-11 shrink-0 items-center justify-center border border-pp-line bg-pp-panel text-pp-chalk hover:border-pp-signal lg:w-auto lg:gap-1.5 lg:px-3"
+            >
+              <Info className="h-4 w-4" aria-hidden />
+              <span className="hidden font-display text-sm font-bold uppercase tracking-broadcast lg:inline">{t('guide.about.open')}</span>
+            </button>
             <button
               type="button"
               onClick={openRecap}
@@ -269,7 +282,7 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
             <SourceBadge status={match.status} source={source} />
           </div>
           {match.crew && (
-            <Badge tone={match.crew.mode === 'ai' ? 'signal' : 'mute'} className="hidden md:inline-flex" title={match.crew.mode === 'template' ? t('crew.templateHint') : undefined}>
+            <Badge tone={match.crew.mode === 'ai' ? 'signal' : 'mute'} className="hidden whitespace-nowrap md:inline-flex" title={match.crew.mode === 'template' ? t('crew.templateHint') : undefined}>
               {t(match.crew.mode === 'ai' ? 'crew.ai' : 'crew.template')}
             </Badge>
           )}
@@ -325,10 +338,10 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
                     )}
                   </div>
                   <div className="order-4">
-                    <ControlChaosGauge match={match} actions={actions} />
+                    <MomentsList match={match} actions={actions} onJump={jumpTo} />
                   </div>
                   <div className="order-5">
-                    <MomentsList match={match} actions={actions} onJump={jumpTo} />
+                    <ControlChaosGauge match={match} actions={actions} />
                   </div>
                   <div className="order-6">
                     <CrewHealthDisclosure match={match} />
@@ -336,7 +349,7 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
                 </div>
                 <div className="contents lg:col-span-5 lg:block lg:space-y-4">
                   <div className="order-3 lg:order-none">
-                    <AskStudio match={match} actions={actions} onOpenReplay={openReplayFor} />
+                    <AskStudio match={match} actions={actions} onOpenReplay={openReplayFor} onJump={jumpTo} />
                   </div>
                   <div className="order-2 lg:order-none">
                     <NarrativeFeed match={match} actions={actions} onOpenReplay={setReplay} />
@@ -357,6 +370,18 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
 
       <Modal open={!!replay} onClose={() => setReplay(null)} labelledBy={replay ? `replay-${replay.card_id}` : 'replay'} name="replay" className="max-w-4xl">
         {replay && <ReplayCard card={replay} teams={teams} onClose={() => setReplay(null)} />}
+      </Modal>
+
+      <Modal open={aboutOpen} onClose={() => setAboutOpen(false)} labelledBy="about-modal-title" name="about" className="max-w-2xl">
+        <AboutPanel
+          match={match}
+          titleId="about-modal-title"
+          onClose={() => setAboutOpen(false)}
+          onHow={() => {
+            setAboutOpen(false);
+            goTo('lab');
+          }}
+        />
       </Modal>
 
       <RecapModal open={recapOpen} onClose={() => setRecapOpen(false)} recap={match.recap} loading={recapLoading} teams={teams} />
@@ -607,12 +632,37 @@ const AboutFooter: React.FC<{ match: ViewProps['match']; onHow: () => void }> = 
   );
 };
 
+/** "About this demo" from the header: the footer's words, in a dialog reachable from any screen. */
+const AboutPanel: React.FC<{ match: ViewProps['match']; titleId: string; onClose: () => void; onHow: () => void }> = ({ match, titleId, onClose, onHow }) => {
+  const { t } = useI18n();
+  return (
+    <div className="border-t-4 border-pp-pulse bg-pp-panel p-4 text-sm text-slate-300 sm:p-5">
+      <div className="mb-2 flex items-start gap-3">
+        <h2 id={titleId} className="min-w-0 flex-1 font-display text-xl font-extrabold uppercase italic tracking-broadcast text-pp-chalk">
+          {t('visit.about.title')}
+        </h2>
+        <button type="button" onClick={onClose} aria-label={t('common.close')} className="flex h-11 w-11 shrink-0 items-center justify-center text-pp-mute hover:text-white">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <p>{t('visit.about.what')}</p>
+      <p className="mt-2">{t('visit.about.synthetic')}</p>
+      <p className="mt-2">{t(match.crew?.mode === 'ai' ? 'visit.about.ai' : 'visit.about.template')}</p>
+      <p className="mt-2 text-xs text-pp-mute">{t('visit.about.team')}</p>
+      <button type="button" onClick={onHow} className="mt-3 inline-flex min-h-[44px] items-center gap-1.5 border border-pp-line px-3 font-display text-sm font-bold uppercase tracking-broadcast text-pp-chalk hover:border-pp-signal">
+        {t('visit.about.how')}
+        <ChevronRight className="h-4 w-4 rtl:rotate-180" aria-hidden />
+      </button>
+    </div>
+  );
+};
+
 /** The shape of the studio while the match or a view loads, never a blank wait. */
 const StudioSkeleton: React.FC = () => {
   const { t } = useI18n();
   return (
     <div role="status" aria-live="polite" className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-      <span className="sr-only">{t('common.loading')}</span>
+      <p className="text-sm text-pp-mute lg:col-span-12" data-testid="loading-label">{t('guide.loading')}</p>
       <div className="aspect-[105/68] animate-pulse border border-pp-line bg-pp-turf/60 lg:col-span-7" />
       <div className="space-y-3 lg:col-span-5">
         <div className="h-24 animate-pulse bg-pp-raised/60" />
@@ -622,10 +672,15 @@ const StudioSkeleton: React.FC = () => {
   );
 };
 
-const Scoreline: React.FC<{ match: ViewProps['match'] }> = ({ match }) => {
+const Scoreline: React.FC<{ match: ViewProps['match']; source: 'file' | 'eventhubs' | null }> = ({ match, source }) => {
   const { t } = useI18n();
   const { teams, score, clock, playback } = match;
-  if (!teams) return null;
+  if (!teams) {
+    // The scorebug's shape until the first snapshot lands, so the bar never looks empty.
+    return <div aria-hidden data-testid="scoreline-placeholder" className="h-11 w-36 animate-pulse bg-pp-raised/70 sm:w-48" />;
+  }
+  // The live Event Hubs stream is not a replay; the bundled match (and the offline demo) is.
+  const replaying = match.status === 'demo' || (match.status === 'live' && source === 'file');
   return (
     // Scoreboard strip: team colour blocks either side of a white score panel. Always home
     // on the left and away on the right, also on a right-to-left page.
@@ -639,7 +694,20 @@ const Scoreline: React.FC<{ match: ViewProps['match'] }> = ({ match }) => {
       <bdi className="flex items-center px-2 text-white sm:px-2.5" style={{ background: teams.away.primary_color }}>
         {teams.away.short_name}
       </bdi>
-      <span className="ltr-nums flex items-center whitespace-nowrap bg-pp-night px-2 text-pp-signal sm:px-2.5">{playback.ended ? t('play.ended') : clock}</span>
+      <span className="ltr-nums flex flex-col items-start justify-center whitespace-nowrap bg-pp-night px-2 leading-none text-pp-signal sm:px-2.5">
+        {/* Says what is playing: a synthetic replay, on its own, at this speed (shared by everyone). */}
+        {replaying && !playback.ended && (
+          <span
+            data-testid="replay-speed"
+            title={t('guide.replay.hint', { speed: playback.speed_multiplier })}
+            className="mb-0.5 text-[9px] font-bold tracking-wider text-pp-mute"
+          >
+            {t('guide.replay.badge', { speed: playback.speed_multiplier })}
+            <span className="sr-only">. {t('guide.replay.hint', { speed: playback.speed_multiplier })}</span>
+          </span>
+        )}
+        <span>{playback.ended ? t('play.ended') : clock}</span>
+      </span>
     </div>
   );
 };

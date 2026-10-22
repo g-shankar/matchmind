@@ -130,7 +130,8 @@ describe('replay modal', () => {
     fireEvent.keyDown(document.activeElement!, { key: 'Escape' });
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     // Open again from the focused card, then use the browser Back button.
-    fireEvent.click(screen.getAllByRole('button', { name: /Show the replay|Watch the replay|replay/i })[0]);
+    // (The pause button now says "Pause the replay": pick the replay buttons by their own words.)
+    fireEvent.click(screen.getAllByRole('button', { name: /Show the replay|Watch the replay/i })[0]);
     await screen.findByRole('dialog');
     act(() => {
       window.dispatchEvent(new PopStateEvent('popstate'));

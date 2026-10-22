@@ -17,6 +17,14 @@ export interface ReplayCardProps {
 }
 
 const STEP_MS = 2500;
+/** Chance values (xG) always show two decimals, as the crew's text prints them: 0.20 next to 0.24. */
+const XG_DECIMALS = 2;
+
+/** An evidence value as shown in the replay: xG with two decimals, everything else as sent. */
+export function evidenceText(ev: OverlayCard['evidence'][number], i18n: Pick<ReturnType<typeof useI18n>, 'num' | 't'>): string {
+  if (ev.unit === 'xG' && typeof ev.value === 'number') return i18n.num(ev.value, Math.max(XG_DECIMALS, decimalsOf(ev.value)));
+  return fmtFact(ev.value, i18n);
+}
 type Step = 1 | 2 | 3;
 
 /** A replay number as the evidence shows it: when the card's evidence carries the same value
@@ -26,7 +34,7 @@ export function asInEvidence(raw: number, evidence: OverlayCard['evidence'], fal
   for (const ev of evidence) {
     if (typeof ev.value !== 'number') continue;
     const d = decimalsOf(ev.value);
-    if (Math.abs(ev.value - raw) <= 0.5 * 10 ** -d + 1e-9) return { value: ev.value, decimals: d };
+    if (Math.abs(ev.value - raw) <= 0.5 * 10 ** -d + 1e-9) return { value: ev.value, decimals: ev.unit === 'xG' ? Math.max(XG_DECIMALS, d) : d };
   }
   return { value: raw, decimals: Math.max(fallbackDecimals, decimalsOf(raw)) };
 }
@@ -245,7 +253,7 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
                     )}
                   </dt>
                   <dd className="ltr-nums shrink-0 text-sm font-bold text-white" data-testid="evidence-value">
-                    {fmtFact(ev.value, i18n)}
+                    {evidenceText(ev, i18n)}
                     {ev.unit ? <span className="ms-1 text-xs font-medium text-pp-mute">{fmtUnit(ev.unit, t)}</span> : null}
                   </dd>
                 </div>

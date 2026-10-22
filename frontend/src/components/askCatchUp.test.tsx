@@ -83,8 +83,10 @@ describe('AskStudio', () => {
     expect((screen.getByRole('button', { name: 'Ask' }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.submit(box.closest('form')!);
     expect(ask).not.toHaveBeenCalled();
+    // A long paste keeps its real length on the counter (round 2: it used to read "1000 of 200").
     fireEvent.change(box, { target: { value: 'x'.repeat(5000) } });
-    expect(box.value.length).toBeLessThanOrEqual(1000);
+    expect(box.value).toHaveLength(5000);
+    expect(document.body.textContent).toContain('5000 of 200 characters');
     fireEvent.change(box, { target: { value: '  who is fastest  ' } });
     expect(screen.queryByTestId('ask-hint')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Ask' }));

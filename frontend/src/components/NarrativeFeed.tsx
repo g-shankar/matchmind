@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Award,
   Bell,
@@ -135,6 +135,7 @@ export const NarrativeFeed: React.FC<NarrativeFeedProps> = ({ match, onOpenRepla
     });
   }, [cards]);
   const favourite = teamById(match.teams, match.profile.favourite_team);
+  const audienceNote = useAudienceNote(match.profile.persona);
 
   const tabs: { id: Tab; label: string; count: number }[] = [
     { id: 'stories', label: t('studio.feed.stories'), count: cards.length },
@@ -152,6 +153,11 @@ export const NarrativeFeed: React.FC<NarrativeFeedProps> = ({ match, onOpenRepla
       actions={<span className="text-[11px] text-pp-mute">{t('studio.feed.newest')}</span>}
       className="flex flex-col lg:max-h-[calc(100vh-140px)]"
     >
+      {audienceNote && (
+        <p role="status" data-testid="audience-note" className="mb-3 border-s-4 border-pp-signal bg-pp-signal/10 px-3 py-2 text-xs text-pp-chalk">
+          {t('guide.audience.now', { who: t(`persona.${audienceNote}`) })}
+        </p>
+      )}
       <div role="tablist" aria-label={t('studio.feed.tabs')} className="mb-3 flex gap-1 rounded-xl border border-pp-line bg-pp-deep p-1">
         {tabs.map((x) => (
           <button
@@ -212,6 +218,22 @@ export const NarrativeFeed: React.FC<NarrativeFeedProps> = ({ match, onOpenRepla
     </Panel>
   );
 };
+
+const AUDIENCE_NOTE_MS = 8000;
+
+/** After the viewer picks another audience (not on first load), a short note says what changed. */
+function useAudienceNote(persona: string): string | null {
+  const previous = useRef(persona);
+  const [note, setNote] = useState<string | null>(null);
+  useEffect(() => {
+    if (persona === previous.current) return;
+    previous.current = persona;
+    setNote(persona);
+    const id = setTimeout(() => setNote(null), AUDIENCE_NOTE_MS);
+    return () => clearTimeout(id);
+  }, [persona]);
+  return note;
+}
 
 const Empty: React.FC = () => {
   const { t } = useI18n();
@@ -303,10 +325,16 @@ export const StoryCard: React.FC<{
         </p>
       )}
       {card.body && <p className="mt-2 text-sm leading-relaxed text-slate-200">{card.body}</p>}
+      <p data-testid="card-voice" className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-pp-mute">
+        {t('guide.voice', { who: t(`persona.${card.persona}`) })}
+      </p>
 
       {card.why && (
         <div className="mt-2 rounded-lg border border-pp-line/70 bg-pp-deep/80 p-2.5">
-          <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-pp-pulseSoft">{t('studio.feed.why')}</span>
+          <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-wider text-pp-pulseSoft">
+            {t('studio.feed.why')}
+            <span className="ms-1 font-semibold normal-case tracking-normal text-pp-mute">· {t('guide.whySame')}</span>
+          </span>
           <p className="text-xs leading-relaxed text-slate-200">{card.why}</p>
         </div>
       )}

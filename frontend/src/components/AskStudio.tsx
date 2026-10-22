@@ -4,7 +4,8 @@
 // each cited moment opens its claim audit ("how we know", components/ClaimAudit).
 import React, { useEffect, useRef, useState } from 'react';
 import { CheckCircle2, MessageCircleQuestion, Play, Search, Volume2 } from 'lucide-react';
-import { ASK_CHIPS, ASK_MAX_CHARS, type AskAnswer, type AskChip, type AskFailure } from '../api/contract';
+import { ASK_CHIPS, ASK_MAX_CHARS, type AskAnswer, type AskChip, type AskFailure, type Bookmark } from '../api/contract';
+import { compareMoments } from './MomentsList';
 import { useI18n } from '../i18n';
 import { useReadAloud } from '../lib/speech';
 import type { MatchViewState } from '../state/matchStore';
@@ -22,9 +23,17 @@ const isSpecialBookmark = (match: MatchViewState, id: string) => {
 
 type Result = { answer: AskAnswer } | { failure: AskFailure };
 
-// Typing is capped well above the limit so a long paste can be shown as too long (with a
-// count) instead of being cut silently; only questions within ASK_MAX_CHARS are sent.
-const TYPED_CAP = ASK_MAX_CHARS * 5;
+// A long paste is kept (up to this cap) so the counter shows its real length and the box
+// says it is too long, instead of cutting it silently; only questions within ASK_MAX_CHARS
+// are sent. A paste past the cap is cut, and the counter says so ("10000+").
+export const TYPED_CAP = 10_000;
+
+/** The first "should he have passed?" moment still to come after `asOf`, from the public
+ * jump list (special moments are listed spoiler-free before they happen). */
+export function nextBetterOption(bookmarks: Bookmark[], asOf: { clock_s: number; period: number }): Bookmark | null {
+  const later = bookmarks.filter((b) => b.kind === 'better_option' && compareMoments(b, asOf) > 0).sort(compareMoments);
+  return later[0] ?? null;
+}
 
 export const AskStudio: React.FC<{
   match: MatchViewState;
@@ -32,10 +41,13 @@ export const AskStudio: React.FC<{
   compact?: boolean;
   /** Opens the replay of a "should he have passed?" or unfound-run moment the answer cites. */
   onOpenReplay?: (momentId: string) => void;
-}> = ({ match, actions, compact, onOpenReplay }) => {
+  /** Jumps the match to a moment from the jump list (the first "should he have passed?"). */
+  onJump?: (b: Bookmark) => void;
+}> = ({ match, actions, compact, onOpenReplay, onJump }) => {
   const i18n = useI18n();
   const { t } = i18n;
   const [text, setText] = useState('');
+  const [clipped, setClipped] = useState(false);
   const [pending, setPending] = useState<AskChip | 'text' | null>(null);
   const [result, setResult] = useState<Result | null>(null);
   const [hint, setHint] = useState<'empty' | null>(null);
@@ -108,10 +120,11 @@ export const AskStudio: React.FC<{
           inputMode="text"
           autoComplete="off"
           spellCheck={false}
-          maxLength={TYPED_CAP}
           value={text}
           onChange={(e) => {
-            setText(e.target.value.slice(0, TYPED_CAP));
+            const raw = e.target.value;
+            setClipped(raw.length > TYPED_CAP);
+            setText(raw.slice(0, TYPED_CAP));
             if (hint) setHint(null);
           }}
           aria-invalid={tooLong || hint === 'empty' ? true : undefined}
@@ -130,7 +143,7 @@ export const AskStudio: React.FC<{
         </button>
       </form>
       <p id={`${inputId}-count`} className={cx('ltr-nums mt-1 text-end text-[11px]', tooLong ? 'font-semibold text-pp-gold' : 'text-pp-mute')}>
-        {t('ask.count', { n: text.length, max: ASK_MAX_CHARS })}
+        {t('ask.count', { n: clipped ? t('guide.counter.over', { n: TYPED_CAP }) : text.length, max: ASK_MAX_CHARS })}
       </p>
       {(tooLong || hint === 'empty') && (
         <p role="alert" data-testid="ask-hint" className="mt-1 border-s-4 border-pp-gold bg-pp-gold/10 px-3 py-1.5 text-xs text-pp-gold">
@@ -171,6 +184,7 @@ export const AskStudio: React.FC<{
             match={match}
             onHowWeKnow={howWeKnow}
             onOpenReplay={onOpenReplay}
+            onJump={onJump}
             onSpeak={speech.enabled ? () => speech.speak(result.answer.answer, result.answer.text_language) : undefined}
           />
         )}
@@ -196,13 +210,19 @@ const AnswerCard: React.FC<{
   onHowWeKnow: (momentId: string, from: HTMLElement) => void;
   onSpeak?: () => void;
   onOpenReplay?: (momentId: string) => void;
-}> = ({ answer, match, onHowWeKnow, onSpeak, onOpenReplay }) => {
+  onJump?: (b: Bookmark) => void;
+}> = ({ answer, match, onHowWeKnow, onSpeak, onOpenReplay, onJump }) => {
   const i18n = useI18n();
   const { t } = i18n;
   const answered = answer.status === 'answered' || answer.status === 'not_yet';
   const tone = answered ? 'border-pp-signal' : answer.status === 'hidden' ? 'border-pp-gold' : 'border-pp-line';
   const links = answer.moment_ids.slice(-MAX_LINKS);
   const bookmark = (id: string) => match.bookmarks.find((b) => b.moment_id === id);
+  // "Should he have passed?" before the first one: say when it comes and offer to jump there.
+  const upcoming =
+    answer.status === 'answered' && answer.intent?.kind === 'better_option' && !links.some((id) => isSpecialBookmark(match, id))
+      ? nextBetterOption(match.bookmarks, answer.as_of)
+      : null;
 
   return (
     <article data-testid="ask-answer" className={cx('border-s-4 bg-pp-deep/70 px-3 py-3', tone)}>
@@ -246,6 +266,17 @@ const AnswerCard: React.FC<{
               </li>
             ))}
           </ul>
+        </div>
+      )}
+      {upcoming && (
+        <div data-testid="ask-upcoming" className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+          <span className="text-slate-300">{t('guide.ask.firstAt', { clock: `⁦${upcoming.match_clock}⁩` })}</span>
+          {onJump && (
+            <button type="button" onClick={() => onJump(upcoming)} className="inline-flex min-h-[44px] items-center gap-1 bg-pp-pulse px-3 text-xs font-bold text-white hover:bg-pp-pulse/85">
+              <Play className="h-3.5 w-3.5" aria-hidden />
+              <span className="ltr-nums">{t('guide.ask.jumpTo', { clock: upcoming.match_clock })}</span>
+            </button>
+          )}
         </div>
       )}
       {links.length > 0 && (

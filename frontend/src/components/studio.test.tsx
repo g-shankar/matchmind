@@ -127,11 +127,13 @@ describe('MomentsList', () => {
       playback: { is_running: true, speed_multiplier: 10, clock_s: 30, match_clock: '00:00', period: 1, ended: false },
     });
     ui(<MomentsList match={match} actions={actions} />);
+    // The replay moment leads in "Key replays"; the full list opens on request.
+    fireEvent.click(screen.getByRole('button', { name: /All moments/ }));
     fireEvent.click(screen.getByRole('button', { name: /Goal for AAA/ }));
     expect(actions.seek).toHaveBeenCalledWith(12, 1);
-    fireEvent.click(screen.getByRole('button', { name: /Shot or pass/ }));
+    fireEvent.click(screen.getAllByRole('button', { name: /Shot or pass/ })[0]);
     expect(actions.seek).toHaveBeenLastCalledWith(0, 1);
-    expect(screen.getByText('Should he have passed?')).toBeTruthy();
+    expect(screen.getAllByText('Should he have passed?').length).toBeGreaterThan(0);
     // Upcoming goals are not spoiled: the chip says what sort of moment, not what happens.
     expect(screen.queryByText('Late winner')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /50:00.*Attack/ }));
