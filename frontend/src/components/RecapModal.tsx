@@ -108,7 +108,10 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
         >
           <Award className="h-8 w-8" style={{ color: potmColor }} aria-hidden />
           <span className="text-[11px] font-bold uppercase tracking-widest text-pp-mute">{t('broadcast.recap.potm')}</span>
-          <p className="font-display text-xl font-extrabold tracking-wide text-white">{potmName ?? t('common.none')}</p>
+          <p className="font-display text-xl font-extrabold tracking-wide text-white">
+            {/* Catch-up mode: the player of the match would give the result away. */}
+            {recap.spoiler_free ? t('catchup.hiddenValue') : (potmName ?? t('common.none'))}
+          </p>
           {potm && (
             <p className="flex items-center gap-1.5 text-xs text-slate-300">
               <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: potm.team.primary_color }} />

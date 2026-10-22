@@ -75,3 +75,16 @@ describe('RecapModal', () => {
     expect(screen.getByRole('dialog').closest('[dir]')?.getAttribute('dir')).toBe('rtl');
   });
 });
+
+describe('RecapModal in catch-up mode', () => {
+  it('shows the player of the match as hidden in the story so far', () => {
+    const story = {
+      match_id: 'T-1', persona: 'casual' as const, language: 'en' as const, rtl: false,
+      title: 'The story so far', headline: 'Catch up without the score', summary_paragraphs: ['At 30:00: xG 1.2 to 0.4.'],
+      key_moments: [], player_of_the_match_id: null, player_of_the_match: null, stats: {},
+      generated_at_clock: '30:00', produced_by: 'template' as const, fact_check: { ok: true, reasons: [] }, spoiler_free: true,
+    };
+    render(<I18nProvider lang="en"><RecapModal open onClose={() => {}} recap={story} loading={false} teams={null} /></I18nProvider>);
+    expect(screen.getByText('Hidden')).toBeTruthy();
+  });
+});
