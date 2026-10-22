@@ -71,10 +71,10 @@ jobs:
         with:
           node-version: "20"
       - run: pip install "./backend[azure,ai,foundry,agent-framework,observability,analytics]" pip-licenses
-      - run: pip-licenses --partial-match --fail-on="GPL;AGPL;SSPL"
+      - run: pip-licenses --partial-match --fail-on="GPL;AGPL;SSPL;UNKNOWN;NonCommercial;CC-BY-NC;BUSL;Commons Clause"
       - run: npm ci --no-audit --no-fund
         working-directory: frontend
-      - run: npx --yes license-checker --production --failOn "GPL;AGPL;SSPL"
+      - run: npx --yes license-checker --production --excludePrivatePackages --failOn "GPL;AGPL;SSPL;UNKNOWN;UNLICENSED;CC-BY-NC-4.0;BUSL-1.1"
         working-directory: frontend
 
   infra:
