@@ -162,6 +162,25 @@
               "title": "Moments",
               "type": "integer"
             },
+            "orchestrator": {
+              "default": "in_process",
+              "enum": [
+                "in_process",
+                "agent_framework"
+              ],
+              "title": "Orchestrator",
+              "type": "string"
+            },
+            "provider": {
+              "default": "templates",
+              "enum": [
+                "templates",
+                "azure_openai",
+                "foundry_agents"
+              ],
+              "title": "Provider",
+              "type": "string"
+            },
             "rejections": {
               "default": 0,
               "title": "Rejections",
@@ -2714,6 +2733,25 @@
               "default": 0,
               "title": "Moments",
               "type": "integer"
+            },
+            "orchestrator": {
+              "default": "in_process",
+              "enum": [
+                "in_process",
+                "agent_framework"
+              ],
+              "title": "Orchestrator",
+              "type": "string"
+            },
+            "provider": {
+              "default": "templates",
+              "enum": [
+                "templates",
+                "azure_openai",
+                "foundry_agents"
+              ],
+              "title": "Provider",
+              "type": "string"
             },
             "rejections": {
               "default": 0,
