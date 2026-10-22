@@ -60,7 +60,9 @@ from matchmind.stats.models import EventMetrics, MatchStateSnapshot, PlayerStats
 logger = logging.getLogger("pitchpulse.session")
 
 SPEEDS: tuple[int, ...] = (1, 10, 60)
-DEFAULT_SPEED = 10
+# 1x by default: about 9 real minutes for the 90, slow enough to read the crew's cards as
+# they land (docs/adr/0006-one-shared-match-clock.md). MATCHMIND_DEFAULT_SPEED overrides it.
+DEFAULT_SPEED = 1
 DEFAULT_BASE_RATE = 10.0
 RECENT_BUNDLES = 8
 _RECAP_CACHE_SIZE = 32
@@ -73,6 +75,17 @@ NO_BOOKMARK_KINDS = frozenset({"speed_burst", "rocket_shot", "distance_milestone
 
 BACKEND_DIR = Path(__file__).resolve().parents[3]
 _DEMO = Path("data") / "matches" / "MM-DEMO-001.jsonl"
+
+
+def _default_speed(given: int | None = None) -> int:
+    """The speed a fresh or restarted match plays at: `given`, else MATCHMIND_DEFAULT_SPEED,
+    else DEFAULT_SPEED. Anything other than 1, 10 or 60 falls back to DEFAULT_SPEED."""
+    raw: Any = given if given is not None else os.environ.get("MATCHMIND_DEFAULT_SPEED")
+    try:
+        speed = int(raw) if raw is not None else DEFAULT_SPEED
+    except ValueError:
+        return DEFAULT_SPEED
+    return speed if speed in SPEEDS else DEFAULT_SPEED
 
 
 def _default_match_file() -> Path:
@@ -89,6 +102,16 @@ DEFAULT_MATCH_FILE = _default_match_file()
 
 class SessionError(ValueError):
     """A request the session cannot carry out. The message is plain words for viewers."""
+
+
+# Viewer-facing session messages. The WebSocket ERROR frame carries a stable code for each
+# (app.ERROR_CODES), so the app can show it in the viewer's own language.
+MATCH_FINISHED = "The match has finished. Reset or jump back to watch it again."
+BAD_SPEED = "Speed must be 1, 10 or 60."
+BAD_TIME = "Pick a time between kick-off and full time."
+NO_SUCH_HALF = "That half is not in this match."
+NOT_PLAYED_YET = "That part of the match has not been played yet."
+AFTER_FULL_TIME = "That time is after full time."
 
 
 # --- What the session needs from the stats engine and the crew -------------------------------
@@ -331,6 +354,7 @@ class MatchSession:
         physical: Any | None = None,
         live_feed: LiveFeedLike | None = None,
         source: dict[str, Any] | None = None,
+        default_speed: int | None = None,
     ) -> None:
         if not events or events[0].type != EventType.MATCH_START:
             raise ValueError("A match needs events starting with match_start")
@@ -379,7 +403,8 @@ class MatchSession:
         self._precompute()
 
         self.is_running = True
-        self.speed = DEFAULT_SPEED
+        self.default_speed = _default_speed(default_speed)
+        self.speed = self.default_speed
         self.ended = False
         self._position = 0.0
         self._last_wall = clock()
@@ -734,6 +759,11 @@ class MatchSession:
     def is_live(self) -> bool:
         return self._feed is not None
 
+    @property
+    def rewindable(self) -> bool:
+        """A file replay (not a live stream, nor one waiting for its stream to start)."""
+        return self._feed is None and self._waiting_live is None
+
     def append(self, events: list[Event]) -> None:
         """Add events a live feed has just delivered (already checked, in seq order).
         Callers hold the same locks as for a seek: the load-time pass grows here.
@@ -921,29 +951,31 @@ class MatchSession:
 
     def toggle_pause(self) -> None:
         if self.ended:
-            raise SessionError("The match has finished. Reset or jump back to watch it again.")
+            raise SessionError(MATCH_FINISHED)
         self.is_running = not self.is_running
         self._last_wall = self._clock()
 
     def set_speed(self, speed: int) -> None:
         if speed not in SPEEDS:
-            raise SessionError("Speed must be 1, 10 or 60.")
+            raise SessionError(BAD_SPEED)
         self.speed = speed
         self._last_wall = self._clock()
 
     def reset(self) -> None:
-        """Back to kick-off and play."""
+        """Back to kick-off and play at the default speed (a restart is a fresh start, not a
+        replay of the last viewer's 60x)."""
         self.seek(0.0, period=1)
         self.is_running = True
+        self.speed = self.default_speed
 
     def seek(self, clock_s: float, period: int | None = None) -> None:
         """Jump to a match clock time. Stats replay from kick-off; no cards are produced on the way."""
         if clock_s < 0:
-            raise SessionError("Pick a time between kick-off and full time.")
+            raise SessionError(BAD_TIME)
         if period is None:
             period = max((p for p, start in self._period_starts.items() if start <= clock_s), default=1)
         if period not in self._period_starts:
-            raise SessionError("That half is not in this match.")
+            raise SessionError(NO_SUCH_HALF)
         target = len(self.events)
         for i, e in enumerate(self.events):
             if e.period > period or (e.period == period and e.clock_s >= clock_s):
@@ -951,8 +983,8 @@ class MatchSession:
                 break
         if target >= len(self.events):
             if self._open:
-                raise SessionError("That part of the match has not been played yet.")
-            raise SessionError("That time is after full time.")
+                raise SessionError(NOT_PLAYED_YET)
+            raise SessionError(AFTER_FULL_TIME)
         # Landing on the start of the match or a half includes its kick-off markers.
         while target < len(self.events) - 1 and self.events[target].type in (
             EventType.MATCH_START,
@@ -977,6 +1009,10 @@ class MatchSession:
             if warm:
                 spotter.spot(tick.event, tick.metrics, tick.snapshot, self._live.stats.players())
         self._live.recent.extend(before)
+        if self.ended:
+            # Jumping back into a finished match plays from there: a paused full-time
+            # screen with an empty pitch looked like the jump had done nothing.
+            self.is_running = True
         self.ended = False
         self._position = self._tl[target - 1]
         if self.events[target].period == period:

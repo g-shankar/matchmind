@@ -353,7 +353,7 @@ Server -> client. Every message is `{ "type": ..., "data": ... }`.
 
 | type | data | when |
 |---|---|---|
-| `INITIAL_SNAPSHOT` | `{ match_id, clock, period, home_score, away_score (null in catch-up mode), teams: { home: TeamInfo, away: TeamInfo }, state: MatchState, control_chaos: ControlChaosState, profile: ViewerProfile, playback: Playback, recent_cards: OverlayCard[], bookmarks: Bookmark[], players: PlayerStats[], crew: CrewStatus, languages: LanguageInfo[], auto_eventing: AutoEventingStatus \| null, cue_sheet: CueSheetState }` | on connect, after `MATCH_RESET`, after a seek, after `set_view` changes `spoilers` |
+| `INITIAL_SNAPSHOT` | `{ match_id, clock, period, home_score, away_score (null in catch-up mode), teams: { home: TeamInfo, away: TeamInfo }, state: MatchState, control_chaos: ControlChaosState, profile: ViewerProfile, playback: Playback, recent_cards: OverlayCard[], bookmarks: Bookmark[], players: PlayerStats[], crew: CrewStatus, languages: LanguageInfo[], auto_eventing: AutoEventingStatus \| null, cue_sheet: CueSheetState, recent_events: MatchEvent[] (WebSocket only: the last 30 played, oldest first; scrubbed in catch-up mode) }` | on connect, after `MATCH_RESET`, after a seek, after `set_view` changes `spoilers` |
 | `MATCH_TICK` | `{ event: MatchEvent, clock, period, score: { home, away } \| null, state: MatchState, control_chaos: ControlChaosState, cards: OverlayCard[], players_changed: PlayerStats[] }` | every event as it is played |
 | `CUES` | `{ sheet_id, cues: Cue[], active?: Cue[] }` | never in catch-up mode; otherwise after a `MATCH_TICK` that produced cues for this viewer; `active` (what is on air now) is present when a new sheet starts, e.g. after `set_view` |
 | `PLAYBACK_CONTROL` | `Playback` | play, pause, speed change |
@@ -361,7 +361,7 @@ Server -> client. Every message is `{ "type": ..., "data": ... }`.
 | `PROFILE_CHANGED` | `ViewerProfile` | after this connection's `set_view` |
 | `PERSONA_CHANGED` | `{ persona }` | kept for the old frontend; sent with `PROFILE_CHANGED` |
 | `MATCH_END` | `{ recap: Recap }` | full time, for this connection's persona and language |
-| `ERROR` | `{ message }` | invalid action (plain words, no stack traces) |
+| `ERROR` | `{ message, code }` | invalid action (plain words, no stack traces). `code` is stable for translation: `jump_too_fast`, `view_too_fast`, `too_many_actions`, `match_finished`, `bad_speed`, `bad_time`, `no_such_half`, `not_played_yet`, `after_full_time`, `unknown_club`, `unknown_player`, `loading`, `oops`, else `other` |
 
 ```ts
 interface Playback {
@@ -373,9 +373,16 @@ interface Playback {
 
 Speed: one real second plays `10 x speed_multiplier` match seconds (the base
 rate of 10 can be changed with `MATCHMIND_BASE_RATE`). So 1x plays the match in
-about 9 minutes, 10x (the default) in about 54 seconds and 60x in about 9
-seconds. The half-time break is skipped. Playback only moves while at least
-one viewer is connected.
+about 9 minutes (the default; `MATCHMIND_DEFAULT_SPEED` changes it), 10x in
+about 54 seconds and 60x in about 9 seconds. The half-time break is skipped.
+Playback only moves while at least one viewer is connected. Reset goes back to
+kick-off at the default speed; a seek into a finished match plays from there;
+the first viewer after `MATCHMIND_IDLE_REWIND_S` (300 s) with nobody watching
+starts at kick-off ([ADR 0008](adr/0008-first-visit-on-the-shared-clock.md)).
+
+`/docs` and `/openapi.json` are served for local development and switched off
+where the server also serves the app (the deployed container);
+`MATCHMIND_API_DOCS=true|false` overrides that.
 
 Seek: `clock_s` is the match clock, which restarts at 2700 (45:00) for the
 second half while first-half stoppage time runs past 2700. Pass `period` (1 or

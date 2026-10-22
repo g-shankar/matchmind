@@ -321,7 +321,7 @@ def test_app_created_at_import_and_loads_lazily():
 def test_ws_initial_snapshot_then_ticks_in_order(client, clock):
     with client.websocket_connect("/ws/match") as ws:
         snap = recv(ws, "INITIAL_SNAPSHOT")
-        assert set(snap) == SNAPSHOT_KEYS
+        assert set(snap) == SNAPSHOT_KEYS | {"recent_events"}  # the pitch's last events (WS only)
         pump(client, clock, 0.6)  # 60 match seconds at the default 10x
         seqs = []
         for _ in range(4):

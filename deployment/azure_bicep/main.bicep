@@ -412,6 +412,7 @@ var appEnv = [
   { name: 'AZURE_TRANSLATOR_ENDPOINT', value: deployTranslator ? 'https://${names.translator}.cognitiveservices.azure.com/' : '' }
   { name: 'AZURE_TRANSLATOR_REGION', value: location }
   { name: 'MATCHMIND_SOURCE', value: eventHubsSource ? 'eventhubs' : 'file' }
+  { name: 'MATCHMIND_API_DOCS', value: 'false' }
 ]
 
 

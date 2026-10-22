@@ -296,6 +296,13 @@ def session(clock: FakeClock) -> MatchSession:
 
 
 @pytest.fixture(autouse=True)
+def _suite_speed(monkeypatch):
+    """The suite's timings were written for 10x playback; the shipped default is 1x
+    (tests/test_first_visit.py checks that default with this setting removed)."""
+    monkeypatch.setenv("MATCHMIND_DEFAULT_SPEED", "10")
+
+
+@pytest.fixture(autouse=True)
 def _fresh_model_budget(monkeypatch):
     """Each test gets its own process-wide model budget, so tests never share spend."""
     from matchmind.crew import llm

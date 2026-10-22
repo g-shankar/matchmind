@@ -51,6 +51,7 @@ from matchmind.dataset.export import TRACKING_HZ, TRACKING_MAX_WINDOW_S, Trackin
 from matchmind.schema import PITCH_LENGTH_M, PITCH_WIDTH_M, SCHEMA_VERSION, Event
 
 from . import reads, view
+from . import session as session_mod
 from .session import CUE_PAGE_MAX, MatchSession, SessionError, Tick, build_session
 
 logger = logging.getLogger("pitchpulse.api")
@@ -60,6 +61,10 @@ MAX_CONNECTIONS = int(os.environ.get("MATCHMIND_MAX_CONNECTIONS", "200"))
 MAX_CONN_PER_IP = int(os.environ.get("MATCHMIND_MAX_CONN_PER_IP", "20"))
 SEND_QUEUE_BYTES = 4 * 1024 * 1024  # per connection; a viewer this far behind is dropped
 JUMP_INTERVAL_S = 0.5  # at most one seek or reset per half second, for everyone
+# When nobody has watched for this long, the next visitor starts a fresh match at kick-off
+# and the default speed instead of landing at full time (docs/adr/0006-one-shared-match-clock.md).
+# 0 turns it off. Never applies to a live stream.
+IDLE_REWIND_S = float(os.environ.get("MATCHMIND_IDLE_REWIND_S", "300"))
 VIEW_BURST, VIEW_PER_SECOND = 3, 1.0  # set_view per connection
 # Events of new cue-sheet compiling per playback step (shared by every viewer). An audience
 # never seen before costs one pass over the match so far (about 2,000 events at full time);
@@ -83,6 +88,29 @@ OOPS = "Something went wrong on our side. Please try again."
 TOO_FAST = "Jumping around too fast. Wait a moment and try again."
 TOO_MANY = "Too many requests. Wait a moment and try again."
 VIEW_TOO_FAST = "Changing the view too fast. Wait a moment and try again."
+TOO_MANY_ACTIONS = "Too many actions at once. Wait a moment and try again."
+LOADING = "The match is still loading. Try again in a moment."
+NO_CLUB_HERE = "That club is not in this match."
+NO_PLAYER_HERE = "That player is not in this match."
+
+# Stable codes for the viewer-facing WebSocket errors, sent next to the English text so the
+# app can show each one in the viewer's language (frontend src/i18n/toasts.ts). Anything
+# not listed goes out as "other".
+ERROR_CODES: dict[str, str] = {
+    OOPS: "oops",
+    TOO_FAST: "jump_too_fast",
+    VIEW_TOO_FAST: "view_too_fast",
+    TOO_MANY_ACTIONS: "too_many_actions",
+    LOADING: "loading",
+    NO_CLUB_HERE: "unknown_club",
+    NO_PLAYER_HERE: "unknown_player",
+    session_mod.MATCH_FINISHED: "match_finished",
+    session_mod.BAD_SPEED: "bad_speed",
+    session_mod.BAD_TIME: "bad_time",
+    session_mod.NO_SUCH_HALF: "no_such_half",
+    session_mod.NOT_PLAYED_YET: "not_played_yet",
+    session_mod.AFTER_FULL_TIME: "after_full_time",
+}
 
 # Dataset downloads (synthetic, public): a few per client IP, at most two built at once.
 EXPORT_BURST, EXPORT_PER_SECOND = 6, 0.2
@@ -317,7 +345,7 @@ class Connection:
         self.queue.put_nowait(text)
 
     def error(self, text: str) -> None:
-        self.send(view.message("ERROR", {"message": text}))
+        self.send(view.message("ERROR", {"message": text, "code": ERROR_CODES.get(text, "other")}))
 
     def close(self) -> None:
         if not self.closed:
@@ -369,6 +397,7 @@ class Hub:
         self._crew_lock = asyncio.Lock()  # crew work, in order; taken before the playback lock
         self._last_jump: float | None = None
         self._slots = 0  # WebSocket slots reserved (before accept)
+        self._idle_since: float | None = None  # when the last viewer left (None: someone is here)
         self._slots_per_ip: dict[str, int] = {}
 
     # --- connection slots ----------------------------------------------------------------------
@@ -390,12 +419,37 @@ class Hub:
             self._slots_per_ip.pop(ip, None)
 
     def drop(self, conn: Connection) -> None:
-        self.connections.discard(conn)
+        if conn in self.connections:
+            self.connections.discard(conn)
+            if not self.connections:
+                self._idle_since = self.clock()
+
+    def join(self, conn: Connection) -> bool:
+        """Add a viewer. Returns True when they are the first viewer after the match sat
+        unwatched for IDLE_REWIND_S: the caller then rewinds to kick-off for them."""
+        first = not self.connections
+        idle = self._idle_since
+        self.connections.add(conn)
+        self._idle_since = None
+        if not first or idle is None or IDLE_REWIND_S <= 0:
+            return False
+        return self.clock() - idle >= IDLE_REWIND_S
+
+    async def rewind_for_new_visitor(self) -> None:
+        """Kick-off at the default speed, before the new viewer's first snapshot. Only runs
+        when nobody else is watching, so no one's match moves under them."""
+        session = self.session
+        if not session.rewindable:
+            return
+        async with self._crew_lock:
+            if len(self.connections) > 1:
+                return
+            await self.run(session.reset)
 
     @property
     def session(self) -> MatchSession:
         if self._session is None:
-            raise HTTPException(status_code=503, detail="The match is still loading. Try again in a moment.")
+            raise HTTPException(status_code=503, detail=LOADING)
         return self._session
 
     def attach(self, session: MatchSession) -> None:
@@ -440,9 +494,9 @@ class Hub:
             states.append(self.session.viewer_state(profile) if now else ViewerState())
         messages = []
         for profile, state in zip(profiles, states, strict=True):
-            messages.append(
-                view.message("INITIAL_SNAPSHOT", view.snapshot_payload(self.session, profile, state))
-            )
+            data = view.snapshot_payload(self.session, profile, state)
+            data["recent_events"] = view.recent_events_payload(self.session, profile)
+            messages.append(view.message("INITIAL_SNAPSHOT", data))
             state.cue_active = None  # the snapshot carried it
         return states, messages
 
@@ -582,6 +636,13 @@ class Hub:
 # --- App -------------------------------------------------------------------------------------
 
 
+def _api_docs_from_env(default: bool) -> bool:
+    raw = os.environ.get("MATCHMIND_API_DOCS", "").strip().lower()
+    if not raw:
+        return default
+    return raw in ("true", "1", "yes", "on")
+
+
 def _mcp_enabled_from_env() -> bool:
     raw = os.environ.get("MATCHMIND_MCP_ENABLED", "true").strip().lower()
     return raw not in ("false", "0", "no", "off")
@@ -606,6 +667,7 @@ def create_app(
     clock: Callable[[], float] = time.monotonic,
     public_origin: str | None = None,
     mcp_enabled: bool | None = None,
+    api_docs: bool | None = None,
 ) -> FastAPI:
     hub = Hub(session, clock=clock)
     origins = allowed_origins if allowed_origins is not None else allowed_origins_from_env()
@@ -634,7 +696,17 @@ def create_app(
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
 
-    app = FastAPI(title="PitchPulse match API", version="1.0.0", lifespan=lifespan)
+    # /docs and /openapi.json: on for local development, off where this server also serves
+    # the app (the deployed container). MATCHMIND_API_DOCS=true|false overrides either way.
+    docs_on = api_docs if api_docs is not None else _api_docs_from_env(default=not serves_frontend)
+    app = FastAPI(
+        title="PitchPulse match API",
+        version="1.0.0",
+        lifespan=lifespan,
+        docs_url="/docs" if docs_on else None,
+        redoc_url="/redoc" if docs_on else None,
+        openapi_url="/openapi.json" if docs_on else None,
+    )
     app.state.hub = hub
     app.add_middleware(
         CORSMiddleware,
@@ -928,8 +1000,10 @@ def create_app(
         try:
             await ws.accept()
             conn = Connection(ws, hub.clock, on_drop=hub.drop)
-            hub.connections.add(conn)
+            rewind = hub.join(conn)
             writer = conn.start()
+            if rewind:
+                await hub.rewind_for_new_visitor()
             await _serve(ws, conn)
         except Exception:  # noqa: BLE001 - never leak details to the client
             logger.exception("websocket connection failed")
@@ -959,7 +1033,7 @@ def create_app(
             conn.error("That message is too big. Actions must be under 4 KB.")
             return
         if not conn.limiter.allow():
-            conn.error("Too many actions at once. Wait a moment and try again.")
+            conn.error(TOO_MANY_ACTIONS)
             return
         try:
             raw = json.loads(text)
@@ -1014,11 +1088,11 @@ def create_app(
         session = hub.session
         team = changes.get("favourite_team")
         if team is not None and not session.is_known_team(team):
-            conn.error("That club is not in this match.")
+            conn.error(NO_CLUB_HERE)
             return
         player = changes.get("focus_player_id")
         if player is not None and not session.is_known_player(player):
-            conn.error("That player is not in this match.")
+            conn.error(NO_PLAYER_HERE)
             return
         for key in ("persona", "language", "spoilers"):
             if key in changes and changes[key] is None:

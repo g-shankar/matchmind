@@ -20,6 +20,9 @@ from matchmind.stats.models import EventMetrics, MatchStateSnapshot, PlayerStats
 
 from .session import Bookmark, MatchSession, Tick
 
+# Events carried in INITIAL_SNAPSHOT.recent_events (enough to place both teams on the pitch).
+SNAPSHOT_EVENTS = 30
+
 METRIC_KEYS = (
     "pass_distance_m",
     "pass_difficulty",
@@ -329,6 +332,13 @@ def _snapshot_payload(
         "auto_eventing": session.auto_eventing,
         "cue_sheet": cue_sheet_state(state),
     }
+
+
+def recent_events_payload(session: MatchSession, profile: ViewerProfile) -> list[dict[str, Any]]:
+    """INITIAL_SNAPSHOT.recent_events (WebSocket only): the last few events, so the pitch shows
+    players and ball straight after a jump or while paused instead of waiting for a tick."""
+    events = [event_payload(e, m) for e, m in session.recent_events(SNAPSHOT_EVENTS)]
+    return events if profile.spoilers else [spoilers.scrub_event(e) for e in events]
 
 
 def tick_shared(tick: Tick) -> dict[str, Any]:
