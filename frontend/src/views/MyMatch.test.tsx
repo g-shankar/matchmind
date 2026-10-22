@@ -107,7 +107,7 @@ describe('MyMatch', () => {
 });
 
 describe('MyMatch club styles in the interface language', () => {
-  const styled = (style: string) => Object.fromEntries(Object.entries(teams).map(([id, tm]) => [id, { ...tm, style }]));
+  const styled = (style: string) => ({ home: { ...teams.home, style }, away: { ...teams.away, style } });
 
   it('shows a known roster style in French', () => {
     renderView(matchWith({ teams: styled('Possession 4-3-3, patient build-up through the half-spaces') }), mockActions(), 'fr');
