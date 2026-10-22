@@ -6,7 +6,8 @@ import { Pitch2D } from '../components/Pitch2D';
 import { ReplayCard } from '../components/ReplayCard';
 import { EvidenceTable, KIND_ICON, ProducedBadge, cardClock } from '../components/NarrativeFeed';
 import { textLanguage } from '../lib/languages';
-import { Badge, Panel, cx } from '../components/ui';
+import { Badge, Panel, Segmented, cx } from '../components/ui';
+import { ClubColumn, NumbersVerdict } from '../components/ClubHeart';
 import { compareMoments } from '../components/MomentsList';
 import type { ViewProps } from './types';
 
@@ -16,12 +17,20 @@ type Load =
   | { status: 'idle' }
   | { status: 'loading' }
   | { status: 'error' }
-  | { status: 'ready'; casual: OverlayCard | null; tactical: OverlayCard | null; others: { lang: UiLanguage; card: OverlayCard | null }[] };
+  | { status: 'ready'; casual: OverlayCard | null; tactical: OverlayCard | null; others: { lang: UiLanguage; card: OverlayCard | null }[] }
+  | { status: 'clubs'; home: OverlayCard | null; away: OverlayCard | null };
+
+/** Fan vs analyst (two audiences), or one fan of each club (two club hearts). */
+export type Compare = 'persona' | 'clubs';
 
 export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
   const { t } = useI18n();
   const [picked, setPicked] = useState<string | null>(null);
   const [load, setLoad] = useState<Load>({ status: 'idle' });
+  const [compare, setCompare] = useState<Compare>('persona');
+  const homeId = match.teams?.home.team_id ?? null;
+  const awayId = match.teams?.away.team_id ?? null;
+  const heartPersona: PersonaType = match.profile.persona === 'player_spotlight' ? 'casual' : match.profile.persona;
   const getMoment = useRef(actions.getMoment);
   getMoment.current = actions.getMoment;
 
@@ -45,6 +54,20 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
     let live = true;
     setLoad({ status: 'loading' });
     const get = (persona: PersonaType, l: string) => getMoment.current(momentId, persona, l as typeof lang).catch(() => null);
+    if (compare === 'clubs') {
+      // Same moment, same audience and language: only the club in the viewer's heart changes.
+      const forClub = (club: string | null) => getMoment.current(momentId, heartPersona, lang, club).catch(() => null);
+      Promise.all([forClub(homeId), forClub(awayId)])
+        .then(([home, away]) => {
+          if (!live) return;
+          if (!home && !away) return setLoad({ status: 'error' });
+          setLoad({ status: 'clubs', home, away });
+        })
+        .catch(() => live && setLoad({ status: 'error' }));
+      return () => {
+        live = false;
+      };
+    }
     const otherLangs = UI_LANGUAGES.filter((l) => l !== lang);
     Promise.all([get('casual', lang), get('tactical', lang), Promise.all(otherLangs.map((l) => get('casual', l)))])
       .then(([casual, tactical, others]) => {
@@ -56,10 +79,11 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
     return () => {
       live = false;
     };
-  }, [momentId, lang]);
+  }, [momentId, lang, compare, homeId, awayId, heartPersona]);
 
   const ready = load.status === 'ready' ? load : null;
-  const base = ready?.casual ?? ready?.tactical ?? null;
+  const clubs = load.status === 'clubs' ? load : null;
+  const base = ready?.casual ?? ready?.tactical ?? clubs?.home ?? clubs?.away ?? null;
   const sourceId = base?.evidence.find((e) => e.source_event_id)?.source_event_id ?? null;
   const sourceEvent = sourceId ? match.events.find((e) => e.event_id === sourceId) ?? null : null;
   const clock = base ? cardClock(base, match) : null;
@@ -88,7 +112,22 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
           )
         }
       >
-        <p className="text-sm text-pp-mute">{t('studio.split.subtitle')}</p>
+        <p className="text-sm text-pp-mute">{t(compare === 'clubs' ? 'heart.subtitle' : 'studio.split.subtitle')}</p>
+        {match.teams && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-pp-mute">
+            <span className="font-semibold">{t('heart.compare')}</span>
+            <Segmented
+              label={t('heart.compare')}
+              value={compare}
+              onChange={setCompare}
+              className="[&>button]:min-h-[44px]"
+              options={[
+                { value: 'persona' as const, label: t('heart.option.persona') },
+                { value: 'clubs' as const, label: t('heart.option.clubs', { home: match.teams.home.short_name, away: match.teams.away.short_name }) },
+              ]}
+            />
+          </div>
+        )}
       </Panel>
 
       {!momentId ? (
@@ -103,7 +142,7 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
         </Panel>
       ) : (
         <>
-          {ready && base && (
+          {(ready || clubs) && base && (
             <div className="rounded-2xl border border-pp-line/70 bg-pp-panel/60 p-3">
               <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
                 <Badge tone="gold">
@@ -125,11 +164,23 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
             </div>
           )}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <VoiceColumn persona="casual" card={ready?.casual ?? null} loading={!ready} />
-            <VoiceColumn persona="tactical" card={ready?.tactical ?? null} loading={!ready} />
-          </div>
+          {compare === 'clubs' && match.teams ? (
+            <>
+              <div className="grid gap-4 md:grid-cols-2">
+                <ClubColumn team={match.teams.home} card={clubs?.home ?? null} other={clubs?.away ?? null} loading={!clubs} />
+                <ClubColumn team={match.teams.away} card={clubs?.away ?? null} other={clubs?.home ?? null} loading={!clubs} />
+              </div>
+              {clubs && <NumbersVerdict a={clubs.home} b={clubs.away} />}
+              {match.status === 'demo' && <p className="text-xs text-pp-mute">{t('heart.demoNote')}</p>}
+            </>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              <VoiceColumn persona="casual" card={ready?.casual ?? null} loading={!ready} />
+              <VoiceColumn persona="tactical" card={ready?.tactical ?? null} loading={!ready} />
+            </div>
+          )}
 
+          {compare === 'persona' && (
           <Panel
             title={
               <span className="flex items-center gap-2">
@@ -158,6 +209,7 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
               ))}
             </ul>
           </Panel>
+          )}
         </>
       )}
     </div>

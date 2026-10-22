@@ -38,9 +38,13 @@ from matchmind.stats.physical import LABEL as TRACKING_LABEL
 from matchmind.stats.physical import SOURCE as TRACKING_SOURCE
 from matchmind.stats.physical import PhysicalTimeline, timeline_for
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from demo_insights import build_insights, insights_problems  # noqa: E402
+
 REPO = Path(__file__).resolve().parents[2]
 DEFAULT_IN = REPO / "backend" / "data" / "matches" / "MM-DEMO-001.jsonl"
 DEFAULT_OUT = REPO / "frontend" / "public" / "demo" / "demo-match.json"
+DEFAULT_INSIGHTS_OUT = REPO / "frontend" / "public" / "demo" / "demo-insights.json"
 
 FIXTURE_VERSION = 1
 PERSONAS = ("casual", "tactical", "fantasy")
@@ -1206,17 +1210,17 @@ T: dict[str, dict[str, dict[str, tuple[str, str, str]]]] = {
             "en": (
                 "Missed assist chance for {c}",
                 "{c} could have found {r} for a {proj} xG chance.",
-                "That pass would have earned {c} {proj} xA.",
+                "xA only counts passes that are played, and {c} never played this one.",
             ),
             "es": (
                 "Asistencia perdida para {c}",
                 "{c} pudo encontrar a {r} para una ocasión de {proj} xG.",
-                "Ese pase le habría dado a {c} {proj} de xA.",
+                "El xA solo cuenta los pases que se juegan, y {c} nunca jugó este.",
             ),
             "ar": (
                 "فرصة صناعة ضائعة على {c}",
                 "كان بإمكان {c} إيجاد {r} لفرصة بقيمة {proj} xG.",
-                "تلك التمريرة كانت ستمنح {c} قيمة {proj} xA.",
+                "قيمة xA تُحتسب فقط للتمريرات التي تُلعب، و{c} لم يلعب هذه التمريرة.",
             ),
         },
     },
@@ -2988,6 +2992,7 @@ def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--input", type=Path, default=DEFAULT_IN)
     ap.add_argument("--output", type=Path, default=DEFAULT_OUT)
+    ap.add_argument("--insights-output", type=Path, default=DEFAULT_INSIGHTS_OUT)
     args = ap.parse_args(argv)
     fixture, raw = build(args.input)
     data = serialise(fixture)
@@ -2997,6 +3002,15 @@ def main(argv: list[str] | None = None) -> int:
         problems.append("fixture is not deterministic")
     problems += self_check(fixture, raw)
     problems += check_scripted(fixture, raw)
+    # The offline trust panels (claim audit, metric registry, benchmark, dataset list).
+    events = [Event.model_validate(e) for e in raw]
+    insights = build_insights(fixture, events)
+    insights_data = serialise(insights)
+    if serialise(build_insights(again, events)) != insights_data:
+        problems.append("insights are not deterministic")
+    insights_text = insights_data.decode("utf-8").lower()
+    problems += [f"banned real-world name in insights: {w}" for w in BANNED if w.lower() in insights_text]
+    problems += [p for p in insights_problems(insights) if "parity" not in p]
     if problems:
         print("Self-check failed:", file=sys.stderr)
         for p in problems[:50]:
@@ -3004,6 +3018,13 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_bytes(data)
+    args.insights_output.write_bytes(insights_data)
+    notes = [p for p in insights_problems(insights) if "parity" in p]
+    print(
+        f"Wrote {args.insights_output} ({len(insights_data) / 1e6:.2f} MB): {len(insights['audits'])} audits, {len(notes)} parity notes"
+    )
+    for p in notes:
+        print(f"  parity note (shown in the audit): {p}")
     kinds: dict[str, int] = {}
     for m in fixture["moments"]:
         kinds[m["kind"]] = kinds.get(m["kind"], 0) + 1

@@ -193,8 +193,9 @@ export function useMatch() {
     seek: (clock_s: number, period?: number) => send({ action: 'seek', clock_s, ...(period ? { period } : {}) }),
     setView,
     clearError: () => dispatch({ type: 'clearError' }),
-    getMoment: (momentId: string, persona: ViewerProfile['persona'], language: ViewerProfile['language']) =>
-      transportRef.current?.getMoment(momentId, persona, language, profileRef.current.favourite_team) ??
+    // `favouriteTeam` overrides the viewer's club for this one request (the club-heart comparison).
+    getMoment: (momentId: string, persona: ViewerProfile['persona'], language: ViewerProfile['language'], favouriteTeam?: string | null) =>
+      transportRef.current?.getMoment(momentId, persona, language, favouriteTeam === undefined ? profileRef.current.favourite_team : favouriteTeam) ??
       Promise.resolve(null),
     loadRecap: async () => {
       const p = profileRef.current;
