@@ -17,3 +17,14 @@ describe('sanitizeProfile', () => {
     expect(sanitizeProfile({ language: 'zh' }).language).toBe('en');
   });
 });
+
+describe('urlProfile', () => {
+  it('pins persona, language and club from the link and ignores unknown values', async () => {
+    const { urlProfile } = await import('./useMatch');
+    const { DEFAULT_PROFILE } = await import('../api/mockServer');
+    expect(urlProfile(DEFAULT_PROFILE, '?persona=tactical&lang=es&club=NBR')).toMatchObject({ persona: 'tactical', language: 'es', favourite_team: 'NBR' });
+    const base = { ...DEFAULT_PROFILE, persona: 'fantasy' as const, language: 'ar' as const };
+    expect(urlProfile(base, '?persona=boss&lang=xx&club=<script>')).toMatchObject({ persona: 'fantasy', language: 'ar', favourite_team: null });
+    expect(urlProfile(base, '')).toEqual(base);
+  });
+});

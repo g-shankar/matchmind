@@ -19,6 +19,7 @@ import type {
 } from '../api/contract';
 import { DEFAULT_PROFILE } from '../api/mockServer';
 import { defaultLanguages } from '../lib/languages';
+import { applyCues, initialCueState, retractedByCards, ruleOut, startSheet, type CueViewState } from './cues';
 
 export type ConnectionStatus = 'connecting' | 'live' | 'reconnecting' | 'demo';
 
@@ -60,6 +61,8 @@ export interface MatchViewState {
   languages: LanguageInfo[];
   autoEventing: AutoEventingStatus | null;
   recap: Recap | null;
+  /** This viewer's cue sheet and the moments ruled out (VAR) so far. */
+  cue: CueViewState;
   error: string | null;
 }
 
@@ -93,6 +96,7 @@ export const initialMatchState = (profile: ViewerProfile = DEFAULT_PROFILE): Mat
   languages: defaultLanguages(),
   autoEventing: null,
   recap: null,
+  cue: initialCueState(),
   error: null,
 });
 
@@ -192,11 +196,15 @@ function applyMessage(state: MatchViewState, m: ServerMessage): MatchViewState {
         languages: d.languages?.length ? d.languages : state.languages,
         autoEventing: d.auto_eventing,
         recap: d.playback.ended ? state.recap : null,
+        // The snapshot is the truth after a seek or reconnect: the server already left
+        // ruled-out cards out; the corrections still on screen say which moments they were.
+        cue: startSheet(state.cue, d.cue_sheet, retractedByCards(d.recent_cards)),
       };
     }
     case 'MATCH_TICK': {
       const d = m.data;
       const { positions, trails } = trackPositions(state, d.event);
+      const cards = d.cards.length ? [...state.cards, ...d.cards].slice(-MAX_CARDS) : state.cards;
       return {
         ...state,
         clock: d.clock,
@@ -206,13 +214,22 @@ function applyMessage(state: MatchViewState, m: ServerMessage): MatchViewState {
         controlChaos: d.control_chaos,
         events: [...state.events, d.event].slice(-MAX_EVENTS),
         lastEvent: d.event,
-        cards: d.cards.length ? [...state.cards, ...d.cards].slice(-MAX_CARDS) : state.cards,
+        cards,
+        cue: ruleOut(state.cue, retractedByCards(d.cards), state.cards, d.event.clock_s),
         players: mergePlayers(state.players, d.players_changed),
         positions,
         trails,
         history: [...state.history, sample(d.state)].slice(-MAX_HISTORY),
         playback: { ...state.playback, clock_s: d.event.clock_s, match_clock: d.clock, period: d.period },
       };
+    }
+    case 'CUES': {
+      const next = applyCues(state.cue, m.data);
+      if (next === state.cue) return state;
+      const fresh = next.ruledOut.filter((id) => !state.cue.ruledOut.includes(id));
+      // Ruled out by the cue stream: drop them from what is on air, animating out any still showing.
+      const cue = fresh.length ? ruleOut({ ...next, ruledOut: state.cue.ruledOut }, fresh, state.cards, state.playback.clock_s) : next;
+      return { ...state, cue };
     }
     case 'PLAYBACK_CONTROL':
       return { ...state, playback: m.data };
@@ -236,9 +253,16 @@ function applyMessage(state: MatchViewState, m: ServerMessage): MatchViewState {
   }
 }
 
-// Cards to show right now for a slot: newest first, highest priority first, still on screen.
-export function activeCards(cards: OverlayCard[], clockS: number, slot?: OverlayCard['slot']) {
+// Cards to show right now for a slot: newest first, highest priority first, still on screen,
+// never one whose moment was ruled out (VAR).
+export function activeCards(cards: OverlayCard[], clockS: number, slot?: OverlayCard['slot'], ruledOut: readonly string[] = []) {
   return cards
-    .filter((c) => (!slot || c.slot === slot) && clockS >= c.show_at_s - 1 && clockS <= c.show_at_s + c.duration_s)
+    .filter(
+      (c) =>
+        (!slot || c.slot === slot) &&
+        clockS >= c.show_at_s - 1 &&
+        clockS <= c.show_at_s + c.duration_s &&
+        !ruledOut.includes(c.moment_id),
+    )
     .sort((a, b) => b.priority - a.priority || b.show_at_s - a.show_at_s);
 }

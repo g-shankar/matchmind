@@ -31,7 +31,8 @@ type FocusMetric = 'pressure' | 'xg' | 'pass_difficulty' | 'top_speed' | 'moment
 type MomentKind =
   | 'goal' | 'card' | 'big_chance' | 'better_option' | 'unfound_run'
   | 'momentum_swing' | 'pressure_spell' | 'speed_burst' | 'rocket_shot'
-  | 'distance_milestone' | 'hard_pass' | 'milestone';
+  | 'distance_milestone' | 'hard_pass' | 'milestone'
+  | 'correction';                             // a VAR decision that rules an earlier moment out
 type Slot = 'lower_third' | 'side_panel' | 'pitch_tag' | 'metric_alert' | 'full_screen';
 type FactValue = string | number | boolean;
 
@@ -73,7 +74,7 @@ interface LanguageInfo {
 interface MatchEvent {
   event_id: string; seq: number; match_clock: string; clock_s: number; period: 1 | 2;
   type: 'pass' | 'carry' | 'dribble' | 'shot' | 'run' | 'interception' | 'tackle'
-      | 'clearance' | 'recovery' | 'foul' | 'card' | 'milestone'
+      | 'clearance' | 'recovery' | 'foul' | 'card' | 'milestone' | 'var_review'
       | 'match_start' | 'period_start' | 'period_end' | 'match_end';
   team: string | null; player_id: string | null; receiver_id: string | null;
   start: XY | null; end: XY | null;
@@ -81,6 +82,9 @@ interface MatchEvent {
   under_pressure: boolean;
   details: Record<string, FactValue>;         // e.g. pass_type, card colour
   metrics: EventMetrics;
+  // var_review only (outcome 'overturned' | 'stands'): the goal it decided on and why.
+  reviewed_event_id?: string;
+  review_reason?: 'offside' | 'handball' | 'foul' | null;
 }
 
 interface EventMetrics {
@@ -148,6 +152,7 @@ interface OverlayCard {
   text_language: Language;                   // what the text is really in: `language`, or 'en' when a
                                              // world language was not translated (see fallback_reason)
   translated_by: 'azure_ai_translator' | null;
+  retracts?: string[];                       // correction cards only: the moment ids this card rules out
 }
 
 // "Should he have passed?" drawing
@@ -167,7 +172,10 @@ interface UnfoundRunReplay {
   carrier_pos: XY; runner_path: XY[]; target: XY; defenders_at_pass: XY[];
 }
 
-interface Bookmark { moment_id: string; kind: MomentKind; match_clock: string; clock_s: number; period: 1 | 2; title: string }
+interface Bookmark {
+  moment_id: string; kind: MomentKind; match_clock: string; clock_s: number; period: 1 | 2; title: string;
+  ruled_out: boolean;                        // a goal VAR later ruled out (show it only once the decision is past)
+}
 
 interface Recap {
   match_id: string; persona: PersonaType; language: Language; rtl: boolean;
@@ -206,8 +214,9 @@ Server -> client. Every message is `{ "type": ..., "data": ... }`.
 
 | type | data | when |
 |---|---|---|
-| `INITIAL_SNAPSHOT` | `{ match_id, clock, period, home_score, away_score, teams: { home: TeamInfo, away: TeamInfo }, state: MatchState, control_chaos: ControlChaosState, profile: ViewerProfile, playback: Playback, recent_cards: OverlayCard[], bookmarks: Bookmark[], players: PlayerStats[], crew: CrewStatus, languages: LanguageInfo[], auto_eventing: AutoEventingStatus \| null }` | on connect, after `MATCH_RESET`, after a seek |
+| `INITIAL_SNAPSHOT` | `{ match_id, clock, period, home_score, away_score, teams: { home: TeamInfo, away: TeamInfo }, state: MatchState, control_chaos: ControlChaosState, profile: ViewerProfile, playback: Playback, recent_cards: OverlayCard[], bookmarks: Bookmark[], players: PlayerStats[], crew: CrewStatus, languages: LanguageInfo[], auto_eventing: AutoEventingStatus \| null, cue_sheet: CueSheetState }` | on connect, after `MATCH_RESET`, after a seek |
 | `MATCH_TICK` | `{ event: MatchEvent, clock, period, score: { home, away }, state: MatchState, control_chaos: ControlChaosState, cards: OverlayCard[], players_changed: PlayerStats[] }` | every event as it is played |
+| `CUES` | `{ sheet_id, cues: Cue[], active?: Cue[] }` | after a `MATCH_TICK` that produced cues for this viewer; `active` (what is on air now) is present when a new sheet starts, e.g. after `set_view` |
 | `PLAYBACK_CONTROL` | `Playback` | play, pause, speed change |
 | `MATCH_RESET` | `{}` | reset (followed by `INITIAL_SNAPSHOT`) |
 | `PROFILE_CHANGED` | `ViewerProfile` | after this connection's `set_view` |
@@ -269,6 +278,23 @@ The server gets these from the crew: `render(bundle, profile)` for each moment,
 plus, when the crew provides it, `metric_alerts(snapshot, players, profile)` for
 the focus metric (one place in `MatchSession.cards_for`).
 
+### Corrections and the cue sheet
+
+A VAR review that overturns a goal arrives as a `var_review` event, a
+`correction` moment and a card with `retracts: [goal moment id]`. From then on
+the server never sends the ruled-out goal as live: not in `MATCH_TICK` cards,
+`recent_cards`, `cue_sheet.active` or the recap, also after a seek or a
+reconnect. Clients should drop any card whose `moment_id` a correction
+retracts, even if it arrives late.
+
+`CUES` carries this viewer's broadcast cues (`show`, `update`, `retract`,
+`supersede`, `clear`) in `seq` order. Apply each `cue_id` once; ignore
+repeats. `INITIAL_SNAPSHOT.cue_sheet` is `{ sheet_id, last_seq, active: Cue[] }`:
+replace local cue state with it. Older clients can ignore `CUES` and
+`cue_sheet`; every other message is unchanged. The cue shape, timing model and
+collision rules are in [CUE-SHEET.md](CUE-SHEET.md) and
+`backend/schema/cue.schema.json`.
+
 ## REST
 
 | route | returns |
@@ -280,6 +306,7 @@ the focus metric (one place in `MatchSession.cards_for`).
 | `GET /api/match/bookmarks` | `Bookmark[]` for the whole match (leaves out `speed_burst`, `rocket_shot`, `distance_milestone` and `hard_pass`, which still arrive as tick cards; same list in `INITIAL_SNAPSHOT.bookmarks`) |
 | `GET /api/match/moment/{moment_id}?persona=&lang=&favourite_team=` | `OverlayCard` (for "jump to moment" and replays) |
 | `GET /api/match/recap?persona=&lang=` | `Recap` (so far, or full match after the end; the same after a seek as after watching straight through) |
+| `GET /api/match/cue-sheet?persona=&lang=&favourite_team=&since_seq=0&limit=500` | `CueSheetPage`: the compiled cue sheet up to the current position, cues with `seq > since_seq`, at most `limit` (1-500); page with `next_since_seq` while `has_more` (see CUE-SHEET.md). Same rate limit as `/api/match/moment` |
 | `POST /api/match/seek` `{ clock_s, period? }` | `Playback` |
 | `POST /api/match/speed` `{ speed_multiplier }` | `Playback` |
 | `POST /api/match/reset` | `Playback` |

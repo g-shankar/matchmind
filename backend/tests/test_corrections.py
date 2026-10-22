@@ -247,3 +247,11 @@ def test_ws_streams_cues_after_ticks_and_reconnect_after_the_overturn(api, clock
         msg = drain(ws2, "CUES")[-1]["data"]
         assert msg["sheet_id"] == "MM-DEMO-001/fantasy/en" and "active" in msg
         assert goal_id(review) not in {c["moment_id"] for c in msg["active"]}
+
+
+def test_event_payload_names_the_reviewed_goal(events, review):
+    from matchmind.api.view import event_payload
+
+    data = event_payload(review, None)
+    assert data["reviewed_event_id"] == review.reviewed_event_id and data["review_reason"] == "offside"
+    assert "reviewed_event_id" not in event_payload(events[0], None)  # other events keep their shape

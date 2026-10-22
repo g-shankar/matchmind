@@ -46,7 +46,7 @@ def metrics_payload(metrics: EventMetrics | None) -> dict[str, Any]:
 
 
 def event_payload(event: Event, metrics: EventMetrics | None) -> dict[str, Any]:
-    return {
+    out = {
         "event_id": event.event_id,
         "seq": event.seq,
         "match_clock": event.match_clock,
@@ -63,6 +63,10 @@ def event_payload(event: Event, metrics: EventMetrics | None) -> dict[str, Any]:
         "details": dict(event.details),
         "metrics": metrics_payload(metrics),
     }
+    if event.reviewed_event_id is not None:  # a VAR review: which event it decided on, and why
+        out["reviewed_event_id"] = event.reviewed_event_id
+        out["review_reason"] = str(event.review_reason) if event.review_reason is not None else None
+    return out
 
 
 def state_payload(snapshot: MatchStateSnapshot) -> dict[str, Any]:

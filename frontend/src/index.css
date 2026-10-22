@@ -63,3 +63,11 @@ body {
 ::-webkit-scrollbar-thumb {
   background: #34332d;
 }
+
+/* OBS / vMix capture (?capture=1#overlay): only the graphics, over a transparent page. */
+html.pp-capture,
+html.pp-capture body {
+  background: transparent !important;
+  background-image: none !important;
+  overflow: hidden;
+}

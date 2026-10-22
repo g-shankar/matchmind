@@ -7,6 +7,7 @@ import {
   Crosshair,
   Flame,
   Footprints,
+  Gavel,
   Goal,
   Play,
   Rocket,
@@ -45,6 +46,7 @@ export const KIND_ICON: Record<MomentKind, LucideIcon> = {
   distance_milestone: Route,
   hard_pass: Crosshair,
   milestone: Award,
+  correction: Gavel,
 };
 
 export const isSpecialKind = (kind: MomentKind) => kind === 'better_option' || kind === 'unfound_run';
@@ -238,15 +240,19 @@ const StoryCard: React.FC<{
   const special = isSpecialKind(card.kind);
   const names = card.player_ids.map((id) => playerName(match.teams, id)).filter(Boolean);
   const team = teamById(match.teams, card.team);
+  const ruledOut = match.cue.ruledOut.includes(card.moment_id);
 
   return (
     <article
+      data-ruled-out={ruledOut || undefined}
       dir={card.rtl ? 'rtl' : undefined}
       lang={textLanguage(card)}
       className={cx(
         'animate-slide-up rounded-xl border bg-pp-raised/60 p-3.5',
         special ? 'border-pp-signal bg-pp-raised border-s-4' : 'border-pp-line/80',
         isTop && 'ring-1 ring-pp-pulse/40',
+        ruledOut && 'opacity-60 grayscale',
+        card.kind === 'correction' && 'border-s-4 border-pp-pulse',
         favouriteColor && 'border-s-4',
       )}
       style={favouriteColor ? { borderInlineStartColor: favouriteColor } : undefined}
@@ -254,6 +260,12 @@ const StoryCard: React.FC<{
       <div className="mb-2 flex flex-wrap items-center gap-1.5">
         <ClockPill clock={cardClock(card, match)} />
         <KindBadge kind={card.kind} special={special} />
+        {ruledOut && (
+          <Badge tone="pulse">
+            <Gavel className="h-3 w-3" aria-hidden />
+            {t('cue.ruledOut')}
+          </Badge>
+        )}
         {card.favourite_side && (
           <Badge className="text-white" title={team?.name}>
             <TeamDot team={team} size={8} />
@@ -265,7 +277,9 @@ const StoryCard: React.FC<{
         </span>
       </div>
 
-      <h3 className="font-display text-base font-bold leading-tight text-white">{card.headline}</h3>
+      <h3 className={cx('font-display text-base font-bold leading-tight text-white', ruledOut && 'line-through decoration-pp-pulse decoration-2')}>
+        {card.headline}
+      </h3>
       {names.length > 0 && (
         <p className="mt-0.5 flex items-center gap-1.5 text-[11px] text-pp-mute">
           <TeamDot team={team} size={8} />
