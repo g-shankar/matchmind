@@ -389,6 +389,10 @@ Seek and reset are shared, so they are throttled for everyone: at most one
 every 0.5 s across WebSocket and REST together. A seek or reset inside that
 window is refused (WebSocket `ERROR` "Jumping around too fast. Wait a moment
 and try again.", REST 429 with the same `detail`); nothing is queued.
+Pause and speed changes share their own throttle: at most one every 0.3 s for
+everyone (WebSocket `ERROR` "Playback was just changed. Wait a moment and try
+again.", REST 429). A double tap on pause is therefore one change, and asking for
+the speed already set answers with the current playback and changes nothing.
 
 Client -> server. `{ "action": ..., ... }` as JSON text, max 4 KB, unknown
 actions, unknown fields and bad values get `ERROR`. Each connection may send
@@ -400,7 +404,9 @@ itself, from `MATCHMIND_PUBLIC_ORIGIN`. The `Host` header is never trusted for
 this. A refused origin, a full server (`MATCHMIND_MAX_CONNECTIONS`) or too many
 connections from one IP (`MATCHMIND_MAX_CONN_PER_IP`) closes with code 1008. A
 viewer that falls more than 4 MB behind on messages is disconnected with code
-1013 (try again later); reconnecting gets a fresh `INITIAL_SNAPSHOT`.
+1013 (try again later); reconnecting gets a fresh `INITIAL_SNAPSHOT`. All send
+queues together are capped (`MATCHMIND_SEND_QUEUE_TOTAL_BYTES`, default 192 MB);
+once that is spent, viewers more than 256 KB behind are disconnected the same way.
 
 | action | fields | effect |
 |---|---|---|
@@ -542,7 +548,7 @@ interface AskAnswer {
 ```
 
 Errors: `{ "detail": "plain words" }` with 400 or 404 (429 for a seek or reset
-inside the 0.5 s throttle, or more than about 2 POSTs a second, bursts of 10,
+inside the 0.5 s throttle, a speed change inside the 0.3 s playback throttle, or more than about 2 POSTs a second, bursts of 10,
 from one client IP, or more than about 3 `GET /api/match/moment` and
 `GET /api/match/recap` requests a second, bursts of 30, from one client IP, a bucket the
 moment audit shares; 503 while the match is still loading, 500 with a generic

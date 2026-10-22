@@ -65,6 +65,10 @@ SEND_QUEUE_BYTES = 4 * 1024 * 1024  # per connection; a viewer this far behind i
 SEND_QUEUE_TOTAL_BYTES = int(os.environ.get("MATCHMIND_SEND_QUEUE_TOTAL_BYTES", str(192 * 1024 * 1024)))
 SEND_QUEUE_SHARE_BYTES = 256 * 1024
 JUMP_INTERVAL_S = 0.5  # at most one seek or reset per half second, for everyone
+# Pause and speed, shared by everyone: without it 20 connections from one address toggled
+# pause about 190 times a second, froze the match and flooded every viewer. Also turns a
+# double tap on pause into one change.
+CONTROL_INTERVAL_S = 0.3
 VIEW_BURST, VIEW_PER_SECOND = 3, 1.0  # set_view per connection
 # Events of new cue-sheet compiling per playback step (shared by every viewer). An audience
 # never seen before costs one pass over the match so far (about 2,000 events at full time);
@@ -87,6 +91,7 @@ DEFAULT_ORIGINS = "http://localhost:5173,http://localhost:3000"
 OOPS = "Something went wrong on our side. Please try again."
 TOO_FAST = "Jumping around too fast. Wait a moment and try again."
 TOO_MANY = "Too many requests. Wait a moment and try again."
+CONTROL_TOO_FAST = "Playback was just changed. Wait a moment and try again."
 VIEW_TOO_FAST = "Changing the view too fast. Wait a moment and try again."
 
 # Dataset downloads (synthetic, public): a few per client IP, at most two built at once.
@@ -404,6 +409,7 @@ class Hub:
         self._lock = asyncio.Lock()  # playback lock: quick session state work only
         self._crew_lock = asyncio.Lock()  # crew work, in order; taken before the playback lock
         self._last_jump: float | None = None
+        self._last_control: float | None = None
         self._slots = 0  # WebSocket slots reserved (before accept)
         self._slots_per_ip: dict[str, int] = {}
         self.send_budget = SendBudget()
@@ -578,12 +584,25 @@ class Hub:
     # --- shared playback controls (used by WebSocket and REST) -------------------------------
 
     async def toggle_pause(self) -> dict[str, Any]:
-        await self.run(self.session.toggle_pause)
+        session = self.session
+        self._claim_control()
+        await self.run(session.toggle_pause)
         return self._announce_playback()
 
     async def set_speed(self, speed: int) -> dict[str, Any]:
-        await self.run(self.session.set_speed, speed)
+        session = self.session
+        if session.speed == speed:
+            return session.playback()  # nothing changes: a retry is answered, not broadcast
+        self._claim_control()
+        await self.run(session.set_speed, speed)
         return self._announce_playback()
+
+    def _claim_control(self) -> None:
+        """One shared throttle for pause and speed (WebSocket and REST alike)."""
+        now = self.clock()
+        if self._last_control is not None and now - self._last_control < CONTROL_INTERVAL_S:
+            raise HTTPException(status_code=429, detail=CONTROL_TOO_FAST)
+        self._last_control = now
 
     def _announce_playback(self) -> dict[str, Any]:
         playback = self.session.playback()

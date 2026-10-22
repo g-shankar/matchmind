@@ -9,7 +9,40 @@ from __future__ import annotations
 import asyncio
 import time
 
-from matchmind.api.app import SEND_QUEUE_SHARE_BYTES, Connection, Hub, SendBudget
+import pytest
+from fastapi.testclient import TestClient
+
+from conftest import FakeClock, FakeCrew, FakeStats, make_events
+from matchmind.api import app as app_mod
+from matchmind.api.app import SEND_QUEUE_SHARE_BYTES, Connection, Hub, SendBudget, create_app
+from matchmind.api.session import Engines, MatchSession
+
+ALLOWED = "http://localhost:5173"
+
+
+@pytest.fixture
+def clock() -> FakeClock:
+    return FakeClock()
+
+
+@pytest.fixture
+def session(clock) -> MatchSession:
+    return MatchSession(
+        make_events(), engines=Engines(stats=FakeStats, crew=FakeCrew), clock=clock, base_rate=10
+    )
+
+
+@pytest.fixture
+def client(session, clock, tmp_path):
+    app = create_app(
+        session=session,
+        tick_interval=None,
+        allowed_origins=[ALLOWED],
+        static_dir=tmp_path / "none",
+        clock=clock,
+    )
+    with TestClient(app) as c:
+        yield c
 
 
 class StuckSocket:
@@ -86,3 +119,50 @@ def test_ec1_bytes_go_back_to_the_budget_when_a_viewer_leaves():
         assert budget.used == 0 and conn.queued_bytes == 0
 
     asyncio.run(main())
+
+
+# --- EC-2: pause and speed storms are throttled for everyone ---------------------------------
+
+
+def test_ec2_pause_storm_changes_playback_once_per_window(client, clock, session):
+    """Before: every toggle went through (measured 2,971 in 15 s from one address, each
+    broadcast to every viewer, the clock moving 35 s instead of 150 s)."""
+    with client.websocket_connect("/ws/match") as ws, client.websocket_connect("/ws/match") as bystander:
+        ws.receive_json()
+        bystander.receive_json()
+        for _ in range(15):
+            ws.send_json({"action": "toggle_pause"})
+        replies = [ws.receive_json() for _ in range(15)]
+        changes = [r for r in replies if r["type"] == "PLAYBACK_CONTROL"]
+        errors = [r["data"]["message"] for r in replies if r["type"] == "ERROR"]
+        assert len(changes) == 1 and errors == [app_mod.CONTROL_TOO_FAST] * 14
+        assert session.is_running is False
+        # The bystander saw one change, not fifteen.
+        assert bystander.receive_json()["type"] == "PLAYBACK_CONTROL"
+        clock.t += app_mod.CONTROL_INTERVAL_S + 0.01
+        ws.send_json({"action": "toggle_pause"})
+        assert ws.receive_json()["data"]["is_running"] is True
+        assert bystander.receive_json()["data"]["is_running"] is True
+
+
+def test_ec2_double_tap_on_pause_is_one_change(client, clock, session):
+    with client.websocket_connect("/ws/match") as ws:
+        ws.receive_json()
+        ws.send_json({"action": "toggle_pause"})
+        ws.send_json({"action": "toggle_pause"})
+        assert ws.receive_json()["type"] == "PLAYBACK_CONTROL"
+        assert ws.receive_json()["type"] == "ERROR"
+    assert session.is_running is False  # paused, not paused-and-resumed
+
+
+def test_ec2_rest_speed_shares_the_throttle_and_a_retry_is_a_no_op(client, clock, session):
+    with client.websocket_connect("/ws/match") as ws:
+        ws.receive_json()
+        ws.send_json({"action": "toggle_pause"})
+        assert ws.receive_json()["type"] == "PLAYBACK_CONTROL"
+    assert client.post("/api/match/speed", json={"speed_multiplier": 60}).status_code == 429
+    clock.t += app_mod.CONTROL_INTERVAL_S + 0.01
+    assert client.post("/api/match/speed", json={"speed_multiplier": 60}).json()["speed_multiplier"] == 60
+    # The same request again (a network retry) answers 200 and changes nothing.
+    again = client.post("/api/match/speed", json={"speed_multiplier": 60})
+    assert again.status_code == 200 and session.speed == 60
