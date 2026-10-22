@@ -294,7 +294,7 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
               // Phones: pitch, the crew's story, then the rest. Wide screens: two columns.
               <div className="flex flex-col gap-4 lg:grid lg:grid-cols-12 lg:items-start">
                 <div className="contents lg:col-span-7 lg:block lg:space-y-4">
-                  <div ref={stageRef} className="order-1 scroll-mt-20 space-y-3">
+                  <div ref={stageRef} className="order-1 scroll-mt-20 space-y-3 lg:scroll-mt-48">
                     {showFullTime && (
                       <FullTimeBanner
                         onRestart={() => {

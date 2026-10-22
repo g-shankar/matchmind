@@ -32,7 +32,7 @@ export const CatchUpButton: React.FC<{ match: MatchViewState; actions: MatchActi
       type="button"
       onClick={() => actions.setSpoilers(false)}
       title={t('catchup.openHint')}
-      className="flex min-h-[36px] items-center gap-1.5 border border-pp-line bg-pp-deep px-2.5 font-display text-xs font-bold uppercase tracking-broadcast text-pp-chalk hover:border-pp-signal"
+      className="flex min-h-[44px] items-center gap-1.5 border border-pp-line bg-pp-deep px-2.5 font-display text-xs font-bold uppercase tracking-broadcast text-pp-chalk hover:border-pp-signal"
     >
       <EyeOff className="h-4 w-4 text-pp-signal" aria-hidden />
       {t('catchup.open')}

@@ -45,9 +45,9 @@ body {
 
 /* Touch screens: every control is at least 44 px tall (and icon buttons 44 px wide). */
 @media (pointer: coarse) {
-  button,
-  select,
-  summary,
+  button[type],
+  select[class],
+  summary[class],
   [role='radio'],
   [role='tab'] {
     min-height: 44px;
