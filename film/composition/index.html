@@ -136,9 +136,11 @@
       #s7 .l3 { position: absolute; left: 140px; top: 800px; width: 1640px; height: 130px; display: flex; border-radius: 20px; overflow: hidden; opacity: 0; }
       #s7 .l3 .a { background: var(--red); color: var(--bg); padding: 0 40px; display: flex; align-items: center; font-size: 38px; font-weight: 800; width: 560px; flex: none; }
       #s7 .l3 .b { background: rgba(11, 20, 16, 0.94); flex: 1; padding: 0 40px; display: flex; align-items: center; font-size: 38px; font-weight: 600; }
-      #s7 .focus { position: absolute; left: 60px; top: 190px; width: 500px; padding: 34px; opacity: 0; }
-      #s7 .focus .nm { font-size: 52px; font-weight: 800; }
-      #s7 .focus .ln { margin-top: 12px; font-size: 32px; }
+      #s7 .l3.var .a { width: 300px; }
+      #s7 .l3.var .a, #s7 .l3.var .b { position: relative; }
+      #s7 .l3.var .swap { position: absolute; left: 40px; opacity: 0; }
+      #s7 .l3.var .a .swap { inset: 0; left: 0; padding: 0 40px; display: flex; align-items: center; background: var(--yellow); }
+      #s7 .strike { position: absolute; left: 36px; right: 36px; top: 50%; height: 5px; background: var(--red); transform-origin: left center; transform: scaleX(0); }
 
       /* 8 azure + end */
       #s8 .tiles { position: absolute; left: 140px; top: 330px; width: 1640px; display: flex; gap: 40px; }
@@ -164,7 +166,7 @@
                 font-family: "Barlow Condensed", sans-serif; font-style: italic; font-weight: 800; letter-spacing: 0.06em;
                 clip-path: polygon(0 0, 100% 0, calc(100% - 8px) 100%, 0 100%); }
       .kicker.muted { color: var(--bg); }
-      .h1, .h2, #s1 .mark, #s8 .end .mark, #s2 .stage .t, #s3 .agent .nm, #s7 .focus .nm, #s8 .tile .t, #s4 .verdict, .hl,
+      .h1, .h2, #s1 .mark, #s8 .end .mark, #s2 .stage .t, #s3 .agent .nm, #s8 .tile .t, #s4 .verdict, .hl,
       #s1 .tag, #s7 .l3 .a {
         font-family: "Barlow Condensed", sans-serif; font-style: italic; font-weight: 800; text-transform: uppercase;
         letter-spacing: 0.02em; }
@@ -286,17 +288,17 @@
           </div>
         </div></div>
 
-        <!-- 7 overlay + player focus -->
+        <!-- 7 overlay + VAR correction -->
         <div id="s7" class="scene"><div class="cam" id="c7">
           <svg class="feed" id="s7pitch" width="1920" height="640" style="top: 130px;"></svg>
           <div class="bug" id="s7bug" style="left: 80px; top: 40px;"></div>
           <div class="kicker muted" id="s7k" style="position: absolute; right: 80px; top: 58px; font-size: 26px; text-align: right;"></div>
           <div class="l3" id="s7l3"><div class="a">Should he have passed?</div><div class="b" id="s7l3b"></div></div>
-          <div class="focus panel" id="s7focus">
-            <span class="pill" style="background: var(--ink); color: var(--bg);">Player focus</span>
-            <div class="nm" id="s7nm" style="margin-top: 24px;"></div>
-            <div class="ln muted" id="s7l1"></div>
-            <div class="ln muted" id="s7l2"></div>
+          <div class="bug" id="s7bugG" style="left: 80px; top: 40px; opacity: 0;"></div>
+          <div class="bug" id="s7bugV" style="left: 80px; top: 40px; opacity: 0;"></div>
+          <div class="l3 var" id="s7var">
+            <div class="a"><span id="s7va"></span><span id="s7va2" class="swap"></span></div>
+            <div class="b"><span id="s7vb"></span><span id="s7vb2" class="swap"></span><div class="strike" id="s7strike"></div></div>
           </div>
         </div></div>
 
@@ -515,13 +517,15 @@
       stripes(p7);
       pitch(p7, "-22 -4 131 76");
       const fp = players(p7, ff, 1.3);
-      const focusRing = el("circle", { cx: mate.x, cy: mate.y, r: 3, fill: "none", stroke: "#ff3b2f", "stroke-width": 0.45, opacity: 0 }, p7);
       bug("s7bug", v("score.at.spha"), bo.clock);
       $("s7l3b").textContent = F["copy.lowerthird"].text;
-      const pf = v("player.focus");
-      $("s7nm").textContent = pf.name;
-      $("s7l1").textContent = `#${pf.number} · ${pf.position} · ${teams.NBR.name}`;
-      $("s7l2").textContent = `Goal ${pf.goal} · free in the middle at ${bo.clock}`;
+      const vr = v("var.ruled_out"), vg = F["crew.var.goal"].value, vc = F["crew.var.correction"].value;
+      $("s7va").textContent = "GOAL " + vr.goal_clock;
+      $("s7vb").textContent = vg.headline;
+      $("s7va2").textContent = "VAR " + vr.var_clock;
+      $("s7vb2").textContent = vc.headline;
+      bug("s7bugG", vr.score_with_goal, vr.goal_clock);
+      bug("s7bugV", vr.score_after, vr.var_clock);
 
       $("s8q").textContent = F["repo.quality"].text;
       const az = v("azure.stack");
@@ -656,14 +660,18 @@
         }
       });
 
-      // 7 overlay, then player focus
+      // 7 overlay, then a goal the crew takes back after VAR
       const s7 = S(7);
       tl.fromTo("#s7l3", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, s7.start + 0.3);
-      const tF = cue("s7b.follow-one-player");
-      for (const pid in fp) if (pid !== bo.teammate_id) tl.to(fp[pid].g, { opacity: 0.25, duration: 0.4 }, tF);
-      tl.fromTo(focusRing, { opacity: 0, attr: { r: 6 } }, { opacity: 1, attr: { r: 3 }, duration: 0.5, ease: "power3.out" }, tF);
-      tl.to("#s7l3", { opacity: 0, duration: 0.3 }, tF);
-      tl.fromTo("#s7focus", { opacity: 0, x: -40 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, tF + 0.1);
+      const tV = cue("s7b.var"), tB = cue("s7b.takes-it-back");
+      for (const pid in fp) tl.to(fp[pid].g, { opacity: 0.25, duration: 0.4 }, tV - 0.9);
+      tl.to("#s7l3", { opacity: 0, duration: 0.3 }, tV - 0.9);
+      tl.set("#s7bug", { opacity: 0 }, tV - 0.9);
+      tl.set("#s7bugG", { opacity: 1 }, tV - 0.9);
+      tl.fromTo("#s7var", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.5, ease: "power3.out" }, tV - 0.8);
+      tl.fromTo("#s7strike", { scaleX: 0 }, { scaleX: 1, duration: 0.35, ease: "power2.inOut" }, tB - 0.2);
+      tl.set(["#s7va", "#s7vb", "#s7strike", "#s7bugG"], { opacity: 0 }, tB + 0.35);
+      tl.set(["#s7va2", "#s7vb2", "#s7bugV"], { opacity: 1 }, tB + 0.35);
 
       // 8 azure, then the end card
       const s8 = S(8);

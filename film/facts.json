@@ -1,17 +1,17 @@
 {
- "branch": "feat/core-engine",
+ "branch": "main",
  "facts": [
   {
    "id": "match.id",
    "text": "Demo match MM-DEMO-001, fully synthetic.",
    "value": "MM-DEMO-001",
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/data/matches/MM-DEMO-001.jsonl#L1"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/data/matches/MM-DEMO-001.jsonl#L1"
   },
   {
    "id": "match.events",
-   "text": "The demo match streams 2,069 events.",
-   "value": 2069,
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/data/matches/MM-DEMO-001.jsonl"
+   "text": "The demo match streams 2,142 events.",
+   "value": 2142,
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/data/matches/MM-DEMO-001.jsonl"
   },
   {
    "id": "team.NBR",
@@ -23,7 +23,7 @@
     "primary": "#2f6fde",
     "secondary": "#0d1b3d"
    },
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/src/matchmind/simulator/teams.py"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/src/matchmind/simulator/teams.py"
   },
   {
    "id": "team.HCY",
@@ -35,7 +35,21 @@
     "primary": "#f08a24",
     "secondary": "#3a1a05"
    },
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/src/matchmind/simulator/teams.py"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/src/matchmind/simulator/teams.py"
+  },
+  {
+   "id": "var.ruled_out",
+   "text": "39:11 goal by Kofi Asante ruled out by VAR (offside) at 40:22.",
+   "value": {
+    "goal_clock": "39:11",
+    "var_clock": "40:22",
+    "scorer": "Kofi Asante",
+    "surname": "Asante",
+    "reason": "offside",
+    "score_after": "1-0",
+    "score_with_goal": "2-0"
+   },
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/data/matches/MM-DEMO-001.jsonl#L819"
   },
   {
    "id": "goal.23:20",
@@ -47,19 +61,19 @@
     "score": "1-0",
     "line": 490
    },
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/data/matches/MM-DEMO-001.jsonl#L490"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/data/matches/MM-DEMO-001.jsonl#L490"
   },
   {
-   "id": "goal.41:40",
-   "text": "41:40 goal, Luca Ferrante (NBR), 2-0.",
+   "id": "goal.41:36",
+   "text": "41:36 goal, Luca Ferrante (NBR), 2-0.",
    "value": {
-    "clock": "41:40",
+    "clock": "41:36",
     "team": "NBR",
     "scorer": "Luca Ferrante",
     "score": "2-0",
-    "line": 878
+    "line": 848
    },
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/data/matches/MM-DEMO-001.jsonl#L878"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/data/matches/MM-DEMO-001.jsonl#L848"
   },
   {
    "id": "goal.67:28",
@@ -69,9 +83,9 @@
     "team": "HCY",
     "scorer": "Elias Varga",
     "score": "2-1",
-    "line": 1463
+    "line": 1489
    },
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/data/matches/MM-DEMO-001.jsonl#L1463"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/data/matches/MM-DEMO-001.jsonl#L1489"
   },
   {
    "id": "goal.84:22",
@@ -81,21 +95,21 @@
     "team": "HCY",
     "scorer": "Ivan Petrov",
     "score": "2-2",
-    "line": 1841
+    "line": 1907
    },
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/data/matches/MM-DEMO-001.jsonl#L1841"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/data/matches/MM-DEMO-001.jsonl#L1907"
   },
   {
-   "id": "goal.90+2:22",
-   "text": "90+2:22 goal, Jaden Clarke (HCY), 2-3.",
+   "id": "goal.90+2:24",
+   "text": "90+2:24 goal, Jaden Clarke (HCY), 2-3.",
    "value": {
-    "clock": "90+2:22",
+    "clock": "90+2:24",
     "team": "HCY",
     "scorer": "Jaden Clarke",
     "score": "2-3",
-    "line": 2017
+    "line": 2075
    },
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/data/matches/MM-DEMO-001.jsonl#L2017"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/data/matches/MM-DEMO-001.jsonl#L2075"
   },
   {
    "id": "match.final",
@@ -104,16 +118,16 @@
     "NBR": 2,
     "HCY": 3
    },
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/data/matches/MM-DEMO-001.jsonl#L2069"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/data/matches/MM-DEMO-001.jsonl#L2142"
   },
   {
    "id": "card.red",
-   "text": "53:35 red card, Marek Lindqvist (NBR).",
+   "text": "53:06 red card, Marek Lindqvist (NBR).",
    "value": {
-    "clock": "53:35",
+    "clock": "53:06",
     "player": "Marek Lindqvist"
    },
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/data/matches/MM-DEMO-001.jsonl#L1160"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/data/matches/MM-DEMO-001.jsonl#L1184"
   },
   {
    "id": "spha.NBR",
@@ -288,11 +302,11 @@
     "shooter": "Kofi Asante",
     "teammate": "Adam Kerrigan"
    },
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/data/matches/MM-DEMO-001.jsonl#L718"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/data/matches/MM-DEMO-001.jsonl#L718"
   },
   {
    "id": "spha.HCY",
-   "text": "78:56: Mateo Rios shot from 15.4 m (chance 5%); a 16.4 m pass to Ivan Petrov (83% to arrive, chance 24%) was worth 4.0x more. Outcome: blocked.",
+   "text": "78:55: Mateo Rios shot from 15.4 m (chance 5%); a 16.4 m pass to Ivan Petrov (83% to arrive, chance 24%) was worth 4.0x more. Outcome: blocked.",
    "value": {
     "shooter_id": "HCY-7",
     "teammate_id": "HCY-9",
@@ -305,13 +319,13 @@
     "nearest_marker_m": 10.4,
     "shooter_distance_to_goal_m": 15.4,
     "mate_distance_to_goal_m": 11.3,
-    "shot_speed_kmh": 99.7,
+    "shot_speed_kmh": 93.6,
     "freeze_frame": [
      {
       "player_id": "HCY-10",
       "team": "HCY",
-      "x": 15.01,
-      "y": 37.62,
+      "x": 12.37,
+      "y": 37.79,
       "teammate": true,
       "keeper": false,
       "actor": false
@@ -319,8 +333,8 @@
      {
       "player_id": "HCY-11",
       "team": "HCY",
-      "x": 11.09,
-      "y": 14.35,
+      "x": 13.43,
+      "y": 11.75,
       "teammate": true,
       "keeper": false,
       "actor": false
@@ -346,8 +360,8 @@
      {
       "player_id": "HCY-8",
       "team": "HCY",
-      "x": 30.3,
-      "y": 32.31,
+      "x": 30.09,
+      "y": 32.05,
       "teammate": true,
       "keeper": false,
       "actor": false
@@ -373,8 +387,17 @@
      {
       "player_id": "NBR-10",
       "team": "NBR",
-      "x": 24.18,
-      "y": 46.28,
+      "x": 25.01,
+      "y": 50.47,
+      "teammate": false,
+      "keeper": false,
+      "actor": false
+     },
+     {
+      "player_id": "NBR-11",
+      "team": "NBR",
+      "x": 33.7,
+      "y": 56.15,
       "teammate": false,
       "keeper": false,
       "actor": false
@@ -416,19 +439,10 @@
       "actor": false
      },
      {
-      "player_id": "NBR-7",
-      "team": "NBR",
-      "x": 34.76,
-      "y": 19.34,
-      "teammate": false,
-      "keeper": false,
-      "actor": false
-     },
-     {
       "player_id": "NBR-8",
       "team": "NBR",
-      "x": 22.29,
-      "y": 28.62,
+      "x": 25.62,
+      "y": 29.62,
       "teammate": false,
       "keeper": false,
       "actor": false
@@ -439,20 +453,20 @@
      "y": 44.6
     },
     "computed_by": "matchmind.stats.better_option.analyse_shot",
-    "clock": "78:56",
+    "clock": "78:55",
     "outcome": "blocked",
-    "event_id": "MM-DEMO-001-01687",
+    "event_id": "MM-DEMO-001-01777",
     "shooter": "Mateo Rios",
     "teammate": "Ivan Petrov"
    },
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/data/matches/MM-DEMO-001.jsonl#L1688"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/data/matches/MM-DEMO-001.jsonl#L1778"
   },
   {
    "id": "crew.analyst",
-   "text": "Shot selection: Asante ignored Kerrigan. Shot at 0.05 xG; the 16 m pass had 83% success odds and a 0.24 xG chance behind it. Expected value 0.2, 4x the shot.",
+   "text": "Shot selection: Asante ignored Kerrigan. Shot at 0.05 xG; the 16 m pass had 83% success odds and a 0.24 xG chance behind it. Expected value 0.20, 4x the shot.",
    "value": {
     "headline": "Shot selection: Asante ignored Kerrigan",
-    "body": "Shot at 0.05 xG; the 16 m pass had 83% success odds and a 0.24 xG chance behind it. Expected value 0.2, 4x the shot.",
+    "body": "Shot at 0.05 xG; the 16 m pass had 83% success odds and a 0.24 xG chance behind it. Expected value 0.20, 4x the shot.",
     "produced_by": "template"
    },
    "source": "crew API: GET /api/match/moment/better_option-MM-DEMO-001-00717?persona=tactical&lang=en"
@@ -504,15 +518,76 @@
    "source": "matchmind.crew.fact_checker.check"
   },
   {
+   "id": "crew.var.goal",
+   "text": "GOAL! Asante scores for Northbridge FC Kofi Asante finishes it, set up by Luca Ferrante. It's Northbridge FC 2-0 Harbour City.",
+   "value": {
+    "headline": "GOAL! Asante scores for Northbridge FC",
+    "body": "Kofi Asante finishes it, set up by Luca Ferrante. It's Northbridge FC 2-0 Harbour City.",
+    "clock": "39:11",
+    "retracts": []
+   },
+   "source": "crew API: GET /api/match/moment/goal-MM-DEMO-001-00817?persona=casual&lang=en"
+  },
+  {
+   "id": "crew.var.correction",
+   "text": "No goal! VAR rules out Asante Kofi Asante's goal at 39:11 is ruled out for offside after a VAR review. It stays Northbridge FC 1-0 Harbour City.",
+   "value": {
+    "headline": "No goal! VAR rules out Asante",
+    "body": "Kofi Asante's goal at 39:11 is ruled out for offside after a VAR review. It stays Northbridge FC 1-0 Harbour City.",
+    "clock": "40:22",
+    "retracts": [
+     "goal-MM-DEMO-001-00817"
+    ]
+   },
+   "source": "crew API: GET /api/match/moment/correction-MM-DEMO-001-00818?persona=casual&lang=en"
+  },
+  {
    "id": "crew.fallback",
    "text": "No model connected: the crew runs in template mode, and every card says produced_by: template.",
    "value": {
     "mode": "template",
     "model": null,
+    "provider": "templates",
+    "orchestrator": "in_process",
     "breakers_open": [],
     "moments": 0,
     "fallbacks": 0,
-    "rejections": 0
+    "rejections": 0,
+    "translator": {
+     "mode": "off",
+     "available": false,
+     "breaker_open": false,
+     "cache_hits": 0,
+     "translated": 0,
+     "fallbacks": 0,
+     "rejections": 0
+    },
+    "health": {
+     "window": 256,
+     "latency": [
+      {
+       "agent": "commentator",
+       "samples": 8,
+       "p50_ms": 0.06,
+       "p95_ms": 0.1,
+       "max_ms": 0.1
+      },
+      {
+       "agent": "producer",
+       "samples": 8,
+       "p50_ms": 0.77,
+       "p95_ms": 1.18,
+       "max_ms": 1.18
+      }
+     ],
+     "model_steps": 8,
+     "fallback_steps": 0,
+     "fallback_rate": 0.0,
+     "checks": 16,
+     "rejected_checks": 0,
+     "rejection_rate": 0.0,
+     "moments_per_min": 0
+    }
    },
    "source": "crew API: GET /api/crew/status"
   },
@@ -525,13 +600,13 @@
     "position": "ST",
     "goal": "23:20"
    },
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/src/matchmind/simulator/teams.py"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/src/matchmind/simulator/teams.py"
   },
   {
    "id": "score.at.spha",
    "text": "Score at 34:16: 1-0.",
    "value": "1-0",
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/data/matches/MM-DEMO-001.jsonl#L490"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/data/matches/MM-DEMO-001.jsonl#L490"
   },
   {
    "id": "azure.stack",
@@ -547,11 +622,11 @@
    "id": "repo.quality",
    "text": "Tests, CI and secret scanning on every push.",
    "value": null,
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/.github/workflows/ci.yml"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/.github/workflows/ci.yml"
   },
   {
    "id": "crew.roles",
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/src/matchmind/crew/__init__.py",
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/src/matchmind/crew/__init__.py",
    "text": "Spotter finds the moment; Analyst pulls the evidence; Commentator writes it; Producer decides what airs; Fact-checker blocks unproven numbers.",
    "value": [
     [
@@ -585,7 +660,7 @@
    "id": "engine.deterministic",
    "text": "Deterministic football metrics. No randomness, no models: same event in, same number out.",
    "value": null,
-   "source": "https://github.com/g-shankar/matchmind/blob/feat/core-engine/backend/src/matchmind/stats/metrics.py#L1"
+   "source": "https://github.com/g-shankar/matchmind/blob/main/backend/src/matchmind/stats/metrics.py#L1"
   },
   {
    "id": "copy.tagline",
@@ -625,7 +700,7 @@
   },
   {
    "id": "copy.overlay",
-   "text": "Drop it straight onto the broadcast. Or follow one player, all match.",
+   "text": "Broadcast overlay · corrections go on air too",
    "value": null,
    "source": "film copy (storyboard.md)"
   },
@@ -673,7 +748,7 @@
   },
   {
    "id": "copy.ui",
-   "text": "Replay | Player focus | Fallback | events streamed | Nearest marker | Value: pass vs shot | Verdict | Kerrigan's chance after the pass | Kerrigan · free | English | Español | العربية | Analyst | Fan",
+   "text": "Replay | Ruled out | VAR | Fallback | events streamed | Nearest marker | Value: pass vs shot | Verdict | Kerrigan's chance after the pass | Kerrigan · free | English | Español | العربية | Analyst | Fan",
    "value": null,
    "source": "film copy built from engine facts (facts.py)"
   },

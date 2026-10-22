@@ -169,6 +169,16 @@ def crew_lines(add, bo: dict) -> bool:
     add("crew.factcheck", f"Fact-checker on \"{wrong}\": {'; '.join(res.reasons)}.",
         {"blocked": "40%", "replacement": f"{bo['shot_chance_quality']:.0%}", "ok": res.ok, "reasons": res.reasons},
         path=None, src="matchmind.crew.fact_checker.check")
+    goal = next((m for m in marks if m["kind"] == "goal" and any(
+        x["kind"] == "correction" and x["moment_id"].endswith(str(int(m["moment_id"][-5:]) + 1).zfill(5))
+        for x in marks)), None)
+    if goal:
+        cor = next(m for m in marks if m["kind"] == "correction")
+        for key, m in (("crew.var.goal", goal), ("crew.var.correction", cor)):
+            c = _get(f"/api/match/moment/{m['moment_id']}?persona=casual&lang=en")
+            add(key, f"{c['headline']} {c['body']}", {"headline": c["headline"], "body": c["body"],
+                "clock": m["match_clock"], "retracts": c.get("retracts", [])},
+                path=None, src=f"crew API: GET /api/match/moment/{m['moment_id']}?persona=casual&lang=en")
     st = _get("/api/crew/status")
     add("crew.fallback", f"No model connected: the crew runs in {st['mode']} mode, and every card says produced_by: "
         f"{tac['produced_by']}.", st, path=None, src="crew API: GET /api/crew/status")
@@ -196,7 +206,20 @@ def main() -> None:
             "formation": t.formation, "primary": t.primary_color, "secondary": t.secondary_color},
             path="backend/src/matchmind/simulator/teams.py")
 
-    goals = [(i, r) for i, r in enumerate(rows, 1) if r["type"] == "shot" and r.get("outcome") == "goal"]
+    # a goal VAR overturns never counts; the film tells that story on its own card
+    overturned = {r["reviewed_event_id"]: (i, r) for i, r in enumerate(rows, 1)
+                  if r["type"] == "var_review" and r.get("outcome") == "overturned"}
+    goals = [(i, r) for i, r in enumerate(rows, 1) if r["type"] == "shot" and r.get("outcome") == "goal"
+             and r["event_id"] not in overturned]
+    for gid, (vline, v) in overturned.items():
+        g = next(r for r in rows if r["event_id"] == gid)
+        add("var.ruled_out", f"{g['match_clock']} goal by {name_of(g['player_id'])} ruled out by VAR "
+            f"({v['review_reason']}) at {v['match_clock']}.",
+            {"goal_clock": g["match_clock"], "var_clock": v["match_clock"], "scorer": name_of(g["player_id"]),
+             "surname": surname(g["player_id"]), "reason": v["review_reason"],
+             "score_after": f"{v['details']['score_home']}-{v['details']['score_away']}",
+             "score_with_goal": f"{v['details']['score_home'] + (g['team'] == HOME)}-"
+                                f"{v['details']['score_away'] + (g['team'] != HOME)}"}, line=vline)
     score = {"NBR": 0, "HCY": 0}
     timeline = []
     for line, g in goals:
@@ -261,7 +284,7 @@ def main() -> None:
                       ("copy.crew", "Five agents. One job each."),
                       ("copy.spha", "Should he have passed?"),
                       ("copy.split", "Same moment, two audiences. The analyst gets the evidence trail. The fan gets the story."),
-                      ("copy.overlay", "Drop it straight onto the broadcast. Or follow one player, all match."),
+                      ("copy.overlay", "Broadcast overlay · corrections go on air too"),
                       ("copy.azure", "Built for Azure")]:
         facts.append({"id": cid, "text": text, "value": None, "source": "film copy (storyboard.md)"})
     # On-screen labels built from engine values, and every voiceover caption.
@@ -275,7 +298,7 @@ def main() -> None:
         ("copy.square", f"Square ball to {mt}, {bo['pass_distance_m']} m: arrives"),
         ("copy.verdict", f"{x}× the value. He should have passed."),
         ("copy.lowerthird", f"Square ball to {mt} was worth {x}× the shot."),
-        ("copy.ui", "Replay | Player focus | Fallback | events streamed | Nearest marker | Value: pass vs shot | "
+        ("copy.ui", "Replay | Ruled out | VAR | Fallback | events streamed | Nearest marker | Value: pass vs shot | "
                     f"Verdict | {mt}'s chance after the pass | {mt} · free | English | Español | العربية | Analyst | Fan"),
         ("copy.endline", f"Demo match: {home_.name} {fin['NBR']}–{fin['HCY']} {away_.name}. Fully synthetic."),
     ]:
