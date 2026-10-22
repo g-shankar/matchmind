@@ -272,3 +272,94 @@ def test_held_up_bidi_zero_width_markup_and_huge_names_are_refused(name):
 
     with pytest.raises(ValueError):
         check_name(name, "Player name")
+
+
+# --- Held up: wall-clock time (UTC, midnight, DST, leap day) -----------------------------------
+
+EXAMPLES = DEMO.parents[1] / "examples"
+
+
+def _csv_feed_with_kickoff(tmp_path, kickoff: str):
+    import json as _json
+
+    import yaml
+
+    from matchmind.ingest.feed import load_feed
+
+    mapping = yaml.safe_load((EXAMPLES / "mapping.yaml").read_text(encoding="utf-8"))
+    mapping["kickoff"] = kickoff
+    path = tmp_path / "mapping.json"
+    path.write_text(_json.dumps(mapping, default=str), encoding="utf-8")
+    return load_feed(EXAMPLES / "feed.csv", roster=EXAMPLES / "roster.yaml", mapping=path)
+
+
+@pytest.mark.parametrize(
+    "kickoff, first_day, last_day",
+    [
+        ("2028-02-29T23:30:00Z", "2028-02-29", "2028-03-01"),  # leap day, across midnight
+        ("2026-12-31T23:15:00Z", "2026-12-31", "2027-01-01"),  # new year
+        # UK clocks go back at 01:00 UTC on 25 Oct 2026: a local +01:00 kick-off at 01:30 is
+        # 00:30 UTC, and the match runs on in UTC with no repeated hour.
+        ("2026-10-25T01:30:00+01:00", "2026-10-25", "2026-10-25"),
+        ("2026-03-29T00:30:00+00:00", "2026-03-29", "2026-03-29"),  # clocks go forward
+    ],
+)
+def test_held_up_feed_timestamps_stay_utc_and_ordered_across_midnight_dst_and_leap_day(
+    tmp_path, kickoff, first_day, last_day
+):
+    from datetime import UTC
+
+    feed = _csv_feed_with_kickoff(tmp_path, kickoff)
+    ts = [e.ts for e in feed.events]
+    assert all(t.utcoffset().total_seconds() == 0 for t in ts)  # type: ignore[union-attr]
+    assert ts == sorted(ts)
+    assert ts[0].astimezone(UTC).date().isoformat() == first_day
+    assert ts[-1].astimezone(UTC).date().isoformat() == last_day
+
+
+def test_held_up_mixed_offsets_across_dst_are_ordered_in_utc_not_by_local_text():
+    """01:59+01:00 then 01:00+00:00 reads backwards on a wall clock but is one minute later
+    in UTC: accepted. The reverse (later local text, earlier instant) is refused."""
+    from datetime import datetime
+
+    from matchmind.ingest import IngestError, validate_events
+    from matchmind.simulator.publisher import read_jsonl
+
+    demo = read_jsonl(DEMO)
+    i = 50
+    a = demo[i - 1].model_copy(update={"ts": datetime.fromisoformat("2026-10-25T01:59:00+01:00")})
+    b = demo[i].model_copy(update={"ts": datetime.fromisoformat("2026-10-25T01:00:00+00:00")})
+    early = [
+        e.model_copy(update={"ts": datetime.fromisoformat("2026-10-25T00:00:00+00:00")})
+        for e in demo[: i - 1]
+    ]
+    late = [
+        e.model_copy(update={"ts": datetime.fromisoformat("2026-10-25T03:00:00+00:00")})
+        for e in demo[i + 1 :]
+    ]
+    validate_events([*early, a, b, *late])
+    b_bad = demo[i].model_copy(
+        update={"ts": datetime.fromisoformat("2026-10-25T02:30:00+02:00")}
+    )  # 00:30 UTC
+    with pytest.raises(IngestError, match="ts runs backwards"):
+        validate_events([*early, a, b_bad, *late])
+
+
+# --- Held up: per-connection isolation ---------------------------------------------------------
+
+
+def test_held_up_one_viewers_choices_never_reach_another(client, clock):
+    with client.websocket_connect("/ws/match") as a, client.websocket_connect("/ws/match") as b:
+        a.receive_json()
+        b.receive_json()
+        a.send_json({"action": "set_view", "spoilers": False, "language": "ar", "persona": "tactical"})
+        types_a = [a.receive_json()["type"] for _ in range(3)]
+        assert types_a == ["PROFILE_CHANGED", "PERSONA_CHANGED", "INITIAL_SNAPSHOT"]
+        clock.t += 1
+        b.send_json({"action": "seek", "clock_s": 2800, "period": 2})
+        snap_b = b.receive_json()  # b's next message is the seek snapshot: nothing of a's
+        assert snap_b["type"] == "INITIAL_SNAPSHOT"
+        assert snap_b["data"]["profile"]["spoilers"] is True and snap_b["data"]["profile"]["language"] == "en"
+        assert snap_b["data"]["home_score"] == 1
+        snap_a = a.receive_json()
+        assert snap_a["data"]["home_score"] is None and snap_a["data"]["profile"]["language"] == "ar"
