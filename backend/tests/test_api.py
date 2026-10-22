@@ -550,7 +550,7 @@ def test_pages_carry_a_content_security_policy_and_api_routes_do_not(session, cl
     assert directives["style-src"] == "'self' 'unsafe-inline'"
     connect = directives["connect-src"].split()
     assert connect[:3] == ["'self'", "ws:", "wss:"]
-    assert "https://api.pitchpulse.example" in connect and "wss://api.pitchpulse.example" in connect
+    assert {"https://api.pitchpulse.example", "wss://api.pitchpulse.example"} <= set(connect)
     assert "*" not in csp and "bad" not in csp  # a malformed origin never widens the policy
     assert "content-security-policy" not in api.headers
     assert page.headers["x-content-type-options"] == "nosniff"
