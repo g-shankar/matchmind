@@ -699,7 +699,7 @@ Quality flags:
 
 | Metric | Why not |
 |---|---|
-| Fantasy bonus points (BPS) | Needs the official scoring rules and data feed; not built. |
+| Game scoring systems | Out of scope: PitchPulse shows only stats it computes itself, never a game's points or bonus rules. |
 | Clean-sheet odds | Needs a calibrated match-outcome model; not built. |
 | Half-space occupation | Needs continuous team shape analysis; planned on top of the synthetic tracking. |
 | Defensive line height | Planned on top of the synthetic tracking; not computed yet. |

@@ -456,8 +456,11 @@ METRICS: tuple[MetricDef, ...] = (
 NOT_COMPUTED: tuple[NotComputed, ...] = (
     NotComputed(
         id="bps",
-        name="Fantasy bonus points (BPS)",
-        reason="Needs the official scoring rules and data feed; not built.",
+        name="Game scoring systems",
+        reason=(
+            "Out of scope: PitchPulse shows only stats it computes itself, "
+            "never a game's points or bonus rules."
+        ),
     ),
     NotComputed(
         id="clean_sheet_odds",

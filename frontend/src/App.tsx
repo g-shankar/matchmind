@@ -17,9 +17,13 @@ import { LanguagePicker } from './components/LanguagePicker';
 import { SplitView } from './views/SplitView';
 import { PlayerFocus } from './views/PlayerFocus';
 import { MyMatch } from './views/MyMatch';
+import { Lab } from './views/Lab';
+import { CrewHealth } from './components/CrewHealth';
+import { InsightModeProvider } from './state/useInsight';
+import { demoRequested } from './api/insights';
 
-type ViewMode = 'studio' | 'overlay' | 'split' | 'follow' | 'fan';
-const VIEWS: ViewMode[] = ['studio', 'overlay', 'split', 'follow', 'fan'];
+type ViewMode = 'studio' | 'overlay' | 'split' | 'follow' | 'fan' | 'lab';
+const VIEWS: ViewMode[] = ['studio', 'overlay', 'split', 'follow', 'fan', 'lab'];
 const PERSONAS: PersonaType[] = ['casual', 'tactical', 'fantasy'];
 const SPEEDS: SpeedMultiplier[] = [1, 10, 60];
 
@@ -40,7 +44,9 @@ export const App: React.FC = () => {
   const { state, actions } = useMatch();
   return (
     <I18nProvider lang={state.profile.language}>
-      <Shell match={state} actions={actions} />
+      <InsightModeProvider mode={state.status === 'demo' ? 'demo' : 'live'}>
+        <Shell match={state} actions={actions} />
+      </InsightModeProvider>
     </I18nProvider>
   );
 };
@@ -201,7 +207,7 @@ const Shell: React.FC<ViewProps> = ({ match, actions }) => {
 
       {match.status === 'demo' && (
         <div className="border-b border-pp-gold/30 bg-pp-gold/10 px-4 py-1.5 text-center text-xs text-pp-gold">
-          {t('conn.demoHint')}
+          {t(demoRequested() ? 'conn.demoMode' : 'conn.demoHint')}
         </div>
       )}
 
@@ -227,6 +233,7 @@ const Shell: React.FC<ViewProps> = ({ match, actions }) => {
                   )}
                   <ControlChaosGauge match={match} actions={actions} />
                   <MomentsList match={match} actions={actions} />
+                  <CrewHealth match={match} />
                 </div>
                 <div className="lg:col-span-5">
                   <NarrativeFeed match={match} actions={actions} onOpenReplay={setReplay} />
@@ -237,6 +244,7 @@ const Shell: React.FC<ViewProps> = ({ match, actions }) => {
             {view === 'split' && <SplitView match={match} actions={actions} />}
             {view === 'follow' && <PlayerFocus match={match} actions={actions} />}
             {view === 'fan' && <MyMatch match={match} actions={actions} />}
+            {view === 'lab' && <Lab match={match} actions={actions} />}
           </>
         )}
       </main>

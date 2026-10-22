@@ -761,3 +761,32 @@ export interface MomentAudit {
   /** A goal VAR later ruled out: the correction's moment id. */
   ruled_out_by?: string | null;
 }
+
+// --- Dataset index: GET /api/dataset (docs/DATASET.md) ---
+
+export interface DatasetMatch {
+  match_id: string;
+  kind: 'bundled' | 'seeded';
+  scenario: 'demo_storyline' | 'chance_model' | 'chance_model_with_beats';
+  seed: number;
+  home: string;
+  away: string;
+  /** Bundled only, e.g. '2-3'. */
+  score: string | null;
+  /** Bundled only. */
+  events: number | null;
+}
+
+export type DatasetFormat = 'jsonl' | 'csv' | 'zip';
+
+export interface DatasetIndex {
+  synthetic: true;
+  note: string;
+  schema_version: string;
+  pitch: { length_m: number; width_m: number; home_attacks: '+x' };
+  formats: DatasetFormat[];
+  tracking: { hz: number; max_window_s: number; formats: DatasetFormat[] };
+  scenarios: Record<string, string>;
+  seeded: { seed_start: number; seed_end: number; match_id: string };
+  matches: DatasetMatch[];
+}
