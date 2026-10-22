@@ -9,8 +9,8 @@ import { useI18n } from '../i18n';
 import { useReadAloud } from '../lib/speech';
 import type { MatchViewState } from '../state/matchStore';
 import type { MatchActions } from '../state/useMatch';
-import { factValue } from './BroadcastOverlay';
-import { AuditDrawer } from './ClaimAudit';
+import { factValue } from '../lib/facts';
+import { LazyAuditDrawer as AuditDrawer } from './ShowWorking';
 import { Badge, Panel, cx } from './ui';
 
 const MAX_LINKS = 3;

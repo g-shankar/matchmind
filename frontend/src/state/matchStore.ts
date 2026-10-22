@@ -17,7 +17,7 @@ import type {
   ViewerProfile,
   XY,
 } from '../api/contract';
-import { DEFAULT_PROFILE } from '../api/mockServer';
+import { DEFAULT_PROFILE } from '../api/defaults';
 import { defaultLanguages } from '../lib/languages';
 import { applyCues, initialCueState, retractedByCards, ruleOut, startSheet, type CueViewState } from './cues';
 

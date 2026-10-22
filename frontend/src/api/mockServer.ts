@@ -118,14 +118,8 @@ export interface DemoAsk {
   checkpoints: DemoAskCheckpoint[];
 }
 
-export const DEFAULT_PROFILE: ViewerProfile = {
-  persona: 'casual',
-  language: 'en',
-  favourite_team: null,
-  focus_player_id: null,
-  focus_metric: null,
-  spoilers: true,
-};
+import { DEFAULT_PROFILE } from './defaults';
+export { DEFAULT_PROFILE };
 
 const STEP_MS = 100;
 const MATCH_SECONDS_PER_REAL_SECOND = 10; // per unit of speed, as on the server

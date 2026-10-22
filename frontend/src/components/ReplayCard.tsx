@@ -5,7 +5,7 @@ import { useI18n } from '../i18n';
 import { playerById, shortName } from '../lib/teams';
 import { Pitch2D, decimalsOf, evidenceLabel, fmtFact, fmtUnit, pct, withClock } from './Pitch2D';
 import { Badge, cx } from './ui';
-import { ShowWorkingButton } from './ClaimAudit';
+import { ShowWorkingButton } from './ShowWorking';
 import { TranslationTag } from './LanguagePicker';
 import { isTranslationReason, textLanguage } from '../lib/languages';
 

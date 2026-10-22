@@ -29,7 +29,7 @@ import { TranslationTag } from './LanguagePicker';
 import type { ViewProps } from '../views/types';
 import { playerName, shortName, teamById } from '../lib/teams';
 import { Badge, Panel, TeamDot, cx } from './ui';
-import { ShowWorkingButton } from './ClaimAudit';
+import { ShowWorkingButton } from './ShowWorking';
 import { tagLabel } from '../lib/labels';
 
 export interface NarrativeFeedProps extends ViewProps {

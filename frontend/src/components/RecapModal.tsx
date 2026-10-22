@@ -6,7 +6,7 @@ import { playerById } from '../lib/teams';
 import { Badge } from './ui';
 import { TranslationTag } from './LanguagePicker';
 import { textLanguage } from '../lib/languages';
-import { factValue } from './BroadcastOverlay';
+import { factValue } from '../lib/facts';
 import { Modal } from './Modal';
 import { recapStatRows } from '../lib/labels';
 

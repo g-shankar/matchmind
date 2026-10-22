@@ -12,7 +12,6 @@ import { ReplayCard } from './components/ReplayCard';
 import { ControlChaosGauge } from './components/ControlChaosGauge';
 import { NarrativeFeed, StoryCard } from './components/NarrativeFeed';
 import { MomentsList, compareMoments, seekTarget } from './components/MomentsList';
-import { BroadcastOverlay } from './components/BroadcastOverlay';
 import { RecapModal } from './components/RecapModal';
 import { LanguagePicker } from './components/LanguagePicker';
 import { Modal } from './components/Modal';
@@ -29,6 +28,7 @@ const SplitView = lazy(() => import('./views/SplitView').then((m) => ({ default:
 const PlayerFocus = lazy(() => import('./views/PlayerFocus').then((m) => ({ default: m.PlayerFocus })));
 const MyMatch = lazy(() => import('./views/MyMatch').then((m) => ({ default: m.MyMatch })));
 const Lab = lazy(() => import('./views/Lab').then((m) => ({ default: m.Lab })));
+const BroadcastOverlay = lazy(() => import('./components/BroadcastOverlay').then((m) => ({ default: m.BroadcastOverlay })));
 const CrewHealth = lazy(() => import('./components/CrewHealth').then((m) => ({ default: m.CrewHealth })));
 
 type ViewMode = 'studio' | 'overlay' | 'split' | 'follow' | 'fan' | 'lab';
@@ -195,7 +195,9 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
   if (view === 'overlay' && isCapture()) {
     return (
       <div dir={dir} className="h-screen w-screen overflow-hidden bg-transparent">
-        <BroadcastOverlay match={match} actions={actions} capture />
+        <Suspense fallback={null}>
+          <BroadcastOverlay match={match} actions={actions} capture />
+        </Suspense>
       </div>
     );
   }

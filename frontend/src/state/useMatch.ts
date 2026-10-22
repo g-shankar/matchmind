@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 import type { AskChip, AskResult, ClientAction, OverlayCard, ServerMessage, SpeedMultiplier, ViewerProfile } from '../api/contract';
 import { LiveTransport } from '../api/liveTransport';
-import { DEFAULT_PROFILE, MockMatchServer, loadDemoFixture } from '../api/mockServer';
+import { DEFAULT_PROFILE } from '../api/defaults';
 import type { MatchTransport } from '../api/transport';
 import { initialMatchState, matchReducer } from './matchStore';
 import { ALL_LANGUAGES } from '../lib/languages';
@@ -119,6 +119,8 @@ export function useMatch() {
       transportRef.current?.close();
       transportRef.current = null;
       try {
+        // The offline demo (recording plus its player) loads only when it is needed.
+        const { MockMatchServer, loadDemoFixture } = await import('../api/mockServer');
         const fixture = await loadDemoFixture();
         if (disposed) return;
         dispatch({ type: 'status', status: 'demo' });
