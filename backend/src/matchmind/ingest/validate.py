@@ -31,7 +31,7 @@ from matchmind.schema import Event, EventType, FramePlayer, LineupPlayer, Outcom
 from matchmind.simulator.teams import Team
 
 from .errors import IngestError
-from .roster import check_name, resolve_teams
+from .roster import POSITION_RE, check_name, resolve_teams
 
 
 @dataclass(frozen=True)
@@ -171,11 +171,13 @@ class MatchContext:
                 raise IngestError(f"details.{key} is not a finite number")
             if isinstance(value, str):
                 _plain(value, f"details.{key}", lim.max_detail_chars)
-                if key.endswith("_id"):
+                if key.endswith("_id") or key in PLAYER_DETAIL_KEYS:
                     value = self._player(value, f"details.{key}")
                 elif key in ("home", "away"):
                     value = value.strip().upper()
-            out[key] = value
+            elif key.endswith("_id") or key in PLAYER_DETAIL_KEYS or key in ("home", "away"):
+                raise IngestError(f"details.{key} must be text")
+            out[key] = _check_known_detail(key, value)
         return out
 
     def normalise(self, event: Event, seq: int) -> Event:
@@ -246,9 +248,32 @@ class MatchContext:
         pid = self.id_map[lp.player_id]
         team = self.teams[self.team_of[pid]]
         player = team.player(pid)
+        position = lp.position.strip().upper()
+        if not POSITION_RE.match(position):
+            raise IngestError("Line-up positions are 1-4 capital letters, e.g. GK, RCB, CAM, ST")
+        _plain(position, "Line-up position", 8)
         return LineupPlayer(
-            player_id=pid, team=team.team_id, name=player.name, number=player.number, position=lp.position
+            player_id=pid, team=team.team_id, name=player.name, number=player.number, position=position
         )
+
+
+# Detail keys other code reads: their types and ranges are fixed, whatever the source.
+PLAYER_DETAIL_KEYS = frozenset({"blocked_by"})
+DETAIL_INTS = {"score_home": (0, 99), "score_away": (0, 99), "seed": (0, 2**31 - 1)}
+DETAIL_CHOICES = {
+    "card": frozenset({"yellow", "red"}),
+    "pass_type": frozenset({"ground", "cross", "through_ball", "kickoff"}),
+}
+
+
+def _check_known_detail(key: str, value: Any) -> Any:
+    if key in DETAIL_INTS:
+        lo, hi = DETAIL_INTS[key]
+        if isinstance(value, bool) or not isinstance(value, int) or not lo <= value <= hi:
+            raise IngestError(f"details.{key} must be a whole number from {lo} to {hi}")
+    elif key in DETAIL_CHOICES and value not in DETAIL_CHOICES[key]:
+        raise IngestError(f"details.{key} must be one of {', '.join(sorted(DETAIL_CHOICES[key]))}")
+    return value
 
 
 class ClockGuard:

@@ -190,10 +190,14 @@ consumes the live stream the simulator publishes
   start-up with a message naming what is missing.
 - **Position**: reads every partition from the latest position (`@latest`;
   `MATCHMIND_EVENTHUBS_START=-1` for the earliest retained event) and follows one
-  match: `MATCHMIND_EVENTHUBS_MATCH_ID`, or the first match_start it sees. If
-  no match_start arrives within `MATCHMIND_EVENTHUBS_WAIT_S` (default 90 s), the
-  app replays the match file instead and `GET /api/source` says so.
-- **Same checks** as a file, one event at a time, plus delivery rules
+  match: `MATCHMIND_EVENTHUBS_MATCH_ID`, or the first match_start it sees.
+- **Start-up never waits on the stream**: the app starts on the match file at
+  once (so the container's startup probe is unaffected) and switches to the
+  live match when its match_start arrives; viewers get a reset and a fresh
+  snapshot. Until then `GET /api/source` says it is waiting.
+- **Same checks** as a file, one event at a time (known details keys are
+  typed: scores are whole numbers 0-99, `card` and `pass_type` come from fixed
+  sets), plus delivery rules
   (`ingest/stream.py`): redeliveries (same seq, same content) are dropped and
   counted; the same seq with different content is refused (the first version
   stands); out-of-order events wait in a 256-event reorder buffer and are
@@ -204,7 +208,9 @@ consumes the live stream the simulator publishes
   session is behind, the consumer's callback blocks, so Event Hubs stops
   pulling until there is room; nothing is dropped for being slow.
 - **Live session**: the session grows as events arrive (bookmarks and seek
-  checkpoints included) and ends only at match_end, or at the last event
+  checkpoints included). An event the stats pass cannot process is taken back
+  out whole and counted (`events_dropped`). Scores on cards always come from
+  the stats engine, never from a number in the feed. The match ends only at match_end, or at the last event
   received if the stream stops. Seeking past the live edge says "That part of
   the match has not been played yet."
 - `GET /api/source` reports the source and the stream counters (received,

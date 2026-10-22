@@ -425,9 +425,11 @@ interface DatasetIndex {
 interface MatchSource {
   source: 'file' | 'eventhubs';
   format?: 'jsonl' | 'csv';                 // file source
-  requested?: 'eventhubs'; note?: string;   // live mode was asked for but no match started in time
+  requested?: 'eventhubs'; note?: string;   // live mode is on but no live match has started yet
+  stream_wait?: true;                       // waiting for a live match_start (the file plays meanwhile)
   starting_position?: string;               // eventhubs source
   match_id: string; events_loaded: number;
+  events_dropped: number;                   // live events the stats pass could not process (taken back out)
   complete: boolean;                        // false while a live match is still arriving
   stream?: {                                // eventhubs source only: counts, never event content
     state: 'waiting_for_match_start' | 'live' | 'ended' | 'stopped';
@@ -475,7 +477,6 @@ against DNS rebinding. Tools, inputs, outputs and how to attach a client:
 | `MATCHMIND_SOURCE` | `file` | `eventhubs`: play the live Event Hubs stream instead (keyless, `EVENTHUB_FULLY_QUALIFIED_NAMESPACE` + `EVENTHUB_NAME`, needs the `azure` extra) |
 | `MATCHMIND_EVENTHUBS_MATCH_ID` | (none) | follow this match on the hub; default the first match_start seen |
 | `MATCHMIND_EVENTHUBS_START` | `@latest` | consumer starting position (`-1` = earliest retained event) |
-| `MATCHMIND_EVENTHUBS_WAIT_S` | `90` | how long to wait for a live match_start before replaying the match file |
 | `EVENTHUB_CONSUMER_GROUP` | `$Default` | Event Hubs consumer group |
 | `MATCHMIND_DATASET_DIR` | `backend/data/matches` | the bundled dataset offered by `/api/dataset` |
 | `MATCHMIND_STATIC_DIR` | `./static` (working directory) | built frontend served at `/` when it has an `index.html` |

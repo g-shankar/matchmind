@@ -86,7 +86,8 @@ Things only the owners can do. Everything else the team handles.
     publishes, set the repo variable `MATCHMIND_EVENTHUBS_SOURCE=true` and
     redeploy (this grants the app identity Azure Event Hubs Data Receiver on
     the `match-events` hub, a role the deploy identity may already grant; no
-    new spend, the Basic namespace already exists). Then restart the app
-    revision and, within 90 seconds, start the simulator job:
+    new spend, the Basic namespace already exists). The app starts on the
+    bundled match and switches to the live one when it begins, so start the
+    simulator job whenever you like:
     `az containerapp job start -n caj-pitchpulse-sim -g <resource group>`.
-    `GET /api/source` shows whether the app is live or fell back to the file.
+    `GET /api/source` shows whether the app is live or still waiting.
