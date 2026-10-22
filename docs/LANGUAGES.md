@@ -1,7 +1,9 @@
 # Languages: studio packs and Azure AI Translator
 
-PitchPulse speaks 13 languages. They come from two places, and the app always
-says which.
+PitchPulse offers 13 languages: 5 studio languages that always work, and 8
+world languages that work only when the owner switches Azure AI Translator on
+(off by default; until then they are shown in English and labelled). They come
+from two places, and the app always says which.
 
 | Source | Languages | How the text is made | Cost |
 |---|---|---|---|
