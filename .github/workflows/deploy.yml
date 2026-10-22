@@ -45,7 +45,7 @@ jobs:
     if: github.ref_name == github.event.repository.default_branch
     environment: production
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Keyless sign-in: GitHub OIDC token exchanged for an Entra ID token.
       - uses: azure/login@v2

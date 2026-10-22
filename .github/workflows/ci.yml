@@ -13,7 +13,7 @@ jobs:
     name: Secret scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
@@ -27,7 +27,7 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -48,7 +48,7 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -63,7 +63,7 @@ jobs:
     name: Licence check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -86,7 +86,7 @@ jobs:
     name: Bicep build and lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: az bicep install
       - run: az bicep lint --file deployment/azure_bicep/main.bicep
       - run: az bicep build --file deployment/azure_bicep/main.bicep --stdout > /dev/null
@@ -103,7 +103,7 @@ jobs:
     name: Container image build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker build -f deployment/Dockerfile -t pitchpulse:ci .
       - name: Image runs as non-root and has the simulator
         run: |
