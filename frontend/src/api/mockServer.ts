@@ -415,10 +415,21 @@ export class MockMatchServer implements MatchTransport {
         this.running = true;
         this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
         return;
-      case 'seek':
-        this.jumpTo(seekIndex(this.fixture.ticks, Math.max(0, action.clock_s), action.period));
+      case 'seek': {
+        // Same refusals as the live server: nothing moves on a bad time.
+        if (!Number.isFinite(action.clock_s) || action.clock_s < 0 || (action.period !== undefined && action.period !== 1 && action.period !== 2)) {
+          this.emit({ type: 'ERROR', data: { message: 'Seek needs clock_s, a time in seconds from kick-off (and optionally period 1 or 2).' } });
+          return;
+        }
+        const index = seekIndex(this.fixture.ticks, action.clock_s, action.period);
+        if (index >= this.fixture.ticks.length) {
+          this.emit({ type: 'ERROR', data: { message: 'That time is after full time.' } });
+          return;
+        }
+        this.jumpTo(index);
         this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
         return;
+      }
       case 'set_persona':
       case 'set_view': {
         const changes =
