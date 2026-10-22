@@ -178,7 +178,7 @@ export const RecapModal: React.FC<RecapModalProps> = ({ open, onClose, recap, lo
   return (
     <Modal open={open} onClose={onClose} labelledBy="recap-title" name="recap" className="max-w-3xl">
       <div className="flex max-h-[100dvh] flex-col overflow-hidden border border-pp-line bg-pp-panel shadow-2xl sm:max-h-[90vh] sm:rounded-2xl">
-        <header className="flex items-start justify-between gap-3 border-b border-pp-line px-4 py-3 sm:px-6">
+        <div className="flex items-start justify-between gap-3 border-b border-pp-line px-4 py-3 sm:px-6">
           <div className="flex min-w-0 items-start gap-2">
             <FileText className="mt-0.5 h-5 w-5 shrink-0 text-pp-pulse" aria-hidden />
             <h2
@@ -198,9 +198,10 @@ export const RecapModal: React.FC<RecapModalProps> = ({ open, onClose, recap, lo
           >
             <X className="h-5 w-5" />
           </button>
-        </header>
+        </div>
 
-        <div className="overflow-y-auto p-4 sm:p-6">
+        {/* Focusable so the recap can be scrolled from the keyboard, also while it loads. */}
+        <div tabIndex={0} role="region" aria-labelledby="recap-title" className="overflow-y-auto p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-pp-signal sm:p-6">
           {loading ? (
             <Skeleton />
           ) : recap ? (
@@ -214,7 +215,7 @@ export const RecapModal: React.FC<RecapModalProps> = ({ open, onClose, recap, lo
           )}
         </div>
 
-        <footer className="flex justify-end border-t border-pp-line bg-pp-deep px-4 py-3 sm:px-6">
+        <div className="flex justify-end border-t border-pp-line bg-pp-deep px-4 py-3 sm:px-6">
           <button
             type="button"
             onClick={onClose}
@@ -222,7 +223,7 @@ export const RecapModal: React.FC<RecapModalProps> = ({ open, onClose, recap, lo
           >
             {t('broadcast.recap.close')}
           </button>
-        </footer>
+        </div>
       </div>
     </Modal>
   );

@@ -37,6 +37,14 @@ const renderModal = (props: Partial<React.ComponentProps<typeof RecapModal>> = {
 };
 
 describe('RecapModal', () => {
+  it('can be scrolled from the keyboard and adds no page landmarks (LC-6)', () => {
+    renderModal({ loading: true, recap: null });
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.querySelector('header, footer')).toBeNull();
+    const body = screen.getByRole('region', { name: /recap|match/i });
+    expect(body.getAttribute('tabindex')).toBe('0');
+  });
+
   it('renders the recap with the fact-check line and closes on Escape', () => {
     const onClose = renderModal();
     const dialog = screen.getByRole('dialog');
