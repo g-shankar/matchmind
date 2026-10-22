@@ -228,3 +228,19 @@ def test_ec5_reset_and_seek_work_on_a_live_match_with_only_its_kick_off(clock):
         clock.t += 10
         s.advance()
     assert s.next_index == 40  # the match plays on as the stream arrives
+
+
+# --- EC-6: Ask takes JSON only ----------------------------------------------------------------
+
+
+@pytest.mark.parametrize("media", ["text/plain", "application/x-www-form-urlencoded", None])
+def test_ec6_ask_refuses_bodies_a_cross_site_form_could_send(client, media):
+    """Before: a text/plain POST (no CORS preflight) from any page was answered, spending the
+    visitor's Ask bucket (and model calls when the AI switch is on)."""
+    headers = {"content-type": media} if media else {}
+    r = client.post("/api/ask", content=b'{"chip": "score"}', headers=headers)
+    assert r.status_code == 415 and r.json() == {"detail": "Send the question as JSON."}
+    ok = client.post(
+        "/api/ask", content=b'{"chip": "score"}', headers={"content-type": "application/json; charset=utf-8"}
+    )
+    assert ok.status_code == 200

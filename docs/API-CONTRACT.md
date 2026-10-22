@@ -527,7 +527,7 @@ interface MatchSource {
 ```ts
 // POST /api/ask. Exactly one of question (free text, refused past 200 characters)
 // or chip ('score' | 'top_xg' | 'furthest' | 'fastest' | 'on_top' | 'better_option'
-// | 'explain_xg'). Body at most 2 KB (413), unknown fields 400. Shares the GET rate
+// | 'explain_xg'). Body at most 2 KB (413), JSON only (any other Content-Type 415), unknown fields 400. Shares the GET rate
 // limit bucket of /api/match/moment and /api/match/recap. The question is never
 // echoed back or logged.
 interface AskAnswer {

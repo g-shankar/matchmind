@@ -826,6 +826,11 @@ def create_app(
     async def ask(request: Request) -> dict[str, Any]:
         """One question about the match, answered from the stats engine as of the playback
         clock. Shares the per-IP bucket of the paid-path GET routes and MCP."""
+        # JSON only: a form or text/plain POST is a "simple" cross-site request a browser
+        # sends from any page without a CORS preflight.
+        media = request.headers.get("content-type", "").split(";")[0].strip().lower()
+        if media != "application/json":
+            raise HTTPException(status_code=415, detail="Send the question as JSON.")
         declared = request.headers.get("content-length")
         if declared is not None and declared.isdigit() and int(declared) > ASK_BODY_MAX:
             raise HTTPException(status_code=413, detail=ASK_TOO_BIG)
