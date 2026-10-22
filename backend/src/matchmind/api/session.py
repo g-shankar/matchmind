@@ -38,6 +38,7 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Protocol
 
+from matchmind.crew import spoilers
 from matchmind.crew.audit import moment_audit
 from matchmind.crew.contracts import (
     CrewStatus,
@@ -561,6 +562,17 @@ class MatchSession:
 
     def bundle(self, moment_id: str) -> MomentBundle | None:
         return self._bundles.get(moment_id)
+
+    def resolve_moment_id(self, moment_id: str) -> str | None:
+        """The moment id behind a catch-up moment id (crew/spoilers.py), or None when no
+        moment has it. Ids are keyed per process, so this hashes every known moment id:
+        a few hundred HMACs, no stored map to keep in step with live appends."""
+        if not spoilers.is_catchup_moment_id(moment_id):
+            return moment_id
+        for mid in list(self._bundles):
+            if spoilers.catchup_moment_id(mid) == moment_id:
+                return mid
+        return None
 
     def is_played(self, moment_id: str) -> bool:
         """Whether the moment's event has been played at the current position."""

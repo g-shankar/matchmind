@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AskAnswer, ServerMessage } from './contract';
 import { MockMatchServer, type DemoAsk, type DemoFixture } from './mockServer';
-import { catchUpIds, isSpoilerCard, scrubEvent, spoilerFreeBookmarks, spoilerFreeTick, withCatchUpIds } from './spoilers';
+import { catchUpIdSet, catchUpIds, isSpoilerCard, rawMomentId, scrubEvent, spoilerFreeBookmarks, spoilerFreeTick, withCatchUpIds } from './spoilers';
 import { event, makeFixture } from '../test/fixture';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -134,7 +134,9 @@ describe('catch-up mode in the offline demo', () => {
     const { server } = await start(false);
     const story = await server.getRecap('casual', 'en', false);
     expect(story).toMatchObject({ spoiler_free: true, player_of_the_match: null, generated_at_clock: '00:00' });
-    expect(story?.key_moments.map((k) => k.moment_id)).toEqual(['M-0']);
+    // One key moment (M-0; the goal M-1 is left out), named by its catch-up id.
+    expect(story?.key_moments.map((k) => rawMomentId(k.moment_id))).toEqual(['M-0']);
+    expect(story?.key_moments[0].moment_id).toMatch(/^mo-[0-9a-f]{16}$/);
     server.close();
   });
 });
@@ -204,6 +206,20 @@ describe('spoiler scrub helpers', () => {
     expect(idFor('T-1-00003')).toBe(ids[3]);
     const card = { evidence: [{ source_event_id: 'T-1-00003' }, { source_event_id: null }], claims: [{ source_event_ids: ['T-1-00003'] }], replay: { shot_event_id: 'T-1-00004' } };
     expect(withCatchUpIds(card, idFor)).toEqual({ evidence: [{ source_event_id: ids[3] }, { source_event_id: null }], claims: [{ source_event_ids: [ids[3]] }], replay: { shot_event_id: ids[4] } });
+  });
+
+  it('catch-up moment and card ids replace the full-feed ones and map back', () => {
+    const { event, moment, card } = catchUpIdSet();
+    const payload = { card_id: 'T-1-00007-shot:casual:en', moment_id: 'T-1-00007-shot', retracts: ['T-1-00005-goal'], moment_ids: ['T-1-00007-shot'], key_moments: [{ moment_id: 'T-1-00007-shot' }] };
+    const out = withCatchUpIds(payload, event, { moment, card });
+    expect(JSON.stringify(out)).not.toMatch(/T-1-\d{5}/);
+    expect(out.moment_id).toMatch(/^mo-[0-9a-f]{16}$/);
+    expect(out.card_id).toMatch(/^cd-[0-9a-f]{16}$/);
+    expect(out.moment_ids[0]).toBe(out.moment_id);
+    expect(out.key_moments[0].moment_id).toBe(out.moment_id);
+    expect(rawMomentId(out.moment_id)).toBe('T-1-00007-shot');
+    expect(rawMomentId('mo-0000000000000000')).toBeNull();
+    expect(moment(out.moment_id)).toBe(out.moment_id); // an id already swapped stays as it is
   });
 
   it('withhold VAR review ticks altogether', () => {

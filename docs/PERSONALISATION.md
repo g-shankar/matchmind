@@ -127,7 +127,7 @@ surface: WebSocket, REST, the recap, and Ask the studio.
 | Shot and VAR-review outcomes on events, and the score copied into event details | Everything else about the event |
 | Outcome geometry: where a shot ended (every goal ends in the goal mouth; the pitch draws each shot towards the goal centre instead) and who blocked it | Where the shot was taken from, its xG and speed |
 | VAR review events and kick-off passes themselves: here a review always looks at a goal and every restart after the first whistle follows one, so the tick is withheld and its other cards ride the next tick | Every other event |
-| The feed's numbering: events carry `seq: null` and an opaque id, so a withheld event leaves no gap (cards and answers point at the same ids) | Event order and the match clock |
+| The feed's numbering: events carry `seq: null` and an opaque id, so a withheld event leaves no gap (cards and answers point at the same ids); moment and card ids are opaque too | Event order and the match clock |
 | Goals in the Lab's basic stats (`GET /api/match/stats/basic?spoilers=false`, MCP `get_basic_stats`): null, and the row is hidden | Shots, on target, passes, tackles and the rest |
 | The cue sheet (its scorebug layer is the score) | Cards in their usual slots |
 | The recap: replaced by the **story so far** | The story: xG and shots for both sides, how many chances, pressure spells and momentum swings, who is on top now, and spoiler-free key moments |
@@ -137,8 +137,8 @@ surface: WebSocket, REST, the recap, and Ask the studio.
 and out of the catch-up messages. It does not change what happened: the clock
 and positions are real, so the pause after a goal and play restarting from the
 halfway line are still there, and someone reading the raw feed can infer a goal
-from them. Moment ids keep the full feed's numbering and counting stats include
-withheld events. Catch-up is a viewing choice, not an access control: anyone can
+from them. Counting stats include withheld events. Moment and card ids are opaque
+in catch-up payloads (`mo-…`, `cd-…`), like event ids, so they show no gaps. Catch-up is a viewing choice, not an access control: anyone can
 still ask the server for the full picture (docs/THREAT-MODEL.md).
 
 **Story so far.** Each of the 5 studio packs has a template family for it

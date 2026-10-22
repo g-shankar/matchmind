@@ -10,7 +10,7 @@ from dataclasses import asdict
 from typing import Any
 
 from matchmind.crew import spoilers
-from matchmind.crew.contracts import CrewStatus, MomentBundle, OverlayCard, ViewerProfile
+from matchmind.crew.contracts import CrewStatus, MomentBundle, OverlayCard, Recap, ViewerProfile
 from matchmind.crew.cues import Cue
 from matchmind.crew.languages import language_list
 from matchmind.crew.producer import ViewerState
@@ -227,6 +227,17 @@ def moment_detail_payload(bundle: MomentBundle, played: bool) -> dict[str, Any]:
     }
 
 
+def recap_payload(recap: Recap) -> dict[str, Any]:
+    """A recap as sent (MATCH_END and GET /api/match/recap). The spoiler-free story names
+    its key moments by catch-up id, like every other catch-up payload."""
+    data = recap.model_dump(mode="json")
+    if recap.spoiler_free:
+        data["key_moments"] = [
+            {**m, "moment_id": spoilers.catchup_moment_id(m["moment_id"])} for m in data["key_moments"]
+        ]
+    return data
+
+
 def languages_payload(status: CrewStatus) -> list[dict[str, Any]]:
     """Every language with its source (studio pack or Azure AI Translator) and
     whether it can be shown right now."""
@@ -293,7 +304,7 @@ def spoiler_free_snapshot(session: MatchSession, data: dict[str, Any]) -> dict[s
             continue
         if bundle is None and spoilers.is_spoiler_kind(b["kind"]):
             continue
-        kept.append({**b, "ruled_out": False})
+        kept.append({**b, "moment_id": spoilers.catchup_moment_id(b["moment_id"]), "ruled_out": False})
     out["bookmarks"] = kept
     out["players"] = [spoilers.scrub_player(p) for p in data["players"]]
     out["cue_sheet"] = None  # its scorebug layer is the score

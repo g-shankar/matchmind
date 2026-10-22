@@ -5,6 +5,7 @@ on any surface, until they reveal. Then everything comes back at once.
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -13,10 +14,11 @@ from fastapi.testclient import TestClient
 
 from conftest import FAKE_ENGINES, FakeClock, make_events
 from matchmind.api import session as session_mod
+from matchmind.api import view as view_mod
 from matchmind.api.app import create_app
 from matchmind.api.session import MatchSession, load_events
 from matchmind.crew.contracts import STUDIO_LANGUAGES, ViewerProfile
-from matchmind.crew.spoilers import CATCHUP_ID_PREFIX, SPOILER_FACT_KEYS, SPOILER_KINDS
+from matchmind.crew.spoilers import CATCHUP_ID_PREFIX, SPOILER_FACT_KEYS, SPOILER_KINDS, is_withheld_event
 
 ALLOWED = "http://localhost:5173"
 SCORE_KEYS = {"score_home", "score_away", "home_score", "away_score", "goals", "assists"}
@@ -440,3 +442,191 @@ def test_bad_view_on_the_websocket_url_is_refused(fake, query):
     client, _ = fake
     with pytest.raises(WebSocketDisconnect), client.websocket_connect(f"/ws/match?{query}") as ws:
         ws.receive_json()
+
+
+# --- Moment and card ids: no full-feed numbering either (security review round 5) --------------
+
+FEED_NUMBER = re.compile(r"MM-[A-Z0-9-]+-\d{5}")
+
+
+def _ids(payload: Any, key: str) -> list[str]:
+    found: list[str] = []
+    if isinstance(payload, dict):
+        for k, v in payload.items():
+            if k == key and isinstance(v, str):
+                found.append(v)
+            found += _ids(v, key)
+    elif isinstance(payload, list):
+        for v in payload:
+            found += _ids(v, key)
+    return found
+
+
+def anchor_gaps(seen: list[dict], full_ids: list[str]) -> list[tuple[int, int, int]]:
+    """The reviewer's classifier: any full-feed event number visible on a card anchors the
+    card's tick to the full feed; between two anchors, fewer catch-up ticks than feed events
+    means something was withheld there (a goal's kick-off, a VAR review)."""
+    number = {eid: i for i, eid in enumerate(full_ids)}
+    ticks = [m for m in seen if m["type"] == "MATCH_TICK"]
+    anchors: dict[int, int] = {}
+    for i, m in enumerate(ticks):
+        for raw in FEED_NUMBER.findall(json.dumps(m["data"].get("cards", []))):
+            if raw in number:
+                anchors.setdefault(number[raw], i)
+    pairs = sorted(anchors.items())
+    steps = zip(pairs, pairs[1:], strict=False)
+    return [(n1, n2, (n2 - n1) - (i2 - i1)) for (n1, i1), (n2, i2) in steps if n2 - n1 > i2 - i1]
+
+
+def test_catch_up_stream_has_no_feed_numbering_in_moment_or_card_ids(real):
+    from matchmind.crew.spoilers import CATCHUP_CARD_PREFIX, CATCHUP_MOMENT_PREFIX
+
+    session, clock = real
+    session.reset()
+    full_ids = [e.event_id for e in session.events]
+    app = create_app(session=session, tick_interval=None, allowed_origins=[ALLOWED], clock=clock)
+    with TestClient(app) as client, client.websocket_connect("/ws/match?spoilers=0") as ws:
+        seen = recv_all(ws, "INITIAL_SNAPSHOT")
+        for _ in range(400):
+            clock.t += 30
+            client.portal.call(client.app.state.hub.pump)
+            if session.ended:
+                break
+        seen += recv_all(ws, "MATCH_END")
+        client.post("/api/match/seek", json={"clock_s": 75 * 60, "period": 2})
+        seen += recv_all(ws, "INITIAL_SNAPSHOT")  # bookmarks, recent cards and events
+    ticks = [m for m in seen if m["type"] == "MATCH_TICK"]
+    assert len(ticks) > 2000 and sum(len(m["data"]["cards"]) for m in ticks) > 30
+    text = json.dumps(seen)
+    assert not FEED_NUMBER.findall(text), FEED_NUMBER.findall(text)[:5]
+    moment_ids = _ids(seen, "moment_id")
+    card_ids = _ids(seen, "card_id")
+    assert moment_ids and all(m.startswith(CATCHUP_MOMENT_PREFIX) for m in moment_ids)
+    assert card_ids and all(c.startswith(CATCHUP_CARD_PREFIX) for c in card_ids)
+    assert anchor_gaps(seen, full_ids) == []
+    snap = seen[-1]["data"]
+    marks = snap["bookmarks"]
+    assert marks and all(b["moment_id"].startswith(CATCHUP_MOMENT_PREFIX) for b in marks)
+    recap = next(m for m in seen if m["type"] == "MATCH_END")["data"]["recap"]
+    assert recap["key_moments"] and all(
+        m["moment_id"].startswith(CATCHUP_MOMENT_PREFIX) for m in recap["key_moments"]
+    )
+
+
+def test_anchor_gap_classifier_finds_the_gaps_in_full_feed_ids():
+    """The classifier itself works: raw ids on cards, with ticks withheld, show the gaps."""
+    full = [f"MM-DEMO-001-{i:05d}" for i in range(1, 11)]
+    kept = [1, 2, 3, 6, 7, 8, 9, 10]  # 4 and 5 withheld
+    seen = [
+        {"type": "MATCH_TICK", "data": {"cards": [{"moment_id": f"pressure_wave-MM-DEMO-001-{n:05d}"}]}}
+        for n in kept
+    ]
+    assert anchor_gaps(seen, full) == [(2, 5, 2)]
+
+
+def test_catch_up_ids_look_up_moments_cards_audits_and_answers(real):
+    from matchmind.api import reads
+    from matchmind.crew.spoilers import CATCHUP_MOMENT_PREFIX, catchup_moment_id, is_spoiler_moment
+
+    session, clock = real
+    session.reset()
+    app = create_app(session=session, tick_interval=None, allowed_origins=[ALLOWED], clock=clock)
+    with TestClient(app) as client:
+
+        def get(url: str):
+            clock.t += 5  # stay under the per-IP read limit
+            return client.get(url)
+
+        client.post("/api/match/seek", json={"clock_s": 80 * 60, "period": 2})
+        snap = client.get("/api/match/snapshot?spoilers=false").json()
+        full = client.get("/api/match/snapshot").json()
+        opaque = [b["moment_id"] for b in snap["bookmarks"]]
+        assert opaque and all(i.startswith(CATCHUP_MOMENT_PREFIX) for i in opaque)
+        raw = {catchup_moment_id(b["moment_id"]): b["moment_id"] for b in full["bookmarks"]}
+        for mid in opaque[:6]:
+            card = get(f"/api/match/moment/{mid}?lang=es")
+            assert card.status_code == 200, mid
+            body = card.json()
+            assert body["moment_id"] == mid and body["card_id"].startswith("cd-")
+            assert not FEED_NUMBER.search(json.dumps(body)) and not leaks(body)
+            audit = get(f"/api/match/moment/{mid}/audit")
+            assert audit.status_code == 200, mid
+            assert audit.json()["moment_id"] == mid and not FEED_NUMBER.search(audit.text)
+            detail = client.portal.call(reads.moment_detail, client.app.state.hub, mid)  # MCP get_moment
+            assert detail["moment"]["moment_id"] == mid and not FEED_NUMBER.search(json.dumps(detail))
+            # The full id still answers in full ids.
+            assert get(f"/api/match/moment/{raw[mid]}").json()["moment_id"] == raw[mid]
+        # A catch-up id that names nothing, or a goal, is "not found".
+        assert get("/api/match/moment/mo-0000000000000000").status_code == 404
+        assert get("/api/match/moment/mo-0000000000000000/audit").status_code == 404
+        goal = next(b for b in full["bookmarks"] if is_spoiler_moment(session.bundle(b["moment_id"]).moment))
+        assert get(f"/api/match/moment/{catchup_moment_id(goal['moment_id'])}").status_code == 404
+        assert get(f"/api/match/moment/{catchup_moment_id(goal['moment_id'])}/audit").status_code == 404
+        recap = get("/api/match/recap?spoilers=false").json()
+        assert recap["key_moments"] and not FEED_NUMBER.search(json.dumps(recap))
+        for m in recap["key_moments"]:
+            assert get(f"/api/match/moment/{m['moment_id']}").status_code == 200
+        answer = client.post("/api/ask", json={"chip": "better_option", "spoilers": False}).json()
+        assert answer["moment_ids"] and not FEED_NUMBER.search(json.dumps(answer))
+        assert all(get(f"/api/match/moment/{m}").status_code == 200 for m in answer["moment_ids"])
+
+
+def test_catch_up_viewer_pumped_tick_by_tick_gets_every_card(real):
+    """A withheld tick (kick-off, VAR review) that ends a playback step keeps its cards for the
+    next tick, even when that tick is played in a later step (security review round 5)."""
+    from matchmind.crew.spoilers import catchup_card_id
+
+    session, clock = real
+    session.reset()
+    app = create_app(session=session, tick_interval=None, allowed_origins=[ALLOWED], clock=clock)
+    with (
+        TestClient(app) as client,
+        client.websocket_connect("/ws/match") as full_ws,
+        client.websocket_connect("/ws/match?spoilers=0") as free_ws,
+    ):
+        full_ws.receive_json()
+        free_ws.receive_json()
+        steps = 0
+        while not session.ended and steps < 20_000:
+            clock.t += 1  # about one event per step at 1x
+            client.portal.call(client.app.state.hub.pump)
+            steps += 1
+        full = recv_all(full_ws, "MATCH_END")
+        free = recv_all(free_ws, "MATCH_END")
+    assert session.ended
+    full_ticks = [m["data"] for m in full if m["type"] == "MATCH_TICK"]
+    withheld = [t for t in full_ticks if is_withheld_event(t["event"])]
+    assert len(withheld) >= 6  # kick-offs after goals and VAR reviews
+    expected = {
+        catchup_card_id(c["card_id"])
+        for t in full_ticks
+        for c in t["cards"]
+        if not view_mod._is_spoiler_card(session, c)
+    }
+    got = {c["card_id"] for m in free if m["type"] == "MATCH_TICK" for c in m["data"]["cards"]}
+    assert expected, "the check needs cards"
+    assert expected - got == set(), sorted(expected - got)[:5]
+
+
+@pytest.mark.parametrize("jump", ["seek", "reset", "set_view"])
+def test_held_catch_up_cards_are_dropped_on_a_jump_or_a_new_view(fake, jump):
+    client, clock = fake
+    hub = client.app.state.hub
+    with client.websocket_connect("/ws/match?spoilers=0") as ws:
+        ws.receive_json()
+        (conn,) = list(hub.connections)
+        conn.view_state.held_cards = [{"card_id": "cd-held"}]
+        if jump == "seek":
+            client.post("/api/match/seek", json={"clock_s": 600, "period": 1})
+            recv_all(ws, "INITIAL_SNAPSHOT")
+        elif jump == "reset":
+            assert client.post("/api/match/reset", json={}, headers={"origin": ALLOWED}).status_code == 200
+            recv_all(ws, "INITIAL_SNAPSHOT")
+        else:
+            ws.send_json({"action": "set_view", "persona": "tactical"})
+            recv_all(ws, "PERSONA_CHANGED")
+        assert conn.view_state.held_cards == []
+        clock.t += 1000
+        client.portal.call(hub.pump)
+        seen = recv_all(ws, "PLAYBACK_CONTROL")
+    assert "cd-held" not in json.dumps(seen)

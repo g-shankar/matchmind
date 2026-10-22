@@ -17,11 +17,19 @@ studio). A viewer with `ViewerProfile.spoilers == False` never receives:
   still the only pass without a start point);
 - the full feed's numbering: a withheld event would leave a gap in `seq` and in the
   event ids, so a catch-up event carries no `seq` and an opaque per-process id
-  (card evidence points at the same opaque id, so cards still link to the pitch);
+  (card evidence points at the same opaque id, so cards still link to the pitch).
+  Moment and card ids are built from event ids, so a catch-up payload carries them
+  opaque too (`catchup_moment_id`, `catchup_card_id`): in cards, bookmarks, the recap
+  and Ask answers. The moment, audit and MCP lookups take the opaque id back
+  (`MatchSession.resolve_moment_id`) and answer with opaque ids again;
 - the cue sheet (its scorebug layer is the score).
 
 Pressure, momentum, xG, shots, chances and "should he have passed" moments
 stay: they tell the story without the result.
+
+What still remains (docs/THREAT-MODEL.md): where play restarts after a withheld
+kick-off and the clock gap around it. Someone reading the raw catch-up stream can
+infer a goal from those; the screen shows neither.
 """
 
 from __future__ import annotations
@@ -76,6 +84,8 @@ WITHHELD_PASS_TYPES: frozenset[str] = frozenset({"kickoff"})
 # Catch-up event ids: keyed per process, so they cannot be reversed by hashing every
 # full-feed id (those are public and sequential).
 CATCHUP_ID_PREFIX = "ev-"
+CATCHUP_MOMENT_PREFIX = "mo-"
+CATCHUP_CARD_PREFIX = "cd-"
 _CATCHUP_ID_KEY = secrets.token_bytes(32)
 
 
@@ -113,12 +123,38 @@ def is_withheld_event(payload: Mapping[str, Any]) -> bool:
 def catchup_event_id(event_id: str) -> str:
     """The id a catch-up viewer sees for a full-feed event id: stable for this process,
     unordered, so withheld events leave no gap in it."""
+    if event_id.startswith(CATCHUP_ID_PREFIX):
+        return event_id  # already a catch-up id
     digest = hmac.new(_CATCHUP_ID_KEY, event_id.encode(), hashlib.sha256).hexdigest()[:16]
     return CATCHUP_ID_PREFIX + digest
 
 
 def catchup_event_ids(ids: Iterable[str]) -> list[str]:
     return [catchup_event_id(i) for i in ids]
+
+
+def _opaque(prefix: str, domain: bytes, value: str) -> str:
+    digest = hmac.new(_CATCHUP_ID_KEY, domain + b"\0" + value.encode(), hashlib.sha256).hexdigest()[:16]
+    return prefix + digest
+
+
+def catchup_moment_id(moment_id: str) -> str:
+    """The moment id a catch-up viewer sees. Moment ids carry the full feed's event id
+    (`goal-MM-...-00817`), so in the clear they would show where events were withheld."""
+    if moment_id.startswith(CATCHUP_MOMENT_PREFIX):
+        return moment_id  # already a catch-up id
+    return _opaque(CATCHUP_MOMENT_PREFIX, b"moment", moment_id)
+
+
+def is_catchup_moment_id(moment_id: str) -> bool:
+    return moment_id.startswith(CATCHUP_MOMENT_PREFIX)
+
+
+def catchup_card_id(card_id: str) -> str:
+    """The card id a catch-up viewer sees (unique per card, like the full one)."""
+    if card_id.startswith(CATCHUP_CARD_PREFIX):
+        return card_id
+    return _opaque(CATCHUP_CARD_PREFIX, b"card", card_id)
 
 
 def scrub_event(payload: dict[str, Any]) -> dict[str, Any]:
@@ -151,8 +187,15 @@ REPLAY_EVENT_KEYS: tuple[str, ...] = ("shot_event_id", "run_event_id")
 
 def scrub_card(card: dict[str, Any]) -> dict[str, Any]:
     """A kept card for a catch-up viewer: every event id in it is the catch-up id, so it
-    still links to the events on the pitch and carries no full-feed numbering."""
+    still links to the events on the pitch, and its card and moment ids are opaque, so it
+    carries no full-feed numbering."""
     out = dict(card)
+    if card.get("card_id"):
+        out["card_id"] = catchup_card_id(str(card["card_id"]))
+    if card.get("moment_id"):
+        out["moment_id"] = catchup_moment_id(str(card["moment_id"]))
+    if card.get("retracts"):
+        out["retracts"] = [catchup_moment_id(str(m)) for m in card["retracts"]]
     out["evidence"] = [
         {**e, "source_event_id": catchup_event_id(e["source_event_id"])} if e.get("source_event_id") else e
         for e in card.get("evidence") or []
@@ -168,6 +211,34 @@ def scrub_card(card: dict[str, Any]) -> dict[str, Any]:
             k: catchup_event_id(v) if k in REPLAY_EVENT_KEYS and isinstance(v, str) else v
             for k, v in replay.items()
         }
+    return out
+
+
+_EVENT_ID_FIELDS = frozenset({"event_id", "source_event_id", *REPLAY_EVENT_KEYS})
+_MOMENT_ID_FIELDS = frozenset({"moment_id", "ruled_out_by"})
+
+
+def with_catchup_ids(value: Any) -> Any:
+    """A copy of a JSON payload with every event, moment and card id swapped for its
+    catch-up id (a moment detail or audit asked for by a catch-up id)."""
+    if isinstance(value, list):
+        return [with_catchup_ids(v) for v in value]
+    if not isinstance(value, dict):
+        return value
+    out: dict[str, Any] = {}
+    for k, v in value.items():
+        if k in _EVENT_ID_FIELDS and isinstance(v, str) and v:
+            out[k] = catchup_event_id(v)
+        elif k == "source_event_ids" and isinstance(v, list):
+            out[k] = [catchup_event_id(x) if isinstance(x, str) else x for x in v]
+        elif k in _MOMENT_ID_FIELDS and isinstance(v, str) and v:
+            out[k] = catchup_moment_id(v)
+        elif k == "retracts" and isinstance(v, list):
+            out[k] = [catchup_moment_id(x) if isinstance(x, str) else x for x in v]
+        elif k == "card_id" and isinstance(v, str) and v:
+            out[k] = catchup_card_id(v)
+        else:
+            out[k] = with_catchup_ids(v)
     return out
 
 

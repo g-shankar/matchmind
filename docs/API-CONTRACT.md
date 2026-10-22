@@ -439,10 +439,15 @@ them (`ruled_out` is always false); shot events without `outcome`, `end` (the en
 point would show which went in), `blocked_by` or score details; no `var_review`
 events and no kick-off passes at all (a review always looks at a goal and every
 restart after the first whistle follows one; that tick is skipped and its other
-cards come with the next one); events with `seq: null` and an opaque `event_id`
+cards come with the next one, even when the next one is played in a later step); events with `seq: null` and an opaque `event_id`
 (`ev-` and 16 hex characters, stable while the server runs) instead of the
 numbered one, so withheld events leave no gap, with card evidence, claims, replays,
-the story and Ask answers pointing at the same opaque ids; `cue_sheet: null` and no
+the story and Ask answers pointing at the same opaque ids; opaque moment and card ids
+too (`moment_id` is `mo-` and 16 hex characters, `card_id` is `cd-` and 16 hex
+characters) on cards, bookmarks, the story's key moments and Ask answers' `moment_ids`,
+because the full ones are built from the numbered event id. `GET /api/match/moment/{id}`,
+its `/audit` and the MCP moment tools take such an id and answer in catch-up ids (a
+catch-up id never opens a goal or VAR moment); `cue_sheet: null` and no
 `CUES` (the scorebug is the score); and at full time a spoiler-free story instead of
 the recap. `set_view { spoilers: true }` reveals: the server answers with one fresh
 `INITIAL_SNAPSHOT` carrying everything. A `spoilers` value that is not a boolean

@@ -13,6 +13,7 @@ import type {
   MomentAudit,
 } from './contract';
 import { apiBase } from './transport';
+import { rawMomentId, withPageCatchUpIds } from './spoilers';
 
 export type InsightMode = 'live' | 'demo';
 
@@ -92,7 +93,15 @@ async function fromDemo<T>(pick: (b: DemoInsights) => T | null | undefined): Pro
 export const insights = {
   audit(mode: InsightMode, momentId: string): Promise<InsightResult<MomentAudit>> {
     if (!MOMENT_ID.test(momentId)) return Promise.resolve({ status: 'missing' });
-    if (mode === 'demo') return fromDemo((b) => (Object.prototype.hasOwnProperty.call(b.audits, momentId) ? b.audits[momentId] : null));
+    if (mode === 'demo') {
+      // A catch-up moment id: the recorded audit, answered in catch-up ids (as the live server does).
+      const raw = rawMomentId(momentId);
+      const id = raw ?? momentId;
+      return fromDemo((b) => {
+        const audit = Object.prototype.hasOwnProperty.call(b.audits, id) ? b.audits[id] : null;
+        return audit && raw ? withPageCatchUpIds(audit) : audit;
+      });
+    }
     return getJson<MomentAudit>(`/api/match/moment/${encodeURIComponent(momentId)}/audit`);
   },
   crewStatus(mode: InsightMode): Promise<InsightResult<CrewStatus>> {

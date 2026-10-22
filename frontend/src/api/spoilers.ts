@@ -78,41 +78,80 @@ export function spoilerFreeTick(d: TickData): TickData | null {
 // Every key that holds a full-feed event id (or a list of them) in a payload.
 const EVENT_ID_KEYS = ['event_id', 'source_event_id', 'shot_event_id', 'run_event_id'];
 const EVENT_ID_LIST_KEYS = ['source_event_ids'];
+// Moment and card ids carry the full feed's event id too (`...-00817-goal`).
+const MOMENT_ID_KEYS = ['moment_id', 'ruled_out_by'];
+const MOMENT_ID_LIST_KEYS = ['retracts', 'moment_ids'];
+const CARD_ID_KEYS = ['card_id'];
+
+/** A catch-up id maker: stable for this session, unordered; `raw` maps an id it made back. */
+export type CatchUpIdFor = ((raw: string) => string) & { raw: (id: string) => string | null };
+
+// The demo session's id makers, so a lookup by a catch-up moment id outside the mock server
+// (the claim audit) finds the recorded moment and answers in catch-up ids too.
+let pageIds: { event: CatchUpIdFor; moment: CatchUpIdFor; card: CatchUpIdFor } | null = null;
+
+/** A fresh set of catch-up id makers for one demo session; the newest one serves lookups. */
+export function catchUpIdSet() {
+  pageIds = { event: catchUpIds('ev-'), moment: catchUpIds('mo-'), card: catchUpIds('cd-') };
+  return pageIds;
+}
+
+/** The recorded moment id behind a catch-up moment id of this page's demo, or null. */
+export const rawMomentId = (id: string): string | null => pageIds?.moment.raw(id) ?? null;
+
+/** A payload with every id swapped for this page's catch-up ids (a lookup by a catch-up id). */
+export function withPageCatchUpIds<T>(value: T): T {
+  return pageIds ? withCatchUpIds(value, pageIds.event, { moment: pageIds.moment, card: pageIds.card }) : value;
+}
 
 /**
- * Catch-up event ids for the offline demo, as the live server gives them: random for this
+ * Catch-up ids for the offline demo, as the live server gives them: random for this
  * session and unordered, so a withheld event leaves no gap. The same full-feed id always gets
- * the same catch-up id, so cards still point at the events on the pitch.
+ * the same catch-up id, so cards still point at the events on the pitch. `prefix` is `ev-` for
+ * events, `mo-` for moments and `cd-` for cards (crew/spoilers.py).
  */
-export function catchUpIds(): (raw: string) => string {
+export function catchUpIds(prefix: 'ev-' | 'mo-' | 'cd-' = 'ev-'): CatchUpIdFor {
   const ids = new Map<string, string>();
+  const back = new Map<string, string>();
   const random = () => {
     const bytes = new Uint8Array(8);
     if (globalThis.crypto?.getRandomValues) globalThis.crypto.getRandomValues(bytes);
     else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
     return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
   };
-  const used = new Set<string>();
-  return (raw) => {
+  const idFor = ((raw: string) => {
+    if (back.has(raw)) return raw; // already a catch-up id
     const known = ids.get(raw);
     if (known) return known;
-    let id = `ev-${random()}`;
-    while (used.has(id)) id = `ev-${random()}`;
+    let id = `${prefix}${random()}`;
+    while (back.has(id)) id = `${prefix}${random()}`;
     ids.set(raw, id);
-    used.add(id);
+    back.set(id, raw);
     return id;
-  };
+  }) as CatchUpIdFor;
+  idFor.raw = (id: string) => back.get(id) ?? null;
+  return idFor;
 }
 
-/** A copy of a catch-up payload with every event id replaced by its catch-up id. */
-export function withCatchUpIds<T>(value: T, idFor: (raw: string) => string): T {
-  if (Array.isArray(value)) return value.map((v) => withCatchUpIds(v, idFor)) as T;
+/** Moment and card id makers, beside the event one (all optional for older callers). */
+export interface CatchUpIdSet {
+  moment?: (raw: string) => string;
+  card?: (raw: string) => string;
+}
+
+/** A copy of a catch-up payload with every event, moment and card id replaced by its catch-up id. */
+export function withCatchUpIds<T>(value: T, idFor: (raw: string) => string, more: CatchUpIdSet = {}): T {
+  if (Array.isArray(value)) return value.map((v) => withCatchUpIds(v, idFor, more)) as T;
   if (!value || typeof value !== 'object') return value;
   const out: Record<string, unknown> = {};
+  const swap = (f: ((raw: string) => string) | undefined, v: unknown) => (f && typeof v === 'string' && v ? f(v) : v);
   for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
     if (EVENT_ID_KEYS.includes(k) && typeof v === 'string' && v) out[k] = idFor(v);
     else if (EVENT_ID_LIST_KEYS.includes(k) && Array.isArray(v)) out[k] = v.map((x) => (typeof x === 'string' ? idFor(x) : x));
-    else out[k] = withCatchUpIds(v, idFor);
+    else if (MOMENT_ID_KEYS.includes(k) && more.moment) out[k] = swap(more.moment, v);
+    else if (MOMENT_ID_LIST_KEYS.includes(k) && Array.isArray(v) && more.moment) out[k] = v.map((x) => swap(more.moment, x));
+    else if (CARD_ID_KEYS.includes(k) && more.card) out[k] = swap(more.card, v);
+    else out[k] = withCatchUpIds(v, idFor, more);
   }
   return out as T;
 }

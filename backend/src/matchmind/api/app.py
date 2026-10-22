@@ -590,10 +590,11 @@ class Hub:
             # New profile: start its sheet where these ticks begin. A set_view that landed
             # while this step was playing has replaced the connection's state and profile;
             # then this sheet (for the old profile) is used for this batch only.
+            held = states[i].held_cards  # the same viewer, a sheet now: keep what it holds
             states[i] = session.viewer_state(profiles[i], ticks[0].index)
+            states[i].held_cards = held
             if conns[i].profile == profiles[i] and conns[i].view_state.cues is None:
                 conns[i].view_state = states[i]
-        held: list[list[dict]] = [[] for _ in conns]  # catch-up cards from a withheld tick
         for tick in ticks:
             tick = session.crew_tick(tick)
             shared = view.tick_shared(tick)
@@ -603,12 +604,13 @@ class Hub:
                 data = dict(shared, cards=[view.card_payload(c) for c in cards])
                 cues = view.cues_message(state, session.tick_cues(tick, cards, state))
                 if not profile.spoilers:  # catch-up mode: no result, no cue sheet (docs/PERSONALISATION.md)
-                    if held[i]:
-                        data["cards"] = held[i] + data["cards"]
-                        held[i] = []
+                    # Cards held from a withheld tick, kept on the viewer's state across steps.
+                    if state.held_cards:
+                        data["cards"] = state.held_cards + data["cards"]
+                        state.held_cards = []
                     free = view.spoiler_free_tick(session, data)
                     if free is None:  # a withheld event (VAR review, kick-off): its cards ride the next tick
-                        held[i] = data["cards"]  # filtered and scrubbed once, with that tick
+                        state.held_cards = data["cards"]  # filtered and scrubbed once, with that tick
                         continue
                     out[i].append(view.message("MATCH_TICK", free))
                     continue
@@ -618,7 +620,7 @@ class Hub:
             if tick.is_last:
                 for i, profile in enumerate(profiles):
                     recap = session.recap(profile)
-                    out[i].append(view.message("MATCH_END", {"recap": recap.model_dump(mode="json")}))
+                    out[i].append(view.message("MATCH_END", {"recap": view.recap_payload(recap)}))
                     out[i].append(view.message("PLAYBACK_CONTROL", session.playback()))
         return out
 
@@ -923,12 +925,7 @@ def create_app(
         """Facts, source events, evidence, every rendering's claims and fact-check,
         parity and trace for one moment. Same rate limit as the moment route; never
         calls a paid model (template sweep plus the live crew's cached cards)."""
-        if len(moment_id) > 80:
-            raise HTTPException(status_code=404, detail="We could not find that moment.")
-        audit = await asyncio.to_thread(hub.session.moment_audit, moment_id)
-        if audit is None:
-            raise HTTPException(status_code=404, detail="We could not find that moment.")
-        return audit.model_dump(mode="json")
+        return await reads.moment_audit(hub, moment_id)
 
     # --- end claim audit -----------------------------------------------------------------------
 

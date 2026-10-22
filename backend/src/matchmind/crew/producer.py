@@ -21,7 +21,7 @@ Per-viewer memory lives in `ViewerState`, one per connection.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from matchmind.crew import club_heart
 from matchmind.crew.contracts import (
@@ -97,6 +97,9 @@ class ViewerState:
     ruled_out: dict[str, None] = field(default_factory=dict)  # moment ids a correction retracted
     cues: CueCompiler | None = None  # this viewer's cue sheet, from where they joined
     cue_active: list[Cue] | None = None  # what was on air when the sheet was (re)started, sent once
+    # Catch-up only: card payloads of a withheld tick (VAR review, kick-off), sent with the next
+    # tick, which may be played in a later step. A new state (seek, reset, set_view) drops them.
+    held_cards: list[dict[str, Any]] = field(default_factory=list)
 
     def fork(self) -> ViewerState:
         """An independent copy (a new viewer joining at a compiled position)."""

@@ -21,6 +21,7 @@ from typing import Any, Protocol, TypeVar
 
 from fastapi import HTTPException
 
+from matchmind.crew import spoilers as spoiler_rules
 from matchmind.crew.contracts import Language, Persona, ViewerProfile, is_world_language
 
 from . import view
@@ -139,15 +140,31 @@ async def cue_sheet(
     return await asyncio.to_thread(hub.session.cue_sheet, profile, since_seq, limit)
 
 
-async def moment_detail(hub: HubLike, moment_id: str) -> dict[str, Any]:
-    """A moment with its facts, evidence and source event ids (no persona, no model call)."""
+def resolve_moment(session: MatchSession, moment_id: str) -> tuple[str, bool]:
+    """The moment id to look up, and whether it came as a catch-up id (crew/spoilers.py).
+    A catch-up id never names a spoiler moment: one that does is "not found", as if it
+    had never been handed out. Raises 404 when there is no such moment."""
     _check_moment_id(moment_id)
-    session = hub.session
-    bundle = session.bundle(moment_id)
-    if bundle is None:
+    real = session.resolve_moment_id(moment_id)
+    bundle = session.bundle(real) if real is not None else None
+    if real is None or bundle is None:
         raise HTTPException(status_code=404, detail=NO_MOMENT)
-    played = await hub.run(session.is_played, moment_id)
-    return view.moment_detail_payload(bundle, played)
+    catchup = real != moment_id
+    if catchup and spoiler_rules.is_spoiler_moment(bundle.moment):
+        raise HTTPException(status_code=404, detail=NO_MOMENT)
+    return real, catchup
+
+
+async def moment_detail(hub: HubLike, moment_id: str) -> dict[str, Any]:
+    """A moment with its facts, evidence and source event ids (no persona, no model call).
+    Asked for by a catch-up id, every id in the answer is a catch-up id too."""
+    session = hub.session
+    real, catchup = resolve_moment(session, moment_id)
+    bundle = session.bundle(real)
+    assert bundle is not None
+    played = await hub.run(session.is_played, real)
+    data = view.moment_detail_payload(bundle, played)
+    return spoiler_rules.with_catchup_ids(data) if catchup else data
 
 
 async def moment_card(
@@ -160,12 +177,25 @@ async def moment_card(
     """GET /api/match/moment/{id}: the overlay card for one persona and language."""
     _check_moment_id(moment_id)
     profile = profile_for(hub, persona, lang, favourite_team)
+    real, catchup = resolve_moment(hub.session, moment_id)
     # Moments are fixed at load and the crew is thread-safe: no lock, so a slow
     # model answer here holds up nobody else.
-    card = await asyncio.to_thread(hub.session.card_for_moment, moment_id, profile)
+    card = await asyncio.to_thread(hub.session.card_for_moment, real, profile)
     if card is None:
         raise HTTPException(status_code=404, detail=NO_MOMENT)
-    return view.card_payload(card)
+    data = view.card_payload(card)
+    return spoiler_rules.scrub_card(data) if catchup else data
+
+
+async def moment_audit(hub: HubLike, moment_id: str) -> dict[str, Any]:
+    """GET /api/match/moment/{id}/audit (docs/TRUST.md). Template text and cached cards only,
+    so it never calls a paid model. Asked for by a catch-up id, it answers in catch-up ids."""
+    real, catchup = resolve_moment(hub.session, moment_id)
+    audit = await asyncio.to_thread(hub.session.moment_audit, real)
+    if audit is None:
+        raise HTTPException(status_code=404, detail=NO_MOMENT)
+    data = audit.model_dump(mode="json")
+    return spoiler_rules.with_catchup_ids(data) if catchup else data
 
 
 async def recap(
@@ -176,12 +206,12 @@ async def recap(
     profile = ViewerProfile(persona=persona, language=lang, spoilers=spoilers)
     if not is_world_language(lang):
         result = await hub.run_crew(session.recap, profile)
-        return result.model_dump(mode="json")
+        return view.recap_payload(result)
     # World language: the English recap under the crew lock (quick), then the
     # Translator call with no lock held, so a slow translator never stalls playback.
     english, moments, snap = await hub.run_crew(session.recap_source, profile)
     result = await asyncio.to_thread(session.translate_recap, english, moments, snap, profile)
-    return result.model_dump(mode="json")
+    return view.recap_payload(result)
 
 
 # --- Crew and checks ----------------------------------------------------------------------------

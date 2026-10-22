@@ -38,7 +38,7 @@ import type { MatchTransport, MessageHandler } from './transport';
 import { metricAlertText } from './mockText';
 import { DemoCueSheet, type DemoCueMoment } from './mockCues';
 import { defaultLanguages, isWorldLanguage } from '../lib/languages';
-import { SPOILER_KINDS, catchUpIds, isSpoilerCard, spoilerFreeEvents, spoilerFreeSnapshot, spoilerFreeTick, withCatchUpIds } from './spoilers';
+import { SPOILER_KINDS, catchUpIdSet, isSpoilerCard, spoilerFreeEvents, spoilerFreeSnapshot, spoilerFreeTick, withCatchUpIds } from './spoilers';
 
 export interface FixtureTick {
   event: MatchEvent;
@@ -323,8 +323,8 @@ export class MockMatchServer implements MatchTransport {
   /** Moments a catch-up viewer must not see: goals, corrections, anything on a scoring event. */
   private readonly spoilerMoments: Set<string>;
   private heldCards: OverlayCard[] = [];
-  // Catch-up event ids for this session (crew/spoilers.py on the live server).
-  private readonly catchUpId = catchUpIds();
+  // Catch-up event, moment and card ids for this session (crew/spoilers.py on the live server).
+  private readonly ids = catchUpIdSet();
   private askData: DemoAsk | null = null;
   private askLoad: Promise<DemoAsk | null> | null = null;
 
@@ -385,7 +385,7 @@ export class MockMatchServer implements MatchTransport {
       this.running = false;
       const recap = this.profile.spoilers
         ? this.recapFor(this.profile.persona, this.profile.language)
-        : withCatchUpIds(this.storyFor(this.profile.persona, this.profile.language), this.catchUpId);
+        : this.catchUp(this.storyFor(this.profile.persona, this.profile.language));
       if (recap) this.emit({ type: 'MATCH_END', data: { recap } });
       this.emit({ type: 'PLAYBACK_CONTROL', data: this.playback() });
     }
@@ -466,15 +466,24 @@ export class MockMatchServer implements MatchTransport {
     language: Language,
     favouriteTeam: string | null,
   ): Promise<OverlayCard | null> {
-    const m = this.fixture.moments.find((x) => x.moment_id === momentId);
-    if (!m) return null;
-    return cardForMoment(m, { ...DEFAULT_PROFILE, persona, language, favourite_team: favouriteTeam });
+    // A catch-up moment id (from a catch-up card, bookmark or answer): look up the recorded
+    // moment, never a spoiler, and answer in catch-up ids, as the live server does.
+    const raw = this.ids.moment.raw(momentId);
+    const m = this.fixture.moments.find((x) => x.moment_id === (raw ?? momentId));
+    if (!m || (raw && this.spoilerMoments.has(m.moment_id))) return null;
+    const card = cardForMoment(m, { ...DEFAULT_PROFILE, persona, language, favourite_team: favouriteTeam });
+    return card && raw ? this.catchUp(card) : card;
+  }
+
+  /** A catch-up payload: every event, moment and card id swapped for this session's catch-up id. */
+  private catchUp<T>(value: T): T {
+    return withCatchUpIds(value, this.ids.event, { moment: this.ids.moment, card: this.ids.card });
   }
 
   async getRecap(persona: PersonaType, language: Language, spoilers = true): Promise<Recap | null> {
     if (spoilers) return this.recapFor(persona, language);
     await this.loadAsk();
-    return withCatchUpIds(this.storyFor(persona, language), this.catchUpId);
+    return this.catchUp(this.storyFor(persona, language));
   }
 
   // Only the suggested questions were recorded: the demo cannot read typed questions.
@@ -493,7 +502,7 @@ export class MockMatchServer implements MatchTransport {
         answer: { ...answer, status: 'hidden', answer: data.hidden[lang] ?? '', evidence: [], moment_ids: [], facts: {} },
       };
     }
-    return { ok: true, answer: request.spoilers ? answer : withCatchUpIds(answer, this.catchUpId) };
+    return { ok: true, answer: request.spoilers ? answer : this.catchUp(answer) };
   }
 
   close() {
@@ -660,7 +669,7 @@ export class MockMatchServer implements MatchTransport {
       const free = spoilerFreeTick({ ...data, cards: [...this.heldCards, ...cards.filter((c) => !this.spoilerMoments.has(c.moment_id))] });
       // A withheld tick (VAR review): its other cards ride the next tick.
       this.heldCards = free ? [] : [...this.heldCards, ...cards.filter((c) => !this.spoilerMoments.has(c.moment_id))];
-      if (free) this.emit({ type: 'MATCH_TICK', data: withCatchUpIds(free, this.catchUpId) });
+      if (free) this.emit({ type: 'MATCH_TICK', data: this.catchUp(free) });
     } else {
       this.heldCards = [];
       this.emit({ type: 'MATCH_TICK', data });
@@ -691,15 +700,12 @@ export class MockMatchServer implements MatchTransport {
     if (this.profile.spoilers) return full;
     const free = spoilerFreeSnapshot(full);
     const hidden = (id: string) => this.spoilerMoments.has(id);
-    return withCatchUpIds(
-      {
-        ...free,
-        recent_cards: free.recent_cards.filter((c) => !hidden(c.moment_id) && !isSpoilerCard(c)),
-        recent_events: spoilerFreeEvents(full.recent_events ?? []),
-        bookmarks: free.bookmarks.filter((b) => !hidden(b.moment_id)),
-      },
-      this.catchUpId,
-    );
+    return this.catchUp({
+      ...free,
+      recent_cards: free.recent_cards.filter((c) => !hidden(c.moment_id) && !isSpoilerCard(c)),
+      recent_events: spoilerFreeEvents(full.recent_events ?? []),
+      bookmarks: free.bookmarks.filter((b) => !hidden(b.moment_id)),
+    });
   }
 
   private fullSnapshot(): SnapshotData {

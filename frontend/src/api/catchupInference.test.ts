@@ -82,5 +82,18 @@ describe('catch-up stream of the recorded demo', () => {
     expect(linked.length).toBeGreaterThan(0);
     expect(linked.every((s) => s.startsWith('ev-'))).toBe(true);
     expect(linked.filter((s) => ids.has(s)).length).toBeGreaterThan(linked.length / 2);
+
+    // Moment and card ids carry no full-feed numbering either (it would show where events
+    // were withheld), anywhere in the stream: ticks, snapshots, bookmarks, the story.
+    const text = JSON.stringify(messages);
+    expect(text.match(/MM-[A-Z0-9-]+-\d{5}/g) ?? []).toEqual([]);
+    const cards = messages.flatMap((m) => (m.type === 'MATCH_TICK' ? m.data.cards : m.type === 'INITIAL_SNAPSHOT' ? m.data.recent_cards : []));
+    expect(cards.length).toBeGreaterThan(10);
+    expect(cards.every((c) => /^mo-[0-9a-f]{16}$/.test(c.moment_id) && /^cd-[0-9a-f]{16}$/.test(c.card_id))).toBe(true);
+    // The catch-up id still opens the moment, and the answer is in catch-up ids too.
+    const card = await server.getMoment(cards[0].moment_id, 'casual', 'en', null);
+    expect(card?.moment_id).toBe(cards[0].moment_id);
+    expect(JSON.stringify(card)).not.toMatch(/MM-[A-Z0-9-]+-\d{5}/);
+    expect(await server.getMoment('mo-0000000000000000', 'casual', 'en', null)).toBeNull();
   });
 });
