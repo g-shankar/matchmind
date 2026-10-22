@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="888" height="720" viewBox="0 0 888 720" font-family="Inter, Segoe UI, sans-serif">
+<defs>
+<marker id="complete" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2dd4bf"/></marker>
+<marker id="incomplete" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#fb923c"/></marker>
+<marker id="out" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#fb923c"/></marker>
+<marker id="shot" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#f43f5e"/></marker>
+<marker id="clearance" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#a78bfa"/></marker>
+<marker id="tackle" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#facc15"/></marker>
+<marker id="interception" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#38bdf8"/></marker>
+<marker id="recovery" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#4ade80"/></marker>
+<marker id="pressure" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#f472b6"/></marker>
+</defs>
+<rect width="100%" height="100%" fill="#0b1120"/>
+<text x="24.0" y="30" fill="#f8fafc" font-size="20" font-weight="700">Benchmark failure, MM-HOLD-900 at 08:40</text>
+<text x="24.0" y="54" fill="#94a3b8" font-size="14">Synthetic tracking-to-event benchmark (held-out match). Dashed = true event.</text>
+<rect x="543" y="14" width="321" height="24" rx="12" fill="none" stroke="#fbbf24"/>
+<text x="704" y="31" fill="#fbbf24" font-size="13" text-anchor="middle">Detected from synthetic tracking, not video</text>
+<rect x="24.0" y="88.0" width="840.0" height="544.0" fill="#14532d" stroke="#e5e7eb" stroke-width="2"/>
+<line x1="444.0" y1="632.0" x2="444.0" y2="88.0" stroke="#e5e7eb" stroke-width="2" stroke-linecap="round"/>
+<circle cx="444.0" cy="360.0" r="73.2" fill="none" stroke="#e5e7eb" stroke-width="2"/>
+<rect x="24.0" y="198.72000000000003" width="132.0" height="322.56" fill="none" stroke="#e5e7eb" stroke-width="2"/>
+<line x1="24.0" y1="389.3" x2="24.0" y2="330.7" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+<rect x="732.0" y="198.72000000000003" width="132.0" height="322.56" fill="none" stroke="#e5e7eb" stroke-width="2"/>
+<line x1="864.0" y1="389.3" x2="864.0" y2="330.7" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+<polyline points="647.8,128.2 652.1,127.5 655.3,125.9 659.8,124.3 663.2,122.2 667.3,119.5 671.0,119.3 674.9,117.2 679.0,116.2 682.2,114.6 685.8,112.6 689.3,110.8 694.4,109.6 697.9,107.2 701.7,105.6 702.7,105.7 702.3,106.9 701.8,105.7 702.7,105.7 701.5,105.5 702.1,106.0 701.7,106.0 702.0,106.4 702.6,106.3 702.5,105.6 701.5,106.5 702.2,106.0 703.9,105.2 708.2,105.7 710.7,105.2 714.8,104.8 718.5,105.3 721.8,105.2 726.2,105.1 728.6,105.3 733.4,105.4 736.8,104.3 740.4,103.8 741.6,104.8 741.4,104.0 741.8,103.8 740.9,104.2 742.0,103.6 740.6,103.7 740.8,103.9 741.2,103.9 741.5,104.2 741.4,104.2 741.2,104.0 740.8,104.2 741.6,103.4 741.5,104.1 741.6,104.4 741.4,104.0 741.9,104.0 741.5,104.0 741.4,104.2 741.2,104.2 744.5,110.8 748.1,121.4 753.3,132.6 756.9,142.0 761.0,152.9 765.3,162.9 769.9,173.2 774.6,184.2 778.5,194.9 782.7,205.8 787.3,215.5 791.7,226.6 795.1,236.9 799.7,247.3 803.9,258.0 808.4,268.2 811.0,273.3 809.7,273.6 810.8,273.2 810.9,273.4 810.3,273.6 810.5,274.1 810.7,273.1 810.2,273.5 810.6,273.4 810.5,274.0 824.4,273.6 844.4,273.8 863.6,273.3" fill="none" stroke="#f8fafc" stroke-opacity="0.35" stroke-width="2"/>
+<line x1="741.4" y1="104.0" x2="810.6" y2="273.6" stroke="#f8fafc" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="5 5"/>
+<line x1="810.6" y1="273.6" x2="864.0" y2="273.5" stroke="#f8fafc" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="5 5"/>
+<line x1="741.8" y1="104.0" x2="811.4" y2="272.7" stroke="#f43f5e" stroke-width="3.5" stroke-linecap="round" marker-end="url(#shot)"/>
+<text x="776.6" y="180.4" fill="#f8fafc" font-size="12" text-anchor="middle">66 km/h</text>
+<path d="M809.7,265.6 L817.7,273.6 L809.7,281.6 L801.7,273.6 z" fill="none" stroke="#4ade80" stroke-width="2.5"/>
+<text x="819.7" y="263.6" fill="#4ade80" font-size="12">recovery</text>
+<line x1="810.7" y1="273.1" x2="863.6" y2="273.3" stroke="#f43f5e" stroke-width="3.5" stroke-linecap="round" marker-end="url(#shot)"/>
+<text x="837.2" y="265.2" fill="#f8fafc" font-size="12" text-anchor="middle">110 km/h</text>
+<circle cx="810.7" cy="273.1" r="28.0" fill="none" stroke="#f472b6" stroke-width="1.5" stroke-opacity="0.8"/>
+<circle cx="199.6" cy="340.3" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="528.8" cy="537.5" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="503.5" cy="418.8" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="481.9" cy="252.5" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="529.5" cy="120.7" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="621.5" cy="328.4" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="675.7" cy="445.9" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="703.3" cy="247.4" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="830.7" cy="531.7" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="813.4" cy="127.0" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="846.0" cy="337.7" r="7" fill="#fbbf24" stroke="#0b1120" stroke-width="2"/>
+<circle cx="844.5" cy="338.2" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="778.1" cy="170.3" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="786.2" cy="264.4" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="805.2" cy="375.8" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="776.3" cy="495.9" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="716.9" cy="299.7" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="718.9" cy="375.5" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="618.4" cy="197.1" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="621.6" cy="310.4" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="605.8" cy="476.4" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="553.8" cy="332.0" r="7" fill="#60a5fa" stroke="#0b1120" stroke-width="2"/>
+<circle cx="864.0" cy="273.5" r="4" fill="#ffffff"/>
+<circle cx="809.7" cy="273.6" r="22" fill="none" stroke="#fbbf24" stroke-width="3" stroke-dasharray="6 4"/>
+<text x="24.0" y="680.0" fill="#fbbf24" font-size="14">spurious: true nothing, detected recovery (NBR-9, ringed)</text>
+<rect x="24.0" y="692.0" width="14" height="4" fill="#f8fafc"/>
+<text x="44.0" y="698.0" fill="#cbd5e1" font-size="13">true event (simulator), dashed</text>
+<rect x="258.0" y="692.0" width="14" height="4" fill="#2dd4bf"/>
+<text x="278.0" y="698.0" fill="#cbd5e1" font-size="13">detected pass</text>
+<rect x="379.8" y="692.0" width="14" height="4" fill="#fb923c"/>
+<text x="399.8" y="698.0" fill="#cbd5e1" font-size="13">detected pass, lost</text>
+<rect x="541.2" y="692.0" width="14" height="4" fill="#f43f5e"/>
+<text x="561.2" y="698.0" fill="#cbd5e1" font-size="13">detected shot</text>
+<rect x="663.0" y="692.0" width="14" height="4" fill="#facc15"/>
+<text x="683.0" y="698.0" fill="#cbd5e1" font-size="13">detected gain (diamond)</text>
+<rect x="850.8" y="692.0" width="14" height="4" fill="#f472b6"/>
+<text x="870.8" y="698.0" fill="#cbd5e1" font-size="13">pressure ring</text>
+</svg>

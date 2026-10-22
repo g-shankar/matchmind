@@ -50,8 +50,57 @@
           "type": "object"
         },
         "AutoEventingStatus": {
-          "description": "The shape served at GET /api/auto-eventing (see docs/API-CONTRACT.md).",
+          "description": "The shape served at GET /api/auto-eventing (see docs/API-CONTRACT.md).\n\nThe first five fields are the original contract; everything after them is\noptional and was added by the benchmark, so older clients keep working.",
           "properties": {
+            "baseline": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/BaselineRow"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "caveat": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Caveat"
+            },
+            "classes": {
+              "anyOf": [
+                {
+                  "items": {
+                    "$ref": "#/$defs/ClassRow"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Classes"
+            },
+            "confusion": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Confusion"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
             "events_checked": {
               "description": "True passes and shots the detections were checked against.",
               "title": "Events Checked",
@@ -62,16 +111,78 @@
               "title": "Label",
               "type": "string"
             },
+            "match_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Match Id"
+            },
+            "name": {
+              "default": "Synthetic tracking-to-event benchmark",
+              "title": "Name",
+              "type": "string"
+            },
             "passes_detected_pct": {
               "description": "Recall on passes, in percent.",
               "title": "Passes Detected Pct",
               "type": "number"
+            },
+            "pixel_path": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/PixelPathRow"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "pressure": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/ClassRow"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
             },
             "source": {
               "const": "synthetic_tracking",
               "default": "synthetic_tracking",
               "title": "Source",
               "type": "string"
+            },
+            "speed_mae_ci_kmh": {
+              "anyOf": [
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "95% bootstrap interval for speed_mae_kmh.",
+              "title": "Speed Mae Ci Kmh"
             },
             "speed_mae_kmh": {
               "title": "Speed Mae Kmh",
@@ -84,6 +195,28 @@
             "events_checked"
           ],
           "title": "AutoEventingStatus",
+          "type": "object"
+        },
+        "BaselineRow": {
+          "description": "A naive detector scored the same way, to show what the real one adds.",
+          "properties": {
+            "classes": {
+              "items": {
+                "$ref": "#/$defs/ClassRow"
+              },
+              "title": "Classes",
+              "type": "array"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "classes"
+          ],
+          "title": "BaselineRow",
           "type": "object"
         },
         "BookmarkOut": {
@@ -286,6 +419,133 @@
             "kind"
           ],
           "title": "ClaimBinding",
+          "type": "object"
+        },
+        "ClassRow": {
+          "description": "One class of the benchmark: counts, rates and 95% Wilson intervals.",
+          "properties": {
+            "detected": {
+              "title": "Detected",
+              "type": "integer"
+            },
+            "f1": {
+              "title": "F1",
+              "type": "number"
+            },
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "matched": {
+              "title": "Matched",
+              "type": "integer"
+            },
+            "precision": {
+              "title": "Precision",
+              "type": "number"
+            },
+            "precision_ci": {
+              "anyOf": [
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "95% Wilson interval; None if nothing detected.",
+              "title": "Precision Ci"
+            },
+            "recall": {
+              "title": "Recall",
+              "type": "number"
+            },
+            "recall_ci": {
+              "anyOf": [
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "95% Wilson interval; None if no true events.",
+              "title": "Recall Ci"
+            },
+            "support": {
+              "description": "True events of this kind (the recall denominator).",
+              "title": "Support",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "support",
+            "detected",
+            "matched",
+            "precision",
+            "recall",
+            "f1",
+            "precision_ci",
+            "recall_ci"
+          ],
+          "title": "ClassRow",
+          "type": "object"
+        },
+        "Confusion": {
+          "description": "Rows are true kinds then 'spurious'; columns are detected kinds then 'missed'.",
+          "properties": {
+            "columns": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Columns",
+              "type": "array"
+            },
+            "counts": {
+              "items": {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "title": "Counts",
+              "type": "array"
+            },
+            "rows": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Rows",
+              "type": "array"
+            }
+          },
+          "required": [
+            "rows",
+            "columns",
+            "counts"
+          ],
+          "title": "Confusion",
           "type": "object"
         },
         "ControlChaos": {
@@ -971,6 +1231,114 @@
             "produced_by"
           ],
           "title": "OverlayCard",
+          "type": "object"
+        },
+        "PixelPathRow": {
+          "description": "The same detector run on positions recovered from rendered top-down video frames.",
+          "properties": {
+            "ball_error_m": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Median distance from recovered to true ball position.",
+              "title": "Ball Error M"
+            },
+            "ball_found_pct": {
+              "description": "Frames with the ball tracked where the ball was recovered.",
+              "title": "Ball Found Pct",
+              "type": "number"
+            },
+            "coordinate": {
+              "description": "The coordinate path scored on the same window.",
+              "items": {
+                "$ref": "#/$defs/ClassRow"
+              },
+              "title": "Coordinate",
+              "type": "array"
+            },
+            "frames": {
+              "title": "Frames",
+              "type": "integer"
+            },
+            "height_px": {
+              "title": "Height Px",
+              "type": "integer"
+            },
+            "label": {
+              "default": "Rendered synthetic top-down video, not broadcast footage; no real-video model",
+              "title": "Label",
+              "type": "string"
+            },
+            "pixels": {
+              "items": {
+                "$ref": "#/$defs/ClassRow"
+              },
+              "title": "Pixels",
+              "type": "array"
+            },
+            "player_error_m": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Median distance from recovered to true player position.",
+              "title": "Player Error M"
+            },
+            "speed_mae_kmh_coordinate": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Speed Mae Kmh Coordinate"
+            },
+            "speed_mae_kmh_pixels": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Speed Mae Kmh Pixels"
+            },
+            "width_px": {
+              "title": "Width Px",
+              "type": "integer"
+            },
+            "window_s": {
+              "description": "Seconds of match clock rendered to pixels (from kick-off).",
+              "title": "Window S",
+              "type": "number"
+            }
+          },
+          "required": [
+            "window_s",
+            "frames",
+            "width_px",
+            "height_px",
+            "player_error_m",
+            "ball_error_m",
+            "ball_found_pct",
+            "coordinate",
+            "pixels",
+            "speed_mae_kmh_coordinate",
+            "speed_mae_kmh_pixels"
+          ],
+          "title": "PixelPathRow",
           "type": "object"
         },
         "Playback": {
@@ -3615,8 +3983,316 @@
     },
     "name": "get_auto_eventing",
     "outputSchema": {
-      "description": "The shape served at GET /api/auto-eventing (see docs/API-CONTRACT.md).",
+      "$defs": {
+        "BaselineRow": {
+          "description": "A naive detector scored the same way, to show what the real one adds.",
+          "properties": {
+            "classes": {
+              "items": {
+                "$ref": "#/$defs/ClassRow"
+              },
+              "title": "Classes",
+              "type": "array"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          "required": [
+            "name",
+            "classes"
+          ],
+          "title": "BaselineRow",
+          "type": "object"
+        },
+        "ClassRow": {
+          "description": "One class of the benchmark: counts, rates and 95% Wilson intervals.",
+          "properties": {
+            "detected": {
+              "title": "Detected",
+              "type": "integer"
+            },
+            "f1": {
+              "title": "F1",
+              "type": "number"
+            },
+            "kind": {
+              "title": "Kind",
+              "type": "string"
+            },
+            "matched": {
+              "title": "Matched",
+              "type": "integer"
+            },
+            "precision": {
+              "title": "Precision",
+              "type": "number"
+            },
+            "precision_ci": {
+              "anyOf": [
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "95% Wilson interval; None if nothing detected.",
+              "title": "Precision Ci"
+            },
+            "recall": {
+              "title": "Recall",
+              "type": "number"
+            },
+            "recall_ci": {
+              "anyOf": [
+                {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "95% Wilson interval; None if no true events.",
+              "title": "Recall Ci"
+            },
+            "support": {
+              "description": "True events of this kind (the recall denominator).",
+              "title": "Support",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "kind",
+            "support",
+            "detected",
+            "matched",
+            "precision",
+            "recall",
+            "f1",
+            "precision_ci",
+            "recall_ci"
+          ],
+          "title": "ClassRow",
+          "type": "object"
+        },
+        "Confusion": {
+          "description": "Rows are true kinds then 'spurious'; columns are detected kinds then 'missed'.",
+          "properties": {
+            "columns": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Columns",
+              "type": "array"
+            },
+            "counts": {
+              "items": {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "title": "Counts",
+              "type": "array"
+            },
+            "rows": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Rows",
+              "type": "array"
+            }
+          },
+          "required": [
+            "rows",
+            "columns",
+            "counts"
+          ],
+          "title": "Confusion",
+          "type": "object"
+        },
+        "PixelPathRow": {
+          "description": "The same detector run on positions recovered from rendered top-down video frames.",
+          "properties": {
+            "ball_error_m": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Median distance from recovered to true ball position.",
+              "title": "Ball Error M"
+            },
+            "ball_found_pct": {
+              "description": "Frames with the ball tracked where the ball was recovered.",
+              "title": "Ball Found Pct",
+              "type": "number"
+            },
+            "coordinate": {
+              "description": "The coordinate path scored on the same window.",
+              "items": {
+                "$ref": "#/$defs/ClassRow"
+              },
+              "title": "Coordinate",
+              "type": "array"
+            },
+            "frames": {
+              "title": "Frames",
+              "type": "integer"
+            },
+            "height_px": {
+              "title": "Height Px",
+              "type": "integer"
+            },
+            "label": {
+              "default": "Rendered synthetic top-down video, not broadcast footage; no real-video model",
+              "title": "Label",
+              "type": "string"
+            },
+            "pixels": {
+              "items": {
+                "$ref": "#/$defs/ClassRow"
+              },
+              "title": "Pixels",
+              "type": "array"
+            },
+            "player_error_m": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Median distance from recovered to true player position.",
+              "title": "Player Error M"
+            },
+            "speed_mae_kmh_coordinate": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Speed Mae Kmh Coordinate"
+            },
+            "speed_mae_kmh_pixels": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Speed Mae Kmh Pixels"
+            },
+            "width_px": {
+              "title": "Width Px",
+              "type": "integer"
+            },
+            "window_s": {
+              "description": "Seconds of match clock rendered to pixels (from kick-off).",
+              "title": "Window S",
+              "type": "number"
+            }
+          },
+          "required": [
+            "window_s",
+            "frames",
+            "width_px",
+            "height_px",
+            "player_error_m",
+            "ball_error_m",
+            "ball_found_pct",
+            "coordinate",
+            "pixels",
+            "speed_mae_kmh_coordinate",
+            "speed_mae_kmh_pixels"
+          ],
+          "title": "PixelPathRow",
+          "type": "object"
+        }
+      },
+      "description": "The shape served at GET /api/auto-eventing (see docs/API-CONTRACT.md).\n\nThe first five fields are the original contract; everything after them is\noptional and was added by the benchmark, so older clients keep working.",
       "properties": {
+        "baseline": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/BaselineRow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "caveat": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Caveat"
+        },
+        "classes": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/ClassRow"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Classes"
+        },
+        "confusion": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Confusion"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
         "events_checked": {
           "description": "True passes and shots the detections were checked against.",
           "title": "Events Checked",
@@ -3627,16 +4303,78 @@
           "title": "Label",
           "type": "string"
         },
+        "match_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Match Id"
+        },
+        "name": {
+          "default": "Synthetic tracking-to-event benchmark",
+          "title": "Name",
+          "type": "string"
+        },
         "passes_detected_pct": {
           "description": "Recall on passes, in percent.",
           "title": "Passes Detected Pct",
           "type": "number"
+        },
+        "pixel_path": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PixelPathRow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "pressure": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ClassRow"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         },
         "source": {
           "const": "synthetic_tracking",
           "default": "synthetic_tracking",
           "title": "Source",
           "type": "string"
+        },
+        "speed_mae_ci_kmh": {
+          "anyOf": [
+            {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "95% bootstrap interval for speed_mae_kmh.",
+          "title": "Speed Mae Ci Kmh"
         },
         "speed_mae_kmh": {
           "title": "Speed Mae Kmh",

@@ -1,7 +1,8 @@
 """Draw a short passage of play: true events against detected ones.
 
 A plain SVG with no dependencies, used for the docs and the demo video. It is
-labelled as synthetic tracking on the image itself.
+labelled as synthetic tracking on the image itself. `render_failure_svg` draws
+one benchmark mistake (missed, spurious or confused) with the passage around it.
 """
 
 from __future__ import annotations
@@ -23,7 +24,12 @@ COLOURS = {
     "out": "#fb923c",
     "shot": "#f43f5e",
     "clearance": "#a78bfa",
+    "tackle": "#facc15",
+    "interception": "#38bdf8",
+    "recovery": "#4ade80",
+    "pressure": "#f472b6",
 }
+GAINS = ("tackle", "interception", "recovery")
 TEAM_COLOURS = ("#60a5fa", "#fbbf24")
 
 
@@ -71,8 +77,10 @@ def render_svg(
     end_s: float,
     title: str,
     subtitle: str,
+    focus: tuple[float, float] | None = None,
+    note: str = "",
 ) -> str:
-    width, height = 105 * SCALE + 2 * PAD, 68 * SCALE + 2 * PAD + HEADER + 40
+    width, height = 105 * SCALE + 2 * PAD, 68 * SCALE + 2 * PAD + HEADER + 64
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{width:.0f}" height="{height:.0f}"'
         f' viewBox="0 0 {width:.0f} {height:.0f}" font-family="Inter, Segoe UI, sans-serif">',
@@ -118,15 +126,47 @@ def render_svg(
             and e.end
         ):
             parts.append(_line((e.start.x, e.start.y), (e.end.x, e.end.y), "#f8fafc", 1.5, dash="5 5"))
-    for d in found:
-        if d.period == period and start_s <= d.clock_s <= end_s:
-            key = d.outcome if d.kind == "pass" else d.kind
-            parts.append(_line(d.start, d.end, COLOURS.get(key, "#2dd4bf"), 3.5, marker=key))
-            mx, my = _p((d.start[0] + d.end[0]) / 2, (d.start[1] + d.end[1]) / 2)
+    for e in truth:
+        if (
+            e.period == period
+            and start_s <= e.clock_s <= end_s
+            and e.type.value in GAINS
+            and e.start is not None
+        ):
+            x, y = _p(e.start.x, e.start.y)
             parts.append(
-                f'<text x="{mx:.1f}" y="{my - 8:.1f}" fill="#f8fafc" font-size="12" text-anchor="middle">'
-                f"{d.ball_speed_mps * 3.6:.0f} km/h</text>"
+                f'<rect x="{x - 6:.1f}" y="{y - 6:.1f}" width="12" height="12" fill="none"'
+                ' stroke="#f8fafc" stroke-width="1.5" stroke-dasharray="3 2"/>'
             )
+    for d in found:
+        if d.period != period or not start_s <= d.clock_s <= end_s:
+            continue
+        if d.kind in GAINS:
+            x, y = _p(*d.start)
+            c = COLOURS[d.kind]
+            parts.append(
+                f'<path d="M{x:.1f},{y - 8:.1f} L{x + 8:.1f},{y:.1f}'
+                f' L{x:.1f},{y + 8:.1f} L{x - 8:.1f},{y:.1f} z"'
+                f' fill="none" stroke="{c}" stroke-width="2.5"/>'
+            )
+            parts.append(
+                f'<text x="{x + 10:.1f}" y="{y - 10:.1f}" fill="{c}" font-size="12">{escape(d.kind)}</text>'
+            )
+            continue
+        if d.kind == "pressure":
+            x, y = _p(*d.start)
+            parts.append(
+                f'<circle cx="{x:.1f}" cy="{y:.1f}" r="{3.5 * SCALE:.1f}" fill="none"'
+                f' stroke="{COLOURS["pressure"]}" stroke-width="1.5" stroke-opacity="0.8"/>'
+            )
+            continue
+        key = d.outcome if d.kind == "pass" else d.kind
+        parts.append(_line(d.start, d.end, COLOURS.get(key, "#2dd4bf"), 3.5, marker=key))
+        mx, my = _p((d.start[0] + d.end[0]) / 2, (d.start[1] + d.end[1]) / 2)
+        parts.append(
+            f'<text x="{mx:.1f}" y="{my - 8:.1f}" fill="#f8fafc" font-size="12" text-anchor="middle">'
+            f"{d.ball_speed_mps * 3.6:.0f} km/h</text>"
+        )
 
     if frames:
         last = frames[-1]
@@ -144,12 +184,23 @@ def render_svg(
             x, y = _p(*last.ball)
             parts.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="4" fill="#ffffff"/>')
 
+    if focus is not None:
+        x, y = _p(*focus)
+        parts.append(
+            f'<circle cx="{x:.1f}" cy="{y:.1f}" r="22" fill="none" stroke="#fbbf24" stroke-width="3"'
+            ' stroke-dasharray="6 4"/>'
+        )
+    if note:
+        parts.append(f'<text x="{PAD}" y="{height - 40}" fill="#fbbf24" font-size="14">{escape(note)}</text>')
+
     ly = height - 18
     legend = [
         ("#f8fafc", "true event (simulator), dashed"),
         (COLOURS["complete"], "detected pass"),
         (COLOURS["incomplete"], "detected pass, lost"),
         (COLOURS["shot"], "detected shot"),
+        (COLOURS["tackle"], "detected gain (diamond)"),
+        (COLOURS["pressure"], "pressure ring"),
     ]
     x = PAD
     for colour, text in legend:
@@ -158,3 +209,49 @@ def render_svg(
         x += 36 + 6.6 * len(text)
     parts.append("</svg>")
     return "\n".join(parts) + "\n"
+
+
+def render_failure_svg(
+    feed: TrackingFeed,
+    events: list[Event],
+    found: list[DetectedEvent],
+    *,
+    what: str,
+    truth: Event | None = None,
+    found_event: DetectedEvent | None = None,
+    before_s: float = 6.0,
+    after_s: float = 4.0,
+) -> str:
+    """One benchmark mistake: the passage around it, with the event ringed.
+
+    what is "missed" (truth, nothing found), "spurious" (found, no truth) or
+    "confused" (both, different kinds).
+    """
+    from matchmind.simulator.script import format_clock
+
+    ref = truth if truth is not None else found_event
+    if ref is None:
+        raise ValueError("A failure needs a true or a detected event.")
+    if truth is not None and truth.start is not None:
+        focus = (truth.start.x, truth.start.y)
+    elif found_event is not None:
+        focus = found_event.start
+    else:
+        focus = None
+    t_kind = truth.type.value if truth is not None else "nothing"
+    f_kind = found_event.kind if found_event is not None else "nothing"
+    who = truth.player_id if truth is not None else found_event.player_id
+    note = f"{what}: true {t_kind}, detected {f_kind} ({who}, ringed)"
+    clock = format_clock(ref.clock_s, ref.period)
+    return render_svg(
+        feed,
+        events,
+        found,
+        period=ref.period,
+        start_s=ref.clock_s - before_s,
+        end_s=ref.clock_s + after_s,
+        title=f"Benchmark failure, {feed.match_id} at {clock}",
+        subtitle="Synthetic tracking-to-event benchmark (held-out match). Dashed = true event.",
+        focus=focus,
+        note=note,
+    )

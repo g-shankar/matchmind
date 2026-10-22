@@ -14,6 +14,7 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.30",
     "mcp>=2.3,<3",  # MIT; Model Context Protocol server (docs/MCP.md)
+    "numpy>=1.26",  # pixel path of the tracking-to-event benchmark (BSD-3-Clause)
 ]
 
 [project.optional-dependencies]
