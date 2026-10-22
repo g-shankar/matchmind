@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import FAKE_ENGINES, FakeClock
+from conftest import FAKE_ENGINES, FakeClock, FakeStats
 from matchmind.api import session as session_mod
 from matchmind.api.session import MatchSession, SessionError, build_live_session
 from matchmind.ingest.eventhubs import EventHubsSource
@@ -342,14 +342,46 @@ def test_source_switch(monkeypatch):
     monkeypatch.setenv("MATCHMIND_SOURCE", "kafka")
     with pytest.raises(RuntimeError, match="MATCHMIND_SOURCE"):
         session_mod.build_session(engines=FAKE_ENGINES)
-    monkeypatch.setenv("MATCHMIND_SOURCE", "eventhubs")
-    monkeypatch.setattr(session_mod, "build_live_session", lambda engines: None)
-    s = session_mod.build_session(engines=FAKE_ENGINES)
-    assert s.match_id == "MM-DEMO-001" and not s.is_live
-    status = s.source_status()
-    assert status["requested"] == "eventhubs" and "replaying the match file" in status["note"]
     monkeypatch.delenv("MATCHMIND_SOURCE")
     assert session_mod.build_session(engines=FAKE_ENGINES).source_status()["source"] == "file"
+
+
+def test_eventhubs_mode_starts_at_once_and_switches_when_a_live_match_starts(monkeypatch):
+    """Start-up never waits on the stream (the container's startup probe): the file match
+    plays first and the session switches when the live match_start arrives."""
+    monkeypatch.setattr(session_mod, "_auto_eventing", lambda events: None)
+    monkeypatch.setenv("MATCHMIND_SOURCE", "eventhubs")
+    other = read_jsonl(OTHER)
+    gate = threading.Event()
+
+    class GatedConsumer(FakeConsumer):
+        def receive(self, on_event, **kwargs):
+            gate.wait(5)
+            super().receive(on_event, **kwargs)
+
+    consumer = GatedConsumer(_raw(other))
+    real_start = session_mod.start_live_source
+    monkeypatch.setattr(session_mod, "start_live_source", lambda: real_start(lambda: consumer))
+    started = time.monotonic()
+    s = session_mod.build_session(engines=FAKE_ENGINES)
+    assert time.monotonic() - started < 5
+    assert s.match_id == "MM-DEMO-001" and not s.is_live
+    status = s.source_status()
+    assert status["requested"] == "eventhubs" and "Waiting for a live match" in status["note"]
+    assert status["stream"]["state"] == "waiting_for_match_start"
+    assert s.poll_live() is False
+    gate.set()
+    deadline = time.monotonic() + 5
+    while not s.poll_live():
+        assert time.monotonic() < deadline, "never switched to the live match"
+        time.sleep(0.01)
+    assert s.is_live and s.match_id == "MM-SYN-001" and s.poll_live() is False
+    clock = FakeClock()
+    s._clock = clock
+    _play_to_end(s, clock)
+    assert s.ended and len(s.events) == len(other)
+    assert s.source_status()["source"] == "eventhubs"
+    s.consumer.close()
 
 
 def test_eventhubs_mode_without_settings_says_what_is_missing(monkeypatch):
@@ -379,3 +411,87 @@ def test_the_live_session_never_sees_labels_stripped_differently(demo):
     out = _offer_all(v, _raw(demo[:200]))
     assert [e.labels for e in out] == [e.labels for e in demo[:200]]
     assert any(e.type == EventType.PERIOD_START for e in out)
+
+
+# --- security review fixes: typed details, all-or-nothing append, engine scores ----------------
+
+
+def test_a_bad_score_in_the_stream_is_rejected_and_the_match_stays_whole(demo):
+    i = next(i for i, e in enumerate(demo) if e.type == EventType.PERIOD_END)
+    bad = demo[i].model_copy(update={"details": {"score_home": "not-a-number", "score_away": 0}})
+    consumer = FakeConsumer(_raw([*demo[:i], bad, *demo[i + 1 :]]))
+    s = build_live_session(FAKE_ENGINES, consumer_factory=lambda: consumer, wait_s=10)
+    assert s is not None
+    clock = FakeClock()
+    s._clock = clock
+    _play_to_end(s, clock)
+    assert s.ended
+    assert s.source_status()["stream"]["rejected"] == 1
+    assert len(s.events) == len(s._event_metrics) == len(demo) - 1
+    recent = s.recent_events(10)
+    assert len(recent) == 10 and recent[-1][0].type == EventType.MATCH_END
+    s.consumer.close()
+
+
+class ExplodingStats(FakeStats):
+    """A stats engine that cannot process one particular event."""
+
+    BAD_SEQ = 250
+
+    def process(self, event):
+        if event.seq == self.BAD_SEQ:
+            raise ValueError("cannot process this event")
+        return super().process(event)
+
+
+def test_append_is_all_or_nothing_per_event(demo):
+    feed = LiveFeed(StreamValidator(), max_ready=len(demo))
+    for raw in _raw(demo):
+        feed.put(raw)
+    start = feed.wait_for_start(1)
+    engines = session_mod.Engines(stats=ExplodingStats, crew=FAKE_ENGINES.crew)
+    clock = FakeClock()
+    s = MatchSession([start], engines=engines, clock=clock, live_feed=feed)
+    _play_to_end(s, clock)
+    assert s.ended and s.live_dropped == 1
+    assert ExplodingStats.BAD_SEQ not in [e.seq for e in s.events]
+    assert len(s.events) == len(s._event_metrics) == len(s._tl) == len(demo) - 1
+    assert s.score == (2, 3)
+    assert len(s.recent_events(20)) == 20
+    assert s.source_status()["events_dropped"] == 1
+    s.seek(600)  # checkpoints still line up with the events
+    assert s.next_index > 0
+
+
+def test_a_feed_supplied_score_never_becomes_a_fact():
+    """Scores on goal and milestone moments come from the stats engine, never the feed."""
+    from matchmind.crew.crew import Crew
+    from matchmind.crew.llm import TemplateLLM
+    from matchmind.crew.translator import OffTranslator
+    from matchmind.ingest import validate_events
+    from matchmind.stats.state import StatsEngine
+
+    events = read_jsonl(DEMO)
+    first_goal = next(i for i, e in enumerate(events) if e.type == EventType.SHOT and e.outcome == "goal")
+    half = next(i for i, e in enumerate(events) if e.type == EventType.PERIOD_END)
+    lying = {"score_home": 7, "score_away": 9}
+    events = [
+        e.model_copy(update={"details": {**e.details, **lying}}) if i in (first_goal, half) else e
+        for i, e in enumerate(events[: half + 1])
+    ]
+    events, _ = validate_events(events, require_end=False)  # well-formed numbers: accepted
+
+    def crew(teams):
+        return Crew(teams, llm=TemplateLLM(), translator=OffTranslator())
+
+    s = MatchSession(events, engines=session_mod.Engines(stats=StatsEngine, crew=crew), clock=FakeClock())
+    facts = [
+        b.moment.facts
+        for _, b in s._bundle_index
+        if "score_home" in b.moment.facts
+        and b.moment.source_event_ids[0] in (events[first_goal].event_id, events[half].event_id)
+    ]
+    assert len(facts) >= 2
+    for f in facts:
+        assert (f["score_home"], f["score_away"]) != (7, 9)
+    assert (facts[-1]["score_home"], facts[-1]["score_away"]) == (2, 0)  # the demo's half-time score
