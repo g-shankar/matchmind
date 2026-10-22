@@ -1,0 +1,19 @@
+{
+ "desktop-1440": {
+  "studio": [],
+  "overlay": [],
+  "split": [],
+  "follow": [],
+  "fan": [],
+  "lab": []
+ },
+ "version": "4.10.2",
+ "phone-375": {
+  "studio": [],
+  "overlay": [],
+  "split": [],
+  "follow": [],
+  "fan": [],
+  "lab": []
+ }
+}
