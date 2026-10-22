@@ -112,14 +112,20 @@ model_steps:
     type: object
   agent_service:
     name: pitchpulse-analyst
+    kind: prompt
     model: gpt-4o-mini
+    model_setting: MATCHMIND_FOUNDRY_MODEL or AZURE_OPENAI_DEPLOYMENT
     instructions: the `instructions` above
-    response_format:
-      type: json_schema
-      json_schema:
+    temperature: 0.3
+    text:
+      format:
+        type: json_schema
         name: AnalystOut
         schema: the `output_schema` above
+        strict: false
     tools: []
+    registered_by: matchmind-foundry register
+    runtime_switch: MATCHMIND_LLM_PROVIDER=foundry_agents (with MATCHMIND_AI_ENABLED=true)
 behaviour: |-
   Analyst: why a moment matters, with the evidence behind it.
 

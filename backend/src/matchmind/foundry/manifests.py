@@ -5,10 +5,13 @@ read from the crew modules themselves, so the manifests in `foundry/agents/`
 can never say something the running crew does not do. A test fails when the
 committed files differ from a fresh `matchmind-foundry export`.
 
-Each model-backed manifest lists exactly the fields a Microsoft Foundry
-Agent Service prompt agent takes (name, model deployment, instructions,
-response format, tools). PitchPulse itself calls the model deployment
-directly through `crew/llm.py`; nothing here registers agents in Foundry.
+Each model step carries an `agent_service` block: the Microsoft Foundry
+Agent Service prompt agent built from it (name, model deployment,
+instructions, temperature, JSON-schema response format, no tools).
+`matchmind-foundry register` creates or updates those agents from these
+cards, and with MATCHMIND_LLM_PROVIDER=foundry_agents the crew runs each
+model step through its agent (`foundry/agent_service.py`); by default it
+calls the model deployment directly through `crew/llm.py`.
 """
 
 from __future__ import annotations
@@ -62,13 +65,22 @@ def _model_step(
         "output_schema": _schema(model_out),
         "agent_service": {
             "name": None,  # filled in below with the agent's name
+            "kind": "prompt",
             "model": llm.DEFAULT_DEPLOYMENT,
+            "model_setting": "MATCHMIND_FOUNDRY_MODEL or AZURE_OPENAI_DEPLOYMENT",
             "instructions": "the `instructions` above",
-            "response_format": {
-                "type": "json_schema",
-                "json_schema": {"name": model_out.__name__, "schema": "the `output_schema` above"},
+            "temperature": llm.TEMPERATURE,
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": model_out.__name__,
+                    "schema": "the `output_schema` above",
+                    "strict": False,
+                },
             },
             "tools": [],
+            "registered_by": "matchmind-foundry register",
+            "runtime_switch": "MATCHMIND_LLM_PROVIDER=foundry_agents (with MATCHMIND_AI_ENABLED=true)",
         },
     }
 
