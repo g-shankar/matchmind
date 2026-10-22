@@ -38,10 +38,12 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Protocol
 
+from matchmind.crew.audit import moment_audit
 from matchmind.crew.contracts import (
     CrewStatus,
     CrewTrace,
     Moment,
+    MomentAudit,
     MomentBundle,
     OverlayCard,
     Recap,
@@ -539,6 +541,18 @@ class MatchSession:
     def card_for_moment(self, moment_id: str, profile: ViewerProfile) -> OverlayCard | None:
         bundle = self._bundles.get(moment_id)
         return self.crew.render(bundle, profile) if bundle is not None else None
+
+    def moment_audit(self, moment_id: str) -> MomentAudit | None:
+        """Facts, claims, parity and trace for one moment (docs/TRUST.md). The
+        renderings come from the template-only bookmark crew plus whatever the live
+        crew already has cached, so an audit never calls a paid model."""
+        bundle = self._bundles.get(moment_id)
+        if bundle is None:
+            return None
+        audit = moment_audit(bundle, self._bookmark_crew, self.crew)
+        # A goal VAR later ruled out says so, whatever the live position (an audit is a record).
+        by = next((b.moment.moment_id for _, b in self._bundle_index if moment_id in b.moment.retracts), None)
+        return audit.model_copy(update={"retracts": list(bundle.moment.retracts), "ruled_out_by": by})
 
     def moments_so_far(self) -> list[Moment]:
         """Every moment up to the current position, from the load-time pass. The same

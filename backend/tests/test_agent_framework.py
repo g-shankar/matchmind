@@ -57,6 +57,10 @@ def trace_dump(crew: Crew) -> list[dict]:
 def status_dump(crew: Crew) -> dict:
     d = crew.status().model_dump(mode="json")
     d.pop("orchestrator")
+    # Latency is wall-clock time and differs run to run; sample counts must still match.
+    for row in d["health"]["latency"]:
+        for k in ("p50_ms", "p95_ms", "max_ms"):
+            row.pop(k)
     return d
 
 
@@ -95,6 +99,8 @@ def test_template_cards_are_identical_under_agent_framework():
     # The VAR overturn takes the same path: the correction supersedes the goal on both orchestrators.
     corrections = [c for c in cards_b if c and c["kind"] == "correction"]
     assert corrections and all(c["retracts"] and c["retracts"][0].startswith("goal-") for c in corrections)
+    # Claims are made on the Agent Framework path too (and so compared above).
+    assert all(c["claims"] for c in cards_b if c is not None)
     assert [x.model_dump(mode="json") for x in again_a] == [x.model_dump(mode="json") for x in again_b]
     assert trace_dump(in_process) == trace_dump(framework)
     assert status_dump(in_process) == status_dump(framework)

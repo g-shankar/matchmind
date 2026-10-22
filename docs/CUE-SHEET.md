@@ -46,7 +46,7 @@ calls a paid model, even when the live crew is in AI mode (see Limits).
 | `priority` | 0-100; decides collisions |
 | `collision` | What happened when it was placed: `replace`, `queue`, `stack`, `latest` |
 | `persona`, `language`, `rtl` | The audience; `rtl` is true for Arabic text |
-| `text` | `{ headline, body, why, text_language }` or `null` |
+| `text` | `{ headline, body, why, text_language, claims }` or `null`; `claims` ties each sentence to its facts and source events, as on the card (docs/TRUST.md) |
 | `evidence` | The numbers behind the text, each with its source event |
 | `source_event_ids`, `team`, `player_ids`, `produced_by` | Provenance |
 | `scorebug` | `{ home_id, away_id, score_home, score_away }` (scorebug layer) |

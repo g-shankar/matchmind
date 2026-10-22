@@ -23,7 +23,7 @@ from pydantic import BaseModel, Field
 
 from matchmind.crew import club_heart
 from matchmind.crew.contracts import Language, Moment, MomentKind, Narrative, Persona
-from matchmind.crew.i18n import MissingFact, fill, fill_first, pack
+from matchmind.crew.i18n import MissingFact, fill, fill_first_with_template, pack
 from matchmind.crew.wording import template_key, variables
 
 
@@ -53,6 +53,21 @@ def template_narrative(
     focus_player_id: str | None = None,
     fallback_reason: str | None = None,
 ) -> Narrative:
+    return template_narrative_with_templates(
+        moment, persona, language, favourite_name, focus_player_id, fallback_reason
+    )[0]
+
+
+def template_narrative_with_templates(
+    moment: Moment,
+    persona: Persona,
+    language: Language,
+    favourite_name: str | None = None,
+    focus_player_id: str | None = None,
+    fallback_reason: str | None = None,
+) -> tuple[Narrative, dict[str, str]]:
+    """The template narrative and the template text behind each field
+    ({"headline": ..., "body": ...}), for the claims."""
     p = pack(language)
     narr = p["narr"][template_key(moment)]
     voice = persona
@@ -63,16 +78,17 @@ def template_narrative(
     frames = club_heart.frames_for(moment, favourite_name)
     if frames and voice != "player_spotlight":
         with contextlib.suppress(MissingFact):
-            framed = fill_first(_heart_options(p["heart"], frames, voice), v, language)
+            framed = fill_first_with_template(_heart_options(p["heart"], frames, voice), v, language)
     if framed is not None:
-        headline, body = framed
+        (headline, body), (headline_t, body_t) = framed
     else:
-        headline, body = fill_first(_options(narr, voice), v, language)
+        (headline, body), (headline_t, body_t) = fill_first_with_template(_options(narr, voice), v, language)
     if framed is None and moment.kind == MomentKind.GOAL and favourite_name and moment.facts.get("team"):
         side = "for" if moment.facts.get("team") == favourite_name else "against"
         with contextlib.suppress(MissingFact):
             headline = fill(p["fav_goal"][side], v, language)
-    return Narrative(
+            headline_t = p["fav_goal"][side]
+    narrative = Narrative(
         moment_id=moment.moment_id,
         persona=persona,
         language=language,
@@ -81,6 +97,7 @@ def template_narrative(
         produced_by="template",
         fallback_reason=fallback_reason,
     )
+    return narrative, {"headline": headline_t, "body": body_t}
 
 
 # ------------------------------------------------------------------ AI path

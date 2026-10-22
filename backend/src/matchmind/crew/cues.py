@@ -31,6 +31,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from matchmind.crew.contracts import (
+    Claim,
     Evidence,
     Language,
     MomentBundle,
@@ -157,6 +158,10 @@ class CueText(BaseModel):
     body: str = ""
     why: str = ""
     text_language: Language = Field(description="Language the text is really in.")
+    claims: list[Claim] = Field(
+        default_factory=list,
+        description="Each sentence tied to its facts and source events, as on the card (docs/TRUST.md).",
+    )
 
 
 class Scorebug(BaseModel):
@@ -446,6 +451,7 @@ class CueCompiler:
                 body=card.body,
                 why=card.why,
                 text_language=card.text_language or card.language,
+                claims=list(card.claims),
             ),
             evidence=card.evidence,
             source_event_ids=list(bundle.moment.source_event_ids) if bundle else [],

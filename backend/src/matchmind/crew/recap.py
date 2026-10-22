@@ -124,29 +124,55 @@ def _try(template: str, variables: dict[str, Any], language: str) -> str | None:
 def template_texts(
     facts: dict[str, FactValue], profile: ViewerProfile, full_time: bool, favourite_name: str | None
 ) -> tuple[str, str, list[str]]:
+    title, headline, paragraphs, _ = template_texts_with_templates(facts, profile, full_time, favourite_name)
+    return title, headline, paragraphs
+
+
+def template_texts_with_templates(
+    facts: dict[str, FactValue], profile: ViewerProfile, full_time: bool, favourite_name: str | None
+) -> tuple[str, str, list[str], tuple[str, str, list[str]]]:
+    """Title, headline and paragraphs, plus the template text behind each one
+    (joined the same way), so every printed sentence knows its facts."""
     lang = profile.language
     r = pack(lang)["recap"]
     v = localise_teams(dict(facts), lang, favourite_name)
-    title = fill(r["title_full" if full_time else "title_live"], v, lang)
+    title_t = r["title_full" if full_time else "title_live"]
+    title = fill(title_t, v, lang)
     if "winner" in v:
-        headline = fill(r["headline_win" if full_time else "headline_lead"], v, lang)
+        headline_t = r["headline_win" if full_time else "headline_lead"]
     else:
-        headline = fill(r["headline_draw" if full_time else "headline_level"], v, lang)
+        headline_t = r["headline_draw" if full_time else "headline_level"]
+    headline = fill(headline_t, v, lang)
 
-    paragraphs = [fill(r["p1_full" if full_time else "p1_live"], v, lang)]
-    story = _try(r["goals"], v, lang) or _try(r["no_goals"], v, lang) or ""
+    p1_t = r["p1_full" if full_time else "p1_live"]
+    paragraphs = [(fill(p1_t, v, lang), p1_t)]
+    story = ("", "")
+    for key in ("goals", "no_goals"):
+        text = _try(r[key], v, lang)
+        if text:
+            story = (text, r[key])
+            break
     turning = _try(r["turning"], v, lang)
     sep = "" if lang == "ja" else " "
-    paragraphs.append(f"{story}{sep}{turning}".strip() if turning else story)
+    if turning:
+        paragraphs.append((f"{story[0]}{sep}{turning}".strip(), f"{story[1]}{sep}{r['turning']}".strip()))
+    else:
+        paragraphs.append(story)
     persona = profile.persona if profile.persona in r["potm"] else "casual"
-    third = [t for t in (_try(r["potm"][persona], v, lang),) if t]
+    third = [(t, r["potm"][persona]) for t in (_try(r["potm"][persona], v, lang),) if t]
     if profile.persona == "player_spotlight":
         focus_line = _try(r["focus"], v, lang)
         if focus_line:
-            third.append(focus_line)
+            third.append((focus_line, r["focus"]))
     if third:
-        paragraphs.append(sep.join(third))
-    return title, headline, [p for p in paragraphs if p]
+        paragraphs.append((sep.join(t for t, _ in third), sep.join(tpl for _, tpl in third)))
+    kept = [(text, tpl) for text, tpl in paragraphs if text]
+    return (
+        title,
+        headline,
+        [text for text, _ in kept],
+        (title_t, headline_t, [tpl for _, tpl in kept]),
+    )
 
 
 def key_moments(moments: list[Moment], headline_for) -> list[RecapMoment]:
@@ -170,11 +196,12 @@ def check_texts(
     language: str,
     strict_words: bool = False,
     translated: bool = False,
+    roster=None,
 ) -> FactCheck:
     reasons: list[str] = []
     for field, texts in (("text", [title]), ("headline", [headline]), ("paragraph", paragraphs)):
         for text in texts:
-            result = check(text, facts, language, field, strict_words, translated)
+            result = check(text, facts, language, field, strict_words, translated, roster)
             reasons += [f"{field}: {r}" for r in result.reasons]
     if not 2 <= len(paragraphs) <= 3:
         reasons.append("recap needs 2 or 3 paragraphs")

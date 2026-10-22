@@ -255,3 +255,31 @@ def test_event_payload_names_the_reviewed_goal(events, review):
     data = event_payload(review, None)
     assert data["reviewed_event_id"] == review.reviewed_event_id and data["review_reason"] == "offside"
     assert "reviewed_event_id" not in event_payload(events[0], None)  # other events keep their shape
+
+
+def test_audit_shows_the_retraction_both_ways(demo, review):
+    goal = demo.moment_audit(goal_id(review))
+    assert goal is not None and goal.ruled_out_by == f"correction-{review.event_id}"
+    corr = demo.moment_audit(f"correction-{review.event_id}")
+    assert corr is not None and corr.retracts == [goal_id(review)] and corr.ruled_out_by is None
+    assert corr.parity.ok, corr.parity.problems
+    assert set(corr.parity.key_facts) >= {"score_home", "score_away"}
+    assert all(r.claims for r in corr.renderings)  # the supersede card's sentences carry claims
+
+
+def test_supersede_cards_carry_claims(demo, clock, events, review):
+    play_to(demo, clock, events.index(review) + 1)
+    sheet = demo.cue_sheet(ViewerProfile(), since_seq=0, limit=500)
+    corr = next(c for c in sheet["cues"] if c["op"] == "supersede" and c["layer"] != "scorebug")
+    card = demo.card_for_moment(corr["moment_id"], ViewerProfile())
+    assert card is not None and card.retracts == [goal_id(review)] and card.claims
+    assert {c.field for c in card.claims} >= {"headline", "body"}
+
+
+def test_cue_text_carries_the_card_claims(demo, clock, events, review):
+    play_to(demo, clock, events.index(review) + 1)
+    cues = demo.cue_sheet(ViewerProfile(persona="tactical", language="es"), limit=500)["cues"]
+    texted = [c for c in cues if c["text"]]
+    assert texted and all(c["text"]["claims"] for c in texted)
+    corr = next(c for c in texted if c["kind"] == "correction")
+    assert {cl["field"] for cl in corr["text"]["claims"]} >= {"headline", "body"}

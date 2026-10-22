@@ -15,6 +15,40 @@
     "name": "get_match_snapshot",
     "outputSchema": {
       "$defs": {
+        "AgentLatency": {
+          "properties": {
+            "agent": {
+              "title": "Agent",
+              "type": "string"
+            },
+            "max_ms": {
+              "title": "Max Ms",
+              "type": "number"
+            },
+            "p50_ms": {
+              "title": "P50 Ms",
+              "type": "number"
+            },
+            "p95_ms": {
+              "title": "P95 Ms",
+              "type": "number"
+            },
+            "samples": {
+              "description": "Steps in the rolling window",
+              "title": "Samples",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "agent",
+            "samples",
+            "p50_ms",
+            "p95_ms",
+            "max_ms"
+          ],
+          "title": "AgentLatency",
+          "type": "object"
+        },
         "AutoEventingStatus": {
           "description": "The shape served at GET /api/auto-eventing (see docs/API-CONTRACT.md).\n\nThe first five fields are the original contract; everything after them is\noptional and was added by the benchmark, so older clients keep working.",
           "properties": {
@@ -229,6 +263,170 @@
           "title": "BookmarkOut",
           "type": "object"
         },
+        "Claim": {
+          "description": "One sentence a viewer sees, with what was machine-checked about it.\n\n`verified_numeric`: every number in it matches a fact (bound in `bindings`).\n`verified_name`: no numbers; its squad names match the facts.\n`unverified_text`: nothing to check (tone, wording), or a check failed (`reason`).\nWording, tone and causal claims are never machine-verified, whatever `check` says.",
+          "properties": {
+            "bindings": {
+              "items": {
+                "$ref": "#/$defs/ClaimBinding"
+              },
+              "title": "Bindings",
+              "type": "array"
+            },
+            "check": {
+              "enum": [
+                "verified_numeric",
+                "verified_name",
+                "unverified_text"
+              ],
+              "title": "Check",
+              "type": "string"
+            },
+            "fact_keys": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Fact Keys",
+              "type": "array"
+            },
+            "field": {
+              "enum": [
+                "headline",
+                "body",
+                "why",
+                "title",
+                "paragraph",
+                "key_moment"
+              ],
+              "title": "Field",
+              "type": "string"
+            },
+            "numbers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Numbers",
+              "type": "array"
+            },
+            "origin": {
+              "default": "matched",
+              "description": "template: keys from the template's placeholders; matched: found by value (model or translated text)",
+              "enum": [
+                "template",
+                "matched"
+              ],
+              "title": "Origin",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            },
+            "sentence": {
+              "title": "Sentence",
+              "type": "string"
+            },
+            "source_event_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Source Event Ids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "sentence",
+            "field",
+            "check",
+            "reason"
+          ],
+          "title": "Claim",
+          "type": "object"
+        },
+        "ClaimBinding": {
+          "description": "One number or name in a sentence and the fact it was matched to.",
+          "properties": {
+            "entity_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Squad player or club id for names",
+              "title": "Entity Id"
+            },
+            "fact_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "None: matches no fact (never on a shown card)",
+              "title": "Fact Key"
+            },
+            "kind": {
+              "enum": [
+                "number",
+                "name",
+                "text"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "text": {
+              "description": "As printed",
+              "title": "Text",
+              "type": "string"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Unit"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Value"
+            }
+          },
+          "required": [
+            "text",
+            "kind"
+          ],
+          "title": "ClaimBinding",
+          "type": "object"
+        },
         "ClassRow": {
           "description": "One class of the benchmark: counts, rates and 95% Wilson intervals.",
           "properties": {
@@ -389,6 +587,80 @@
           "title": "ControlChaos",
           "type": "object"
         },
+        "CrewHealth": {
+          "description": "Rolling-window service levels (bounded memory; resets with the crew).",
+          "properties": {
+            "checks": {
+              "default": 0,
+              "description": "Fact-check verdicts in the window",
+              "title": "Checks",
+              "type": "integer"
+            },
+            "fallback_rate": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "fallback_steps / model_steps",
+              "title": "Fallback Rate"
+            },
+            "fallback_steps": {
+              "default": 0,
+              "title": "Fallback Steps",
+              "type": "integer"
+            },
+            "latency": {
+              "items": {
+                "$ref": "#/$defs/AgentLatency"
+              },
+              "title": "Latency",
+              "type": "array"
+            },
+            "model_steps": {
+              "default": 0,
+              "description": "Analyst, Commentator and recap steps in the window",
+              "title": "Model Steps",
+              "type": "integer"
+            },
+            "moments_per_min": {
+              "default": 0,
+              "description": "Moments spotted in the last 60 s of wall clock",
+              "title": "Moments Per Min",
+              "type": "integer"
+            },
+            "rejected_checks": {
+              "default": 0,
+              "title": "Rejected Checks",
+              "type": "integer"
+            },
+            "rejection_rate": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "rejected_checks / checks",
+              "title": "Rejection Rate"
+            },
+            "window": {
+              "default": 0,
+              "description": "Most recent steps kept per agent",
+              "title": "Window",
+              "type": "integer"
+            }
+          },
+          "title": "CrewHealth",
+          "type": "object"
+        },
         "CrewStatus": {
           "properties": {
             "breakers_open": {
@@ -402,6 +674,9 @@
               "default": 0,
               "title": "Fallbacks",
               "type": "integer"
+            },
+            "health": {
+              "$ref": "#/$defs/CrewHealth"
             },
             "mode": {
               "enum": [
@@ -814,6 +1089,14 @@
               "title": "Body",
               "type": "string"
             },
+            "claims": {
+              "description": "Each sentence tied to its facts and source events, as on the card (docs/TRUST.md).",
+              "items": {
+                "$ref": "#/$defs/Claim"
+              },
+              "title": "Claims",
+              "type": "array"
+            },
             "headline": {
               "title": "Headline",
               "type": "string"
@@ -1168,6 +1451,14 @@
             "card_id": {
               "title": "Card Id",
               "type": "string"
+            },
+            "claims": {
+              "description": "Each sentence of headline, body and why, tied to its facts",
+              "items": {
+                "$ref": "#/$defs/Claim"
+              },
+              "title": "Claims",
+              "type": "array"
             },
             "duration_s": {
               "title": "Duration S",
@@ -2744,6 +3035,170 @@
     "name": "get_overlay_card",
     "outputSchema": {
       "$defs": {
+        "Claim": {
+          "description": "One sentence a viewer sees, with what was machine-checked about it.\n\n`verified_numeric`: every number in it matches a fact (bound in `bindings`).\n`verified_name`: no numbers; its squad names match the facts.\n`unverified_text`: nothing to check (tone, wording), or a check failed (`reason`).\nWording, tone and causal claims are never machine-verified, whatever `check` says.",
+          "properties": {
+            "bindings": {
+              "items": {
+                "$ref": "#/$defs/ClaimBinding"
+              },
+              "title": "Bindings",
+              "type": "array"
+            },
+            "check": {
+              "enum": [
+                "verified_numeric",
+                "verified_name",
+                "unverified_text"
+              ],
+              "title": "Check",
+              "type": "string"
+            },
+            "fact_keys": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Fact Keys",
+              "type": "array"
+            },
+            "field": {
+              "enum": [
+                "headline",
+                "body",
+                "why",
+                "title",
+                "paragraph",
+                "key_moment"
+              ],
+              "title": "Field",
+              "type": "string"
+            },
+            "numbers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Numbers",
+              "type": "array"
+            },
+            "origin": {
+              "default": "matched",
+              "description": "template: keys from the template's placeholders; matched: found by value (model or translated text)",
+              "enum": [
+                "template",
+                "matched"
+              ],
+              "title": "Origin",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            },
+            "sentence": {
+              "title": "Sentence",
+              "type": "string"
+            },
+            "source_event_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Source Event Ids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "sentence",
+            "field",
+            "check",
+            "reason"
+          ],
+          "title": "Claim",
+          "type": "object"
+        },
+        "ClaimBinding": {
+          "description": "One number or name in a sentence and the fact it was matched to.",
+          "properties": {
+            "entity_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Squad player or club id for names",
+              "title": "Entity Id"
+            },
+            "fact_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "None: matches no fact (never on a shown card)",
+              "title": "Fact Key"
+            },
+            "kind": {
+              "enum": [
+                "number",
+                "name",
+                "text"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "text": {
+              "description": "As printed",
+              "title": "Text",
+              "type": "string"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Unit"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Value"
+            }
+          },
+          "required": [
+            "text",
+            "kind"
+          ],
+          "title": "ClaimBinding",
+          "type": "object"
+        },
         "Evidence": {
           "properties": {
             "label": {
@@ -2840,6 +3295,14 @@
         "card_id": {
           "title": "Card Id",
           "type": "string"
+        },
+        "claims": {
+          "description": "Each sentence of headline, body and why, tied to its facts",
+          "items": {
+            "$ref": "#/$defs/Claim"
+          },
+          "title": "Claims",
+          "type": "array"
         },
         "duration_s": {
           "title": "Duration S",
@@ -3115,6 +3578,170 @@
     "name": "get_recap",
     "outputSchema": {
       "$defs": {
+        "Claim": {
+          "description": "One sentence a viewer sees, with what was machine-checked about it.\n\n`verified_numeric`: every number in it matches a fact (bound in `bindings`).\n`verified_name`: no numbers; its squad names match the facts.\n`unverified_text`: nothing to check (tone, wording), or a check failed (`reason`).\nWording, tone and causal claims are never machine-verified, whatever `check` says.",
+          "properties": {
+            "bindings": {
+              "items": {
+                "$ref": "#/$defs/ClaimBinding"
+              },
+              "title": "Bindings",
+              "type": "array"
+            },
+            "check": {
+              "enum": [
+                "verified_numeric",
+                "verified_name",
+                "unverified_text"
+              ],
+              "title": "Check",
+              "type": "string"
+            },
+            "fact_keys": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Fact Keys",
+              "type": "array"
+            },
+            "field": {
+              "enum": [
+                "headline",
+                "body",
+                "why",
+                "title",
+                "paragraph",
+                "key_moment"
+              ],
+              "title": "Field",
+              "type": "string"
+            },
+            "numbers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Numbers",
+              "type": "array"
+            },
+            "origin": {
+              "default": "matched",
+              "description": "template: keys from the template's placeholders; matched: found by value (model or translated text)",
+              "enum": [
+                "template",
+                "matched"
+              ],
+              "title": "Origin",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            },
+            "sentence": {
+              "title": "Sentence",
+              "type": "string"
+            },
+            "source_event_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Source Event Ids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "sentence",
+            "field",
+            "check",
+            "reason"
+          ],
+          "title": "Claim",
+          "type": "object"
+        },
+        "ClaimBinding": {
+          "description": "One number or name in a sentence and the fact it was matched to.",
+          "properties": {
+            "entity_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Squad player or club id for names",
+              "title": "Entity Id"
+            },
+            "fact_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "None: matches no fact (never on a shown card)",
+              "title": "Fact Key"
+            },
+            "kind": {
+              "enum": [
+                "number",
+                "name",
+                "text"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "text": {
+              "description": "As printed",
+              "title": "Text",
+              "type": "string"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Unit"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Value"
+            }
+          },
+          "required": [
+            "text",
+            "kind"
+          ],
+          "title": "ClaimBinding",
+          "type": "object"
+        },
         "FactCheck": {
           "properties": {
             "ok": {
@@ -3183,6 +3810,14 @@
         }
       },
       "properties": {
+        "claims": {
+          "description": "Each sentence, tied to its facts",
+          "items": {
+            "$ref": "#/$defs/Claim"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
         "fact_check": {
           "$ref": "#/$defs/FactCheck"
         },
@@ -3453,6 +4088,170 @@
     "name": "get_cue_sheet",
     "outputSchema": {
       "$defs": {
+        "Claim": {
+          "description": "One sentence a viewer sees, with what was machine-checked about it.\n\n`verified_numeric`: every number in it matches a fact (bound in `bindings`).\n`verified_name`: no numbers; its squad names match the facts.\n`unverified_text`: nothing to check (tone, wording), or a check failed (`reason`).\nWording, tone and causal claims are never machine-verified, whatever `check` says.",
+          "properties": {
+            "bindings": {
+              "items": {
+                "$ref": "#/$defs/ClaimBinding"
+              },
+              "title": "Bindings",
+              "type": "array"
+            },
+            "check": {
+              "enum": [
+                "verified_numeric",
+                "verified_name",
+                "unverified_text"
+              ],
+              "title": "Check",
+              "type": "string"
+            },
+            "fact_keys": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Fact Keys",
+              "type": "array"
+            },
+            "field": {
+              "enum": [
+                "headline",
+                "body",
+                "why",
+                "title",
+                "paragraph",
+                "key_moment"
+              ],
+              "title": "Field",
+              "type": "string"
+            },
+            "numbers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Numbers",
+              "type": "array"
+            },
+            "origin": {
+              "default": "matched",
+              "description": "template: keys from the template's placeholders; matched: found by value (model or translated text)",
+              "enum": [
+                "template",
+                "matched"
+              ],
+              "title": "Origin",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            },
+            "sentence": {
+              "title": "Sentence",
+              "type": "string"
+            },
+            "source_event_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Source Event Ids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "sentence",
+            "field",
+            "check",
+            "reason"
+          ],
+          "title": "Claim",
+          "type": "object"
+        },
+        "ClaimBinding": {
+          "description": "One number or name in a sentence and the fact it was matched to.",
+          "properties": {
+            "entity_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Squad player or club id for names",
+              "title": "Entity Id"
+            },
+            "fact_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "None: matches no fact (never on a shown card)",
+              "title": "Fact Key"
+            },
+            "kind": {
+              "enum": [
+                "number",
+                "name",
+                "text"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "text": {
+              "description": "As printed",
+              "title": "Text",
+              "type": "string"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Unit"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Value"
+            }
+          },
+          "required": [
+            "text",
+            "kind"
+          ],
+          "title": "ClaimBinding",
+          "type": "object"
+        },
         "Cue": {
           "additionalProperties": false,
           "description": "One line of the cue sheet.",
@@ -3778,6 +4577,14 @@
               "default": "",
               "title": "Body",
               "type": "string"
+            },
+            "claims": {
+              "description": "Each sentence tied to its facts and source events, as on the card (docs/TRUST.md).",
+              "items": {
+                "$ref": "#/$defs/Claim"
+              },
+              "title": "Claims",
+              "type": "array"
             },
             "headline": {
               "title": "Headline",
@@ -4504,6 +5311,40 @@
     "name": "get_crew_status",
     "outputSchema": {
       "$defs": {
+        "AgentLatency": {
+          "properties": {
+            "agent": {
+              "title": "Agent",
+              "type": "string"
+            },
+            "max_ms": {
+              "title": "Max Ms",
+              "type": "number"
+            },
+            "p50_ms": {
+              "title": "P50 Ms",
+              "type": "number"
+            },
+            "p95_ms": {
+              "title": "P95 Ms",
+              "type": "number"
+            },
+            "samples": {
+              "description": "Steps in the rolling window",
+              "title": "Samples",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "agent",
+            "samples",
+            "p50_ms",
+            "p95_ms",
+            "max_ms"
+          ],
+          "title": "AgentLatency",
+          "type": "object"
+        },
         "AgentStep": {
           "properties": {
             "agent": {
@@ -4555,6 +5396,80 @@
           "title": "AgentStep",
           "type": "object"
         },
+        "CrewHealth": {
+          "description": "Rolling-window service levels (bounded memory; resets with the crew).",
+          "properties": {
+            "checks": {
+              "default": 0,
+              "description": "Fact-check verdicts in the window",
+              "title": "Checks",
+              "type": "integer"
+            },
+            "fallback_rate": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "fallback_steps / model_steps",
+              "title": "Fallback Rate"
+            },
+            "fallback_steps": {
+              "default": 0,
+              "title": "Fallback Steps",
+              "type": "integer"
+            },
+            "latency": {
+              "items": {
+                "$ref": "#/$defs/AgentLatency"
+              },
+              "title": "Latency",
+              "type": "array"
+            },
+            "model_steps": {
+              "default": 0,
+              "description": "Analyst, Commentator and recap steps in the window",
+              "title": "Model Steps",
+              "type": "integer"
+            },
+            "moments_per_min": {
+              "default": 0,
+              "description": "Moments spotted in the last 60 s of wall clock",
+              "title": "Moments Per Min",
+              "type": "integer"
+            },
+            "rejected_checks": {
+              "default": 0,
+              "title": "Rejected Checks",
+              "type": "integer"
+            },
+            "rejection_rate": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "rejected_checks / checks",
+              "title": "Rejection Rate"
+            },
+            "window": {
+              "default": 0,
+              "description": "Most recent steps kept per agent",
+              "title": "Window",
+              "type": "integer"
+            }
+          },
+          "title": "CrewHealth",
+          "type": "object"
+        },
         "CrewStatus": {
           "properties": {
             "breakers_open": {
@@ -4568,6 +5483,9 @@
               "default": 0,
               "title": "Fallbacks",
               "type": "integer"
+            },
+            "health": {
+              "$ref": "#/$defs/CrewHealth"
             },
             "mode": {
               "enum": [

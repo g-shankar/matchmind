@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING
 from matchmind.crew import club_heart
 from matchmind.crew.contracts import (
     RTL_LANGUAGES,
+    Claim,
     Evidence,
     Moment,
     MomentBundle,
@@ -159,6 +160,7 @@ def build_card(
     profile: ViewerProfile,
     slot: Slot | None = None,
     evidence: list[Evidence] | None = None,
+    claims: list[Claim] | None = None,
 ) -> OverlayCard:
     m = bundle.moment
     chosen: Slot = slot or SLOT_BY_KIND.get(m.kind, "lower_third")
@@ -193,6 +195,7 @@ def build_card(
         fallback_reason=reason,
         replay=bundle.replay,
         retracts=list(m.retracts),
+        claims=list(claims or []),
     )
 
 
