@@ -47,6 +47,9 @@ param openAiModelVersion string = '2024-07-18'
 @minValue(1)
 param openAiCapacity int = 30
 
+@description('The web app consumes the live Event Hubs stream the simulator publishes (MATCHMIND_SOURCE=eventhubs) instead of replaying the bundled match file. Only then does the app identity get Azure Event Hubs Data Receiver.')
+param eventHubsSource bool = false
+
 @description('Extra web origins allowed to call the API (comma separated). The app URL is always allowed.')
 param extraAllowedOrigins string = ''
 
@@ -79,7 +82,7 @@ var roles = {
 
 // ---------------------------------------------------------------- identity --
 
-// Web app: pulls images, reads the event stream, calls the AI services.
+// Web app: pulls images, calls the AI services and, only with eventHubsSource, reads the event stream.
 resource appIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: names.appIdentity
   location: location
@@ -168,7 +171,8 @@ resource eventHubsSender 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
   }
 }
 
-resource eventHubsReceiver 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+// Only when the app consumes the live stream (eventHubsSource); off by default.
+resource eventHubsReceiver 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (eventHubsSource) {
   scope: matchEvents
   name: guid(matchEvents.id, appIdentity.id, roles.eventHubsDataReceiver)
   properties: {
@@ -382,6 +386,7 @@ var appEnv = [
   { name: 'MATCHMIND_TRANSLATOR_ENABLED', value: string(deployTranslator && aiEnabled) }
   { name: 'AZURE_TRANSLATOR_ENDPOINT', value: deployTranslator ? 'https://${names.translator}.cognitiveservices.azure.com/' : '' }
   { name: 'AZURE_TRANSLATOR_REGION', value: location }
+  { name: 'MATCHMIND_SOURCE', value: eventHubsSource ? 'eventhubs' : 'file' }
 ]
 
 
@@ -394,7 +399,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApps) {
     type: 'UserAssigned'
     userAssignedIdentities: { '${appIdentity.id}': {} }
   }
-  dependsOn: [appRegistryPull, appTelemetryPublisher]
+  dependsOn: [appRegistryPull, appTelemetryPublisher, eventHubsReceiver]
   properties: {
     environmentId: environment.id
     workloadProfileName: 'Consumption'

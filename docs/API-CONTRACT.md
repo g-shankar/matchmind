@@ -287,20 +287,72 @@ the focus metric (one place in `MatchSession.cards_for`).
 | `GET /api/languages` | `{ languages: LanguageInfo[], translator: TranslatorStatus }`: every language, its source (studio pack or Azure AI Translator) and whether it can be shown now |
 | `GET /api/crew/trace?limit=20` | `CrewTrace[]` (newest first) |
 | `GET /api/auto-eventing` | `AutoEventingStatus` or 404 until built |
+| `GET /api/source` | `MatchSource`: where the match comes from (file or the live Event Hubs stream) and the stream counters |
+| `GET /api/dataset` | `DatasetIndex`: every downloadable synthetic match with its scenario and seed (docs/DATASET.md) |
+| `GET /api/dataset/export?match_id=&format=jsonl\|csv\|zip[&tracking_period=&tracking_from=&tracking_to=]` | a file download (streamed, `Content-Disposition: attachment`): events as JSON lines (byte for byte as bundled), events as CSV, or a zip with metadata, rosters, schema, data dictionary and, with the three tracking parameters, a 25 Hz synthetic tracking sample of at most 60 s (zip only) |
+
+```ts
+interface DatasetMatch {
+  match_id: string;                         // allow-listed: bundled ids and MM-GEN-01000..MM-GEN-01019
+  kind: 'bundled' | 'seeded';
+  scenario: 'demo_storyline' | 'chance_model' | 'chance_model_with_beats';
+  seed: number; home: string; away: string;
+  score: string | null;                     // bundled only, e.g. '2-3'
+  events: number | null;                    // bundled only
+}
+interface DatasetIndex {
+  synthetic: true; note: string; schema_version: string;
+  pitch: { length_m: 105; width_m: 68; home_attacks: '+x' };
+  formats: ('jsonl' | 'csv' | 'zip')[];
+  tracking: { hz: 25; max_window_s: 60; formats: ['zip'] };
+  scenarios: Record<string, string>;
+  seeded: { seed_start: number; seed_end: number; match_id: string };
+  matches: DatasetMatch[];
+}
+interface MatchSource {
+  source: 'file' | 'eventhubs';
+  format?: 'jsonl' | 'csv';                 // file source
+  requested?: 'eventhubs'; note?: string;   // live mode was asked for but no match started in time
+  starting_position?: string;               // eventhubs source
+  match_id: string; events_loaded: number;
+  complete: boolean;                        // false while a live match is still arriving
+  stream?: {                                // eventhubs source only: counts, never event content
+    state: 'waiting_for_match_start' | 'live' | 'ended' | 'stopped';
+    match_id: string | null; queued: number; backpressure_waits: number; error: string | null;
+    received: number; accepted: number; duplicates: number; conflicts: number; rejected: number;
+    too_big: number; before_start: number; other_match: number; after_end: number;
+    reordered: number; skipped: number; last_problem: string | null;
+  };
+}
+```
 
 Errors: `{ "detail": "plain words" }` with 400 or 404 (429 for a seek or reset
 inside the 0.5 s throttle, or more than about 2 POSTs a second, bursts of 10,
 from one client IP, or more than about 3 `GET /api/match/moment` and
 `GET /api/match/recap` requests a second, bursts of 30, from one client IP; 503 while the match is still loading, 500 with a generic
 message if something breaks on our side).
-API responses carry `Cache-Control: no-store`.
+`GET /api/dataset/export` allows about one request every 5 s per client IP
+(bursts of 6) and at most two exports built at once (429 "Downloads are busy");
+an unknown `match_id` is 404 and a malformed one 400.
+API responses carry `Cache-Control: no-store`, except successful `/api/dataset`
+responses (synthetic, the same for everyone), which carry
+`Cache-Control: public, max-age=3600`. There is no upload route: external feeds
+are played from disk (docs/DATASET.md).
 
 ## Server settings
 
 | env | default | meaning |
 |---|---|---|
 | `MATCHMIND_ALLOWED_ORIGINS` | `http://localhost:5173,http://localhost:3000` | comma-separated CORS and WebSocket origins; `*` is ignored |
-| `MATCHMIND_MATCH_FILE` | `backend/data/matches/MM-DEMO-001.jsonl` | the match to play |
+| `MATCHMIND_MATCH_FILE` | `backend/data/matches/MM-DEMO-001.jsonl` | the match to play: `.jsonl` in our event schema or `.csv` with a mapping file, both checked strictly by `matchmind.ingest` (docs/DATASET.md) |
+| `MATCHMIND_FEED_MAPPING` | (none) | mapping file for a generic CSV feed |
+| `MATCHMIND_ROSTER_FILE` | (none) | roster of invented clubs and players for a feed that does not use the two bundled clubs |
+| `MATCHMIND_SOURCE` | `file` | `eventhubs`: play the live Event Hubs stream instead (keyless, `EVENTHUB_FULLY_QUALIFIED_NAMESPACE` + `EVENTHUB_NAME`, needs the `azure` extra) |
+| `MATCHMIND_EVENTHUBS_MATCH_ID` | (none) | follow this match on the hub; default the first match_start seen |
+| `MATCHMIND_EVENTHUBS_START` | `@latest` | consumer starting position (`-1` = earliest retained event) |
+| `MATCHMIND_EVENTHUBS_WAIT_S` | `90` | how long to wait for a live match_start before replaying the match file |
+| `EVENTHUB_CONSUMER_GROUP` | `$Default` | Event Hubs consumer group |
+| `MATCHMIND_DATASET_DIR` | `backend/data/matches` | the bundled dataset offered by `/api/dataset` |
 | `MATCHMIND_STATIC_DIR` | `./static` (working directory) | built frontend served at `/` when it has an `index.html` |
 | `MATCHMIND_BASE_RATE` | `10` | match seconds per real second at 1x |
 | `MATCHMIND_AI_ENABLED` | `false` | `true`, `1` or `yes` (any case): live crew uses the paid model client; the whole-match bookmark pass always uses templates. Model recaps are only made at full time, once per persona, language and favourite club |
