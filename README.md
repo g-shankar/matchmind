@@ -49,7 +49,7 @@ subscription; **Planned** means not built.
 | Personalised experiences for studios, platforms and fans | Broadcast overlay, studio board, fan vs analyst split, player focus, "My match" | Azure Container Apps | Running locally |
 | Trustworthy AI | Agent traces with GenAI semantic conventions, no text or viewer data | Application Insights, Foundry tracing | Built, off until deployed |
 | | Agent cards for all five agents, generated from the code | Microsoft Foundry | Running (`foundry/agents/`); not registered in Foundry Agent Service |
-| Engineering | CI with tests, secret scanning, licence check, Bicep lint, container smoke test; CodeQL; Dependabot | GitHub Actions, GitHub code scanning | Running |
+| Engineering | CI with tests, secret scanning, licence check, Bicep lint, container smoke test; CodeQL; Dependabot; code review on every PR | GitHub Actions, GitHub code scanning, GitHub Copilot code review | Running |
 | | One-click deploy with what-if, OIDC sign-in, no stored secrets | GitHub Actions, Azure Bicep, Microsoft Entra ID | Built, needs the owner's subscription |
 
 No service key exists anywhere: every Azure call signs in with Microsoft
@@ -143,8 +143,9 @@ default; each paid service has its own switch. See
 ## How we work
 
 One feature per pull request. Every pull request runs the full test suite,
-secret scanning, CodeQL, the licence check and a container smoke test, and
-gets an independent security review before merge. Every dependency allows
+secret scanning, CodeQL, the licence check and a container smoke test, gets
+a GitHub Copilot code review, and gets an independent security review before
+merge. Every dependency allows
 commercial use.
 
 ## Licence
