@@ -187,7 +187,7 @@ One matrix for everything. Labels:
 | | Analyst, Commentator and recap as Foundry agents, registered idempotently (`matchmind-foundry register`) | Microsoft Foundry Agent Service | Built, off until deployed |
 | | The crew's chains as typed workflows, identical cards to the in-process crew | Microsoft Agent Framework | Built, off by default |
 | | Match intelligence as read-only MCP tools | Model Context Protocol (any MCP client) | Running |
-| Engineering | CI with tests, secret scanning, licence check, Bicep lint, container smoke test; CodeQL; Dependabot | GitHub Actions, GitHub code scanning | Running |
+| Engineering | CI with tests, secret scanning, licence check, Bicep lint, container smoke test; CodeQL; Dependabot; code review on every PR | GitHub Actions, GitHub code scanning, GitHub Copilot code review | Running |
 | | One-click deploy with what-if, OIDC sign-in, no stored secrets | GitHub Actions, Azure Bicep, Microsoft Entra ID | Built, needs the owner's subscription |
 
 No service key exists anywhere: every Azure call signs in with Microsoft Entra
@@ -312,8 +312,9 @@ AI is off by default; each paid service has its own switch. See
 ## How we work
 
 One feature per pull request. Every pull request runs the full test suite,
-secret scanning, CodeQL, the licence check and a container smoke test, and gets
-an independent security review before merge. Every dependency allows
+secret scanning, CodeQL, the licence check and a container smoke test, gets
+a GitHub Copilot code review, and gets an independent security review before
+merge. Every dependency allows
 commercial use.
 
 ## Licence
