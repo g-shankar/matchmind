@@ -223,7 +223,7 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
           <div className="hidden items-center gap-2 xl:flex">
             <SourceBadge status={match.status} source={source} />
           </div>
-          <div className="ms-auto flex min-w-0 items-center gap-2">
+          <div className="ms-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
             <Scoreline match={match} source={source} />
             <button
               type="button"
@@ -673,7 +673,7 @@ const StudioSkeleton: React.FC = () => {
 };
 
 const Scoreline: React.FC<{ match: ViewProps['match']; source: 'file' | 'eventhubs' | null }> = ({ match, source }) => {
-  const { t } = useI18n();
+  const { t, dir } = useI18n();
   const { teams, score, clock, playback } = match;
   if (!teams) {
     // The scorebug's shape until the first snapshot lands, so the bar never looks empty.
@@ -685,22 +685,23 @@ const Scoreline: React.FC<{ match: ViewProps['match']; source: 'file' | 'eventhu
     // Scoreboard strip: team colour blocks either side of a white score panel. Always home
     // on the left and away on the right, also on a right-to-left page.
     <div dir="ltr" className="flex h-11 min-w-0 items-stretch font-display text-sm font-bold uppercase tracking-broadcast sm:text-base">
-      <bdi className="flex items-center px-2 text-white sm:px-2.5" style={{ background: teams.home.primary_color }}>
+      <bdi className="flex items-center px-1.5 text-white sm:px-2.5" style={{ background: teams.home.primary_color }}>
         {teams.home.short_name}
       </bdi>
-      <span className="ltr-nums flex items-center bg-pp-chalk px-2 text-lg font-extrabold text-pp-night sm:px-2.5 sm:text-xl">
+      <span className="ltr-nums flex items-center bg-pp-chalk px-1.5 text-lg font-extrabold text-pp-night sm:px-2.5 sm:text-xl">
         <ScoreValue value={score.home} />-<ScoreValue value={score.away} />
       </span>
-      <bdi className="flex items-center px-2 text-white sm:px-2.5" style={{ background: teams.away.primary_color }}>
+      <bdi className="flex items-center px-1.5 text-white sm:px-2.5" style={{ background: teams.away.primary_color }}>
         {teams.away.short_name}
       </bdi>
-      <span className="ltr-nums flex flex-col items-start justify-center whitespace-nowrap bg-pp-night px-2 leading-none text-pp-signal sm:px-2.5">
+      <span className="ltr-nums flex shrink-0 flex-col items-start justify-center whitespace-nowrap bg-pp-night px-1.5 leading-none text-pp-signal sm:px-2.5">
         {/* Says what is playing: a synthetic replay, on its own, at this speed (shared by everyone). */}
         {replaying && !playback.ended && (
           <span
             data-testid="replay-speed"
+            dir={dir}
             title={t('guide.replay.hint', { speed: playback.speed_multiplier })}
-            className="mb-0.5 text-[9px] font-bold tracking-wider text-pp-mute"
+            className="mb-0.5 text-[9px] font-bold text-pp-mute"
           >
             {t('guide.replay.badge', { speed: playback.speed_multiplier })}
             <span className="sr-only">. {t('guide.replay.hint', { speed: playback.speed_multiplier })}</span>

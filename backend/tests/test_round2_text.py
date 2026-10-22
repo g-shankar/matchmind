@@ -67,3 +67,26 @@ def test_replay_chance_values_use_two_decimals_like_the_evidence(demo, language)
     bundle = demo.bundle(card.moment_id)
     assert bundle is not None
     assert check(text, bundle.moment.facts, language, "text").ok
+
+
+def test_a_language_change_resends_the_jump_list_in_that_language(demo, tmp_path):
+    from fastapi.testclient import TestClient
+
+    from matchmind.api.app import create_app
+
+    app = create_app(
+        session=demo, tick_interval=None, allowed_origins=["http://localhost:3000"], static_dir=tmp_path / "none"
+    )
+
+    def snapshot(ws) -> dict:
+        msg = ws.receive_json()
+        while msg["type"] != "INITIAL_SNAPSHOT":
+            msg = ws.receive_json()
+        return msg["data"]
+
+    with TestClient(app) as client, client.websocket_connect("/ws/match") as ws:
+        first = snapshot(ws)["bookmarks"][0]
+        ws.send_json({"action": "set_view", "language": "es"})
+        again = snapshot(ws)["bookmarks"][0]
+    assert first["moment_id"] == again["moment_id"]
+    assert first["title"] != again["title"]

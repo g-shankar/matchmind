@@ -353,7 +353,7 @@ Server -> client. Every message is `{ "type": ..., "data": ... }`.
 
 | type | data | when |
 |---|---|---|
-| `INITIAL_SNAPSHOT` | `{ match_id, clock, period, home_score, away_score (null in catch-up mode), teams: { home: TeamInfo, away: TeamInfo }, state: MatchState, control_chaos: ControlChaosState, profile: ViewerProfile, playback: Playback, recent_cards: OverlayCard[], bookmarks: Bookmark[], players: PlayerStats[], crew: CrewStatus, languages: LanguageInfo[], auto_eventing: AutoEventingStatus \| null, cue_sheet: CueSheetState, recent_events: MatchEvent[] (WebSocket only: the last 30 played, oldest first; in catch-up mode scrubbed like ticks, with VAR reviews left out) }` | on connect, after `MATCH_RESET`, after a seek, after `set_view` changes `spoilers` |
+| `INITIAL_SNAPSHOT` | `{ match_id, clock, period, home_score, away_score (null in catch-up mode), teams: { home: TeamInfo, away: TeamInfo }, state: MatchState, control_chaos: ControlChaosState, profile: ViewerProfile, playback: Playback, recent_cards: OverlayCard[], bookmarks: Bookmark[] (titles in the viewer's studio language: en, es, fr, ar or ja; other languages get English), players: PlayerStats[], crew: CrewStatus, languages: LanguageInfo[], auto_eventing: AutoEventingStatus \| null, cue_sheet: CueSheetState, recent_events: MatchEvent[] (WebSocket only: the last 30 played, oldest first; in catch-up mode scrubbed like ticks, with VAR reviews left out) }` | on connect, after `MATCH_RESET`, after a seek, after `set_view` changes `spoilers` or `language` |
 | `MATCH_TICK` | `{ event: MatchEvent, clock, period, score: { home, away } \| null, state: MatchState, control_chaos: ControlChaosState, cards: OverlayCard[], players_changed: PlayerStats[] }` | every event as it is played |
 | `CUES` | `{ sheet_id, cues: Cue[], active?: Cue[] }` | never in catch-up mode; otherwise after a `MATCH_TICK` that produced cues for this viewer; `active` (what is on air now) is present when a new sheet starts, e.g. after `set_view` |
 | `PLAYBACK_CONTROL` | `Playback` | play, pause, speed change |
@@ -477,7 +477,7 @@ collision rules are in [CUE-SHEET.md](CUE-SHEET.md) and
 | `GET /api/teams` | `{ home: TeamInfo, away: TeamInfo }` |
 | `GET /api/match/snapshot?spoilers=` | `INITIAL_SNAPSHOT.data` for the default profile; `spoilers=false` gives the catch-up view |
 | `GET /api/match/players` | `PlayerStats[]` |
-| `GET /api/match/bookmarks` | `Bookmark[]` for the whole match (leaves out `speed_burst`, `rocket_shot`, `distance_milestone` and `hard_pass`, which still arrive as tick cards; same list in `INITIAL_SNAPSHOT.bookmarks`) |
+| `GET /api/match/bookmarks` | `Bookmark[]` for the whole match (leaves out `speed_burst`, `rocket_shot`, `distance_milestone` and `hard_pass`, which still arrive as tick cards; same list in `INITIAL_SNAPSHOT.bookmarks`; titles here are always English, the snapshot's follow the viewer's language) |
 | `GET /api/match/moment/{moment_id}?persona=&lang=&favourite_team=` | `OverlayCard` (for "jump to moment" and replays) |
 | `GET /api/match/moment/{moment_id}/audit` | `MomentAudit`: facts, source events, evidence, every rendering's claims and fact-check, parity, trace (docs/TRUST.md) |
 | `GET /api/match/recap?persona=&lang=&spoilers=` | `Recap` (so far, or full match after the end; the same after a seek as after watching straight through); `spoilers=false` gives the spoiler-free story so far (`spoiler_free: true`) |

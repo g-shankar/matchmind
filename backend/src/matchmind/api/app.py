@@ -1166,9 +1166,11 @@ def create_app(
             else:
                 changes = {k: getattr(action, k) for k in action.model_fields_set if k != "action"}
             before = conn.profile.spoilers
+            language_before = conn.profile.language
             _set_view(conn, changes)
-            if conn.profile.spoilers != before:
+            if conn.profile.spoilers != before or conn.profile.language != language_before:
                 # Catch-up turned on or the viewer tapped reveal: what is on screen changes at once.
+                # A new language also brings the jump list's titles in that language.
                 await hub.send_snapshots([conn])
 
     def _set_view(conn: Connection, changes: dict[str, Any]) -> None:
