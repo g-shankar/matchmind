@@ -16,11 +16,12 @@ from matchmind.api import session as session_mod
 from matchmind.api.app import create_app
 from matchmind.api.session import MatchSession, load_events
 from matchmind.crew.contracts import STUDIO_LANGUAGES, ViewerProfile
-from matchmind.crew.spoilers import SPOILER_FACT_KEYS, SPOILER_KINDS
+from matchmind.crew.spoilers import CATCHUP_ID_PREFIX, SPOILER_FACT_KEYS, SPOILER_KINDS
 
 ALLOWED = "http://localhost:5173"
 SCORE_KEYS = {"score_home", "score_away", "home_score", "away_score", "goals", "assists"}
 SCORELINE = re.compile(r"\b\d+\s?[-–]\s?\d+\b")
+EVENT_ID_KEYS = {"event_id", "source_event_id", "shot_event_id", "run_event_id"}
 GOAL_POSTS_Y = (30.34, 37.66)  # the goal mouth on a 68 m wide pitch
 
 
@@ -57,6 +58,13 @@ def leaks(payload: Any, path: str = "") -> list[str]:
             # Outcome geometry: where a shot ended says whether it went in.
             if key == "end" and payload.get("type") == "shot" and value is not None:
                 found.append(f"{here}={value!r}" + (" (goal mouth)" if in_goal_mouth(value) else ""))
+            # Full-feed numbering: a withheld event would leave a gap in seq and in the ids.
+            if key == "seq" and "event_id" in payload and value is not None:
+                found.append(f"{here}={value!r}")
+            if key in EVENT_ID_KEYS and isinstance(value, str) and not value.startswith(CATCHUP_ID_PREFIX):
+                found.append(f"{here}={value!r}")
+            if key in ("source_event_ids",) and any(not str(v).startswith(CATCHUP_ID_PREFIX) for v in value):
+                found.append(f"{here}={value!r}")
             if key == "details" and isinstance(value, dict):
                 if "blocked_by" in value:
                     found.append(f"{here}.blocked_by")
@@ -213,6 +221,8 @@ def test_scrub_event_hides_outcome_geometry():
 
     goal = {
         "type": "shot",
+        "event_id": "M-00411",
+        "seq": 411,
         "start": {"x": 93.2, "y": 35.6},
         "end": {"x": 105.0, "y": 34.4},
         "outcome": "goal",
@@ -230,21 +240,25 @@ def test_scrub_event_hides_outcome_geometry():
         assert out["start"] == shot["start"]  # where it was taken from stays: that is the chance
     kickoff = {
         "type": "pass",
+        "event_id": "M-00412",
+        "seq": 412,
         "start": {"x": 52.5, "y": 34.0},
         "end": {"x": 61.0, "y": 30.1},
         "outcome": "complete",
         "details": {"pass_type": "kickoff"},
     }
-    out = scrub_event(kickoff)
-    assert out["start"] is None and "pass_type" not in out["details"] and out["end"] == kickoff["end"]
+    # Every restart after the first whistle follows a goal: the kick-off is withheld, not
+    # scrubbed (a scrubbed one was the only pass without a start point).
+    assert is_withheld_event(kickoff)
+    assert not is_withheld_event({**kickoff, "details": {"pass_type": "ground"}})
     review = {
         "type": "var_review",
         "outcome": "overturned",
         "reviewed_event_id": "E-1",
         "review_reason": "offside",
     }
-    assert is_withheld_event(review) and not is_withheld_event(kickoff)
-    out = scrub_event(review)
+    assert is_withheld_event(review)
+    out = scrub_event({**review, "event_id": "M-00413", "seq": 413})
     assert out["review_reason"] is None and out["reviewed_event_id"] is None and out["outcome"] is None
     assert not leaks({"event": scrub_event(goal)}) and not leaks({"event": scrub_event(blocked)})
 
@@ -304,3 +318,125 @@ def test_catch_up_snapshot_recent_events_hide_the_var_review_and_shot_ends(real)
     assert free and not any(e["type"] == "var_review" for e in free)
     assert all(e["end"] is None for e in free if e["type"] == "shot")
     assert not leaks({"recent_events": free})
+
+
+# --- Catch-up inference: nothing in the stream marks a goal by itself ---------------------------
+
+# Fields unique to each event, so trivially "separating": they say nothing about outcomes.
+IDENTITY_FIELDS = {"event_id", "match_clock", "clock_s", "player_id", "receiver_id"}
+
+
+def _flat(payload: dict, prefix: str = "") -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    for key, value in payload.items():
+        if isinstance(value, dict) and value:
+            out.update(_flat(value, f"{prefix}{key}."))
+        else:
+            out[f"{prefix}{key}"] = value
+    return out
+
+
+def separating_fields(goals: list[dict], others: list[dict]) -> list[str]:
+    """Fields one rule on a single value tells goals from other shots with: a number
+    with every goal above (or below) every other shot, or a value no other shot has."""
+    found = []
+    flat_g, flat_o = [_flat(e) for e in goals], [_flat(e) for e in others]
+    for key in sorted({k for e in flat_g + flat_o for k in e} - IDENTITY_FIELDS):
+        g = [e.get(key) for e in flat_g]
+        o = [e.get(key) for e in flat_o]
+        nums = [v for v in g + o if isinstance(v, int | float) and not isinstance(v, bool)]
+        if len(nums) == len(g + o):
+            if min(g) > max(o) or max(g) < min(o):
+                found.append(key)
+        elif not {repr(v) for v in g} & {repr(v) for v in o}:
+            found.append(key)
+    return found
+
+
+def test_catch_up_stream_has_no_goal_marker(real):
+    """Replay the whole demo as a catch-up viewer and try to tell the goals apart."""
+    session, clock = real
+    session.reset()
+    goal_ids = {e.event_id for e in session.events if str(e.type) == "shot" and str(e.outcome) == "goal"}
+    app = create_app(session=session, tick_interval=None, allowed_origins=[ALLOWED], clock=clock)
+    with TestClient(app) as client, client.websocket_connect("/ws/match") as ws:
+        ws.receive_json()
+        ws.send_json({"action": "set_view", "spoilers": False})
+        recv_all(ws, "INITIAL_SNAPSHOT")
+        for _ in range(400):
+            clock.t += 30
+            client.portal.call(client.app.state.hub.pump)
+            if session.ended:
+                break
+        seen = recv_all(ws, "MATCH_END")
+    events = [m["data"]["event"] for m in seen if m["type"] == "MATCH_TICK"]
+    # No pass is shaped differently from the others (kick-offs were the only ones without a start).
+    passes = [e for e in events if e["type"] == "pass"]
+    assert passes and all(e["start"] is not None and e["details"].get("pass_type") for e in passes)
+    assert not [e for e in passes if e["details"]["pass_type"] == "kickoff"]
+    # No numbering to find gaps in: no seq, and unordered, unique ids.
+    assert all(e["seq"] is None for e in events)
+    ids = [e["event_id"] for e in events]
+    assert len(set(ids)) == len(ids) and all(i.startswith(CATCHUP_ID_PREFIX) for i in ids)
+    assert not {e.event_id for e in session.events} & set(ids)
+    assert ids != sorted(ids)
+    # Shots: no single field of the shot itself separates the goals.
+    from matchmind.crew.spoilers import catchup_event_id
+
+    goals_free = {catchup_event_id(g) for g in goal_ids}
+    shots = [e for e in events if e["type"] == "shot"]
+    goals = [e for e in shots if e["event_id"] in goals_free]
+    others = [e for e in shots if e["event_id"] not in goals_free]
+    assert len(goals) == len(goal_ids) >= 5 and len(others) > 20
+    assert separating_fields(goals, others) == []
+    # Known and documented (docs/THREAT-MODEL.md): the clock gap after a goal and where play
+    # restarts still let someone reading the raw feed infer it. The screen shows neither.
+
+
+def test_catch_up_cards_and_answers_use_catch_up_event_ids(real):
+    session, clock = real
+    session.reset()
+    app = create_app(session=session, tick_interval=None, allowed_origins=[ALLOWED], clock=clock)
+    with TestClient(app) as client:
+        client.post("/api/match/seek", json={"clock_s": 70 * 60, "period": 2})
+        snap = client.get("/api/match/snapshot?spoilers=false").json()
+        full = client.get("/api/match/snapshot").json()
+        answer = client.post("/api/ask", json={"chip": "better_option", "spoilers": False}).json()
+        answer_full = client.post("/api/ask", json={"chip": "better_option"}).json()
+    raw_sources = [
+        e["source_event_id"] for c in full["recent_cards"] for e in c["evidence"] if e["source_event_id"]
+    ]
+    assert raw_sources, "the check needs cards with event evidence"
+    assert not leaks(snap), leaks(snap)[:5]
+    assert answer_full["source_event_ids"] and answer["source_event_ids"]
+    assert not leaks(answer), leaks(answer)[:5]
+
+
+# --- Catch-up from the first frame: the WebSocket URL carries the choice -------------------------
+
+
+def test_catch_up_on_the_websocket_url_means_the_first_snapshot_never_has_the_score(fake):
+    client, clock = fake
+    client.post("/api/match/seek", json={"clock_s": 2850, "period": 2})
+    with client.websocket_connect("/ws/match?spoilers=0&persona=tactical&lang=es") as ws:
+        first = ws.receive_json()
+    assert first["type"] == "INITIAL_SNAPSHOT"
+    snap = first["data"]
+    assert snap["home_score"] is None and snap["profile"]["spoilers"] is False and not leaks(snap)
+    assert (snap["profile"]["persona"], snap["profile"]["language"]) == ("tactical", "es")
+    # Without it, the default is unchanged: the full picture.
+    with client.websocket_connect("/ws/match?spoilers=1") as ws:
+        assert ws.receive_json()["data"]["home_score"] == 1
+    with client.websocket_connect("/ws/match") as ws:
+        assert ws.receive_json()["data"]["home_score"] == 1
+
+
+@pytest.mark.parametrize(
+    "query", ["spoilers=maybe", "spoilers=", "persona=boss", "lang=xx", "spoilers=0&spoilers=1"]
+)
+def test_bad_view_on_the_websocket_url_is_refused(fake, query):
+    from starlette.websockets import WebSocketDisconnect
+
+    client, _ = fake
+    with pytest.raises(WebSocketDisconnect), client.websocket_connect(f"/ws/match?{query}") as ws:
+        ws.receive_json()

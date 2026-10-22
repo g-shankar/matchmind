@@ -107,7 +107,7 @@ export const Lab: React.FC<ViewProps> = ({ match }) => {
       <MetricsSection />
       <StatsSection clock={match.clock} spoilers={match.profile.spoilers} />
       <BenchmarkSection />
-      <DatasetSection />
+      <DatasetSection spoilers={match.profile.spoilers} />
       <McpSection />
       <OutputsSection persona={match.profile.persona} language={match.profile.language} />
     </div>
@@ -702,20 +702,21 @@ const PixelPath: React.FC<{ row: NonNullable<AutoEventingStatus['pixel_path']> }
 
 // ------------------------------------------------------------------ dataset
 
-const DatasetSection: React.FC = () => {
+const DatasetSection: React.FC<{ spoilers: boolean }> = ({ spoilers }) => {
   const { t } = useI18n();
   const mode = useInsightMode();
   const { state, reload } = useInsight(() => insights.dataset(mode), mode);
   return (
     <Section id="lab-data" title={t('lab.data.title')} icon={Database}>
-      {state.status !== 'ready' ? <InsightGate state={state} onRetry={reload} lines={5} /> : <Dataset index={state.data} demo={state.source === 'demo'} />}
+      {state.status !== 'ready' ? <InsightGate state={state} onRetry={reload} lines={5} /> : <Dataset index={state.data} demo={state.source === 'demo'} hideResult={!spoilers} />}
     </Section>
   );
 };
 
 const FORMATS: DatasetFormat[] = ['jsonl', 'csv', 'zip'];
 
-export const Dataset: React.FC<{ index: DatasetIndex; demo: boolean }> = ({ index, demo }) => {
+/** `hideResult`: catch-up mode, so no results and no storyline blurbs (the demo's tells how it ends). */
+export const Dataset: React.FC<{ index: DatasetIndex; demo: boolean; hideResult?: boolean }> = ({ index, demo, hideResult = false }) => {
   const { t } = useI18n();
   const bundled = index.matches.filter((m) => m.kind === 'bundled');
   const seeded = index.matches.filter((m) => m.kind === 'seeded');
@@ -733,9 +734,13 @@ export const Dataset: React.FC<{ index: DatasetIndex; demo: boolean }> = ({ inde
             <code dir="ltr" className="block text-pp-signal">
               {k}
             </code>
-            <span lang="en" className="text-pp-mute">
-              {v}
-            </span>
+            {hideResult ? (
+              <span className="text-pp-mute">{t('catchup.hiddenValue')}</span>
+            ) : (
+              <span lang="en" className="text-pp-mute">
+                {v}
+              </span>
+            )}
           </li>
         ))}
       </ul>
@@ -767,7 +772,17 @@ export const Dataset: React.FC<{ index: DatasetIndex; demo: boolean }> = ({ inde
                   </code>
                 </td>
                 <td className="ltr-nums py-1 text-end">{m.seed}</td>
-                <td className="ltr-nums py-1 text-center">{m.score ? `${m.home} ${m.score} ${m.away}` : `${m.home}–${m.away}`}</td>
+                <td className="ltr-nums py-1 text-center">
+                  {hideResult ? (
+                    <>
+                      {`${m.home}–${m.away}`} <span className="text-pp-mute">({t('catchup.hiddenValue')})</span>
+                    </>
+                  ) : m.score ? (
+                    `${m.home} ${m.score} ${m.away}`
+                  ) : (
+                    `${m.home}–${m.away}`
+                  )}
+                </td>
                 <td className="ltr-nums py-1 text-end">{m.events ?? '–'}</td>
                 <td className="py-1 text-end">
                   <span className="inline-flex gap-1">

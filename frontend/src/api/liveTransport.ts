@@ -1,5 +1,5 @@
 import type { AskAnswer, AskRequest, AskResult, ClientAction, Language, OverlayCard, PersonaType, Recap, ServerMessage } from './contract';
-import { apiBase, wsUrl, type MatchTransport, type MessageHandler } from './transport';
+import { apiBase, wsUrl, type MatchTransport, type MessageHandler, type WsView } from './transport';
 
 export interface LiveCallbacks {
   onMessage: MessageHandler;
@@ -15,9 +15,9 @@ export class LiveTransport implements MatchTransport {
   private closedByUs = false;
   private readonly base: string;
 
-  constructor(callbacks: LiveCallbacks, base = apiBase()) {
+  constructor(callbacks: LiveCallbacks, base = apiBase(), view?: WsView) {
     this.base = base;
-    this.ws = new WebSocket(wsUrl(base));
+    this.ws = new WebSocket(wsUrl(base, view));
     this.ws.onopen = () => {
       this.opened = true;
       callbacks.onOpen();

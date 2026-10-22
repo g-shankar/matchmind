@@ -216,3 +216,4 @@ Every linked acceptance criterion has evidence; format/lint, typecheck, unit, in
 - A jump must land somewhere visible: the snapshot carries the last events (pitch never empty), the page keeps the pitch in view and shows the picked moment's own card; never leave a viewer paused on a blank pitch.
 - Server refusals reach viewers through a stable error code and a translated toast, never raw English; the app spaces its own requests to fit the server's rate limits instead of loosening them.
 - A per-connection limit is not a limit on shared state: anything every viewer shares (the playback clock, process memory across send queues) needs a cap for the whole process, sized against the container.
+- Hiding a value is not enough when its absence, a gap in numbering or a special shape marks it: withhold or neutralise the marker too, test with a classifier over the whole stream, and say plainly what timing still reveals.

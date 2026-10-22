@@ -160,6 +160,21 @@ describe('Under the hood (#lab)', () => {
     expect(screen.getByRole('link', { name: /demo=1#overlay/ })).toBeTruthy();
   });
 
+  it('catch-up: no result or storyline anywhere on the page, even when the payloads carry them', async () => {
+    const data = demoInsights().dataset;
+    data.scenarios = { demo_storyline: 'Scripted demo storyline: home club 2-0 up, away win 3-2 in stoppage time.' };
+    vi.stubGlobal('fetch', fetchStub({ '/api/metrics': demoInsights().metrics, '/api/match/stats/basic': basicStats(), '/api/auto-eventing': demoInsights().auto_eventing, '/api/dataset': data }));
+    ui(<Lab match={matchWith({ profile: { ...DEFAULT_PROFILE, spoilers: false } })} actions={actionsMock()} />);
+    await screen.findByText('MM-DEMO-001');
+    await screen.findByRole('table', { name: 'Basic stats per club' });
+    // Ranges like "0-100" or seeds "1000–1001" are fine; a scoreline between two clubs is not.
+    expect(document.body.textContent).not.toMatch(/[A-Z]{3}\s?\d+\s?[-–]\s?\d+\s?[A-Z]{3}/);
+    expect(document.getElementById('lab-data')?.textContent).toContain('NBR–HCY (Hidden)');
+    expect(document.body.textContent).not.toMatch(/away win|2-0 up|2-3|3-2/);
+    expect(screen.queryByRole('rowheader', { name: /goals/i })).toBeNull();
+    expect(screen.getAllByText(/Hidden/).length).toBeGreaterThanOrEqual(2);
+  });
+
   it('says plainly when the benchmark did not run', async () => {
     vi.stubGlobal('fetch', fetchStub({ '/api/metrics': demoInsights().metrics, '/api/dataset': demoInsights().dataset, '/api/match/stats/basic': basicStats() }));
     ui(<Lab match={matchWith()} actions={actionsMock()} />);

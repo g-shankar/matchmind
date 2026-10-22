@@ -28,6 +28,7 @@ from matchmind.crew.contracts import (
 from matchmind.crew.fact_checker import check
 from matchmind.crew.i18n import fill
 from matchmind.crew.llm import LLM
+from matchmind.crew.spoilers import catchup_event_ids
 from matchmind.crew.spotter import surname
 
 from .answer import AskContext, Composed, _team_name, compose, evidence_for, minute_of
@@ -201,6 +202,11 @@ def answer_intent(
             update={"intent": intent, "fact_check": FactCheck(ok=False, reasons=problems[:5])}
         )
     sep = "" if lang == "ja" else " "
+    if not spoilers:  # catch-up: the same opaque event ids as the stream (crew/spoilers.py)
+        claims = [
+            c.model_copy(update={"source_event_ids": catchup_event_ids(c.source_event_ids)}) for c in claims
+        ]
+        composed.source_event_ids = catchup_event_ids(composed.source_event_ids)
     return AskAnswer(
         status=composed.status,  # type: ignore[arg-type]
         intent=intent,

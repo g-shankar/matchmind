@@ -495,6 +495,65 @@ def test_every_banned_name_is_caught_in_any_spelling():
     assert not missed, missed[:10]
 
 
+# One Latin letter swapped for its Cyrillic look-alike: the same name to a reader.
+_CYRILLIC_LOOKALIKE = {
+    "a": "а", "e": "е", "o": "о", "p": "р", "c": "с", "y": "у", "x": "х", "i": "і", "j": "ј", "s": "ѕ",
+    "A": "А", "B": "В", "E": "Е", "K": "К", "M": "М", "H": "Н", "O": "О", "P": "Р", "C": "С", "T": "Т",
+    "X": "Х", "I": "І", "J": "Ј", "S": "Ѕ",
+}  # fmt: skip
+
+
+def _homoglyph_variants(name: str) -> list[str]:
+    """Each Latin letter with a Cyrillic look-alike, swapped one at a time."""
+    return [
+        name[:i] + _CYRILLIC_LOOKALIKE[c] + name[i + 1 :]
+        for i, c in enumerate(name)
+        if c in _CYRILLIC_LOOKALIKE
+    ]
+
+
+def _latin_names() -> list[str]:
+    from matchmind.crew.fact_checker import BANNED_NAMES
+
+    return [n for n in BANNED_NAMES if _script(n) == "latin"]
+
+
+def test_every_banned_latin_name_with_a_look_alike_letter_is_caught():
+    from matchmind.crew.fact_checker import banned_names_in
+
+    variants = [(n, v) for n in _latin_names() for v in _homoglyph_variants(n)]
+    assert len(variants) > 1000
+    missed = [
+        (n, v) for n, v in variants if not banned_names_in(v) or not banned_names_in(f"What about {v}?")
+    ]
+    assert not missed, missed[:10]
+
+
+@pytest.mark.parametrize(
+    "spelling",
+    ["Haalands", "Haaland's", "Ha-aland", "Haa.land", "Haa land", "H a a l a n d", "Haa\u200bland", "Saka's"],
+)
+def test_banned_names_split_or_pluralised_are_caught(spelling):
+    from matchmind.crew.fact_checker import banned_names_in
+
+    assert banned_names_in(spelling), spelling
+    assert banned_names_in(f"Did {spelling} score today?"), spelling
+
+
+def test_ingest_refuses_look_alike_and_mixed_script_names():
+    from matchmind.ingest.roster import check_name
+
+    for name in _latin_names():
+        for variant in _homoglyph_variants(name)[:3]:
+            with pytest.raises(ValueError):
+                check_name(variant, "Player name")
+    for odd in ("Dаvid Mоss", "Jonаh", "Kofi Αsante"):  # invented names, but in two scripts
+        with pytest.raises(ValueError, match="one alphabet"):
+            check_name(odd, "Player name")
+    for fine in ("Иван Петров", "Ellis Brandt", "Sami Haddad", "سامي حداد", "Ömer Çelik"):
+        assert check_name(fine, "Player name") == fine
+
+
 def test_ingest_rejects_every_banned_name_as_a_player_or_club():
     from matchmind.crew.fact_checker import BANNED_NAMES
 
