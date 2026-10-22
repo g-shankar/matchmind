@@ -1,7 +1,9 @@
 """Typed inputs and outputs of the PitchPulse MCP tools.
 
 Inputs are closed: identifiers with a fixed pattern, enums and bounded numbers.
-No tool takes free text, so nothing a caller types can reach a model prompt.
+Only `ask_studio` takes free text (a question, at most 1000 characters); it is
+read by the same guard and rule parser as POST /api/ask and never reaches a
+model unless the owner switches paid AI on (docs/ASK.md).
 
 Outputs describe the payloads of docs/API-CONTRACT.md. The tools hand back the
 very payload the REST API serves (see `matchmind.api.reads`); these models
@@ -15,6 +17,8 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from matchmind.api.session import NO_BOOKMARK_KINDS
+from matchmind.ask.intents import ChipId
+from matchmind.ask.service import AskAnswer  # noqa: F401 - a tool output as-is
 from matchmind.autoevent.score import AutoEventingStatus
 from matchmind.crew.contracts import (
     CrewStatus,
@@ -116,6 +120,23 @@ class SimulateIn(_In):
         ge=1, le=99_999, description="Seed for the simulator; the same seed gives the same match."
     )
     home: TeamCode = Field(default="NBR", description="Home club id (the other fictional club plays away).")
+
+
+class AskIn(_In):
+    question: str | None = Field(
+        default=None,
+        max_length=1000,
+        description="A question about this match, in plain words (answers over 200 characters are "
+        "refused). Never echoed back. Send this or chip.",
+    )
+    chip: ChipId | None = Field(default=None, description="A suggested question by id, instead of text.")
+    language: Language = Field(
+        default="en", description="Language of the answer (en, es, fr, ar; others get English)."
+    )
+    spoilers: bool = Field(
+        default=True,
+        description="False: catch-up mode, the answer never states the score, goals or VAR outcomes.",
+    )
 
 
 # --- Outputs ------------------------------------------------------------------------------------

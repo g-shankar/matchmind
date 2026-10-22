@@ -50,9 +50,10 @@ async def teams(hub: HubLike) -> dict[str, Any]:
     return view.teams_payload(hub.session)
 
 
-async def snapshot(hub: HubLike) -> dict[str, Any]:
-    """INITIAL_SNAPSHOT.data for the default viewer profile (GET /api/match/snapshot)."""
-    return await hub.run_crew(view.snapshot_payload, hub.session, ViewerProfile())
+async def snapshot(hub: HubLike, spoilers: bool = True) -> dict[str, Any]:
+    """INITIAL_SNAPSHOT.data for the default viewer profile (GET /api/match/snapshot);
+    `spoilers=False` is the catch-up view, without the result."""
+    return await hub.run_crew(view.snapshot_payload, hub.session, ViewerProfile(spoilers=spoilers))
 
 
 async def players(hub: HubLike) -> list[dict[str, Any]]:
@@ -166,10 +167,12 @@ async def moment_card(
     return view.card_payload(card)
 
 
-async def recap(hub: HubLike, persona: Persona = "casual", lang: Language = "en") -> dict[str, Any]:
-    """GET /api/match/recap."""
+async def recap(
+    hub: HubLike, persona: Persona = "casual", lang: Language = "en", spoilers: bool = True
+) -> dict[str, Any]:
+    """GET /api/match/recap. `spoilers=False`: the spoiler-free story so far."""
     session = hub.session
-    profile = ViewerProfile(persona=persona, language=lang)
+    profile = ViewerProfile(persona=persona, language=lang, spoilers=spoilers)
     if not is_world_language(lang):
         result = await hub.run_crew(session.recap, profile)
         return result.model_dump(mode="json")
@@ -217,6 +220,71 @@ def auto_eventing(hub: HubLike) -> dict[str, Any]:
     if result is None:
         raise HTTPException(status_code=404, detail=AUTO_EVENTING_SOON)
     return result
+
+
+# --- Ask the studio (docs/ASK.md) -------------------------------------------------------------
+
+
+def ask_context(session: MatchSession):
+    """The match as of the live position, copied so the answer can be composed (and a
+    model consulted) with no session lock held. Nothing after the clock is included."""
+    from matchmind.ask import AskContext
+
+    players = [p.model_copy() for p in session.players()]
+    tracked = any(p.physical_source == "synthetic_tracking" for p in players)
+    return AskContext(
+        match_id=session.match_id,
+        clock=session.match_clock,
+        clock_s=session.clock_s,
+        period=session.period,
+        ended=bool(session.playback().get("ended")),
+        home_id=session.home_id,
+        away_id=session.away_id,
+        teams=dict(session.teams),
+        snapshot=session.snapshot.model_copy(deep=True),
+        players=players,
+        moments=session.moments_so_far(),
+        team_totals=view.basic_stats_payload(session)["teams"],
+        physical_source="synthetic_tracking" if tracked else "event_estimate",
+    )
+
+
+def _metric_info() -> dict[str, Any]:
+    from matchmind.ask.service import MetricInfo
+    from matchmind.stats.registry import registry_payload
+
+    return {
+        m["id"]: MetricInfo(id=m["id"], name=m["name"], formula=m["formula"], quality=m["quality"])
+        for m in registry_payload()["metrics"]
+    }
+
+
+async def ask(
+    hub: HubLike,
+    question: str | None,
+    chip: str | None,
+    lang: Language = "en",
+    spoilers: bool = True,
+) -> dict[str, Any]:
+    """POST /api/ask and the `ask_studio` MCP tool: one answer as of the playback clock."""
+    from matchmind.ask import ask as ask_studio
+    from matchmind.crew.llm import ai_enabled
+
+    session = hub.session
+    ctx = await hub.run(ask_context, session)
+    llm = getattr(session.crew, "llm", None) if ai_enabled() else None
+    answer = await asyncio.to_thread(
+        lambda: ask_studio(
+            ctx,
+            question=question,
+            chip=chip,
+            language=lang,
+            spoilers=spoilers,
+            llm=llm,
+            metric_info=_metric_info(),
+        )
+    )
+    return answer.model_dump(mode="json")
 
 
 # --- A fresh synthetic match --------------------------------------------------------------------

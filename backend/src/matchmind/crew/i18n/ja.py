@@ -898,3 +898,15 @@ PACK["heart"]["attack_stopped"] = {
         ),
     ],
 }
+
+# ネタバレなしのキャッチアップ（crew/spoilers.py）：スコア、得点、VAR判定を伏せた
+# ここまでの流れ。`recap.story_facts` の事実だけを使う。
+PACK["story"] = {
+    "title": "ここまでの流れ：{home}対{away}",
+    "headline": "スコアを見ずに追いつく",
+    "p1": "{generated_at}時点：期待ゴールは{xg_home}対{xg_away}、シュートは{shots_home}本対{shots_away}本。",
+    "p2": "決定機は{n_big_chances}回、押し込む時間帯は{n_pressure_spells}回、流れの変化は{n_momentum_swings}回ありました。",
+    "on_top": "いま優勢なのは{on_top}です。",
+    "level": "いまはどちらも優勢ではありません。",
+    "watch": "パスの方が良かったシュート{n_better_options}回と、使われなかった裏抜け{n_unfound_runs}回に注目。",
+}

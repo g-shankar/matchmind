@@ -7,7 +7,7 @@ API uses (`matchmind.api.reads`). Adding a tool is one `register(...)` line:
     register(ToolSpec("get_cue_sheet", "Cue sheet", "...", CueSheetIn, CueSheetOut,
                       lambda ctx, a: reads.cue_sheet(ctx.hub, a.persona)))
 
-All tools are read-only. None of them takes free text.
+All tools are read-only. Only `ask_studio` takes free text (see docs/ASK.md).
 """
 
 from __future__ import annotations
@@ -16,6 +16,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
+from fastapi import HTTPException
 from pydantic import BaseModel
 
 from matchmind.api import reads
@@ -118,6 +119,12 @@ async def _simulate(ctx: ToolContext, a: m.SimulateIn) -> dict[str, Any]:
     return await reads.simulate(a.seed, a.home)
 
 
+async def _ask(ctx: ToolContext, a: m.AskIn) -> dict[str, Any]:
+    if (a.question is None) == (a.chip is None):
+        raise HTTPException(status_code=400, detail="Send a question or a chip.")
+    return await reads.ask(ctx.hub, a.question, a.chip, a.language, a.spoilers)
+
+
 # --- The tools ----------------------------------------------------------------------------------
 
 _SYNTHETIC = " All clubs, players and matches are fictional and synthetic."
@@ -210,6 +217,16 @@ register(ToolSpec(
     "stats engine: score, goals and the full-time state. Same seed, same match. Results are "
     "cached; new seeds are rate limited." + _SYNTHETIC,
     m.SimulateIn, m.SimulationOut, _simulate,
+))  # fmt: skip
+
+register(ToolSpec(
+    "ask_studio", "Ask the studio",
+    "Ask one question about this match in plain words (or pick a suggested chip) and get a short "
+    "answer built from stats engine numbers as of the playback clock, with its facts, evidence, "
+    "claims and source event ids. Questions that are off-topic, about real people, or try to change "
+    "the rules are refused in one sentence. Set spoilers false for catch-up mode. Same payload as "
+    "POST /api/ask." + _SYNTHETIC,
+    m.AskIn, m.AskAnswer, _ask,
 ))  # fmt: skip
 
 # Planned (not built here; each will be one register(...) line when its accessor lands):

@@ -681,6 +681,8 @@ class Crew:
             english = self.recap(snapshot, players, profile.model_copy(update={"language": "en"}), moments)
             return self.translate_recap(english, moments, profile, snapshot)
         fav_name = self.team_name(profile.favourite_team)
+        if not profile.spoilers:
+            return self._story(snapshot, profile, moments, t0)
         facts = recap_mod.recap_facts(moments, snapshot, players, profile, self.teams, self.names)
         full_time = recap_mod.is_full_time(moments)
         title, headline, paragraphs, recap_templates = recap_mod.template_texts_with_templates(
@@ -760,6 +762,64 @@ class Crew:
         # The span id leaves out persona and language: telemetry never carries viewer choices.
         span_id = f"recap-{snapshot.match_id}-{snapshot.clock_s:.0f}"
         self._span("recap", trace.steps[0].ms, status, reason or produced_by, span_id, "recap")
+        return out
+
+    def _story(
+        self, snapshot: MatchStateSnapshot, profile: ViewerProfile, moments: list[Moment], t0: float
+    ) -> Recap:
+        """The spoiler-free story so far (catch-up mode): templates only, never a model
+        call, fact-checked like any recap; key moments leave out every spoiler."""
+        from matchmind.crew.spoilers import spoiler_free_moments
+
+        facts = recap_mod.story_facts(moments, snapshot, self.teams)
+        title, headline, paragraphs, templates = recap_mod.story_texts_with_templates(facts, profile.language)
+        verdict = self._checked(
+            recap_mod.check_texts(
+                title, headline, paragraphs, facts, profile.language, roster=self.protected_names
+            )
+        )
+        kept = spoiler_free_moments(moments)
+        headline_templates: dict[str, str] = {}
+        fav_name = self.team_name(profile.favourite_team)
+
+        def headline_for(m: Moment) -> str | None:
+            try:
+                n, tpl = commentator.template_narrative_with_templates(
+                    m, profile.persona, profile.language, fav_name, profile.focus_player_id
+                )
+            except MissingFact:
+                return None
+            if not check(n.headline, m.facts, profile.language, "headline", roster=self.protected_names).ok:
+                return None
+            headline_templates[m.moment_id] = tpl["headline"]
+            return n.headline
+
+        out = recap_mod.build(
+            snapshot.match_id,
+            profile,
+            facts,
+            title,
+            headline,
+            paragraphs,
+            recap_mod.key_moments(kept, headline_for),
+            "template",
+            verdict,
+            None,
+        )
+        out.spoiler_free = True
+        out.claims = self._recap_claims(out, kept, templates, headline_templates)
+        status = "ok" if verdict.ok else "rejected"
+        with self._lock:
+            trace = CrewTrace(
+                moment_id=f"story-{snapshot.match_id}-{snapshot.clock_s:.0f}-{profile.persona}-{profile.language}",
+                match_clock=snapshot.match_clock,
+                steps=[
+                    AgentStep(
+                        agent="recap", ms=(time.perf_counter() - t0) * 1000, status=status, detail="story"
+                    )
+                ],
+            )
+            self._store_trace(trace)
         return out
 
     def _recap_claims(

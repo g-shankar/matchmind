@@ -949,3 +949,17 @@ PACK["heart"]["attack_stopped"] = {
         ),
     ],
 }
+
+# Rattrapage sans spoiler (crew/spoilers.py) : l'histoire du match sans le score,
+# les buts ni les décisions de la VAR. Seulement les faits de `recap.story_facts`.
+PACK["story"] = {
+    "title": "Le match jusqu'ici : {home} - {away}",
+    "headline": "Rattrapez le match sans le score",
+    "p1": "À {generated_at} : xG {xg_home} à {xg_away}, pour {shots_home} et {shots_away} tirs.",
+    "p2": "Nous avons relevé {n_big_chances|grosse occasion|grosses occasions}, "
+    "{n_pressure_spells|temps fort|temps forts} et {n_momentum_swings|bascule|bascules}.",
+    "on_top": "{on_top} domine en ce moment.",
+    "level": "Aucune équipe ne domine en ce moment.",
+    "watch": "À revoir : {n_better_options|tir où la passe était meilleure|tirs où la passe était meilleure} "
+    "et {n_unfound_runs|appel non servi|appels non servis}.",
+}

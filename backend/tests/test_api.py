@@ -188,6 +188,7 @@ def test_snapshot_shape_matches_contract(client, clock):
         "favourite_team": None,
         "focus_player_id": None,
         "focus_metric": None,
+        "spoilers": True,
     }
     assert data["clock"] == "00:00" and data["home_score"] == 0
     assert data["teams"]["home"]["name"] == "Northbridge FC"
