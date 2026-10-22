@@ -1,0 +1,37 @@
+PitchPulse demo film: brief and decision log
+============================================
+
+Brief (filled from the project goal)
+- Type: product demo for the "Inside the Game" hackathon judges.
+- Product / topic: PitchPulse, powered by the Matchmind engine.
+- Viewer and last second: judges; they should open the repo (end card shows the repo URL).
+- Length and format: under 2 minutes (target 105-110 s), 16:9 1920x1080.
+- Frame rate: 30 fps drafts, 60 fps final if render time allows (rule default is 60 for UI demos).
+- Brand: taken from the app (dark pitch green, team colours from teams.py). Font: Inter (OFL), shipped locally.
+- Facts source: the engine and its open dataset (film/facts.json, built by film/scripts/facts.py).
+- Reference video: none, so no breakdown.
+- Music: synthesized in code (film/scripts/music.py). No samples, no copyrighted music.
+- Sound: music + sfx + voice.
+- Renderer: HyperFrames 0.8.181.
+- Run mode: run to the end; choices logged below.
+
+Decision log
+- 2026-10-21 Voice: no TTS key in the build environment and the hosted free voices are blocked by the network.
+  Chosen: Kokoro v1.0 (Apache-2.0), run locally, British voice bm_george; Spanish line ef_dora.
+  Arabic has no Kokoro voice, so Arabic appears on screen only.
+- 2026-10-21 Storyboard: written in the main session instead of three subagent directions, because the
+  story is fixed by the judging criteria (pipeline, crew, "should he have passed", personalisation, Azure).
+  Direction chosen: "broadcast gallery": a live match feed that the crew annotates, cut on 2-second bars.
+- 2026-10-21 Numbers: "should he have passed" values come from matchmind.stats.metrics applied to the
+  shot's freeze frame (facts.py). When the engine's own better-option module lands, facts.py switches to it.
+- 2026-10-21 Crew lines (Analyst, Fan, Spanish, Arabic, fact-checker example) are drafts until the crew API
+  exists. They are marked "draft": true in facts.json and the final check refuses a render that shows a draft.
+- 2026-10-21 Frame 0 is the finished title card (thumbnail), product name on screen from frame 0.
+- 2026-10-21 Pitch scenes are rebuilt in SVG from freeze-frame coordinates, never screenshots.
+- 2026-10-21 Azure scene says "Built for Azure" (not "on"): nothing is deployed yet and Azure OpenAI is
+  off by default (paid). Wording from the Azure deployment thread (PR #2). If the app is deployed and AI
+  spend approved before the final render, switch copy.azure back to "Built on Azure" in facts.py and vo.json.
+- 2026-10-21 Restyled to the app's new look (frontend PR #5): Barlow / Barlow Condensed italic caps,
+  Cairo and IBM Plex Sans Arabic, chalk-on-black with pulse red and floodlight yellow, 2 px corners,
+  slanted chalk section tabs, red heartbeat logo, turf-green pitch. Gowri asked for no default look.
+- 2026-10-21 Final at 60 fps, high quality.
