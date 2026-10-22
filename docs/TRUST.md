@@ -121,9 +121,9 @@ ones.
 **Result (template mode, 22 Oct 2026):** a test sweeps every moment of the 5
 bundled matches x 4 personas x 5 studio languages
 (`tests/test_trust.py::test_parity_holds_for_every_moment_persona_and_studio_language`).
-358 of 358 moments pass parity; 7,160 of 7,160 renderings were shown (0
-withheld). Their 27,119 sentence claims: 19,754 `verified_numeric`, 4,921
-`verified_name`, 2,444 `unverified_text` (sentences with no number or name,
+334 of 334 moments pass parity; 6,680 of 6,680 renderings were shown (0
+withheld). Their 25,713 sentence claims: 17,889 `verified_numeric`, 5,742
+`verified_name`, 2,082 `unverified_text` (sentences with no number or name,
 such as "Something may have to give."), and 0 failed checks. Tests also show
 parity failing when a language drops a key fact, loses the anchor, or prints a
 number outside the facts.

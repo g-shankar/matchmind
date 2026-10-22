@@ -1,9 +1,10 @@
 # Evaluating the studio crew
 
-How we check the five-agent crew (Spotter, Analyst, Commentator, Fact-checker,
-Producer) before and after any change, and the numbers we got.
+How we check the studio crew (five agents: Spotter, Analyst, Commentator,
+Fact-checker, Producer; plus the recap step) before and after any change, and
+the numbers we got. Measured on 22 Oct 2026, template mode.
 
-What the crew guarantees is **numeric-claim validation with deterministic
+What the crew checks is **numeric-claim validation with deterministic
 fallback**: every number and squad name in shown text must match a fact from
 the stats engine, and text that fails is replaced by a fact-checked template.
 It does not verify tone, causal wording or negation; see
@@ -32,10 +33,10 @@ recap for the same 20 audiences.
 | | Count |
 |---|---|
 | Matches | 5 |
-| Moments spotted | 358 |
-| Card records (moments x 20 audiences) | 7,160 |
+| Moments spotted | 334 (13 of the 14 moment kinds; no distance milestone occurs in these five matches) |
+| Card records (moments x 20 audiences) | 6,680 |
 | Recap records (5 matches x 20 audiences) | 100 |
-| **Total records** | **7,260** (about 12 MB, git-ignored, rebuilt in about 8 s) |
+| **Total records** | **6,780** (about 12 MB, git-ignored, rebuilt in seconds) |
 | Cards the crew withheld (no template fits, or the fact-checker refused it) | 0 |
 
 The run is deterministic: two runs write byte-identical files (tested).
@@ -67,44 +68,46 @@ fixed persona x language grid, and all names are from our fictional squads.
 
 ## Scorecard (template mode, 22 Oct 2026, with the trust-layer checks)
 
+Reproduce: `cd backend && matchmind-foundry eval-dataset && matchmind-foundry eval`.
+
 ```
-PitchPulse crew evaluation: 7260 records from 5 matches (produced_by: template=7260)
+PitchPulse crew evaluation: 6780 records from 5 matches (produced_by: template=6780)
 
 evaluator                            all      card     recap    casual  tactical   fantasy player_sp        en        es        fr        ar        ja
 groundedness_numbers              100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%
-groundedness_numbers_strict        98.2%     98.2%    100.0%     94.8%     98.5%     99.9%     99.6%     99.6%    100.0%     93.2%     99.1%     99.0%
+groundedness_numbers_strict        97.7%     97.6%    100.0%     94.5%     97.2%     99.4%     99.6%     97.3%    100.0%     92.8%     99.0%     99.2%
 length                            100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%
-persona_vocab                      99.2%     99.2%    100.0%    100.0%     96.7%    100.0%    100.0%     99.2%     99.2%     99.2%     99.2%     99.2%
+persona_vocab                      99.1%     99.1%    100.0%    100.0%     96.5%    100.0%    100.0%     99.1%     99.1%     99.1%     99.1%     99.1%
 language                          100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%    100.0%
 ```
 
 | Evaluator | Passed / total |
 |---|---|
-| groundedness_numbers | 7,260 / 7,260 |
-| groundedness_numbers_strict | 7,129 / 7,260 |
-| length | 7,260 / 7,260 |
-| persona_vocab | 7,200 / 7,260 |
-| language | 7,260 / 7,260 |
+| groundedness_numbers | 6,780 / 6,780 |
+| groundedness_numbers_strict | 6,622 / 6,780 |
+| length | 6,780 / 6,780 |
+| persona_vocab | 6,720 / 6,780 |
+| language | 6,780 / 6,780 |
 
 ### What the numbers say
 
-- **Groundedness 100% (7,260 of 7,260)** is partly by construction: the crew
+- **Groundedness: 6,780 of 6,780** is partly by construction: the crew
   refuses to show any card that fails the fact-checker. The useful signal is
-  that it had to withhold **0 of 7,160** cards, so every template fits its
+  that it had to withhold **0 of 6,680** cards, so every template fits its
   facts, including the unit, attribution and comparison checks added with the
   trust layer.
-- **Strict groundedness 98.2% (7,129 of 7,260)**: 131 template texts use ordinal or idiom words
-  the strict rule flags: French "passe la cinquième" (fifth gear, 93),
-  Japanese 一 in set phrases (一撃 "one blow", 一つひとつ "each one", 14),
-  Arabic "الشوط الأول" (first half, 8), the kick-off line "from the first
-  whistle" in English, French and Arabic (15) and "the attacking third" (1).
-  Templates are exempt from the strict
-  rule by design (the words are not counts); a model that wrote the same words
-  would be rejected and the template shown instead.
-- **Persona 99.2% (7,200 of 7,260)**: the 60 misses are one real gap: the tactical **card**
+- **Strict groundedness: 6,622 of 6,780 (97.7%)**: 158 template texts use ordinal
+  or idiom words the strict rule flags: French "passe la cinquième" (fifth gear,
+  92), English "the defensive third" and "this one came" on key-tackle cards
+  (32), Japanese 一 in set phrases (一撃 "one blow", 11), Arabic "الشوط الأول"
+  (first half, 8) and the kick-off line "from the first whistle" in English,
+  French and Arabic (15). Templates are exempt from the strict rule by design
+  (the words are not counts); a model that wrote the same words would be
+  rejected and the template shown instead.
+- **Persona: 6,720 of 6,780 (99.1%)**: the 60 misses are one real gap: the tactical **card**
   (booking) template has no numbers although the facts carry the player's xA
   and sprints (12 bookings x 5 languages). Logged for the template owners.
-- **Language 100% (7,260 of 7,260)**: no English fallback leaked into any
+- **Language: 6,780 of 6,780**: no English fallback leaked into any
   studio-language text. The
   detector is a small, transparent heuristic tuned on football vocabulary;
   tests show it catches English inside a Spanish or Japanese card and Spanish
@@ -114,9 +117,9 @@ language                          100.0%    100.0%    100.0%    100.0%    100.0%
 
 | Measure | Result |
 |---|---|
-| Moments where all 20 renderings agree on the key facts (`fact_parity`) | 358 of 358 |
-| Renderings shown | 7,160 of 7,160 |
-| Sentence claims | 27,119: 19,754 `verified_numeric`, 4,921 `verified_name`, 2,444 `unverified_text` (no number or name to check), 0 failed |
+| Moments where all 20 renderings agree on the key facts (`fact_parity`) | 334 of 334 |
+| Renderings shown | 6,680 of 6,680 |
+| Sentence claims | 25,713: 17,889 `verified_numeric`, 5,742 `verified_name`, 2,082 `unverified_text` (no number or name to check), 0 failed |
 
 ### Limits and what can still be wrong
 
@@ -134,7 +137,7 @@ language                          100.0%    100.0%    100.0%    100.0%    100.0%
 
 Microsoft Foundry's built-in Groundedness and Relevance evaluators read the
 same JSONL. They call a judge model for **every row**, so start with a sample
-(for example `head -n 200`), not all 7,260 rows. Prerequisites: the Foundry
+(for example `head -n 200`), not all 6,780 rows. Prerequisites: the Foundry
 resource and project deployed (`docs/FOUNDRY.md`), the
 `azure-ai-evaluation` package (MIT) installed locally, and the person running
 it signed in with `az login` with access to the project (the template does

@@ -263,7 +263,7 @@ def public_event(ev: dict, metrics: dict) -> dict[str, Any]:
 
 
 def analyse_shot(ev: dict, ctx: Ctx, shot: dict) -> dict[str, Any] | None:
-    """The shot taken versus the best pass that was on (NEXT-STEPS 2.1)."""
+    """The shot taken versus the best pass that was on (docs/METRICS.md)."""
     team = ev["team"]
     ff = ev.get("freeze_frame") or []
     s = shot["pos"]
@@ -322,7 +322,7 @@ def analyse_shot(ev: dict, ctx: Ctx, shot: dict) -> dict[str, Any] | None:
 
 
 def analyse_run(ev: dict, ctx: Ctx) -> dict[str, Any] | None:
-    """A run in behind where the through ball was on but never came (NEXT-STEPS 2.1)."""
+    """A run in behind where the through ball was on but never came (docs/METRICS.md)."""
     frames = ev.get("tracking") or []
     if ev.get("outcome") != "not_found" or len(frames) < 2:
         return None

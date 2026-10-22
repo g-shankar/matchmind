@@ -123,7 +123,7 @@ curl -s http://localhost:8000/mcp \
        "params":{"name":"list_moments","arguments":{"kind":"goal","played_only":true}}}'
 ```
 
-From Python with the official SDK:
+From Python with the MCP Python SDK (`mcp` package):
 
 ```python
 import anyio
@@ -176,10 +176,15 @@ spend on paid AI. Logs go to stderr.
   the app's own limiter, separate from the REST buckets) answers 429 with
   `Retry-After`. Bodies over 16 KB get 413. JSON-RPC batches get 400 (one request
   per POST, so the rate limit counts every call). Only `POST` is served. String
-  inputs are enums or fixed patterns with length caps; list sizes are capped.
-- **No free text to a model.** No tool argument is free text, so prompt
-  injection through a tool call has nowhere to go. Crew text is still
-  fact-checked against the moment's facts as everywhere else.
+  inputs are enums or fixed patterns with length caps (except `ask_studio`'s
+  `question`, below); list sizes are capped.
+- **Free text is treated as hostile.** The only free-text argument is
+  `ask_studio`'s `question`. It goes through the Ask guard (injection, markup,
+  real names, length) and the rule parser; a model sees it only when the owner
+  has switched paid AI on, and then may return only a fixed-schema intent, never
+  text a viewer sees ([ASK.md](ASK.md)). Every other string input is an enum or
+  a fixed pattern. Crew text is fact-checked against the moment's facts as
+  everywhere else.
 - **Errors** are one plain sentence; a crash returns "Something went wrong on
   our side. Please try again." and the details stay in the server log.
 - Responses carry `Cache-Control: no-store`.

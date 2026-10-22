@@ -81,7 +81,7 @@ Things only the owners can do. Everything else the team handles.
     (free for 60 days, paid after), then follow `analytics/fabric/README.md`
     to load the Lakehouse export and the Eventhouse queries. Nothing there is
     connected yet; decide who pays after the trial before keeping it.
-11. **Live Event Hubs source (optional)**: by default the app replays the
+12. **Live Event Hubs source (optional)**: by default the app replays the
     bundled match file. To make it play the live stream the simulator job
     publishes, set the repo variable `MATCHMIND_EVENTHUBS_SOURCE=true` and
     redeploy (this grants the app identity Azure Event Hubs Data Receiver on
