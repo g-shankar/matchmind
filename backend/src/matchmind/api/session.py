@@ -296,7 +296,9 @@ class MatchSession:
         self._bookmark_crew: CrewLike = (engines.bookmark_crew or engines.crew)(self.teams)
         self._bundles: dict[str, MomentBundle] = {}
         self._bundle_index: list[tuple[int, MomentBundle]] = []
+        self._moment_at: dict[str, int] = {}  # moment id -> index of the event that made it
         self._checkpoints: list[tuple[int, StatsEngineLike]] = []
+        self._event_metrics: list[EventMetrics] = []  # per event, from the load-time pass
         self.bookmarks: list[Bookmark] = []
         self._precompute()
 
@@ -331,9 +333,11 @@ class MatchSession:
             if i % CHECKPOINT_EVERY == 0:
                 self._checkpoints.append((i, copy.deepcopy(stats)))  # stats after events[:i]
             metrics = stats.process(event)
+            self._event_metrics.append(metrics)
             for bundle in self._bookmark_crew.process(event, metrics, stats.snapshot(), stats.players()):
                 m = bundle.moment
                 self._bundles[m.moment_id] = bundle
+                self._moment_at[m.moment_id] = i
                 self._bundle_index.append((i, bundle))
                 if str(m.kind) in NO_BOOKMARK_KINDS:
                     continue
@@ -405,6 +409,18 @@ class MatchSession:
 
     def bundle(self, moment_id: str) -> MomentBundle | None:
         return self._bundles.get(moment_id)
+
+    def is_played(self, moment_id: str) -> bool:
+        """Whether the moment's event has been played at the current position."""
+        at = self._moment_at.get(moment_id)
+        return at is not None and at < self._live.next_index
+
+    def recent_events(self, limit: int) -> list[tuple[Event, EventMetrics]]:
+        """The last `limit` events played, oldest first, with their metrics. Metrics come from
+        the load-time pass: the same events in the same order give the same numbers live."""
+        done = self._live.next_index
+        start = max(0, done - max(0, limit))
+        return [(self.events[i], self._event_metrics[i]) for i in range(start, done)]
 
     def is_known_team(self, team_id: str) -> bool:
         return team_id in self.teams
@@ -582,6 +598,19 @@ class MatchSession:
             # Land on the requested clock so the wait for the next event is right.
             self._position = max(self._position, clock_s + (self._tl[target] - self.events[target].clock_s))
             self._position = min(self._position, self._tl[target])
+        self._last_wall = self._clock()
+
+    def play_to_end(self) -> None:
+        """Jump to full time (stats only, no cards on the way), e.g. for a tool that reads a
+        finished match. Moments come from the load-time pass, as after a seek."""
+        self.crew.reset()
+        self.crew.restore([b for _, b in self._bundle_index])
+        self._recaps.clear()
+        self._live = self._fresh_live()
+        for i in range(len(self.events)):
+            self._play(i, with_crew=False)
+        self._live.recent.extend(b for _, b in self._bundle_index)
+        self._position = self._tl[-1]
         self._last_wall = self._clock()
 
     def playback(self) -> dict[str, Any]:

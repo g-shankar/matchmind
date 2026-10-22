@@ -295,6 +295,17 @@ from one client IP, or more than about 3 `GET /api/match/moment` and
 message if something breaks on our side).
 API responses carry `Cache-Control: no-store`.
 
+## MCP
+
+`POST /mcp` serves the same reads as typed, read-only Model Context Protocol
+tools (Streamable HTTP, stateless, JSON responses), on the same live session.
+Each tool returns exactly the REST payload above (or the engine's, for tools
+with no REST route); a parity test holds them byte-identical. The endpoint has
+its own per-IP bucket (about 3 POSTs a second, bursts of 30), 16 KB bodies, one
+JSON-RPC request per POST, and checks `Origin` against the allow-list and `Host`
+against DNS rebinding. Tools, inputs, outputs and how to attach a client:
+[MCP.md](MCP.md). The stdio form is `matchmind-mcp`.
+
 ## Server settings
 
 | env | default | meaning |
@@ -310,6 +321,8 @@ API responses carry `Cache-Control: no-store`.
 | `MATCHMIND_TRANSLATOR_CHAR_BUDGET` | `200000` | most characters sent to Translator per process; then English with `fallback_reason: 'translator_budget'` |
 | `MATCHMIND_TRANSLATOR_CHARS_PER_MIN` | `20000` | most characters sent to Translator in any 60 s |
 | `MATCHMIND_PUBLIC_ORIGIN` | (none) | this server's own public origin (e.g. `https://pitchpulse.example`), allowed for the WebSocket only when the built frontend is served from `MATCHMIND_STATIC_DIR` |
+| `MATCHMIND_MCP_ENABLED` | `true` | `false`, `0`, `no` or `off`: no `/mcp` endpoint (REST and WebSocket unchanged) |
+| `MATCHMIND_MCP_ALLOWED_HOSTS` | (none) | extra comma-separated `Host` values `/mcp` answers (beyond localhost and the hosts of the allowed and public origins); `*` is ignored |
 | `MATCHMIND_MAX_CONNECTIONS` | `200` | most open WebSockets |
 | `MATCHMIND_MAX_CONN_PER_IP` | `20` | most open WebSockets from one client IP |
 | `MATCHMIND_HOST`, `PORT` / `MATCHMIND_PORT` | `127.0.0.1`, `8000` | `matchmind-api` / `python -m matchmind.api`; ASGI app `matchmind.api.app:app` |
