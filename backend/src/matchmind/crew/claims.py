@@ -42,7 +42,7 @@ from matchmind.crew.fact_checker import (
     sanity_problems,
     string_fact_spans,
 )
-from matchmind.crew.i18n import placeholder_keys
+from matchmind.crew.i18n import pack, placeholder_keys
 from matchmind.crew.wording import template_key as key_of
 
 MAX_CLAIMS = 40
@@ -141,8 +141,11 @@ def sentence_claim(
     source_event_ids: Sequence[str] = (),
     key_sources: Mapping[str, Sequence[str]] | None = None,
     roster: Mapping[str, str] | None = None,
+    favourite: tuple[str, str] | None = None,
 ) -> Claim:
-    """One sentence, its bindings and what was verified about it."""
+    """One sentence, its bindings and what was verified about it. `favourite` is
+    (the language's "your team" phrase, the viewer's club name): a framed template
+    that writes "your team" states that club."""
     template_keys = template_fact_keys(template, facts) if template is not None else []
     bindings: list[ClaimBinding] = []
     names: list[str] = []
@@ -160,6 +163,23 @@ def sentence_claim(
         )
         if entity:
             names.append(span.text)
+    if favourite and favourite[0]:
+        phrase, club = favourite
+        at = sentence.casefold().find(phrase.casefold())
+        keys = [k for k, v in facts.items() if v == club]
+        if at != -1 and keys:
+            chosen = [k for k in keys if k in template_keys] or keys
+            printed = sentence[at : at + len(phrase)]
+            bindings.append(
+                ClaimBinding(
+                    text=printed,
+                    kind="name",
+                    fact_key=chosen[0],
+                    value=club,
+                    entity_id=_entity(club, roster),
+                )
+            )
+            names.append(printed)
     unbound: list[str] = []
     numbers: list[str] = []
     for n in number_spans(sentence, language, facts):
@@ -226,6 +246,7 @@ def text_claims(
     source_event_ids: Sequence[str] = (),
     key_sources: Mapping[str, Sequence[str]] | None = None,
     roster: Mapping[str, str] | None = None,
+    favourite: tuple[str, str] | None = None,
 ) -> list[Claim]:
     """Claims for every sentence of one field. With the template, each sentence
     takes the placeholders of the matching template sentence (or, when the
@@ -245,6 +266,7 @@ def text_claims(
             source_event_ids=source_event_ids,
             key_sources=key_sources,
             roster=roster,
+            favourite=favourite,
         )
         for s, t in zip(sentences, templates, strict=True)
     ]
@@ -259,8 +281,11 @@ def card_claims(
     *,
     templates: Mapping[str, str | None] | None = None,
     roster: Mapping[str, str] | None = None,
+    favourite_name: str | None = None,
 ) -> list[Claim]:
-    """Claims for a card's headline, body and why, all tied to the moment's events."""
+    """Claims for a card's headline, body and why, all tied to the moment's events.
+    With the viewer's club, "your team" in the card's language counts as that club."""
+    favourite = (pack(language)["your_team"], favourite_name) if favourite_name else None
     templates = templates or {}
     out: list[Claim] = []
     for field, text in (("headline", headline), ("body", body), ("why", why)):
@@ -273,6 +298,7 @@ def card_claims(
                 template=templates.get(field),
                 source_event_ids=moment.source_event_ids,
                 roster=roster,
+                favourite=favourite,
             )
     return out[:MAX_CLAIMS]
 

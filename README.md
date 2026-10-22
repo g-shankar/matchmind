@@ -48,7 +48,9 @@ subscription; **Planned** means not built.
 | | Eight world languages (Portuguese, German, Hindi, Chinese, Kiswahili, Indonesian, Turkish, Korean), numbers and names protected, fact-checked again after translation | Azure AI Translator (keyless) | Built, off until deployed (shown in English and labelled) |
 | Personalised experiences for studios, platforms and fans | Broadcast overlay, studio board, fan vs analyst split, player focus, "My match" | Azure Container Apps | Running locally |
 | Trustworthy AI | Agent traces with GenAI semantic conventions, no text or viewer data | Application Insights, Foundry tracing | Built, off until deployed |
-| | Agent cards for all five agents, generated from the code | Microsoft Foundry | Running (`foundry/agents/`); not registered in Foundry Agent Service |
+| | Agent cards for all five agents, generated from the code | Microsoft Foundry | Running (`foundry/agents/`) |
+| | Analyst, Commentator and recap steps as Foundry agents, registered idempotently from the cards (`matchmind-foundry register`) | Microsoft Foundry Agent Service | Built, off until deployed (`MATCHMIND_LLM_PROVIDER=foundry_agents`) |
+| | The crew's chains as typed workflows, identical cards to the in-process crew | Microsoft Agent Framework | Built, off by default (`MATCHMIND_ORCHESTRATOR=agent_framework`) |
 | Engineering | CI with tests, secret scanning, licence check, Bicep lint, container smoke test; CodeQL; Dependabot | GitHub Actions, GitHub code scanning | Running |
 | | One-click deploy with what-if, OIDC sign-in, no stored secrets | GitHub Actions, Azure Bicep, Microsoft Entra ID | Built, needs the owner's subscription |
 
@@ -143,7 +145,7 @@ default; each paid service has its own switch. See
 | `backend/src/matchmind/crew` | The five agents, fact-checker, language packs, Azure OpenAI and Translator clients, tracing |
 | `backend/src/matchmind/api` | FastAPI REST and WebSocket session |
 | `backend/src/matchmind/analytics` | Lakehouse export and decision dataset |
-| `backend/src/matchmind/foundry` | Agent cards and evaluation |
+| `backend/src/matchmind/foundry` | Agent cards, evaluation, Foundry Agent Service runtime and registration |
 | `backend/src/matchmind/autoevent` | Events detected from synthetic tracking, scored against the truth |
 | `frontend/` | React broadcast, studio and fan app |
 | `analytics/fabric/` | Lakehouse notebook and Eventhouse KQL |

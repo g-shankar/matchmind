@@ -18,6 +18,33 @@ PACKS: dict[str, dict[str, Any]] = {"en": en.PACK, "es": es.PACK, "fr": fr.PACK,
 _PLACEHOLDER = re.compile(r"\{([a-z0-9_]+)(?:\|([^|{}]*)\|([^{}]*))?\}")
 
 
+# The curated football glossary every studio pack defines (`PACK["glossary"]`):
+# term key -> (register, what it means). Templates print a term as `{g_<key>}`.
+# The terms were written by the PitchPulse team; see docs/LANGUAGES.md.
+GLOSSARY_TERMS: dict[str, tuple[str, str]] = {
+    "box": ("neutral", "the penalty area, in everyday broadcast words"),
+    "keeper": ("neutral", "the goalkeeper"),
+    "back_line": ("neutral", "the defensive line"),
+    "equaliser": ("neutral", "the goal that levels the match"),
+    "comeback": ("emotive", "fighting back from behind"),
+    "let_off": ("emotive", "a rival chance the fan's team survived"),
+    "rocket": ("emotive", "a thunderous, very fast shot"),
+}
+
+
+def glossary_markdown() -> str:
+    """The glossary table for docs/LANGUAGES.md (a test keeps them in step)."""
+    langs = list(PACKS)
+    lines = [
+        "| Term | Register | Meaning | " + " | ".join(langs) + " |",
+        "|---|---|---|" + "---|" * len(langs),
+    ]
+    for key, (register, meaning) in GLOSSARY_TERMS.items():
+        terms = " | ".join(PACKS[lang]["glossary"][key] for lang in langs)
+        lines.append(f"| `{key}` | {register} | {meaning} | {terms} |")
+    return "\n".join(lines)
+
+
 class MissingFact(KeyError):
     """A template needs a variable the moment does not have."""
 

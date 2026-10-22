@@ -114,7 +114,7 @@ PACK = {
             "fantasy": [
                 (
                     "{player_short}に{card_name}",
-                    "ポイントは減点。{player_short}の今日の成績：{p_goals}ゴール、{p_assists}アシスト、{p_xg} xG。",
+                    "{player_short}の今日の成績：{p_goals}ゴール、{p_assists}アシスト、{p_xg} xG。",
                 )
             ],
             "player_spotlight": [
@@ -419,7 +419,7 @@ PACK = {
             "fantasy": [
                 (
                     "試合終了：{home} {score_home}-{score_away} {away}",
-                    "最終xG：{home} {xg_home}、{away} {xg_away}。ポイントを確認しましょう。",
+                    "最終xG：{home} {xg_home}、{away} {xg_away}。シュート数は{shots_home}対{shots_away}。",
                 )
             ],
         },
@@ -532,3 +532,285 @@ PACK = {
         "最高速度は時速{focus_top_speed_kmh}km。",
     },
 }
+
+# テンプレートが `{g_<用語>}` として使うサッカー用語（docs/LANGUAGES.md）。
+PACK["glossary"] = {
+    "box": "ペナルティエリア",
+    "keeper": "キーパー",
+    "back_line": "最終ライン",
+    "equaliser": "同点ゴール",
+    "comeback": "反撃",
+    "let_off": "命拾い",
+    "rocket": "弾丸シュート",
+}
+
+_SCORE = "{home} {score_home}-{score_away} {away}"
+
+# クラブ目線（crew/club_heart.py）：同じ事実を、応援する側から伝える。
+PACK["heart"] = {
+    "goal_for": {
+        "casual": [
+            (
+                "応援チームにゴール！{player_short}",
+                "{player}が{distance_m}mから{g_keeper}を破りました。" + _SCORE + "。",
+            ),
+        ],
+        "tactical": [
+            (
+                "{player_short}、{xg} xGを決める",
+                "{zone}の{distance_m}mから。{match_clock}時点で" + _SCORE + "。",
+            ),
+        ],
+        "fantasy": [
+            (
+                "{player_short}のゴールで応援チーム得点",
+                "{player_short}の今日の成績：{p_goals}ゴール、シュート{p_shots}本で{p_xg} xG。このチャンスは{xg} xG。",
+            ),
+        ],
+    },
+    "goal_for_level": {
+        "casual": [
+            (
+                "同点！{player_short}が応援チームを救う",
+                "{player}が{match_clock}に{g_equaliser}。" + _SCORE + "、{g_comeback}開始です。",
+            ),
+        ],
+        "tactical": [
+            (
+                "{player_short}が{xg} xGで同点弾",
+                "{zone}の{distance_m}mから。{match_clock}時点で" + _SCORE + "。",
+            ),
+        ],
+    },
+    "goal_for_pull_back": {
+        "casual": [
+            (
+                "{player_short}が点差を縮める！",
+                "{match_clock}時点で" + _SCORE + "。応援チームはまだ戦える、{g_comeback}はここから。",
+            ),
+        ],
+        "tactical": [
+            (
+                "点差を縮める：{player_short}、{xg} xG",
+                "{zone}の{distance_m}mから。{match_clock}時点で" + _SCORE + "。",
+            ),
+        ],
+    },
+    "goal_for_lead": {
+        "casual": [
+            (
+                "ゴール！{player_short}で応援チームが勝ち越し",
+                "{player}が{match_clock}にゴール。" + _SCORE + "。",
+            ),
+        ],
+        "tactical": [
+            (
+                "勝ち越し：{player_short}、{xg} xG",
+                "{match_clock}、{zone}の{distance_m}mから。" + _SCORE + "。",
+            ),
+        ],
+    },
+    "goal_against": {
+        "casual": [
+            (
+                "{player_short}のゴールで応援チームが失点",
+                "{match_clock}時点で" + _SCORE + "。まだ反撃の時間があります。",
+            ),
+        ],
+        "tactical": [
+            (
+                "失点：{player_short}、{xg} xG",
+                "{zone}の{distance_m}mから。{match_clock}時点で" + _SCORE + "、まだ時間はあります。",
+            ),
+        ],
+        "fantasy": [
+            (
+                "{player_short}のゴールで応援チームが失点",
+                "{player_short}の今日の成績：{p_goals}ゴール、シュート{p_shots}本で{p_xg} xG。このチャンスは{xg} xG。",
+            ),
+        ],
+    },
+    "goal_against_level": {
+        "casual": [
+            (
+                "追いつかれる：{player_short}が同点弾",
+                "{match_clock}時点で" + _SCORE + "。応援チームは気持ちを切り替えたいところ。",
+            ),
+        ],
+        "tactical": [
+            (
+                "相手の{g_equaliser}：{player_short}、{xg} xG",
+                "{zone}の{distance_m}mから。{match_clock}時点で" + _SCORE + "。",
+            ),
+        ],
+    },
+    "goal_against_lead_cut": {
+        "casual": [
+            (
+                "{player_short}のゴールでリードが縮まる",
+                "{match_clock}時点で" + _SCORE + "。応援チームはまだリード、落ち着いて。",
+            ),
+        ],
+        "tactical": [
+            (
+                "リード縮小：{player_short}、{xg} xG",
+                "{zone}の{distance_m}mから。{match_clock}時点でまだリード：" + _SCORE + "。",
+            ),
+        ],
+    },
+    "goal_against_late": {
+        "casual": [
+            (
+                "痛恨の失点：{player_short}",
+                "{match_clock}時点で" + _SCORE + "。この時間帯の失点は応援チームにとって痛い。",
+            ),
+        ],
+        "tactical": [
+            (
+                "終盤の失点：{player_short}、{xg} xG",
+                "{match_clock}、{zone}の{distance_m}mから。" + _SCORE + "。",
+            ),
+        ],
+    },
+    "card_own": {
+        "casual": [
+            (
+                "{player_short}に{card_name}",
+                "{match_clock}、{player}に{card_name}。応援チームは冷静さが必要です。",
+            ),
+        ],
+    },
+    "card_rival": {
+        "casual": [
+            (
+                "{player_short}に{card_name}",
+                "{match_clock}、{player}に{card_name}。応援チームにとってはチャンスです。",
+            ),
+        ],
+    },
+    "let_off": {
+        "casual": [
+            (
+                "応援チーム、{g_let_off}！",
+                "{team}の{player}がゴールまで{distance_m}mで決定機も、結果は{outcome_phrase}。"
+                "こうしたチャンスが決まる確率は約{xg_pct}%です。",
+            ),
+        ],
+        "tactical": [
+            (
+                "危険：{team}に{xg} xGのチャンス",
+                "{player_short}が{zone}の{distance_m}mからシュートも、{outcome_phrase}。応援チームの{g_back_line}が破られました。",
+            ),
+        ],
+    },
+    "let_off_shot": {
+        "casual": [
+            (
+                "{g_let_off}：{player_short}の{g_rocket}",
+                "{player}が{distance_m}mから時速{shot_speed_kmh}kmのシュート、結果は{outcome_phrase}。応援チームは助かりました。",
+            ),
+        ],
+    },
+    "let_off_choice": {
+        "casual": [
+            (
+                "{g_let_off}：{player_short}はシュートを選択",
+                "{teammate_short}がフリーで、パスの価値はシュートの{times_better}倍でした。応援チームは助かりました。",
+            ),
+        ],
+        "tactical": [
+            (
+                "{g_let_off}：{player_short}が{teammate_short}を使わず",
+                "シュートは{shot_xg} xG、{pass_distance_m}mのパスは成功率{pass_success_pct}%でした。応援チームは助かりました。",
+            ),
+        ],
+    },
+    "let_off_run": {
+        "casual": [
+            (
+                "{g_let_off}：{runner_short}の動き出しは見逃された",
+                "{runner}が応援チームの{g_back_line}の裏を取りましたが、{player_short}はパスを出しませんでした。"
+                "決定率{projected_xg_pct}%のチャンスになり得ました。",
+            ),
+        ],
+        "tactical": [
+            (
+                "{g_let_off}：{runner_short}が{clear_of_line_m}m抜け出す",
+                "{pass_on_clock}、{runner_short}は応援チームの{g_back_line}を越えていました。"
+                "パスが出ていれば{projected_xg} xGのチャンスでした。",
+            ),
+        ],
+    },
+    "lesson_choice": {
+        "casual": [
+            (
+                "次は{teammate_short}を見つけよう",
+                "{player_short}はシュートを選びましたが、{teammate_short}へのパスは{times_better}倍の価値がありました。"
+                "応援チームの次への課題です。",
+            ),
+        ],
+        "tactical": [
+            (
+                "課題：{teammate_short}へのパス",
+                "シュートは{shot_xg} xG、{pass_distance_m}mのパスは成功率{pass_success_pct}%で、その先に{alt_xg} xG。"
+                "より良い選択肢がありました。",
+            ),
+        ],
+    },
+    "lesson_run": {
+        "casual": [
+            (
+                "{runner_short}の動き出しはパスに値した",
+                "{runner}は{g_back_line}を{clear_of_line_m}m抜けていました。次は{player_short}が見つけられるはずです。",
+            ),
+        ],
+        "tactical": [
+            (
+                "見逃された動き出し：{runner_short}、{clear_of_line_m}m",
+                "{pass_on_clock}にスルーパスの選択肢があり、{projected_xg} xGのチャンスでした。次は{player_short}が見つけたい。",
+            ),
+        ],
+    },
+    "pressure_for": {
+        "casual": [
+            (
+                "応援チームが押し込む",
+                "応援チームが{spell_min}分間、{opp}を押し込んでいます。この勢いを続けたい。",
+            ),
+        ],
+    },
+    "hold_firm": {
+        "casual": [
+            (
+                "耐えどころ：{team}が猛攻",
+                "{team}が{spell_min}分間、応援チームを押し込んでいます。{g_box}からボールを遠ざけたい。",
+            ),
+        ],
+        "tactical": [
+            (
+                "劣勢：{team}のプレス指数{pressure_index}",
+                "プレッシャー指数{pressure_index}が{spell_min}分間継続、{team}のフィールドティルトは{team_field_tilt_pct}%。",
+            ),
+        ],
+    },
+    "momentum_against": {
+        "casual": [
+            (
+                "警戒：{team}が主導権",
+                "勢いの指標が{window_min}分間で{momentum_change}ポイント{team}に傾きました。応援チームは立て直しが必要です。",
+            ),
+        ],
+        "tactical": [
+            (
+                "モメンタムが応援チームに不利",
+                "モメンタムが{window_min}分間で{momentum_change}ポイント変動、{team}のフィールドティルトは{team_field_tilt_pct}%。",
+            ),
+        ],
+    },
+    "full_time_won": {"casual": [("試合終了：応援チームの勝利！", _SCORE + "。喜びたい結果です。")]},
+    "full_time_lost": {"casual": [("試合終了：応援チームは敗戦", _SCORE + "。次に向けて立て直しです。")]},
+    "full_time_drawn": {"casual": [("試合終了：引き分け", _SCORE + "。勝ち点を分け合いました。")]},
+}
+PACK["metric"]["momentum_against"] = [
+    ("警戒：モメンタムが{team}へ", "モメンタムが{change}ポイント{team}に傾き、応援チームには逆風です。"),
+]

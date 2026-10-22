@@ -284,3 +284,5 @@ def _fresh_translator_state(monkeypatch):
     monkeypatch.setattr(translator, "CACHE", translator.TranslationCache())
     monkeypatch.delenv("MATCHMIND_TRANSLATOR_ENABLED", raising=False)
     monkeypatch.delenv("MATCHMIND_AI_ENABLED", raising=False)
+    monkeypatch.delenv("MATCHMIND_LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("MATCHMIND_ORCHESTRATOR", raising=False)

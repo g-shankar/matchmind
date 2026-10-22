@@ -19,17 +19,19 @@ import json
 import logging
 import math
 import os
+import threading
 import time
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, TypeVar
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -39,11 +41,15 @@ from matchmind.crew.contracts import (
     Language,
     Persona,
     ViewerProfile,
-    is_world_language,
 )
 from matchmind.crew.producer import ViewerState
+from matchmind.dataset import catalog as dataset_catalog
+from matchmind.dataset.dictionary import cached_dictionary
+from matchmind.dataset.export import FORMATS as DATASET_FORMATS
+from matchmind.dataset.export import TRACKING_HZ, TRACKING_MAX_WINDOW_S, TrackingWindow, export_parts
+from matchmind.schema import PITCH_LENGTH_M, PITCH_WIDTH_M, SCHEMA_VERSION, Event
 
-from . import view
+from . import reads, view
 from .session import MatchSession, SessionError, Tick, build_session
 
 logger = logging.getLogger("pitchpulse.api")
@@ -71,7 +77,60 @@ OOPS = "Something went wrong on our side. Please try again."
 TOO_FAST = "Jumping around too fast. Wait a moment and try again."
 TOO_MANY = "Too many requests. Wait a moment and try again."
 
+# Dataset downloads (synthetic, public): a few per client IP, at most two built at once.
+EXPORT_BURST, EXPORT_PER_SECOND = 6, 0.2
+EXPORT_CONCURRENCY = 2
+EXPORT_CHUNK = 64 * 1024
+DATASET_CACHE = "public, max-age=3600"
+EXPORTS_BUSY = "Downloads are busy right now. Try again in a few seconds."
+
 T = TypeVar("T")
+
+
+# --- Dataset export (docs/DATASET.md) ------------------------------------------------ begin
+
+
+@lru_cache(maxsize=1)
+def dataset_index() -> dict[str, Any]:
+    """GET /api/dataset: every downloadable match, with its scenario and seed."""
+    return {
+        "synthetic": True,
+        "note": "Synthetic matches from the PitchPulse engine. Invented clubs and players only.",
+        "schema_version": SCHEMA_VERSION,
+        "pitch": {"length_m": PITCH_LENGTH_M, "width_m": PITCH_WIDTH_M, "home_attacks": "+x"},
+        "formats": list(DATASET_FORMATS),
+        "tracking": {"hz": TRACKING_HZ, "max_window_s": TRACKING_MAX_WINDOW_S, "formats": ["zip"]},
+        "scenarios": dict(dataset_catalog.SCENARIOS),
+        "seeded": {
+            "seed_start": dataset_catalog.SEED_START,
+            "seed_end": dataset_catalog.SEED_START + dataset_catalog.API_SEED_COUNT - 1,
+            "match_id": "MM-GEN-<seed, 5 digits>",
+        },
+        "matches": [e.as_dict() for e in dataset_catalog.api_entries()],
+    }
+
+
+@lru_cache(maxsize=6)
+def dataset_export_bytes(
+    match_id: str, fmt: str, window: tuple[int, float, float] | None
+) -> tuple[str, str, bytes]:
+    """One export, built whole (at most a few MB) so the slot is held only while building."""
+    entry = dataset_catalog.find(match_id)
+    if entry is None:
+        raise KeyError(match_id)
+    tracking = TrackingWindow(*window) if window else None
+    name, media, chunks = export_parts(
+        entry,
+        dataset_catalog.load_match(entry),
+        fmt,
+        cached_dictionary(),
+        Event.model_json_schema(),
+        tracking,
+    )
+    return name, media, b"".join(chunks)
+
+
+# --- Dataset export -------------------------------------------------------------------- end
 
 
 def allowed_origins_from_env() -> list[str]:
@@ -419,6 +478,11 @@ class Hub:
 # --- App -------------------------------------------------------------------------------------
 
 
+def _mcp_enabled_from_env() -> bool:
+    raw = os.environ.get("MATCHMIND_MCP_ENABLED", "true").strip().lower()
+    return raw not in ("false", "0", "no", "off")
+
+
 def client_ip(conn: Request | WebSocket) -> str:
     """The address limits and connection caps are keyed by. Never the leftmost
     X-Forwarded-For entry: a caller can put anything there."""
@@ -437,6 +501,7 @@ def create_app(
     static_dir: str | Path | None = None,
     clock: Callable[[], float] = time.monotonic,
     public_origin: str | None = None,
+    mcp_enabled: bool | None = None,
 ) -> FastAPI:
     hub = Hub(session, clock=clock)
     origins = allowed_origins if allowed_origins is not None else allowed_origins_from_env()
@@ -456,7 +521,9 @@ def create_app(
             hub.attach(await asyncio.to_thread(session_factory))
         task = asyncio.create_task(hub.loop(tick_interval)) if tick_interval else None
         try:
-            yield
+            # The MCP endpoint's session manager lives exactly as long as the app.
+            async with mcp_http.run() if mcp_http is not None else contextlib.nullcontext():
+                yield
         finally:
             if task:
                 task.cancel()
@@ -478,7 +545,10 @@ def create_app(
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
-        if request.url.path.startswith("/api/"):
+        path = request.url.path
+        # Downloads of the synthetic dataset may be cached publicly; nothing else under /api.
+        public = path.startswith("/api/dataset") and response.status_code == 200
+        if path.startswith("/api/") and not public:
             response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -499,11 +569,6 @@ def create_app(
         logger.exception("request failed: %s", request.url.path)
         return JSONResponse({"detail": OOPS}, status_code=500)
 
-    def _profile(persona: Persona, lang: Language, favourite_team: str | None) -> ViewerProfile:
-        if favourite_team is not None and not hub.session.is_known_team(favourite_team):
-            raise HTTPException(status_code=400, detail="That club is not in this match.")
-        return ViewerProfile(persona=persona, language=lang, favourite_team=favourite_team)
-
     # --- REST --------------------------------------------------------------------------------
 
     @app.get("/api/health")
@@ -512,7 +577,7 @@ def create_app(
 
     @app.get("/api/teams")
     async def teams() -> dict[str, Any]:
-        return view.teams_payload(hub.session)
+        return await reads.teams(hub)
 
     def ip_limit(burst: int, per_second: float) -> Callable[[Request], None]:
         """A simple per-client-IP token bucket (its own table per route group)."""
@@ -536,15 +601,15 @@ def create_app(
 
     @app.get("/api/match/snapshot")
     async def snapshot() -> dict[str, Any]:
-        return await hub.run_crew(view.snapshot_payload, hub.session, ViewerProfile())
+        return await reads.snapshot(hub)
 
     @app.get("/api/match/players")
     async def players() -> list[dict[str, Any]]:
-        return await hub.run(lambda: [view.player_payload(p) for p in hub.session.players()])
+        return await reads.players(hub)
 
     @app.get("/api/match/bookmarks")
     async def bookmarks() -> list[dict[str, Any]]:
-        return [view.bookmark_payload(b) for b in hub.session.bookmarks]
+        return reads.bookmarks(hub)
 
     @app.get("/api/match/moment/{moment_id}", dependencies=limited_get)
     async def moment(
@@ -553,15 +618,7 @@ def create_app(
         lang: Language = "en",
         favourite_team: str | None = Query(default=None, max_length=32),
     ) -> dict[str, Any]:
-        if len(moment_id) > 80:
-            raise HTTPException(status_code=404, detail="We could not find that moment.")
-        profile = _profile(persona, lang, favourite_team)
-        # Moments are fixed at load and the crew is thread-safe: no lock, so a slow
-        # model answer here holds up nobody else.
-        card = await asyncio.to_thread(hub.session.card_for_moment, moment_id, profile)
-        if card is None:
-            raise HTTPException(status_code=404, detail="We could not find that moment.")
-        return view.card_payload(card)
+        return await reads.moment_card(hub, moment_id, persona, lang, favourite_team)
 
     # --- Claim audit (trust layer, docs/TRUST.md) -----------------------------------------------
     @app.get("/api/match/moment/{moment_id}/audit", dependencies=limited_get)
@@ -580,15 +637,7 @@ def create_app(
 
     @app.get("/api/match/recap", dependencies=limited_get)
     async def recap(persona: Persona = "casual", lang: Language = "en") -> dict[str, Any]:
-        profile = ViewerProfile(persona=persona, language=lang)
-        if not is_world_language(lang):
-            result = await hub.run_crew(hub.session.recap, profile)
-            return result.model_dump(mode="json")
-        # World language: the English recap under the crew lock (quick), then the
-        # Translator call with no lock held, so a slow translator never stalls playback.
-        english, moments, snap = await hub.run_crew(hub.session.recap_source, profile)
-        result = await asyncio.to_thread(hub.session.translate_recap, english, moments, snap, profile)
-        return result.model_dump(mode="json")
+        return await reads.recap(hub, persona, lang)
 
     @app.post("/api/match/seek", dependencies=limited)
     async def seek(body: SeekBody) -> dict[str, Any]:
@@ -606,23 +655,89 @@ def create_app(
 
     @app.get("/api/crew/status")
     async def crew_status() -> dict[str, Any]:
-        return (await hub.run(hub.session.crew_status)).model_dump()
+        return await reads.crew_status(hub)
 
     @app.get("/api/languages")
     async def languages() -> dict[str, Any]:
-        status = await hub.run(hub.session.crew_status)
-        return {"languages": view.languages_payload(status), "translator": status.translator.model_dump()}
+        return await reads.languages(hub)
 
     @app.get("/api/crew/trace")
     async def crew_trace(limit: int = Query(default=20, ge=1, le=100)) -> list[dict[str, Any]]:
-        traces = await hub.run(hub.session.crew_traces, limit)
-        return [t.model_dump() for t in traces]
+        return await reads.crew_traces(hub, limit)
 
     @app.get("/api/auto-eventing")
     async def auto_eventing() -> dict[str, Any]:
-        if hub.session.auto_eventing is None:
-            raise HTTPException(status_code=404, detail="Auto-eventing is coming soon.")
-        return hub.session.auto_eventing
+        return reads.auto_eventing(hub)
+
+    # --- Dataset export and match source (docs/DATASET.md) ------------------------ begin
+    # Read-only downloads of synthetic data. There is deliberately no upload route: an
+    # external feed is a file the operator plays with matchmind-ingest or
+    # MATCHMIND_MATCH_FILE (CLAUDE.md upload rules; docs/DATASET.md).
+
+    export_limited = [Depends(ip_limit(EXPORT_BURST, EXPORT_PER_SECOND))]
+    export_slots = threading.BoundedSemaphore(EXPORT_CONCURRENCY)
+
+    @app.get("/api/dataset", dependencies=limited_get)
+    async def dataset() -> JSONResponse:
+        data = await asyncio.to_thread(dataset_index)
+        return JSONResponse(data, headers={"Cache-Control": DATASET_CACHE})
+
+    @app.get("/api/dataset/export", dependencies=export_limited)
+    async def dataset_export(
+        match_id: str = Query(min_length=3, max_length=32, pattern=r"^[A-Z0-9][A-Z0-9-]+$"),
+        format: Literal["jsonl", "csv", "zip"] = "zip",
+        tracking_period: int | None = Query(default=None, ge=1, le=2),
+        tracking_from: float | None = Query(default=None, ge=0, le=7200),
+        tracking_to: float | None = Query(default=None, ge=0, le=7200),
+    ) -> StreamingResponse:
+        if dataset_catalog.find(match_id) is None:
+            raise HTTPException(
+                status_code=404, detail="We do not have that match. GET /api/dataset lists them."
+            )
+        window: tuple[int, float, float] | None = None
+        given = [v is not None for v in (tracking_period, tracking_from, tracking_to)]
+        if any(given):
+            if not all(given):
+                raise HTTPException(
+                    status_code=400,
+                    detail="A tracking sample needs tracking_period, tracking_from and tracking_to.",
+                )
+            assert tracking_period is not None and tracking_from is not None and tracking_to is not None
+            if format != "zip":
+                raise HTTPException(
+                    status_code=400, detail="The tracking sample comes in the zip format only."
+                )
+            window = (tracking_period, round(tracking_from, 1), round(tracking_to, 1))
+            try:
+                TrackingWindow(*window)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=f"Check the tracking window: {exc}.") from None
+        if not export_slots.acquire(blocking=False):
+            raise HTTPException(status_code=429, detail=EXPORTS_BUSY)
+        try:
+            name, media, body = await asyncio.to_thread(dataset_export_bytes, match_id, format, window)
+        finally:
+            export_slots.release()
+
+        def chunks():
+            for i in range(0, len(body), EXPORT_CHUNK):
+                yield body[i : i + EXPORT_CHUNK]
+
+        return StreamingResponse(
+            chunks(),
+            media_type=media,
+            headers={
+                "Content-Disposition": f'attachment; filename="{name}"',
+                "Content-Length": str(len(body)),
+                "Cache-Control": DATASET_CACHE,
+            },
+        )
+
+    @app.get("/api/source")
+    async def source() -> dict[str, Any]:
+        return await hub.run(hub.session.source_status)
+
+    # --- Dataset export and match source ------------------------------------------------ end
 
     # --- WebSocket ---------------------------------------------------------------------------
 
@@ -741,6 +856,26 @@ def create_app(
         conn.view_state = ViewerState()
         conn.send(view.message("PROFILE_CHANGED", conn.profile.model_dump()))
         conn.send(view.message("PERSONA_CHANGED", {"persona": conn.profile.persona}))
+
+    # --- MCP (Streamable HTTP at /mcp; docs/MCP.md) -----------------------------------------
+    # Read-only tools on this same live session, through the same accessors as the REST
+    # routes (api/reads.py). Its own per-IP bucket, Origin and Host checks from the
+    # allow-list above, 16 KB bodies, one request per POST. MATCHMIND_MCP_ENABLED=false
+    # turns it off.
+    mcp_http = None
+    if mcp_enabled if mcp_enabled is not None else _mcp_enabled_from_env():
+        from matchmind.mcp import MCPHttpEndpoint, build_server
+        from matchmind.mcp.server import allowed_hosts
+
+        mcp_origins = sorted(ws_origins | ({own} if own and own != "*" else set()))
+        mcp_http = MCPHttpEndpoint(
+            build_server(hub),
+            allowed_origins=sorted(ws_origins),
+            hosts=allowed_hosts(mcp_origins),
+            rate_check=ip_limit(GET_BURST, GET_PER_SECOND),
+        )
+        app.add_route("/mcp", mcp_http, methods=["POST"], include_in_schema=False)
+    # --- end MCP ------------------------------------------------------------------------------
 
     # --- Built frontend ----------------------------------------------------------------------
 

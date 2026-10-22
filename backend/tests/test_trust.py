@@ -573,3 +573,48 @@ def test_metric_alert_cards_carry_template_claims():
     numeric = [c for c in alert.claims if c.numbers]
     assert numeric and all(c.check == "verified_numeric" and c.origin == "template" for c in numeric)
     assert any("pressure_index" in c.fact_keys for c in numeric)
+
+
+def test_club_heart_framings_keep_exact_claims_and_parity():
+    """A fan of either club gets framed templates ("your team"); their claims still come
+    from template placeholders, and every persona and language still agrees."""
+    from matchmind.crew import club_heart
+
+    demo = next(p for p in match_files() if "DEMO" in p.name)
+    crew, _, bundles = _replay(read_jsonl(demo))
+    framed = 0
+    for fav in ("NBR", "HCY"):
+        fav_name = crew.team_name(fav)
+        for b in bundles:
+            m = b.moment
+            framed += bool(club_heart.frames_for(m, fav_name))
+            cards, withheld = [], 0
+            for persona in PERSONAS:
+                focus = m.player_ids[0] if persona == "player_spotlight" and m.player_ids else None
+                for language in STUDIO_LANGUAGES:
+                    profile = ViewerProfile(
+                        persona=persona, language=language, favourite_team=fav, focus_player_id=focus
+                    )
+                    card = crew.render(b, profile)
+                    if card is None:
+                        withheld += 1
+                        continue
+                    assert all(c.origin == "template" for c in card.claims), card.card_id
+                    cards.append(card)
+            result = fact_parity(m, cards, withheld)
+            assert result.ok, (m.moment_id, fav, result.problems[:3])
+    assert framed > 20  # the sweep really covered framed templates
+
+
+def test_your_team_in_a_framed_template_is_bound_to_the_club():
+    claim = text_claims(
+        "Your team turn the screw",
+        "headline",
+        {"team": "Northbridge FC", "home": "Northbridge FC"},
+        "en",
+        template="Your team turn the screw",
+        roster={"Northbridge FC": "NBR"},
+        favourite=("your team", "Northbridge FC"),
+    )[0]
+    assert claim.check == "verified_name" and claim.fact_keys == ["team"]
+    assert claim.bindings[0].text == "Your team" and claim.bindings[0].entity_id == "NBR"

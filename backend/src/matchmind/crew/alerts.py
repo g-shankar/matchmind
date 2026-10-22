@@ -8,14 +8,18 @@ Steps that count as meaningful:
 - a new top speed,
 - momentum moves by 25 or more.
 The subject is the focus player when set, else the favourite club, else both
-clubs. Baselines are per viewer and per subject, so changing the focus starts
-fresh instead of comparing against another player's numbers.
+clubs; `club_heart.METRIC_POLICY` says which metrics follow only the fan's club
+and which template family voices a move towards the rival (momentum is one
+shared number, so a swing to the rival is worded as a warning). Baselines are
+per viewer and per subject, so changing the focus starts fresh instead of
+comparing against another player's numbers.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from matchmind.crew import club_heart
 from matchmind.crew.contracts import FactValue, Moment, MomentKind, ViewerProfile
 from matchmind.crew.producer import ViewerState
 from matchmind.crew.spotter import DIFFICULTY_SCALE, HARD_PASS_DIFFICULTY, _elapsed, r1, r2, surname
@@ -42,6 +46,11 @@ KIND_BY_METRIC: dict[str, MomentKind] = {
 class Alert:
     metric: str
     moment: Moment
+    template: str = ""  # family in the packs' `metric` section; defaults to `metric`
+
+    def __post_init__(self) -> None:
+        if not self.template:
+            self.template = self.metric
 
 
 class AlertWatcher:
@@ -78,7 +87,8 @@ class AlertWatcher:
         )
 
     def _teams_in_scope(self, snapshot: MatchStateSnapshot, profile: ViewerProfile) -> list[str]:
-        if profile.favourite_team in (snapshot.home_id, snapshot.away_id):
+        rule = club_heart.METRIC_RULES[profile.focus_metric or "pressure"]
+        if rule.scope == "own_only" and profile.favourite_team in (snapshot.home_id, snapshot.away_id):
             return [profile.favourite_team]  # type: ignore[list-item]
         return [snapshot.home_id, snapshot.away_id]
 
@@ -104,7 +114,10 @@ class AlertWatcher:
         if metric is None:
             return []
         handler = getattr(self, f"_{metric}")
-        return [Alert(metric, m) for m in handler(event, metrics, snapshot, players, profile, state)]
+        return [
+            Alert(metric, m, club_heart.metric_template(metric, m.team, profile.favourite_team))
+            for m in handler(event, metrics, snapshot, players, profile, state)
+        ]
 
     # ------------------------------------------------------------ metrics
 

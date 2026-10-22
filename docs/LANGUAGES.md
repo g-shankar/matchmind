@@ -135,6 +135,35 @@ only when the translator is used.
 
 See `docs/API-CONTRACT.md` for the types.
 
+## Studio packs: football glossary and review status
+
+The five studio packs (`backend/src/matchmind/crew/i18n`) were written by the
+PitchPulse team. **They have not yet been reviewed by native-speaking football
+broadcasters**; that review is planned before any public launch. Arabic is
+Modern Standard Arabic, right-to-left, with Arabic punctuation (، ؛ ؟) and
+Western digits; Japanese uses full-width punctuation (、。：！) and no spaces
+between words.
+
+Each pack carries a small curated glossary of football words that the
+templates print as `{g_<term>}`, so a pack speaks its own football register
+instead of word-for-word English (for example `área` and `zapatazo` in Spanish,
+`surface` and `mine` in French, `命拾い` in Japanese). The table is generated
+from the packs (`glossary_markdown()` in `crew/i18n/__init__.py`), and a test
+fails if it drifts or if a term is not used by any template.
+
+| Term | Register | Meaning | en | es | fr | ar | ja |
+|---|---|---|---|---|---|---|---|
+| `box` | neutral | the penalty area, in everyday broadcast words | box | área | surface | منطقة الجزاء | ペナルティエリア |
+| `keeper` | neutral | the goalkeeper | keeper | portero | gardien | الحارس | キーパー |
+| `back_line` | neutral | the defensive line | back line | zaga | défense | خط الدفاع | 最終ライン |
+| `equaliser` | neutral | the goal that levels the match | equaliser | gol del empate | égalisation | هدف التعادل | 同点ゴール |
+| `comeback` | emotive | fighting back from behind | comeback | remontada | remontada | العودة في النتيجة | 反撃 |
+| `let_off` | emotive | a rival chance the fan's team survived | let-off | susto | frayeur | نجاة | 命拾い |
+| `rocket` | emotive | a thunderous, very fast shot | thunderbolt | zapatazo | mine | قذيفة | 弾丸シュート |
+
+The club-heart templates (a fan's-side telling of the same facts, see
+[PERSONALISATION.md](PERSONALISATION.md)) use these terms in all five packs.
+
 ## Tests
 
 `backend/tests/test_translator.py` (no network; every request goes to an
@@ -144,5 +173,8 @@ trip, refusal of any changed number or name, fact-checker rejection of a
 tampered translation, off mode, budget and rate, breaker, timeout, cache hits,
 one request for many concurrent viewers, and a faithful translation of every
 studio card passing for every audience.
+`backend/tests/test_club_heart.py` checks that every pack defines every
+club-heart frame and glossary term, and that framed cards pass the evaluators
+in every language.
 `frontend/src/components/LanguagePicker.test.tsx` covers the greyed-out
 picker and the card tags.
