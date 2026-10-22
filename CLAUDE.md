@@ -212,3 +212,4 @@ Every linked acceptance criterion has evidence; format/lint, typecheck, unit, in
 - Persona voices use only stats we compute: no game points, bonus systems or real-league fantasy branding (the "Stats scout" persona keeps the API value `fantasy`).
 - Feed input is untrusted even when it is well-formed: type and range-check every value other code reads (scores, enums), take numbers for facts from the stats engine, and keep live appends all-or-nothing.
 - An all-or-nothing rollback restores every structure the step writes (samples, indexes, checkpoints, side state), and its test fails late in the step, not first.
+- A per-connection limit is not a limit on shared state: anything every viewer shares (the playback clock, process memory across send queues) needs a cap for the whole process, sized against the container.
