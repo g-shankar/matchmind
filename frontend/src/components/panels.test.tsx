@@ -101,7 +101,7 @@ describe('CrewHealth', () => {
     vi.stubGlobal('fetch', fetchStub({ '/api/crew/status': crewStatus() }));
     ui(<CrewHealth match={matchWith()} />, { lang: 'ar' });
     await screen.findByText('صحة الطاقم');
-    expect(screen.getAllByText('متوقف حتى النشر').length).toBe(3);
+    expect((await screen.findAllByText('متوقف حتى النشر')).length).toBe(3);
   });
 });
 
