@@ -410,3 +410,33 @@ def test_catch_up_cards_and_answers_use_catch_up_event_ids(real):
     assert not leaks(snap), leaks(snap)[:5]
     assert answer_full["source_event_ids"] and answer["source_event_ids"]
     assert not leaks(answer), leaks(answer)[:5]
+
+
+# --- Catch-up from the first frame: the WebSocket URL carries the choice -------------------------
+
+
+def test_catch_up_on_the_websocket_url_means_the_first_snapshot_never_has_the_score(fake):
+    client, clock = fake
+    client.post("/api/match/seek", json={"clock_s": 2850, "period": 2})
+    with client.websocket_connect("/ws/match?spoilers=0&persona=tactical&lang=es") as ws:
+        first = ws.receive_json()
+    assert first["type"] == "INITIAL_SNAPSHOT"
+    snap = first["data"]
+    assert snap["home_score"] is None and snap["profile"]["spoilers"] is False and not leaks(snap)
+    assert (snap["profile"]["persona"], snap["profile"]["language"]) == ("tactical", "es")
+    # Without it, the default is unchanged: the full picture.
+    with client.websocket_connect("/ws/match?spoilers=1") as ws:
+        assert ws.receive_json()["data"]["home_score"] == 1
+    with client.websocket_connect("/ws/match") as ws:
+        assert ws.receive_json()["data"]["home_score"] == 1
+
+
+@pytest.mark.parametrize(
+    "query", ["spoilers=maybe", "spoilers=", "persona=boss", "lang=xx", "spoilers=0&spoilers=1"]
+)
+def test_bad_view_on_the_websocket_url_is_refused(fake, query):
+    from starlette.websockets import WebSocketDisconnect
+
+    client, _ = fake
+    with pytest.raises(WebSocketDisconnect), client.websocket_connect(f"/ws/match?{query}") as ws:
+        ws.receive_json()

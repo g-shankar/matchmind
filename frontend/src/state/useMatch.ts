@@ -2,12 +2,15 @@ import { useCallback, useEffect, useReducer, useRef } from 'react';
 import type { AskChip, AskResult, ClientAction, OverlayCard, ServerMessage, SpeedMultiplier, ViewerProfile } from '../api/contract';
 import { LiveTransport } from '../api/liveTransport';
 import { DEFAULT_PROFILE } from '../api/defaults';
-import type { MatchTransport } from '../api/transport';
+import { apiBase, type MatchTransport, type WsView } from '../api/transport';
 import { initialMatchState, matchReducer } from './matchStore';
 import { ALL_LANGUAGES } from '../lib/languages';
 import { ControlPacer, JumpPacer, ViewPacer } from './pacer';
 
 type ControlAction = Extract<ClientAction, { action: 'toggle_pause' | 'set_speed' }>;
+
+// The choices the WebSocket URL carries, so the first snapshot already fits them.
+const viewOf = (p: ViewerProfile): WsView => ({ spoilers: p.spoilers, persona: p.persona, language: p.language });
 
 const PROFILE_KEY = 'pitchpulse.profile';
 const LIVE_TIMEOUT_MS = 2500;
@@ -158,7 +161,7 @@ export function useMatch() {
           if (mode === 'auto' && retries > MAX_RETRIES) return void startDemo();
           timers.push(setTimeout(startLive, RETRY_MS));
         },
-      });
+      }, apiBase(), viewOf(profileRef.current));
       transportRef.current = live;
       if (mode === 'auto') {
         timers.push(

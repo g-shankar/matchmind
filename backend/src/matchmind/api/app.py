@@ -1073,7 +1073,8 @@ def create_app(
 
     @app.websocket("/ws/match")
     async def ws_match(ws: WebSocket) -> None:
-        if not _origin_ok(ws) or hub._session is None:
+        profile = _view_from_url(ws)
+        if not _origin_ok(ws) or hub._session is None or profile is None:
             await ws.close(code=1008)
             return
         ip = client_ip(ws)
@@ -1085,6 +1086,7 @@ def create_app(
         try:
             await ws.accept()
             conn = Connection(ws, hub.clock, on_drop=hub.drop, budget=hub.send_budget)
+            conn.profile = profile  # catch-up from the first frame: the snapshot never has the score
             rewind = hub.join(conn)
             writer = conn.start()
             if rewind:
@@ -1102,6 +1104,29 @@ def create_app(
                     await asyncio.wait_for(writer, timeout=2)
             if conn is not None:
                 conn.drain_queue()  # whatever a stuck writer left behind goes back to the budget
+
+    def _view_from_url(ws: WebSocket) -> ViewerProfile | None:
+        """The viewer's starting choices from `?spoilers=0|1&persona=&lang=` (all optional),
+        or None when one is not valid or given twice (the handshake is refused)."""
+        params = ws.query_params
+        keys = {"spoilers": "spoilers", "persona": "persona", "lang": "language"}
+        changes: dict[str, Any] = {}
+        for key, field in keys.items():
+            values = params.getlist(key)
+            if not values:
+                continue
+            if len(values) > 1:
+                return None
+            changes[field] = values[0]
+        if "spoilers" in changes:
+            flag = {"0": False, "false": False, "1": True, "true": True}.get(changes["spoilers"])
+            if flag is None:
+                return None
+            changes["spoilers"] = flag
+        try:
+            return ViewerProfile.model_validate(changes)
+        except ValidationError:
+            return None
 
     async def _serve(ws: WebSocket, conn: Connection) -> None:
         await hub.send_snapshots([conn])
