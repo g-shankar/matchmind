@@ -86,15 +86,28 @@ def fill(template: str, variables: Mapping[str, Any], language: str) -> str:
 def fill_first(options: Sequence[Any], variables: Mapping[str, Any], language: str) -> Any:
     """Fill the first option (a string or a tuple of strings) whose
     placeholders are all available. Raises MissingFact when none fits."""
+    return fill_first_with_template(options, variables, language)[0]
+
+
+def fill_first_with_template(
+    options: Sequence[Any], variables: Mapping[str, Any], language: str
+) -> tuple[Any, Any]:
+    """`fill_first`, plus the option it used: the claims know exactly which
+    placeholders (facts) each printed sentence came from."""
     last: MissingFact | None = None
     for option in options:
         try:
             if isinstance(option, tuple):
-                return tuple(fill(part, variables, language) for part in option)
-            return fill(option, variables, language)
+                return tuple(fill(part, variables, language) for part in option), option
+            return fill(option, variables, language), option
         except MissingFact as exc:
             last = exc
     raise last or MissingFact("no template")
+
+
+def placeholder_keys(template: str) -> list[str]:
+    """The variable names a template prints, in order, once each."""
+    return list(dict.fromkeys(m.group(1) for m in _PLACEHOLDER.finditer(template)))
 
 
 def capitalise(text: str) -> str:

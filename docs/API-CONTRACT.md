@@ -200,6 +200,24 @@ interface OverlayCard {
   text_language: Language;                   // what the text is really in: `language`, or 'en' when a
                                              // world language was not translated (see fallback_reason)
   translated_by: 'azure_ai_translator' | null;
+  claims: Claim[];                           // one per sentence of headline, body, why (docs/TRUST.md)
+}
+
+// One shown sentence and what was machine-checked about it. Wording, tone and
+// causal claims are never machine-verified, whatever `check` says.
+interface Claim {
+  sentence: string;
+  field: 'headline' | 'body' | 'why' | 'title' | 'paragraph' | 'key_moment';
+  fact_keys: string[];                       // facts the sentence states
+  numbers: string[];                         // every number as printed
+  source_event_ids: string[];                // events behind those facts (at most 12)
+  check: 'verified_numeric'                  // every number is a fact
+       | 'verified_name'                     // no numbers; its squad names are facts
+       | 'unverified_text';                  // nothing to check, or a check failed (see reason)
+  reason: string;
+  origin: 'template' | 'matched';            // keys from template placeholders, or matched by value
+  bindings: { text: string; kind: 'number' | 'name' | 'text'; fact_key: string | null;
+              value: FactValue | null; unit: string | null; entity_id: string | null }[];
 }
 
 // "Should he have passed?" drawing
@@ -230,17 +248,53 @@ interface Recap {
   produced_by: 'ai' | 'template'; fact_check: { ok: boolean; reasons: string[] };
   text_language: Language; translated_by: 'azure_ai_translator' | null;
   fallback_reason: string | null;            // world languages only: why the recap is in English
+  claims: Claim[];                           // title, headline, paragraphs, key-moment lines
 }
 
 interface CrewStatus {
   mode: 'ai' | 'template'; model: string | null; breakers_open: string[];
   moments: number; fallbacks: number; rejections: number;
   translator: TranslatorStatus;
+  health: CrewHealth;
   // Who runs the model steps: 'templates' (no model; show "templates"), 'azure_openai'
   // (Azure OpenAI deployment) or 'foundry_agents' (show "Foundry Agent Service").
   provider: 'templates' | 'azure_openai' | 'foundry_agents';
   // Who chains the agents: our in-process orchestrator or Microsoft Agent Framework workflows.
   orchestrator: 'in_process' | 'agent_framework';
+}
+// Rolling window (last 256 steps per agent, last 256 verdicts, last 60 s of moments).
+interface CrewHealth {
+  window: number;
+  latency: { agent: string; samples: number; p50_ms: number; p95_ms: number; max_ms: number }[];
+  model_steps: number; fallback_steps: number; fallback_rate: number | null;   // null: nothing to divide
+  checks: number; rejected_checks: number; rejection_rate: number | null;
+  moments_per_min: number;
+}
+
+// GET /api/match/moment/{id}/audit (docs/TRUST.md). Never calls a paid model.
+interface MomentAudit {
+  moment_id: string; kind: MomentKind; match_clock: string; period: number;
+  team: string | null; player_ids: string[];
+  facts: Record<string, FactValue>; source_event_ids: string[];
+  explanation: { moment_id: string; why: string; tactical_tag: string; evidence: Evidence[];
+                 produced_by: 'ai' | 'template'; fallback_reason: string | null };
+  renderings: {                              // 4 personas x 5 studio languages, then live cards (max 16)
+    persona: PersonaType; language: Language; text_language: Language | null;
+    source: 'template_sweep' | 'live';       // template-only voicing for the audit, or the live cache
+    produced_by: 'ai' | 'template'; fallback_reason: string | null;
+    translated_by: 'azure_ai_translator' | null;
+    headline: string; body: string; why: string;
+    fact_check: { ok: boolean; reasons: string[] };
+    claims: Claim[];
+  }[];
+  parity: {
+    ok: boolean; key_facts: string[]; anchors: string[][];
+    renderings: number; withheld: number;
+    stated: Record<string, string[]>;        // 'persona/language' (' (live)' for live) -> key facts
+    problems: string[];
+  };
+  trace: CrewTrace['steps'];
+  not_checked: string[];                     // what the checker does not verify, in words
 }
 interface TranslatorStatus {
   mode: 'azure' | 'off'; available: boolean; breaker_open: boolean;
@@ -360,6 +414,7 @@ the focus metric (one place in `MatchSession.cards_for`).
 | `GET /api/match/players` | `PlayerStats[]` |
 | `GET /api/match/bookmarks` | `Bookmark[]` for the whole match (leaves out `speed_burst`, `rocket_shot`, `distance_milestone` and `hard_pass`, which still arrive as tick cards; same list in `INITIAL_SNAPSHOT.bookmarks`) |
 | `GET /api/match/moment/{moment_id}?persona=&lang=&favourite_team=` | `OverlayCard` (for "jump to moment" and replays) |
+| `GET /api/match/moment/{moment_id}/audit` | `MomentAudit`: facts, source events, evidence, every rendering's claims and fact-check, parity, trace (docs/TRUST.md) |
 | `GET /api/match/recap?persona=&lang=` | `Recap` (so far, or full match after the end; the same after a seek as after watching straight through) |
 | `POST /api/match/seek` `{ clock_s, period? }` | `Playback` |
 | `POST /api/match/speed` `{ speed_multiplier }` | `Playback` |
@@ -412,7 +467,8 @@ interface MatchSource {
 Errors: `{ "detail": "plain words" }` with 400 or 404 (429 for a seek or reset
 inside the 0.5 s throttle, or more than about 2 POSTs a second, bursts of 10,
 from one client IP, or more than about 3 `GET /api/match/moment` and
-`GET /api/match/recap` requests a second, bursts of 30, from one client IP; 503 while the match is still loading, 500 with a generic
+`GET /api/match/recap` requests a second, bursts of 30, from one client IP, a bucket the
+moment audit shares; 503 while the match is still loading, 500 with a generic
 message if something breaks on our side).
 `GET /api/dataset/export` allows about one request every 5 s per client IP
 (bursts of 6) and at most two exports built at once (429 "Downloads are busy");

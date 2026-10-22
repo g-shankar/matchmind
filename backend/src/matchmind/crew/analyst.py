@@ -12,7 +12,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from matchmind.crew.contracts import Evidence, Explanation, Moment
-from matchmind.crew.i18n import MissingFact, fill_first, pack
+from matchmind.crew.i18n import MissingFact, fill_first_with_template, pack
 from matchmind.crew.wording import template_key, variables
 
 TacticalTag = Literal[
@@ -171,11 +171,18 @@ def evidence(moment: Moment) -> list[Evidence]:
 
 def why_text(moment: Moment, language: str, favourite_name: str | None = None) -> str:
     """The localised template explanation for one moment."""
+    return why_text_with_template(moment, language, favourite_name)[0]
+
+
+def why_text_with_template(
+    moment: Moment, language: str, favourite_name: str | None = None
+) -> tuple[str, str | None]:
+    """The localised template explanation and the template it came from."""
     options = pack(language)["why"].get(template_key(moment), [])
     try:
-        return fill_first(options, variables(moment, language, favourite_name), language)
+        return fill_first_with_template(options, variables(moment, language, favourite_name), language)
     except MissingFact:
-        return ""
+        return "", None
 
 
 def template_explanation(moment: Moment, fallback_reason: str | None = None) -> Explanation:

@@ -16,36 +16,36 @@ Matches: MM-HOLD-900, MM-HOLD-901, MM-HOLD-902, MM-HOLD-903, MM-HOLD-904, MM-HOL
 
 | Class | Support (true) | Detected | Matched | Precision (95% CI) | Recall (95% CI) | F1 |
 |---|---:|---:|---:|---|---|---:|
-| pass | 13210 | 13165 | 13141 | 99.8% (99.7-99.9%) | 99.5% (99.3-99.6%) | 0.997 |
+| pass | 13210 | 13174 | 13143 | 99.8% (99.7-99.8%) | 99.5% (99.4-99.6%) | 0.996 |
 | shot | 252 | 255 | 237 | 92.9% (89.1-95.5%) | 94.0% (90.4-96.4%) | 0.935 |
-| clearance | 93 | 93 | 91 | 97.9% (92.5-99.4%) | 97.9% (92.5-99.4%) | 0.979 |
-| tackle | 649 | 630 | 593 | 94.1% (92.0-95.7%) | 91.4% (89.0-93.3%) | 0.927 |
-| interception | 2226 | 2212 | 2185 | 98.8% (98.2-99.2%) | 98.2% (97.5-98.6%) | 0.985 |
-| recovery | 103 | 109 | 78 | 71.6% (62.5-79.2%) | 75.7% (66.6-83.0%) | 0.736 |
-| pressure | 2285 | 3165 | 2174 | 68.7% (67.0-70.3%) | 95.1% (94.2-96.0%) | 0.798 |
+| clearance | 93 | 88 | 88 | 100.0% (95.8-100.0%) | 94.6% (88.0-97.7%) | 0.972 |
+| tackle | 649 | 641 | 595 | 92.8% (90.6-94.6%) | 91.7% (89.3-93.6%) | 0.922 |
+| interception | 2226 | 2216 | 2186 | 98.7% (98.1-99.1%) | 98.2% (97.6-98.7%) | 0.984 |
+| recovery | 103 | 104 | 79 | 76.0% (66.9-83.2%) | 76.7% (67.7-83.8%) | 0.763 |
+| pressure | 2285 | 3452 | 2174 | 63.0% (61.4-64.6%) | 95.1% (94.2-96.0%) | 0.758 |
 
-Kick-speed MAE (matched passes and shots): **1.08 km/h** (95% bootstrap CI 1.02-1.15 km/h, n = 13378). Right receiver on matched complete passes: 99.4%.
+Kick-speed MAE (matched passes and shots): **1.08 km/h** (95% bootstrap CI 1.03-1.16 km/h, n = 13380). Right receiver on matched complete passes: 99.8%.
 
 Confusion matrix (rows: true kind or *spurious*; columns: detected kind or *missed*).
 Pressure is scored separately (it rides on a kick, so it is not a kind of its own here).
 
 | true \ detected | pass | shot | clearance | tackle | interception | recovery | missed | total |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| **pass** | 13141 | 18 | 2 | 0 | 0 | 0 | 49 | 13210 |
+| **pass** | 13143 | 18 | 0 | 0 | 0 | 0 | 49 | 13210 |
 | **shot** | 8 | 237 | 0 | 0 | 0 | 0 | 7 | 252 |
-| **clearance** | 2 | 0 | 91 | 0 | 0 | 0 | 0 | 93 |
-| **tackle** | 0 | 0 | 0 | 593 | 4 | 1 | 51 | 649 |
-| **interception** | 0 | 0 | 0 | 0 | 2185 | 10 | 31 | 2226 |
-| **recovery** | 0 | 0 | 0 | 1 | 0 | 78 | 24 | 103 |
-| **spurious** | 14 | 0 | 0 | 36 | 23 | 20 | 0 | 93 |
+| **clearance** | 5 | 0 | 88 | 0 | 0 | 0 | 0 | 93 |
+| **tackle** | 0 | 0 | 0 | 595 | 4 | 0 | 50 | 649 |
+| **interception** | 0 | 0 | 0 | 0 | 2186 | 11 | 29 | 2226 |
+| **recovery** | 0 | 0 | 0 | 1 | 1 | 79 | 22 | 103 |
+| **spurious** | 18 | 0 | 0 | 45 | 25 | 14 | 0 | 102 |
 
 Baseline: Naive baseline: every ball-speed spike is a pass, every change of nearest team is a tackle.
 
 | Class | Support (true) | Detected | Matched | Precision (95% CI) | Recall (95% CI) | F1 |
 |---|---:|---:|---:|---|---|---:|
-| pass | 13210 | 19050 | 12783 | 67.1% (66.4-67.8%) | 96.8% (96.5-97.1%) | 0.792 |
-| tackle | 649 | 8570 | 626 | 7.3% (6.8-7.9%) | 96.5% (94.7-97.6%) | 0.136 |
-| pressure | 2285 | 4899 | 2224 | 45.4% (44.0-46.8%) | 97.3% (96.6-97.9%) | 0.619 |
+| pass | 13210 | 19050 | 12784 | 67.1% (66.4-67.8%) | 96.8% (96.5-97.1%) | 0.793 |
+| tackle | 649 | 8234 | 632 | 7.7% (7.1-8.3%) | 97.4% (95.9-98.4%) | 0.142 |
+| pressure | 2285 | 5161 | 2223 | 43.1% (41.7-44.4%) | 97.3% (96.5-97.9%) | 0.597 |
 
 ### Tuning split (for reference; optimistic by construction)
 
@@ -53,36 +53,36 @@ Matches: MM-DEMO-001, MM-SYN-001, MM-SYN-002, MM-SYN-003, MM-SYN-004 (seeds 100,
 
 | Class | Support (true) | Detected | Matched | Precision (95% CI) | Recall (95% CI) | F1 |
 |---|---:|---:|---:|---|---|---:|
-| pass | 6453 | 6434 | 6419 | 99.8% (99.6-99.9%) | 99.5% (99.3-99.6%) | 0.996 |
-| shot | 159 | 163 | 153 | 93.9% (89.1-96.6%) | 96.2% (92.0-98.3%) | 0.950 |
-| clearance | 48 | 45 | 44 | 97.8% (88.4-99.6%) | 91.7% (80.5-96.7%) | 0.946 |
-| tackle | 296 | 275 | 257 | 93.5% (89.9-95.8%) | 86.8% (82.5-90.2%) | 0.900 |
-| interception | 1126 | 1115 | 1098 | 98.5% (97.6-99.1%) | 97.5% (96.4-98.3%) | 0.980 |
-| recovery | 57 | 55 | 38 | 69.1% (56.0-79.7%) | 66.7% (53.7-77.5%) | 0.679 |
-| pressure | 1129 | 1539 | 1061 | 68.9% (66.6-71.2%) | 94.0% (92.4-95.2%) | 0.795 |
+| pass | 6453 | 6432 | 6418 | 99.8% (99.6-99.9%) | 99.5% (99.2-99.6%) | 0.996 |
+| shot | 159 | 164 | 154 | 93.9% (89.1-96.7%) | 96.9% (92.8-98.7%) | 0.954 |
+| clearance | 48 | 46 | 46 | 100.0% (92.3-100.0%) | 95.8% (86.0-98.9%) | 0.979 |
+| tackle | 296 | 279 | 260 | 93.2% (89.6-95.6%) | 87.8% (83.6-91.1%) | 0.904 |
+| interception | 1126 | 1111 | 1097 | 98.7% (97.9-99.2%) | 97.4% (96.3-98.2%) | 0.981 |
+| recovery | 57 | 56 | 40 | 71.4% (58.5-81.6%) | 70.2% (57.3-80.5%) | 0.708 |
+| pressure | 1129 | 1677 | 1061 | 63.3% (60.9-65.5%) | 94.0% (92.4-95.2%) | 0.756 |
 
-Kick-speed MAE (matched passes and shots): **1.03 km/h** (95% bootstrap CI 0.98-1.08 km/h, n = 6572). Right receiver on matched complete passes: 99.4%.
+Kick-speed MAE (matched passes and shots): **1.03 km/h** (95% bootstrap CI 0.98-1.08 km/h, n = 6572). Right receiver on matched complete passes: 99.8%.
 
 Confusion matrix (rows: true kind or *spurious*; columns: detected kind or *missed*).
 Pressure is scored separately (it rides on a kick, so it is not a kind of its own here).
 
 | true \ detected | pass | shot | clearance | tackle | interception | recovery | missed | total |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| **pass** | 6419 | 10 | 1 | 0 | 0 | 0 | 23 | 6453 |
-| **shot** | 5 | 153 | 0 | 0 | 0 | 0 | 1 | 159 |
-| **clearance** | 4 | 0 | 44 | 0 | 0 | 0 | 0 | 48 |
-| **tackle** | 0 | 0 | 0 | 257 | 4 | 0 | 35 | 296 |
-| **interception** | 0 | 0 | 0 | 0 | 1098 | 9 | 19 | 1126 |
-| **recovery** | 0 | 0 | 0 | 1 | 1 | 38 | 17 | 57 |
-| **spurious** | 6 | 0 | 0 | 17 | 12 | 8 | 0 | 43 |
+| **pass** | 6418 | 10 | 0 | 0 | 0 | 0 | 25 | 6453 |
+| **shot** | 3 | 154 | 0 | 0 | 0 | 0 | 2 | 159 |
+| **clearance** | 2 | 0 | 46 | 0 | 0 | 0 | 0 | 48 |
+| **tackle** | 0 | 0 | 0 | 260 | 2 | 0 | 34 | 296 |
+| **interception** | 0 | 0 | 0 | 0 | 1097 | 9 | 20 | 1126 |
+| **recovery** | 0 | 0 | 0 | 2 | 4 | 40 | 11 | 57 |
+| **spurious** | 9 | 0 | 0 | 17 | 8 | 7 | 0 | 41 |
 
 Baseline: Naive baseline: every ball-speed spike is a pass, every change of nearest team is a tackle.
 
 | Class | Support (true) | Detected | Matched | Precision (95% CI) | Recall (95% CI) | F1 |
 |---|---:|---:|---:|---|---|---:|
-| pass | 6453 | 9339 | 6214 | 66.5% (65.6-67.5%) | 96.3% (95.8-96.7%) | 0.787 |
-| tackle | 296 | 4442 | 283 | 6.4% (5.7-7.1%) | 95.6% (92.6-97.4%) | 0.119 |
-| pressure | 1129 | 2378 | 1098 | 46.2% (44.2-48.2%) | 97.2% (96.1-98.1%) | 0.626 |
+| pass | 6453 | 9339 | 6211 | 66.5% (65.5-67.5%) | 96.2% (95.8-96.7%) | 0.787 |
+| tackle | 296 | 4173 | 283 | 6.8% (6.1-7.6%) | 95.6% (92.6-97.4%) | 0.127 |
+| pressure | 1129 | 2562 | 1097 | 42.8% (40.9-44.7%) | 97.2% (96.0-98.0%) | 0.594 |
 
 ## Robustness sweep
 
@@ -90,19 +90,19 @@ Held-out matches MM-HOLD-900, MM-HOLD-901, MM-HOLD-902, with extra noise and dro
 
 | Setting | pass | shot | clearance | tackle | interception | recovery | pressure | kick-speed MAE |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| base feed (5 cm noise) | 0.997 | 0.925 | 0.926 | 0.940 | 0.983 | 0.733 | 0.808 | 1.08 km/h |
-| 15 cm noise | 0.973 | 0.831 | 0.808 | 0.879 | 0.950 | 0.724 | 0.785 | 3.80 km/h |
-| 30 cm noise | 0.967 | 0.618 | 0.667 | 0.773 | 0.920 | 0.786 | 0.771 | 8.69 km/h |
-| ball dropouts 0.5/s | 0.989 | 0.889 | 0.926 | 0.910 | 0.956 | 0.746 | 0.806 | 2.45 km/h |
-| player occlusion 0.1/s | 0.995 | 0.944 | 0.781 | 0.927 | 0.976 | 0.656 | 0.804 | 1.08 km/h |
-| player occlusion 0.3/s | 0.989 | 0.925 | 0.617 | 0.901 | 0.966 | 0.557 | 0.792 | 1.09 km/h |
-| 30 cm + dropouts 0.5/s + occlusion 0.3/s | 0.953 | 0.525 | 0.464 | 0.752 | 0.902 | 0.567 | 0.747 | 9.96 km/h |
+| base feed (5 cm noise) | 0.997 | 0.931 | 0.962 | 0.927 | 0.985 | 0.807 | 0.767 | 1.09 km/h |
+| 15 cm noise | 0.973 | 0.842 | 0.808 | 0.864 | 0.953 | 0.667 | 0.749 | 3.79 km/h |
+| 30 cm noise | 0.967 | 0.613 | 0.706 | 0.810 | 0.933 | 0.737 | 0.740 | 8.69 km/h |
+| ball dropouts 0.5/s | 0.990 | 0.889 | 0.923 | 0.892 | 0.957 | 0.807 | 0.764 | 2.46 km/h |
+| player occlusion 0.1/s | 0.997 | 0.950 | 0.820 | 0.927 | 0.980 | 0.733 | 0.766 | 1.09 km/h |
+| player occlusion 0.3/s | 0.993 | 0.931 | 0.593 | 0.907 | 0.970 | 0.597 | 0.757 | 1.09 km/h |
+| 30 cm + dropouts 0.5/s + occlusion 0.3/s | 0.958 | 0.525 | 0.471 | 0.810 | 0.915 | 0.559 | 0.728 | 9.96 km/h |
 
 ## Pixel path
 
 > **Rendered synthetic top-down video, not broadcast footage; no real-video model.**
 
-Held-out matches MM-HOLD-900, MM-HOLD-901, MM-HOLD-902, the first 180 s of each, rendered at 320 x 208 px (3 px per metre), 13,500 frames. Vision step: 26.9 s per match window. Recovered player positions: median error 0.019 m (95th percentile 0.355 m); ball: median 0.048 m, recovered in 99.6% of frames where it was tracked.
+Held-out matches MM-HOLD-900, MM-HOLD-901, MM-HOLD-902, the first 180 s of each, rendered at 320 x 208 px (3 px per metre), 13,500 frames. Vision step: 38.8 s per match window. Recovered player positions: median error 0.018 m (95th percentile 0.369 m); ball: median 0.049 m, recovered in 99.6% of frames where it was tracked.
 
 Coordinate path on the same frames:
 
@@ -114,28 +114,28 @@ Coordinate path on the same frames:
 | tackle | 4 | 4 | 4 | 100.0% (51.0-100.0%) | 100.0% (51.0-100.0%) | 1.000 |
 | interception | 18 | 18 | 18 | 100.0% (82.4-100.0%) | 100.0% (82.4-100.0%) | 1.000 |
 | recovery | 0 | 0 | 0 | 0.0% (n/a) | 0.0% (n/a) | 0.000 |
-| pressure | 21 | 29 | 19 | 65.5% (47.3-80.1%) | 90.5% (71.1-97.4%) | 0.760 |
+| pressure | 21 | 30 | 19 | 63.3% (45.5-78.1%) | 90.5% (71.1-97.4%) | 0.745 |
 
 Pixel path (same detector, positions recovered from the rendered frames):
 
 | Class | Support (true) | Detected | Matched | Precision (95% CI) | Recall (95% CI) | F1 |
 |---|---:|---:|---:|---|---|---:|
-| pass | 127 | 123 | 121 | 98.4% (94.3-99.6%) | 95.3% (90.1-97.8%) | 0.968 |
+| pass | 127 | 122 | 121 | 99.2% (95.5-99.9%) | 95.3% (90.1-97.8%) | 0.972 |
 | shot | 2 | 1 | 1 | 100.0% (20.6-100.0%) | 50.0% (9.4-90.5%) | 0.667 |
 | clearance | 0 | 4 | 0 | 0.0% (0.0-49.0%) | 0.0% (n/a) | 0.000 |
-| tackle | 4 | 5 | 4 | 80.0% (37.5-96.4%) | 100.0% (51.0-100.0%) | 0.889 |
-| interception | 18 | 19 | 14 | 73.7% (51.2-88.2%) | 77.8% (54.8-91.0%) | 0.757 |
+| tackle | 4 | 4 | 3 | 75.0% (30.1-95.4%) | 75.0% (30.1-95.4%) | 0.750 |
+| interception | 18 | 18 | 13 | 72.2% (49.1-87.5%) | 72.2% (49.1-87.5%) | 0.722 |
 | recovery | 0 | 3 | 0 | 0.0% (0.0-56.1%) | 0.0% (n/a) | 0.000 |
-| pressure | 21 | 28 | 18 | 64.3% (45.8-79.3%) | 85.7% (65.4-95.0%) | 0.735 |
+| pressure | 21 | 29 | 18 | 62.1% (44.0-77.3%) | 85.7% (65.4-95.0%) | 0.720 |
 
 Kick-speed MAE: coordinate 1.16 km/h, pixels 1.4 km/h.
 
 ## Failure examples (held-out)
 
-- `missed:interception`: MM-HOLD-900 at 22:48 (true interception, detected nothing). ![missed:interception](images/benchmark-failure-1.svg)
-- `spurious:interception`: MM-HOLD-900 at 25:26 (true nothing, detected interception). ![spurious:interception](images/benchmark-failure-2.svg)
+- `missed:interception`: MM-HOLD-900 at 37:15 (true interception, detected nothing). ![missed:interception](images/benchmark-failure-1.svg)
+- `spurious:interception`: MM-HOLD-900 at 51:24 (true nothing, detected interception). ![spurious:interception](images/benchmark-failure-2.svg)
 - `confused:clearance->pass`: MM-HOLD-901 at 46:19 (true clearance, detected pass). ![confused:clearance->pass](images/benchmark-failure-3.svg)
 - `missed:pass`: MM-HOLD-900 at 00:00 (true pass, detected nothing). ![missed:pass](images/benchmark-failure-4.svg)
-- `spurious:recovery`: MM-HOLD-900 at 08:40 (true nothing, detected recovery). ![spurious:recovery](images/benchmark-failure-5.svg)
+- `spurious:recovery`: MM-HOLD-901 at 77:59 (true nothing, detected recovery). ![spurious:recovery](images/benchmark-failure-5.svg)
 
-Runtime: 198.6 s.
+Runtime: 296.3 s.

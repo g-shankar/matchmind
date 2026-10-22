@@ -31,6 +31,22 @@ behaviour: |-
   String facts (names, clocks such as "67:28") are removed from the text before
   numbers are read, so the digits inside a clock never need their own fact.
 
+  Bounded sanity checks on top (every text, see docs/TRUST.md):
+  - unit: a number printed with a unit ("31 km/h", "18 m", "62%", "3.1x",
+    "0.4 xG", "5 minutes", in every studio language) must match a fact of that
+    unit, so a distance can never be printed as a speed;
+  - range: a percentage is never over 100;
+  - attribution: a per-team number (score, xG, shots) printed straight after one
+    club's name must be that club's value, and a scoreline "A 2-1 B" must read
+    in the right order for the two clubs named;
+  - comparison (English, Spanish, French): "N more than M" needs N > M, "N less
+    than M" needs N < M, and a multiplier read as "more" or "better" must be
+    over 1;
+  - roster: with `roster` given, a squad player's or club's name that is not in
+    the moment's facts is rejected (a true number pinned on the wrong player).
+  Out of scope, on purpose: negation ("did not score"), tone, causal wording and
+  any claim without a number or a name. Those are never reported as verified.
+
   This is the ONLY module allowed to contain real names: they are here so the
   checker can block them. Everything else in the codebase stays synthetic.
 contract:

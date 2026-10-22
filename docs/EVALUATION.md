@@ -3,6 +3,13 @@
 How we check the five-agent crew (Spotter, Analyst, Commentator, Fact-checker,
 Producer) before and after any change, and the numbers we got.
 
+What the crew guarantees is **numeric-claim validation with deterministic
+fallback**: every number and squad name in shown text must match a fact from
+the stats engine, and text that fails is replaced by a fact-checked template.
+It does not verify tone, causal wording or negation; see
+[docs/TRUST.md](TRUST.md) for what is and is not checked, per-sentence claims,
+and the cross-language parity results.
+
 Everything on this page ran **free and offline**: the crew is pinned to
 `TemplateLLM()` for evaluation, so no paid model call is possible even when
 `MATCHMIND_AI_ENABLED=true` (a test enforces this). Foundry's model-graded
@@ -52,13 +59,13 @@ fixed persona x language grid, and all names are from our fictional squads.
 
 | Evaluator | Passes when | Why it matters |
 |---|---|---|
-| `groundedness_numbers` | Every number in every field is a stats-engine fact (the production fact-checker, template rules) | The product's core promise: numbers come from the engine, never a model |
+| `groundedness_numbers` | Every number in every field is a stats-engine fact, with the unit, range, per-club attribution and comparison checks (the production fact-checker, template rules) | The product's core rule: numbers come from the engine, never a model |
 | `groundedness_numbers_strict` | Same, and no spelled-out number or count word outside the facts ("three", "trois", "hat-trick") | The stricter bar every model-written text must clear before it is shown |
 | `length` | Headline, body and paragraph length rules (words, characters, sentences; CJK-aware) | Overlays must fit a lower third |
 | `persona_vocab` | casual: no `xG`/`xA`/`xT`/`PDR`; tactical: has numbers when the moment has numeric facts; fantasy: no chalkboard acronyms (`xT`, `PDR`); player spotlight: names the focus player | Each audience gets its own voice |
 | `language` | The text is in the requested language (Arabic script, kana/kanji, or English/Spanish/French stop words and spelling cues, after fictional names are removed) | Catches an English fallback leaking into a translated card |
 
-## Scorecard (template mode, 21 Oct 2026, commit of this change)
+## Scorecard (template mode, 22 Oct 2026, with the trust-layer checks)
 
 ```
 PitchPulse crew evaluation: 7260 records from 5 matches (produced_by: template=7260)
@@ -81,10 +88,12 @@ language                          100.0%    100.0%    100.0%    100.0%    100.0%
 
 ### What the numbers say
 
-- **Groundedness 100%** is partly by construction: the crew refuses to show
-  any card that fails the fact-checker. The useful signal is that it had to
-  withhold **zero** cards, so every template fits its facts.
-- **Strict groundedness 98.2%**: 131 template texts use ordinal or idiom words
+- **Groundedness 100% (7,260 of 7,260)** is partly by construction: the crew
+  refuses to show any card that fails the fact-checker. The useful signal is
+  that it had to withhold **0 of 7,160** cards, so every template fits its
+  facts, including the unit, attribution and comparison checks added with the
+  trust layer.
+- **Strict groundedness 98.2% (7,129 of 7,260)**: 131 template texts use ordinal or idiom words
   the strict rule flags: French "passe la cinquième" (fifth gear, 93),
   Japanese 一 in set phrases (一撃 "one blow", 一つひとつ "each one", 14),
   Arabic "الشوط الأول" (first half, 8), the kick-off line "from the first
@@ -92,16 +101,29 @@ language                          100.0%    100.0%    100.0%    100.0%    100.0%
   Templates are exempt from the strict
   rule by design (the words are not counts); a model that wrote the same words
   would be rejected and the template shown instead.
-- **Persona 99.2%**: the 60 misses are one real gap: the tactical **card**
+- **Persona 99.2% (7,200 of 7,260)**: the 60 misses are one real gap: the tactical **card**
   (booking) template has no numbers although the facts carry the player's xA
   and sprints (12 bookings x 5 languages). Logged for the template owners.
-- **Language 100%**: no English fallback leaked into any translation. The
+- **Language 100% (7,260 of 7,260)**: no English fallback leaked into any
+  studio-language text. The
   detector is a small, transparent heuristic tuned on football vocabulary;
   tests show it catches English inside a Spanish or Japanese card and Spanish
   inside a French one.
 
-### Limits
+### Claims and parity (same run)
 
+| Measure | Result |
+|---|---|
+| Moments where all 20 renderings agree on the key facts (`fact_parity`) | 358 of 358 |
+| Renderings shown | 7,160 of 7,160 |
+| Sentence claims | 27,119: 19,754 `verified_numeric`, 4,921 `verified_name`, 2,444 `unverified_text` (no number or name to check), 0 failed |
+
+### Limits and what can still be wrong
+
+- A passing score means the numbers and names match the engine. It does not
+  mean the prose is right: tone, causal wording ("so they have to adjust") and
+  negation are not checked, and a model can still use a true number for the
+  wrong thing when the units match. docs/TRUST.md lists every gap.
 - Template mode only. With paid AI switched on, the same commands evaluate
   the model path once a dataset is built from a crew with a live model; that
   is owner-approved spend and has not been done.

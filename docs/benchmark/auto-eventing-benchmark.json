@@ -37,117 +37,117 @@
       {
         "kind": "pass",
         "support": 6453,
-        "detected": 6434,
-        "matched": 6419,
-        "precision": 0.9977,
-        "recall": 0.9947,
+        "detected": 6432,
+        "matched": 6418,
+        "precision": 0.9978,
+        "recall": 0.9946,
         "f1": 0.9962,
         "precision_ci": [
-          0.9962,
-          0.9986
+          0.9963,
+          0.9987
         ],
         "recall_ci": [
-          0.9926,
-          0.9962
+          0.9925,
+          0.9961
         ]
       },
       {
         "kind": "shot",
         "support": 159,
-        "detected": 163,
-        "matched": 153,
-        "precision": 0.9387,
-        "recall": 0.9623,
-        "f1": 0.9504,
+        "detected": 164,
+        "matched": 154,
+        "precision": 0.939,
+        "recall": 0.9686,
+        "f1": 0.9536,
         "precision_ci": [
-          0.8908,
-          0.9663
+          0.8914,
+          0.9665
         ],
         "recall_ci": [
-          0.9201,
-          0.9826
+          0.9285,
+          0.9865
         ]
       },
       {
         "kind": "clearance",
         "support": 48,
-        "detected": 45,
-        "matched": 44,
-        "precision": 0.9778,
-        "recall": 0.9167,
-        "f1": 0.9463,
+        "detected": 46,
+        "matched": 46,
+        "precision": 1.0,
+        "recall": 0.9583,
+        "f1": 0.9787,
         "precision_ci": [
-          0.8843,
-          0.9961
+          0.9229,
+          1.0
         ],
         "recall_ci": [
-          0.8045,
-          0.9671
+          0.8602,
+          0.9885
         ]
       },
       {
         "kind": "tackle",
         "support": 296,
-        "detected": 275,
-        "matched": 257,
-        "precision": 0.9345,
-        "recall": 0.8682,
-        "f1": 0.9001,
+        "detected": 279,
+        "matched": 260,
+        "precision": 0.9319,
+        "recall": 0.8784,
+        "f1": 0.9044,
         "precision_ci": [
-          0.8989,
-          0.9582
+          0.8961,
+          0.956
         ],
         "recall_ci": [
-          0.825,
-          0.9021
+          0.8362,
+          0.9108
         ]
       },
       {
         "kind": "interception",
         "support": 1126,
-        "detected": 1115,
-        "matched": 1098,
-        "precision": 0.9848,
-        "recall": 0.9751,
-        "f1": 0.9799,
+        "detected": 1111,
+        "matched": 1097,
+        "precision": 0.9874,
+        "recall": 0.9742,
+        "f1": 0.9808,
         "precision_ci": [
-          0.9757,
-          0.9905
+          0.979,
+          0.9925
         ],
         "recall_ci": [
-          0.9643,
-          0.9827
+          0.9633,
+          0.982
         ]
       },
       {
         "kind": "recovery",
         "support": 57,
-        "detected": 55,
-        "matched": 38,
-        "precision": 0.6909,
-        "recall": 0.6667,
-        "f1": 0.6786,
+        "detected": 56,
+        "matched": 40,
+        "precision": 0.7143,
+        "recall": 0.7018,
+        "f1": 0.708,
         "precision_ci": [
-          0.5597,
-          0.7972
+          0.5852,
+          0.8158
         ],
         "recall_ci": [
-          0.5372,
-          0.7751
+          0.5734,
+          0.8047
         ]
       }
     ],
     "pressure": {
       "kind": "pressure",
       "support": 1129,
-      "detected": 1539,
+      "detected": 1677,
       "matched": 1061,
-      "precision": 0.6894,
+      "precision": 0.6327,
       "recall": 0.9398,
-      "f1": 0.7954,
+      "f1": 0.7563,
       "precision_ci": [
-        0.6658,
-        0.712
+        0.6093,
+        0.6554
       ],
       "recall_ci": [
         0.9243,
@@ -175,27 +175,27 @@
       ],
       "counts": [
         [
-          6419,
+          6418,
           10,
-          1,
           0,
           0,
           0,
-          23
+          0,
+          25
         ],
         [
-          5,
-          153,
+          3,
+          154,
           0,
           0,
           0,
           0,
-          1
+          2
         ],
         [
-          4,
+          2,
           0,
-          44,
+          46,
           0,
           0,
           0,
@@ -205,47 +205,47 @@
           0,
           0,
           0,
-          257,
-          4,
+          260,
+          2,
           0,
-          35
+          34
         ],
         [
           0,
           0,
           0,
           0,
-          1098,
+          1097,
           9,
-          19
+          20
         ],
         [
           0,
           0,
           0,
-          1,
-          1,
-          38,
-          17
+          2,
+          4,
+          40,
+          11
         ],
         [
-          6,
+          9,
           0,
           0,
           17,
-          12,
           8,
+          7,
           0
         ]
       ]
     },
     "speed_mae_kmh": 1.03,
     "speed_mae_ci_kmh": [
-      0.983,
-      1.078
+      0.985,
+      1.076
     ],
     "speed_samples": 6572,
-    "receiver_accuracy": 0.994,
+    "receiver_accuracy": 0.9979,
     "baseline": {
       "name": "Naive baseline: every ball-speed spike is a pass, every change of nearest team is a tackle",
       "classes": [
@@ -253,17 +253,17 @@
           "kind": "pass",
           "support": 6453,
           "detected": 9339,
-          "matched": 6214,
-          "precision": 0.6654,
-          "recall": 0.963,
-          "f1": 0.787,
+          "matched": 6211,
+          "precision": 0.6651,
+          "recall": 0.9625,
+          "f1": 0.7866,
           "precision_ci": [
-            0.6557,
-            0.6749
+            0.6554,
+            0.6746
           ],
           "recall_ci": [
-            0.9581,
-            0.9673
+            0.9576,
+            0.9669
           ]
         },
         {
@@ -297,14 +297,14 @@
         {
           "kind": "tackle",
           "support": 296,
-          "detected": 4442,
+          "detected": 4173,
           "matched": 283,
-          "precision": 0.0637,
+          "precision": 0.0678,
           "recall": 0.9561,
-          "f1": 0.1194,
+          "f1": 0.1266,
           "precision_ci": [
-            0.0569,
-            0.0713
+            0.0606,
+            0.0758
           ],
           "recall_ci": [
             0.9263,
@@ -342,18 +342,18 @@
         {
           "kind": "pressure",
           "support": 1129,
-          "detected": 2378,
-          "matched": 1098,
-          "precision": 0.4617,
-          "recall": 0.9725,
-          "f1": 0.6261,
+          "detected": 2562,
+          "matched": 1097,
+          "precision": 0.4282,
+          "recall": 0.9717,
+          "f1": 0.5944,
           "precision_ci": [
-            0.4418,
-            0.4818
+            0.4091,
+            0.4474
           ],
           "recall_ci": [
-            0.9613,
-            0.9806
+            0.9603,
+            0.9799
           ]
         }
       ]
@@ -389,18 +389,18 @@
       {
         "kind": "pass",
         "support": 13210,
-        "detected": 13165,
-        "matched": 13141,
-        "precision": 0.9982,
-        "recall": 0.9948,
-        "f1": 0.9965,
+        "detected": 13174,
+        "matched": 13143,
+        "precision": 0.9976,
+        "recall": 0.9949,
+        "f1": 0.9962,
         "precision_ci": [
-          0.9973,
-          0.9988
+          0.9967,
+          0.9983
         ],
         "recall_ci": [
-          0.9934,
-          0.9959
+          0.9936,
+          0.996
         ]
       },
       {
@@ -423,83 +423,83 @@
       {
         "kind": "clearance",
         "support": 93,
-        "detected": 93,
-        "matched": 91,
-        "precision": 0.9785,
-        "recall": 0.9785,
-        "f1": 0.9785,
+        "detected": 88,
+        "matched": 88,
+        "precision": 1.0,
+        "recall": 0.9462,
+        "f1": 0.9724,
         "precision_ci": [
-          0.9249,
-          0.9941
+          0.9582,
+          1.0
         ],
         "recall_ci": [
-          0.9249,
-          0.9941
+          0.8803,
+          0.9768
         ]
       },
       {
         "kind": "tackle",
         "support": 649,
-        "detected": 630,
-        "matched": 593,
-        "precision": 0.9413,
-        "recall": 0.9137,
-        "f1": 0.9273,
+        "detected": 641,
+        "matched": 595,
+        "precision": 0.9282,
+        "recall": 0.9168,
+        "f1": 0.9225,
         "precision_ci": [
-          0.9201,
-          0.9571
+          0.9056,
+          0.9458
         ],
         "recall_ci": [
-          0.8896,
-          0.933
+          0.893,
+          0.9357
         ]
       },
       {
         "kind": "interception",
         "support": 2226,
-        "detected": 2212,
-        "matched": 2185,
-        "precision": 0.9878,
-        "recall": 0.9816,
-        "f1": 0.9847,
+        "detected": 2216,
+        "matched": 2186,
+        "precision": 0.9865,
+        "recall": 0.982,
+        "f1": 0.9842,
         "precision_ci": [
-          0.9823,
-          0.9916
+          0.9807,
+          0.9905
         ],
         "recall_ci": [
-          0.9751,
-          0.9864
+          0.9756,
+          0.9868
         ]
       },
       {
         "kind": "recovery",
         "support": 103,
-        "detected": 109,
-        "matched": 78,
-        "precision": 0.7156,
-        "recall": 0.7573,
-        "f1": 0.7359,
+        "detected": 104,
+        "matched": 79,
+        "precision": 0.7596,
+        "recall": 0.767,
+        "f1": 0.7633,
         "precision_ci": [
-          0.6247,
-          0.7918
+          0.6692,
+          0.8315
         ],
         "recall_ci": [
-          0.6662,
-          0.8298
+          0.6767,
+          0.8381
         ]
       }
     ],
     "pressure": {
       "kind": "pressure",
       "support": 2285,
-      "detected": 3165,
+      "detected": 3452,
       "matched": 2174,
-      "precision": 0.6869,
+      "precision": 0.6298,
       "recall": 0.9514,
-      "f1": 0.7978,
+      "f1": 0.7579,
       "precision_ci": [
-        0.6705,
-        0.7028
+        0.6135,
+        0.6457
       ],
       "recall_ci": [
         0.9418,
@@ -527,9 +527,9 @@
       ],
       "counts": [
         [
-          13141,
+          13143,
           18,
-          2,
+          0,
           0,
           0,
           0,
@@ -545,9 +545,9 @@
           7
         ],
         [
-          2,
+          5,
           0,
-          91,
+          88,
           0,
           0,
           0,
@@ -557,47 +557,47 @@
           0,
           0,
           0,
-          593,
+          595,
           4,
+          0,
+          50
+        ],
+        [
+          0,
+          0,
+          0,
+          0,
+          2186,
+          11,
+          29
+        ],
+        [
+          0,
+          0,
+          0,
           1,
-          51
-        ],
-        [
-          0,
-          0,
-          0,
-          0,
-          2185,
-          10,
-          31
-        ],
-        [
-          0,
-          0,
-          0,
           1,
-          0,
-          78,
-          24
+          79,
+          22
         ],
         [
+          18,
+          0,
+          0,
+          45,
+          25,
           14,
-          0,
-          0,
-          36,
-          23,
-          20,
           0
         ]
       ]
     },
     "speed_mae_kmh": 1.08,
     "speed_mae_ci_kmh": [
-      1.024,
-      1.151
+      1.027,
+      1.159
     ],
-    "speed_samples": 13378,
-    "receiver_accuracy": 0.9935,
+    "speed_samples": 13380,
+    "receiver_accuracy": 0.998,
     "baseline": {
       "name": "Naive baseline: every ball-speed spike is a pass, every change of nearest team is a tackle",
       "classes": [
@@ -605,16 +605,16 @@
           "kind": "pass",
           "support": 13210,
           "detected": 19050,
-          "matched": 12783,
-          "precision": 0.671,
-          "recall": 0.9677,
-          "f1": 0.7925,
+          "matched": 12784,
+          "precision": 0.6711,
+          "recall": 0.9678,
+          "f1": 0.7926,
           "precision_ci": [
-            0.6643,
+            0.6644,
             0.6777
           ],
           "recall_ci": [
-            0.9645,
+            0.9646,
             0.9706
           ]
         },
@@ -649,18 +649,18 @@
         {
           "kind": "tackle",
           "support": 649,
-          "detected": 8570,
-          "matched": 626,
-          "precision": 0.073,
-          "recall": 0.9646,
-          "f1": 0.1357,
+          "detected": 8234,
+          "matched": 632,
+          "precision": 0.0768,
+          "recall": 0.9738,
+          "f1": 0.1424,
           "precision_ci": [
-            0.0677,
-            0.0787
+            0.0712,
+            0.0827
           ],
           "recall_ci": [
-            0.9474,
-            0.9763
+            0.9585,
+            0.9836
           ]
         },
         {
@@ -694,18 +694,18 @@
         {
           "kind": "pressure",
           "support": 2285,
-          "detected": 4899,
-          "matched": 2224,
-          "precision": 0.454,
-          "recall": 0.9733,
-          "f1": 0.6192,
+          "detected": 5161,
+          "matched": 2223,
+          "precision": 0.4307,
+          "recall": 0.9729,
+          "f1": 0.5971,
           "precision_ci": [
-            0.4401,
-            0.4679
+            0.4173,
+            0.4443
           ],
           "recall_ci": [
-            0.9659,
-            0.9792
+            0.9654,
+            0.9788
           ]
         }
       ]
@@ -721,31 +721,31 @@
         {
           "kind": "pass",
           "support": 3978,
-          "detected": 3967,
-          "matched": 3959,
-          "precision": 0.998,
-          "recall": 0.9952,
-          "f1": 0.9966,
+          "detected": 3971,
+          "matched": 3964,
+          "precision": 0.9982,
+          "recall": 0.9965,
+          "f1": 0.9973,
           "precision_ci": [
-            0.996,
-            0.999
+            0.9964,
+            0.9991
           ],
           "recall_ci": [
-            0.9926,
-            0.9969
+            0.9941,
+            0.9979
           ]
         },
         {
           "kind": "shot",
           "support": 79,
-          "detected": 81,
+          "detected": 80,
           "matched": 74,
-          "precision": 0.9136,
+          "precision": 0.925,
           "recall": 0.9367,
-          "f1": 0.925,
+          "f1": 0.9308,
           "precision_ci": [
-            0.8322,
-            0.9575
+            0.8459,
+            0.9652
           ],
           "recall_ci": [
             0.8603,
@@ -755,526 +755,14 @@
         {
           "kind": "clearance",
           "support": 27,
-          "detected": 27,
-          "matched": 25,
-          "precision": 0.9259,
-          "recall": 0.9259,
-          "f1": 0.9259,
-          "precision_ci": [
-            0.7663,
-            0.9794
-          ],
-          "recall_ci": [
-            0.7663,
-            0.9794
-          ]
-        },
-        {
-          "kind": "tackle",
-          "support": 186,
-          "detected": 182,
-          "matched": 173,
-          "precision": 0.9505,
-          "recall": 0.9301,
-          "f1": 0.9402,
-          "precision_ci": [
-            0.9087,
-            0.9738
-          ],
-          "recall_ci": [
-            0.8841,
-            0.9587
-          ]
-        },
-        {
-          "kind": "interception",
-          "support": 692,
-          "detected": 687,
-          "matched": 678,
-          "precision": 0.9869,
-          "recall": 0.9798,
-          "f1": 0.9833,
-          "precision_ci": [
-            0.9753,
-            0.9931
-          ],
-          "recall_ci": [
-            0.9663,
-            0.9879
-          ]
-        },
-        {
-          "kind": "recovery",
-          "support": 30,
-          "detected": 30,
-          "matched": 22,
-          "precision": 0.7333,
-          "recall": 0.7333,
-          "f1": 0.7333,
-          "precision_ci": [
-            0.5555,
-            0.8582
-          ],
-          "recall_ci": [
-            0.5555,
-            0.8582
-          ]
-        }
-      ],
-      "pressure": {
-        "kind": "pressure",
-        "support": 711,
-        "detected": 968,
-        "matched": 678,
-        "precision": 0.7004,
-        "recall": 0.9536,
-        "f1": 0.8076,
-        "precision_ci": [
-          0.6708,
-          0.7284
-        ],
-        "recall_ci": [
-          0.9355,
-          0.9668
-        ]
-      },
-      "speed_mae_kmh": 1.08
-    },
-    {
-      "name": "15 cm noise",
-      "noise_m": 0.15,
-      "ball_dropout_per_s": 0.0,
-      "player_occlusion_per_s": 0.0,
-      "classes": [
-        {
-          "kind": "pass",
-          "support": 3978,
-          "detected": 3788,
-          "matched": 3778,
-          "precision": 0.9974,
-          "recall": 0.9497,
-          "f1": 0.973,
-          "precision_ci": [
-            0.9951,
-            0.9986
-          ],
-          "recall_ci": [
-            0.9425,
-            0.9561
-          ]
-        },
-        {
-          "kind": "shot",
-          "support": 79,
-          "detected": 75,
-          "matched": 64,
-          "precision": 0.8533,
-          "recall": 0.8101,
-          "f1": 0.8311,
-          "precision_ci": [
-            0.7562,
-            0.9161
-          ],
-          "recall_ci": [
-            0.7101,
-            0.8814
-          ]
-        },
-        {
-          "kind": "clearance",
-          "support": 27,
           "detected": 25,
-          "matched": 21,
-          "precision": 0.84,
-          "recall": 0.7778,
-          "f1": 0.8077,
-          "precision_ci": [
-            0.6535,
-            0.936
-          ],
-          "recall_ci": [
-            0.5924,
-            0.8939
-          ]
-        },
-        {
-          "kind": "tackle",
-          "support": 186,
-          "detected": 201,
-          "matched": 170,
-          "precision": 0.8458,
-          "recall": 0.914,
-          "f1": 0.8786,
-          "precision_ci": [
-            0.7894,
-            0.8892
-          ],
-          "recall_ci": [
-            0.8648,
-            0.9464
-          ]
-        },
-        {
-          "kind": "interception",
-          "support": 692,
-          "detected": 643,
-          "matched": 634,
-          "precision": 0.986,
-          "recall": 0.9162,
-          "f1": 0.9498,
-          "precision_ci": [
-            0.9736,
-            0.9926
-          ],
-          "recall_ci": [
-            0.8932,
-            0.9346
-          ]
-        },
-        {
-          "kind": "recovery",
-          "support": 30,
-          "detected": 28,
-          "matched": 21,
-          "precision": 0.75,
-          "recall": 0.7,
-          "f1": 0.7241,
-          "precision_ci": [
-            0.5664,
-            0.8732
-          ],
-          "recall_ci": [
-            0.5212,
-            0.8334
-          ]
-        }
-      ],
-      "pressure": {
-        "kind": "pressure",
-        "support": 711,
-        "detected": 968,
-        "matched": 659,
-        "precision": 0.6808,
-        "recall": 0.9269,
-        "f1": 0.785,
-        "precision_ci": [
-          0.6508,
-          0.7094
-        ],
-        "recall_ci": [
-          0.9053,
-          0.9438
-        ]
-      },
-      "speed_mae_kmh": 3.8
-    },
-    {
-      "name": "30 cm noise",
-      "noise_m": 0.3,
-      "ball_dropout_per_s": 0.0,
-      "player_occlusion_per_s": 0.0,
-      "classes": [
-        {
-          "kind": "pass",
-          "support": 3978,
-          "detected": 3792,
-          "matched": 3756,
-          "precision": 0.9905,
-          "recall": 0.9442,
-          "f1": 0.9668,
-          "precision_ci": [
-            0.9869,
-            0.9931
-          ],
-          "recall_ci": [
-            0.9366,
-            0.9509
-          ]
-        },
-        {
-          "kind": "shot",
-          "support": 79,
-          "detected": 44,
-          "matched": 38,
-          "precision": 0.8636,
-          "recall": 0.481,
-          "f1": 0.6179,
-          "precision_ci": [
-            0.7329,
-            0.936
-          ],
-          "recall_ci": [
-            0.3743,
-            0.5895
-          ]
-        },
-        {
-          "kind": "clearance",
-          "support": 27,
-          "detected": 24,
-          "matched": 17,
-          "precision": 0.7083,
-          "recall": 0.6296,
-          "f1": 0.6666,
-          "precision_ci": [
-            0.5083,
-            0.8509
-          ],
-          "recall_ci": [
-            0.4423,
-            0.7847
-          ]
-        },
-        {
-          "kind": "tackle",
-          "support": 186,
-          "detected": 207,
-          "matched": 152,
-          "precision": 0.7343,
-          "recall": 0.8172,
-          "f1": 0.7735,
-          "precision_ci": [
-            0.6703,
-            0.7898
-          ],
-          "recall_ci": [
-            0.7554,
-            0.8661
-          ]
-        },
-        {
-          "kind": "interception",
-          "support": 692,
-          "detected": 643,
-          "matched": 614,
-          "precision": 0.9549,
-          "recall": 0.8873,
-          "f1": 0.9199,
-          "precision_ci": [
-            0.936,
-            0.9684
-          ],
-          "recall_ci": [
-            0.8616,
-            0.9087
-          ]
-        },
-        {
-          "kind": "recovery",
-          "support": 30,
-          "detected": 26,
-          "matched": 22,
-          "precision": 0.8462,
-          "recall": 0.7333,
-          "f1": 0.7857,
-          "precision_ci": [
-            0.6647,
-            0.9385
-          ],
-          "recall_ci": [
-            0.5555,
-            0.8582
-          ]
-        }
-      ],
-      "pressure": {
-        "kind": "pressure",
-        "support": 711,
-        "detected": 957,
-        "matched": 643,
-        "precision": 0.6719,
-        "recall": 0.9044,
-        "f1": 0.771,
-        "precision_ci": [
-          0.6415,
-          0.7009
-        ],
-        "recall_ci": [
-          0.8805,
-          0.9239
-        ]
-      },
-      "speed_mae_kmh": 8.69
-    },
-    {
-      "name": "ball dropouts 0.5/s",
-      "noise_m": 0.05,
-      "ball_dropout_per_s": 0.5,
-      "player_occlusion_per_s": 0.0,
-      "classes": [
-        {
-          "kind": "pass",
-          "support": 3978,
-          "detected": 3939,
-          "matched": 3914,
-          "precision": 0.9937,
-          "recall": 0.9839,
-          "f1": 0.9888,
-          "precision_ci": [
-            0.9906,
-            0.9957
-          ],
-          "recall_ci": [
-            0.9795,
-            0.9874
-          ]
-        },
-        {
-          "kind": "shot",
-          "support": 79,
-          "detected": 74,
-          "matched": 68,
-          "precision": 0.9189,
-          "recall": 0.8608,
-          "f1": 0.8889,
-          "precision_ci": [
-            0.8342,
-            0.9623
-          ],
-          "recall_ci": [
-            0.7676,
-            0.9204
-          ]
-        },
-        {
-          "kind": "clearance",
-          "support": 27,
-          "detected": 27,
           "matched": 25,
-          "precision": 0.9259,
+          "precision": 1.0,
           "recall": 0.9259,
-          "f1": 0.9259,
+          "f1": 0.9615,
           "precision_ci": [
-            0.7663,
-            0.9794
-          ],
-          "recall_ci": [
-            0.7663,
-            0.9794
-          ]
-        },
-        {
-          "kind": "tackle",
-          "support": 186,
-          "detected": 190,
-          "matched": 171,
-          "precision": 0.9,
-          "recall": 0.9194,
-          "f1": 0.9096,
-          "precision_ci": [
-            0.8491,
-            0.935
-          ],
-          "recall_ci": [
-            0.8712,
-            0.9505
-          ]
-        },
-        {
-          "kind": "interception",
-          "support": 692,
-          "detected": 680,
-          "matched": 656,
-          "precision": 0.9647,
-          "recall": 0.948,
-          "f1": 0.9563,
-          "precision_ci": [
-            0.948,
-            0.9762
-          ],
-          "recall_ci": [
-            0.9288,
-            0.9622
-          ]
-        },
-        {
-          "kind": "recovery",
-          "support": 30,
-          "detected": 29,
-          "matched": 22,
-          "precision": 0.7586,
-          "recall": 0.7333,
-          "f1": 0.7457,
-          "precision_ci": [
-            0.5789,
-            0.8778
-          ],
-          "recall_ci": [
-            0.5555,
-            0.8582
-          ]
-        }
-      ],
-      "pressure": {
-        "kind": "pressure",
-        "support": 711,
-        "detected": 957,
-        "matched": 672,
-        "precision": 0.7022,
-        "recall": 0.9451,
-        "f1": 0.8057,
-        "precision_ci": [
-          0.6725,
-          0.7303
-        ],
-        "recall_ci": [
-          0.9259,
-          0.9596
-        ]
-      },
-      "speed_mae_kmh": 2.45
-    },
-    {
-      "name": "player occlusion 0.1/s",
-      "noise_m": 0.05,
-      "ball_dropout_per_s": 0.0,
-      "player_occlusion_per_s": 0.1,
-      "classes": [
-        {
-          "kind": "pass",
-          "support": 3978,
-          "detected": 3961,
-          "matched": 3949,
-          "precision": 0.997,
-          "recall": 0.9927,
-          "f1": 0.9948,
-          "precision_ci": [
-            0.9947,
-            0.9983
-          ],
-          "recall_ci": [
-            0.9895,
-            0.9949
-          ]
-        },
-        {
-          "kind": "shot",
-          "support": 79,
-          "detected": 82,
-          "matched": 76,
-          "precision": 0.9268,
-          "recall": 0.962,
-          "f1": 0.9441,
-          "precision_ci": [
-            0.8494,
-            0.966
-          ],
-          "recall_ci": [
-            0.8942,
-            0.987
-          ]
-        },
-        {
-          "kind": "clearance",
-          "support": 27,
-          "detected": 37,
-          "matched": 25,
-          "precision": 0.6757,
-          "recall": 0.9259,
-          "f1": 0.7813,
-          "precision_ci": [
-            0.5146,
-            0.8037
+            0.8668,
+            1.0
           ],
           "recall_ci": [
             0.7663,
@@ -1301,31 +789,287 @@
         {
           "kind": "interception",
           "support": 692,
-          "detected": 685,
-          "matched": 672,
-          "precision": 0.981,
-          "recall": 0.9711,
-          "f1": 0.976,
+          "detected": 687,
+          "matched": 679,
+          "precision": 0.9884,
+          "recall": 0.9812,
+          "f1": 0.9848,
           "precision_ci": [
-            0.9678,
-            0.9889
+            0.9772,
+            0.9941
           ],
           "recall_ci": [
-            0.9558,
-            0.9812
+            0.9681,
+            0.989
           ]
         },
         {
           "kind": "recovery",
           "support": 30,
-          "detected": 34,
-          "matched": 21,
-          "precision": 0.6176,
-          "recall": 0.7,
-          "f1": 0.6562,
+          "detected": 27,
+          "matched": 23,
+          "precision": 0.8519,
+          "recall": 0.7667,
+          "f1": 0.8071,
           "precision_ci": [
-            0.4504,
-            0.761
+            0.6752,
+            0.9408
+          ],
+          "recall_ci": [
+            0.5907,
+            0.8821
+          ]
+        }
+      ],
+      "pressure": {
+        "kind": "pressure",
+        "support": 711,
+        "detected": 1060,
+        "matched": 679,
+        "precision": 0.6406,
+        "recall": 0.955,
+        "f1": 0.7668,
+        "precision_ci": [
+          0.6112,
+          0.6689
+        ],
+        "recall_ci": [
+          0.9372,
+          0.9679
+        ]
+      },
+      "speed_mae_kmh": 1.09
+    },
+    {
+      "name": "15 cm noise",
+      "noise_m": 0.15,
+      "ball_dropout_per_s": 0.0,
+      "player_occlusion_per_s": 0.0,
+      "classes": [
+        {
+          "kind": "pass",
+          "support": 3978,
+          "detected": 3789,
+          "matched": 3780,
+          "precision": 0.9976,
+          "recall": 0.9502,
+          "f1": 0.9733,
+          "precision_ci": [
+            0.9955,
+            0.9987
+          ],
+          "recall_ci": [
+            0.943,
+            0.9566
+          ]
+        },
+        {
+          "kind": "shot",
+          "support": 79,
+          "detected": 73,
+          "matched": 64,
+          "precision": 0.8767,
+          "recall": 0.8101,
+          "f1": 0.8421,
+          "precision_ci": [
+            0.782,
+            0.9338
+          ],
+          "recall_ci": [
+            0.7101,
+            0.8814
+          ]
+        },
+        {
+          "kind": "clearance",
+          "support": 27,
+          "detected": 25,
+          "matched": 21,
+          "precision": 0.84,
+          "recall": 0.7778,
+          "f1": 0.8077,
+          "precision_ci": [
+            0.6535,
+            0.936
+          ],
+          "recall_ci": [
+            0.5924,
+            0.8939
+          ]
+        },
+        {
+          "kind": "tackle",
+          "support": 186,
+          "detected": 217,
+          "matched": 174,
+          "precision": 0.8018,
+          "recall": 0.9355,
+          "f1": 0.8635,
+          "precision_ci": [
+            0.7438,
+            0.8494
+          ],
+          "recall_ci": [
+            0.8906,
+            0.9627
+          ]
+        },
+        {
+          "kind": "interception",
+          "support": 692,
+          "detected": 643,
+          "matched": 636,
+          "precision": 0.9891,
+          "recall": 0.9191,
+          "f1": 0.9528,
+          "precision_ci": [
+            0.9777,
+            0.9947
+          ],
+          "recall_ci": [
+            0.8964,
+            0.9372
+          ]
+        },
+        {
+          "kind": "recovery",
+          "support": 30,
+          "detected": 27,
+          "matched": 19,
+          "precision": 0.7037,
+          "recall": 0.6333,
+          "f1": 0.6666,
+          "precision_ci": [
+            0.5152,
+            0.8415
+          ],
+          "recall_ci": [
+            0.4551,
+            0.7813
+          ]
+        }
+      ],
+      "pressure": {
+        "kind": "pressure",
+        "support": 711,
+        "detected": 1040,
+        "matched": 656,
+        "precision": 0.6308,
+        "recall": 0.9226,
+        "f1": 0.7493,
+        "precision_ci": [
+          0.601,
+          0.6596
+        ],
+        "recall_ci": [
+          0.9007,
+          0.9401
+        ]
+      },
+      "speed_mae_kmh": 3.79
+    },
+    {
+      "name": "30 cm noise",
+      "noise_m": 0.3,
+      "ball_dropout_per_s": 0.0,
+      "player_occlusion_per_s": 0.0,
+      "classes": [
+        {
+          "kind": "pass",
+          "support": 3978,
+          "detected": 3790,
+          "matched": 3757,
+          "precision": 0.9913,
+          "recall": 0.9444,
+          "f1": 0.9673,
+          "precision_ci": [
+            0.9878,
+            0.9938
+          ],
+          "recall_ci": [
+            0.9369,
+            0.9511
+          ]
+        },
+        {
+          "kind": "shot",
+          "support": 79,
+          "detected": 45,
+          "matched": 38,
+          "precision": 0.8444,
+          "recall": 0.481,
+          "f1": 0.6129,
+          "precision_ci": [
+            0.7122,
+            0.9225
+          ],
+          "recall_ci": [
+            0.3743,
+            0.5895
+          ]
+        },
+        {
+          "kind": "clearance",
+          "support": 27,
+          "detected": 24,
+          "matched": 18,
+          "precision": 0.75,
+          "recall": 0.6667,
+          "f1": 0.7059,
+          "precision_ci": [
+            0.551,
+            0.88
+          ],
+          "recall_ci": [
+            0.4782,
+            0.8136
+          ]
+        },
+        {
+          "kind": "tackle",
+          "support": 186,
+          "detected": 231,
+          "matched": 169,
+          "precision": 0.7316,
+          "recall": 0.9086,
+          "f1": 0.8105,
+          "precision_ci": [
+            0.671,
+            0.7846
+          ],
+          "recall_ci": [
+            0.8585,
+            0.9422
+          ]
+        },
+        {
+          "kind": "interception",
+          "support": 692,
+          "detected": 630,
+          "matched": 617,
+          "precision": 0.9794,
+          "recall": 0.8916,
+          "f1": 0.9334,
+          "precision_ci": [
+            0.965,
+            0.9879
+          ],
+          "recall_ci": [
+            0.8663,
+            0.9127
+          ]
+        },
+        {
+          "kind": "recovery",
+          "support": 30,
+          "detected": 27,
+          "matched": 21,
+          "precision": 0.7778,
+          "recall": 0.7,
+          "f1": 0.7369,
+          "precision_ci": [
+            0.5924,
+            0.8939
           ],
           "recall_ci": [
             0.5212,
@@ -1336,73 +1080,201 @@
       "pressure": {
         "kind": "pressure",
         "support": 711,
-        "detected": 971,
-        "matched": 676,
-        "precision": 0.6962,
-        "recall": 0.9508,
-        "f1": 0.8038,
+        "detected": 1013,
+        "matched": 638,
+        "precision": 0.6298,
+        "recall": 0.8973,
+        "f1": 0.7401,
         "precision_ci": [
-          0.6665,
-          0.7243
+          0.5996,
+          0.659
         ],
         "recall_ci": [
-          0.9323,
-          0.9644
+          0.8728,
+          0.9175
         ]
       },
-      "speed_mae_kmh": 1.08
+      "speed_mae_kmh": 8.69
     },
     {
-      "name": "player occlusion 0.3/s",
+      "name": "ball dropouts 0.5/s",
       "noise_m": 0.05,
-      "ball_dropout_per_s": 0.0,
-      "player_occlusion_per_s": 0.3,
+      "ball_dropout_per_s": 0.5,
+      "player_occlusion_per_s": 0.0,
       "classes": [
         {
           "kind": "pass",
           "support": 3978,
-          "detected": 3937,
-          "matched": 3915,
-          "precision": 0.9944,
-          "recall": 0.9842,
-          "f1": 0.9893,
+          "detected": 3943,
+          "matched": 3922,
+          "precision": 0.9947,
+          "recall": 0.9859,
+          "f1": 0.9903,
           "precision_ci": [
-            0.9916,
-            0.9963
+            0.9919,
+            0.9965
           ],
           "recall_ci": [
-            0.9798,
-            0.9876
+            0.9818,
+            0.9891
+          ]
+        },
+        {
+          "kind": "shot",
+          "support": 79,
+          "detected": 74,
+          "matched": 68,
+          "precision": 0.9189,
+          "recall": 0.8608,
+          "f1": 0.8889,
+          "precision_ci": [
+            0.8342,
+            0.9623
+          ],
+          "recall_ci": [
+            0.7676,
+            0.9204
+          ]
+        },
+        {
+          "kind": "clearance",
+          "support": 27,
+          "detected": 25,
+          "matched": 24,
+          "precision": 0.96,
+          "recall": 0.8889,
+          "f1": 0.9231,
+          "precision_ci": [
+            0.8046,
+            0.9929
+          ],
+          "recall_ci": [
+            0.7194,
+            0.9615
+          ]
+        },
+        {
+          "kind": "tackle",
+          "support": 186,
+          "detected": 193,
+          "matched": 169,
+          "precision": 0.8756,
+          "recall": 0.9086,
+          "f1": 0.8918,
+          "precision_ci": [
+            0.8216,
+            0.915
+          ],
+          "recall_ci": [
+            0.8585,
+            0.9422
+          ]
+        },
+        {
+          "kind": "interception",
+          "support": 692,
+          "detected": 679,
+          "matched": 656,
+          "precision": 0.9661,
+          "recall": 0.948,
+          "f1": 0.957,
+          "precision_ci": [
+            0.9497,
+            0.9773
+          ],
+          "recall_ci": [
+            0.9288,
+            0.9622
+          ]
+        },
+        {
+          "kind": "recovery",
+          "support": 30,
+          "detected": 27,
+          "matched": 23,
+          "precision": 0.8519,
+          "recall": 0.7667,
+          "f1": 0.8071,
+          "precision_ci": [
+            0.6752,
+            0.9408
+          ],
+          "recall_ci": [
+            0.5907,
+            0.8821
+          ]
+        }
+      ],
+      "pressure": {
+        "kind": "pressure",
+        "support": 711,
+        "detected": 1051,
+        "matched": 673,
+        "precision": 0.6403,
+        "recall": 0.9466,
+        "f1": 0.7639,
+        "precision_ci": [
+          0.6109,
+          0.6688
+        ],
+        "recall_ci": [
+          0.9275,
+          0.9608
+        ]
+      },
+      "speed_mae_kmh": 2.46
+    },
+    {
+      "name": "player occlusion 0.1/s",
+      "noise_m": 0.05,
+      "ball_dropout_per_s": 0.0,
+      "player_occlusion_per_s": 0.1,
+      "classes": [
+        {
+          "kind": "pass",
+          "support": 3978,
+          "detected": 3967,
+          "matched": 3959,
+          "precision": 0.998,
+          "recall": 0.9952,
+          "f1": 0.9966,
+          "precision_ci": [
+            0.996,
+            0.999
+          ],
+          "recall_ci": [
+            0.9926,
+            0.9969
           ]
         },
         {
           "kind": "shot",
           "support": 79,
           "detected": 81,
-          "matched": 74,
-          "precision": 0.9136,
-          "recall": 0.9367,
-          "f1": 0.925,
+          "matched": 76,
+          "precision": 0.9383,
+          "recall": 0.962,
+          "f1": 0.95,
           "precision_ci": [
-            0.8322,
-            0.9575
+            0.8635,
+            0.9733
           ],
           "recall_ci": [
-            0.8603,
-            0.9727
+            0.8942,
+            0.987
           ]
         },
         {
           "kind": "clearance",
           "support": 27,
-          "detected": 54,
+          "detected": 34,
           "matched": 25,
-          "precision": 0.463,
+          "precision": 0.7353,
           "recall": 0.9259,
-          "f1": 0.6173,
+          "f1": 0.8197,
           "precision_ci": [
-            0.3369,
-            0.5939
+            0.5688,
+            0.854
           ],
           "recall_ci": [
             0.7663,
@@ -1412,48 +1284,48 @@
         {
           "kind": "tackle",
           "support": 186,
-          "detected": 187,
-          "matched": 168,
-          "precision": 0.8984,
-          "recall": 0.9032,
-          "f1": 0.9008,
+          "detected": 185,
+          "matched": 172,
+          "precision": 0.9297,
+          "recall": 0.9247,
+          "f1": 0.9272,
           "precision_ci": [
-            0.8468,
-            0.934
+            0.8835,
+            0.9585
           ],
           "recall_ci": [
-            0.8522,
-            0.9379
+            0.8776,
+            0.9546
           ]
         },
         {
           "kind": "interception",
           "support": 692,
-          "detected": 679,
-          "matched": 662,
-          "precision": 0.975,
-          "recall": 0.9566,
-          "f1": 0.9657,
+          "detected": 683,
+          "matched": 674,
+          "precision": 0.9868,
+          "recall": 0.974,
+          "f1": 0.9804,
           "precision_ci": [
-            0.9603,
-            0.9843
+            0.9751,
+            0.9931
           ],
           "recall_ci": [
-            0.9388,
-            0.9695
+            0.9593,
+            0.9835
           ]
         },
         {
           "kind": "recovery",
           "support": 30,
-          "detected": 49,
+          "detected": 30,
           "matched": 22,
-          "precision": 0.449,
+          "precision": 0.7333,
           "recall": 0.7333,
-          "f1": 0.557,
+          "f1": 0.7333,
           "precision_ci": [
-            0.3185,
-            0.5868
+            0.5555,
+            0.8582
           ],
           "recall_ci": [
             0.5555,
@@ -1464,18 +1336,146 @@
       "pressure": {
         "kind": "pressure",
         "support": 711,
-        "detected": 964,
-        "matched": 663,
-        "precision": 0.6878,
-        "recall": 0.9325,
-        "f1": 0.7917,
+        "detected": 1057,
+        "matched": 677,
+        "precision": 0.6405,
+        "recall": 0.9522,
+        "f1": 0.7658,
         "precision_ci": [
-          0.6578,
-          0.7162
+          0.6111,
+          0.6689
         ],
         "recall_ci": [
-          0.9116,
-          0.9487
+          0.9339,
+          0.9656
+        ]
+      },
+      "speed_mae_kmh": 1.09
+    },
+    {
+      "name": "player occlusion 0.3/s",
+      "noise_m": 0.05,
+      "ball_dropout_per_s": 0.0,
+      "player_occlusion_per_s": 0.3,
+      "classes": [
+        {
+          "kind": "pass",
+          "support": 3978,
+          "detected": 3947,
+          "matched": 3934,
+          "precision": 0.9967,
+          "recall": 0.9889,
+          "f1": 0.9928,
+          "precision_ci": [
+            0.9944,
+            0.9981
+          ],
+          "recall_ci": [
+            0.9852,
+            0.9918
+          ]
+        },
+        {
+          "kind": "shot",
+          "support": 79,
+          "detected": 80,
+          "matched": 74,
+          "precision": 0.925,
+          "recall": 0.9367,
+          "f1": 0.9308,
+          "precision_ci": [
+            0.8459,
+            0.9652
+          ],
+          "recall_ci": [
+            0.8603,
+            0.9727
+          ]
+        },
+        {
+          "kind": "clearance",
+          "support": 27,
+          "detected": 54,
+          "matched": 24,
+          "precision": 0.4444,
+          "recall": 0.8889,
+          "f1": 0.5926,
+          "precision_ci": [
+            0.32,
+            0.5762
+          ],
+          "recall_ci": [
+            0.7194,
+            0.9615
+          ]
+        },
+        {
+          "kind": "tackle",
+          "support": 186,
+          "detected": 191,
+          "matched": 171,
+          "precision": 0.8953,
+          "recall": 0.9194,
+          "f1": 0.9072,
+          "precision_ci": [
+            0.8438,
+            0.9312
+          ],
+          "recall_ci": [
+            0.8712,
+            0.9505
+          ]
+        },
+        {
+          "kind": "interception",
+          "support": 692,
+          "detected": 679,
+          "matched": 665,
+          "precision": 0.9794,
+          "recall": 0.961,
+          "f1": 0.9701,
+          "precision_ci": [
+            0.9657,
+            0.9877
+          ],
+          "recall_ci": [
+            0.9438,
+            0.973
+          ]
+        },
+        {
+          "kind": "recovery",
+          "support": 30,
+          "detected": 47,
+          "matched": 23,
+          "precision": 0.4894,
+          "recall": 0.7667,
+          "f1": 0.5974,
+          "precision_ci": [
+            0.3528,
+            0.6276
+          ],
+          "recall_ci": [
+            0.5907,
+            0.8821
+          ]
+        }
+      ],
+      "pressure": {
+        "kind": "pressure",
+        "support": 711,
+        "detected": 1059,
+        "matched": 670,
+        "precision": 0.6327,
+        "recall": 0.9423,
+        "f1": 0.7571,
+        "precision_ci": [
+          0.6032,
+          0.6612
+        ],
+        "recall_ci": [
+          0.9227,
+          0.9572
         ]
       },
       "speed_mae_kmh": 1.09
@@ -1489,18 +1489,18 @@
         {
           "kind": "pass",
           "support": 3978,
-          "detected": 3773,
-          "matched": 3694,
-          "precision": 0.9791,
-          "recall": 0.9286,
-          "f1": 0.9532,
+          "detected": 3774,
+          "matched": 3714,
+          "precision": 0.9841,
+          "recall": 0.9336,
+          "f1": 0.9582,
           "precision_ci": [
-            0.974,
-            0.9832
+            0.9796,
+            0.9876
           ],
           "recall_ci": [
-            0.9202,
-            0.9362
+            0.9255,
+            0.941
           ]
         },
         {
@@ -1523,14 +1523,14 @@
         {
           "kind": "clearance",
           "support": 27,
-          "detected": 42,
+          "detected": 41,
           "matched": 16,
-          "precision": 0.381,
+          "precision": 0.3902,
           "recall": 0.5926,
-          "f1": 0.4638,
+          "f1": 0.4706,
           "precision_ci": [
-            0.25,
-            0.5319
+            0.2566,
+            0.5427
           ],
           "recall_ci": [
             0.4073,
@@ -1540,48 +1540,48 @@
         {
           "kind": "tackle",
           "support": 186,
-          "detected": 210,
-          "matched": 149,
-          "precision": 0.7095,
-          "recall": 0.8011,
-          "f1": 0.7525,
+          "detected": 229,
+          "matched": 168,
+          "precision": 0.7336,
+          "recall": 0.9032,
+          "f1": 0.8096,
           "precision_ci": [
-            0.6448,
-            0.7667
+            0.6729,
+            0.7867
           ],
           "recall_ci": [
-            0.7379,
-            0.8521
+            0.8522,
+            0.9379
           ]
         },
         {
           "kind": "interception",
           "support": 692,
-          "detected": 639,
-          "matched": 600,
-          "precision": 0.939,
-          "recall": 0.8671,
-          "f1": 0.9016,
+          "detected": 626,
+          "matched": 603,
+          "precision": 0.9633,
+          "recall": 0.8714,
+          "f1": 0.915,
           "precision_ci": [
-            0.9177,
-            0.955
+            0.9455,
+            0.9754
           ],
           "recall_ci": [
-            0.8397,
-            0.8903
+            0.8444,
+            0.8943
           ]
         },
         {
           "kind": "recovery",
           "support": 30,
-          "detected": 37,
+          "detected": 38,
           "matched": 19,
-          "precision": 0.5135,
+          "precision": 0.5,
           "recall": 0.6333,
-          "f1": 0.5671,
+          "f1": 0.5588,
           "precision_ci": [
-            0.3589,
-            0.6655
+            0.3485,
+            0.6515
           ],
           "recall_ci": [
             0.4551,
@@ -1592,18 +1592,18 @@
       "pressure": {
         "kind": "pressure",
         "support": 711,
-        "detected": 947,
-        "matched": 619,
-        "precision": 0.6536,
-        "recall": 0.8706,
-        "f1": 0.7467,
+        "detected": 997,
+        "matched": 622,
+        "precision": 0.6239,
+        "recall": 0.8748,
+        "f1": 0.7283,
         "precision_ci": [
-          0.6228,
-          0.6833
+          0.5934,
+          0.6534
         ],
         "recall_ci": [
-          0.8439,
-          0.8933
+          0.8485,
+          0.8972
         ]
       },
       "speed_mae_kmh": 9.96
@@ -1626,9 +1626,9 @@
     "height_px": 208,
     "px_per_m": 3.0,
     "frames": 13500,
-    "player_error_m": 0.019,
-    "player_error_p95_m": 0.355,
-    "ball_error_m": 0.048,
+    "player_error_m": 0.018,
+    "player_error_p95_m": 0.369,
+    "ball_error_m": 0.049,
     "ball_found_pct": 99.6,
     "coordinate": [
       {
@@ -1726,14 +1726,14 @@
       {
         "kind": "pass",
         "support": 127,
-        "detected": 123,
+        "detected": 122,
         "matched": 121,
-        "precision": 0.9837,
+        "precision": 0.9918,
         "recall": 0.9528,
-        "f1": 0.968,
+        "f1": 0.9719,
         "precision_ci": [
-          0.9426,
-          0.9955
+          0.955,
+          0.9986
         ],
         "recall_ci": [
           0.9008,
@@ -1774,35 +1774,35 @@
       {
         "kind": "tackle",
         "support": 4,
-        "detected": 5,
-        "matched": 4,
-        "precision": 0.8,
-        "recall": 1.0,
-        "f1": 0.8889,
+        "detected": 4,
+        "matched": 3,
+        "precision": 0.75,
+        "recall": 0.75,
+        "f1": 0.75,
         "precision_ci": [
-          0.3755,
-          0.9638
+          0.3006,
+          0.9544
         ],
         "recall_ci": [
-          0.5101,
-          1.0
+          0.3006,
+          0.9544
         ]
       },
       {
         "kind": "interception",
         "support": 18,
-        "detected": 19,
-        "matched": 14,
-        "precision": 0.7368,
-        "recall": 0.7778,
-        "f1": 0.7567,
+        "detected": 18,
+        "matched": 13,
+        "precision": 0.7222,
+        "recall": 0.7222,
+        "f1": 0.7222,
         "precision_ci": [
-          0.5121,
-          0.8819
+          0.4913,
+          0.875
         ],
         "recall_ci": [
-          0.5479,
-          0.91
+          0.4913,
+          0.875
         ]
       },
       {
@@ -1823,14 +1823,14 @@
     "coordinate_pressure": {
       "kind": "pressure",
       "support": 21,
-      "detected": 29,
+      "detected": 30,
       "matched": 19,
-      "precision": 0.6552,
+      "precision": 0.6333,
       "recall": 0.9048,
-      "f1": 0.76,
+      "f1": 0.7451,
       "precision_ci": [
-        0.4735,
-        0.8006
+        0.4551,
+        0.7813
       ],
       "recall_ci": [
         0.7109,
@@ -1840,14 +1840,14 @@
     "pixels_pressure": {
       "kind": "pressure",
       "support": 21,
-      "detected": 28,
+      "detected": 29,
       "matched": 18,
-      "precision": 0.6429,
+      "precision": 0.6207,
       "recall": 0.8571,
-      "f1": 0.7347,
+      "f1": 0.72,
       "precision_ci": [
-        0.4583,
-        0.7929
+        0.44,
+        0.7731
       ],
       "recall_ci": [
         0.6536,
@@ -1856,14 +1856,14 @@
     },
     "speed_mae_kmh_coordinate": 1.16,
     "speed_mae_kmh_pixels": 1.4,
-    "seconds_per_match": 26.9
+    "seconds_per_match": 38.8
   },
   "failures": [
     {
       "match_id": "MM-HOLD-900",
       "period": 1,
-      "clock_s": 1368.13,
-      "match_clock": "22:48",
+      "clock_s": 2235.98,
+      "match_clock": "37:15",
       "what": "missed:interception",
       "truth_kind": "interception",
       "detected_kind": null,
@@ -1871,9 +1871,9 @@
     },
     {
       "match_id": "MM-HOLD-900",
-      "period": 1,
-      "clock_s": 1526.72,
-      "match_clock": "25:26",
+      "period": 2,
+      "clock_s": 3084.88,
+      "match_clock": "51:24",
       "what": "spurious:interception",
       "truth_kind": null,
       "detected_kind": "interception",
@@ -1900,15 +1900,15 @@
       "image": "benchmark-failure-4.svg"
     },
     {
-      "match_id": "MM-HOLD-900",
-      "period": 1,
-      "clock_s": 520.92,
-      "match_clock": "08:40",
+      "match_id": "MM-HOLD-901",
+      "period": 2,
+      "clock_s": 4679.24,
+      "match_clock": "77:59",
       "what": "spurious:recovery",
       "truth_kind": null,
       "detected_kind": "recovery",
       "image": "benchmark-failure-5.svg"
     }
   ],
-  "runtime_s": 198.6
+  "runtime_s": 296.3
 }

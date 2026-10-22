@@ -57,6 +57,10 @@ def trace_dump(crew: Crew) -> list[dict]:
 def status_dump(crew: Crew) -> dict:
     d = crew.status().model_dump(mode="json")
     d.pop("orchestrator")
+    # Latency is wall-clock time and differs run to run; sample counts must still match.
+    for row in d["health"]["latency"]:
+        for k in ("p50_ms", "p95_ms", "max_ms"):
+            row.pop(k)
     return d
 
 
@@ -92,6 +96,8 @@ def test_template_cards_are_identical_under_agent_framework():
     assert len(bundles_a) > 20 and any(c is not None for c in cards_a)
     assert [x.model_dump(mode="json") for x in bundles_a] == [x.model_dump(mode="json") for x in bundles_b]
     assert cards_a == cards_b  # byte-identical cards, one per moment x profile
+    # Claims are made on the Agent Framework path too (and so compared above).
+    assert all(c["claims"] for c in cards_b if c is not None)
     assert [x.model_dump(mode="json") for x in again_a] == [x.model_dump(mode="json") for x in again_b]
     assert trace_dump(in_process) == trace_dump(framework)
     assert status_dump(in_process) == status_dump(framework)

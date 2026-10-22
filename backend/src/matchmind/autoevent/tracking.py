@@ -58,7 +58,8 @@ SHAPE_TAU_S = 2.0  # players close the gap to their shape position over about th
 SHAPE_SPEED_MPS = 3.6  # jogging pace while holding shape
 RECOVERY_SPEED_MPS = 7.0  # a recovery run when caught upfield after losing the ball
 RECOVERY_GAP_M = 8.0  # how far ahead of the shape position counts as caught upfield
-SWAY_M = 1.5  # slow drift around the shape position (keepers: a third of it)
+SWAY_M = 0.75  # slow drift around the shape position (keepers: a third of it); larger drifts
+# make teammates cross often enough to swap identities on the pixel path
 SWAY_PERIODS_S = (23.0, 31.0)
 PRESS_GAP_M = 2.2  # where a recorded presser stands, goal-side of the ball
 PRESS_FAN_RAD = 0.7  # two or more pressers fan out around the goal-side line
