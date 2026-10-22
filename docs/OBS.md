@@ -24,8 +24,11 @@ corrections) on a transparent page.
 
 The source has its own browser storage, so set `persona` and `lang` in the URL
 rather than relying on choices made in another browser. Unknown values are
-ignored. Playback (play, pause, speed, seek) is shared: control it from the
-studio view in a normal browser.
+ignored. A link's `persona`, `lang` and `club` apply to that page only and are
+not saved as the browser's own choices. Playback (play, pause, speed, seek) is
+shared: control it from the studio view in a normal browser. That includes
+`t`, `p` and `pause` in a link: opening one moves and holds the match for every
+viewer, so use them for rehearsal, not on a source that reloads during a show.
 
 If the backend's `MATCHMIND_ALLOWED_ORIGINS` does not include the app origin
 the live connection is refused; served from the backend itself, set

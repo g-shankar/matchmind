@@ -60,6 +60,11 @@ MAX_CONNECTIONS = int(os.environ.get("MATCHMIND_MAX_CONNECTIONS", "200"))
 MAX_CONN_PER_IP = int(os.environ.get("MATCHMIND_MAX_CONN_PER_IP", "20"))
 SEND_QUEUE_BYTES = 4 * 1024 * 1024  # per connection; a viewer this far behind is dropped
 JUMP_INTERVAL_S = 0.5  # at most one seek or reset per half second, for everyone
+VIEW_BURST, VIEW_PER_SECOND = 3, 1.0  # set_view per connection
+# Events of new cue-sheet compiling per playback step (shared by every viewer). An audience
+# never seen before costs one pass over the match so far (about 2,000 events at full time);
+# the rest wait a step or two (docs/CUE-SHEET.md).
+COMPILE_BUDGET = 2500
 POST_BURST, POST_PER_SECOND = 10, 2.0  # per client IP on the POST routes
 # Per client IP on the GET routes that may call a paid service (moment cards and recaps).
 # Room for the app's own bursts: re-voicing 12 cards after a language switch, 4 per split view.
@@ -77,6 +82,7 @@ DEFAULT_ORIGINS = "http://localhost:5173,http://localhost:3000"
 OOPS = "Something went wrong on our side. Please try again."
 TOO_FAST = "Jumping around too fast. Wait a moment and try again."
 TOO_MANY = "Too many requests. Wait a moment and try again."
+VIEW_TOO_FAST = "Changing the view too fast. Wait a moment and try again."
 
 # Dataset downloads (synthetic, public): a few per client IP, at most two built at once.
 EXPORT_BURST, EXPORT_PER_SECOND = 6, 0.2
@@ -230,6 +236,31 @@ class SpeedBody(BaseModel):
 # --- Connections -----------------------------------------------------------------------------
 
 
+def content_security_policy(origins: list[str]) -> str:
+    """CSP for the app pages: everything from this server, plus the API origins in the
+    allow-list (a frontend built with VITE_API_URL talks to one of them). Fonts are
+    bundled; React sets inline styles, so styles allow 'unsafe-inline' (scripts do not)."""
+    extra: list[str] = []
+    for o in origins:
+        o = o.strip().rstrip("/")
+        if o.startswith(("http://", "https://")) and all(c not in o for c in " ;'\"*"):
+            extra += [o, "ws" + o[4:]]
+    connect = " ".join(["'self'", "ws:", "wss:", *dict.fromkeys(extra)])
+    return (
+        "default-src 'self'; "
+        "script-src 'self'; "
+        f"connect-src {connect}; "
+        "img-src 'self' data:; "
+        "media-src 'self'; "
+        "font-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "object-src 'none'; "
+        "base-uri 'none'; "
+        "form-action 'none'; "
+        "frame-ancestors 'none'"
+    )
+
+
 class RateLimiter:
     """Token bucket: `burst` actions at once, refilled at `per_second`."""
 
@@ -260,6 +291,9 @@ class Connection:
         self.ws = ws
         self.profile = ViewerProfile()
         self.view_state = ViewerState()  # what the producer remembers for this viewer
+        # set_view starts a new cue sheet: about one a second per viewer (bursts of 3, so
+        # the join-time set_view plus a quick language or persona pick still go through).
+        self.view_limiter = RateLimiter(burst=VIEW_BURST, per_second=VIEW_PER_SECOND, clock=clock)
         self.queue: asyncio.Queue[str | None] = asyncio.Queue()
         self.queued_bytes = 0  # bounded by SEND_QUEUE_BYTES
         self.limiter = RateLimiter(clock=clock)
@@ -381,10 +415,29 @@ class Hub:
 
     # --- broadcasting ------------------------------------------------------------------------
 
+    def _new_sheets(self, profiles: list[ViewerProfile], upto: int | None) -> list[bool]:
+        """Which of these audiences get their cue sheet compiled now. Compiling is
+        incremental and shared per profile, but an audience never seen before costs a pass
+        over the match so far: at most COMPILE_BUDGET events of that work per step (always
+        at least one audience), the rest wait for the next step, so many viewers changing
+        view at once cannot hold the crew lock and stall playback."""
+        budget = COMPILE_BUDGET
+        out: list[bool] = []
+        for profile in profiles:
+            cost = self.session.compile_cost(profile, upto)
+            ok = cost == 0 or budget == COMPILE_BUDGET or cost <= budget
+            if ok:
+                budget -= cost
+            out.append(ok)
+        return out
+
     def _snapshot_messages(self, profiles: list[ViewerProfile]) -> tuple[list[ViewerState], list[dict]]:
         """Fresh producer memory and cue sheet per viewer (compiled up to now, shared
-        between viewers with the same profile), and their INITIAL_SNAPSHOT."""
-        states = [self.session.viewer_state(p) for p in profiles]
+        between viewers with the same profile), and their INITIAL_SNAPSHOT. A viewer over
+        this step's compile budget gets `cue_sheet: null` and their sheet on a later tick."""
+        states: list[ViewerState] = []
+        for profile, now in zip(profiles, self._new_sheets(profiles, None), strict=True):
+            states.append(self.session.viewer_state(profile) if now else ViewerState())
         messages = []
         for profile, state in zip(profiles, states, strict=True):
             messages.append(
@@ -418,14 +471,23 @@ class Hub:
         """Crew work for ticks already played: moments, then cards and recaps per viewer."""
         session = self.session
         out: list[list[dict]] = [[] for _ in conns]
-        for i, profile in enumerate(profiles):
-            if conns[i].view_state.cues is None:  # new profile: start its sheet where these ticks begin
-                conns[i].view_state = session.viewer_state(profile, ticks[0].index)
+        states = [c.view_state for c in conns]
+        fresh = [i for i, s in enumerate(states) if s.cues is None]
+        allowed = self._new_sheets([profiles[i] for i in fresh], ticks[0].index)
+        for i, now in zip(fresh, allowed, strict=True):
+            if not now:
+                continue  # over this step's budget: cards as usual, the sheet starts next step
+            # New profile: start its sheet where these ticks begin. A set_view that landed
+            # while this step was playing has replaced the connection's state and profile;
+            # then this sheet (for the old profile) is used for this batch only.
+            states[i] = session.viewer_state(profiles[i], ticks[0].index)
+            if conns[i].profile == profiles[i] and conns[i].view_state.cues is None:
+                conns[i].view_state = states[i]
         for tick in ticks:
             tick = session.crew_tick(tick)
             shared = view.tick_shared(tick)
             for i, profile in enumerate(profiles):
-                state = conns[i].view_state
+                state = states[i]
                 cards = session.cards_for(tick.bundles, profile, state, tick)
                 data = dict(shared, cards=[view.card_payload(c) for c in cards])
                 cues = view.cues_message(state, session.tick_cues(tick, cards, state))
@@ -582,12 +644,19 @@ def create_app(
         allow_headers=["Content-Type"],
     )
 
+    csp = content_security_policy(origins)
+    hsts = own.startswith("https://")
+
     @app.middleware("http")
     async def headers(request: Request, call_next: Callable[[Request], Awaitable[Any]]):
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
         path = request.url.path
+        if not path.startswith("/api/"):
+            response.headers.setdefault("Content-Security-Policy", csp)
+        if hsts:
+            response.headers.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
         # Downloads of the synthetic dataset may be cached publicly; nothing else under /api.
         public = path.startswith("/api/dataset") and response.status_code == 200
         if path.startswith("/api/") and not public:
@@ -954,6 +1023,9 @@ def create_app(
         for key in ("persona", "language", "spoilers"):
             if key in changes and changes[key] is None:
                 changes.pop(key)  # these always have a value
+        if not conn.view_limiter.allow():
+            conn.error(VIEW_TOO_FAST)
+            return
         conn.profile = conn.profile.model_copy(update=changes)
         conn.view_state = ViewerState()
         conn.send(view.message("PROFILE_CHANGED", conn.profile.model_dump()))
