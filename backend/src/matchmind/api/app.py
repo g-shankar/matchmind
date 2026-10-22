@@ -59,6 +59,11 @@ MAX_MESSAGE_BYTES = 4096
 MAX_CONNECTIONS = int(os.environ.get("MATCHMIND_MAX_CONNECTIONS", "200"))
 MAX_CONN_PER_IP = int(os.environ.get("MATCHMIND_MAX_CONN_PER_IP", "20"))
 SEND_QUEUE_BYTES = 4 * 1024 * 1024  # per connection; a viewer this far behind is dropped
+# All send queues together, so viewers that stop reading cannot pin MAX_CONNECTIONS x 4 MB
+# (the container has 1 GiB). Once it is spent, a viewer more than SEND_QUEUE_SHARE_BYTES
+# behind is dropped; viewers that keep up (a few KB queued) are never dropped for it.
+SEND_QUEUE_TOTAL_BYTES = int(os.environ.get("MATCHMIND_SEND_QUEUE_TOTAL_BYTES", str(192 * 1024 * 1024)))
+SEND_QUEUE_SHARE_BYTES = 256 * 1024
 JUMP_INTERVAL_S = 0.5  # at most one seek or reset per half second, for everyone
 VIEW_BURST, VIEW_PER_SECOND = 3, 1.0  # set_view per connection
 # Events of new cue-sheet compiling per playback step (shared by every viewer). An audience
@@ -281,14 +286,24 @@ class RateLimiter:
         return False
 
 
+class SendBudget:
+    """Bytes queued for sending across every connection (one per hub)."""
+
+    def __init__(self, total: int | None = None) -> None:
+        self.total = SEND_QUEUE_TOTAL_BYTES if total is None else total
+        self.used = 0
+
+
 class Connection:
     def __init__(
         self,
         ws: WebSocket,
         clock: Callable[[], float],
         on_drop: Callable[[Connection], None] | None = None,
+        budget: SendBudget | None = None,
     ) -> None:
         self.ws = ws
+        self.budget = budget
         self.profile = ViewerProfile()
         self.view_state = ViewerState()  # what the producer remembers for this viewer
         # set_view starts a new cue sheet: about one a second per viewer (bursts of 3, so
@@ -310,11 +325,31 @@ class Connection:
         if self.closed:
             return
         text = json.dumps(payload, separators=(",", ":"))  # ASCII: one byte per character
-        if self.queued_bytes + len(text) > SEND_QUEUE_BYTES:
+        size = len(text)
+        if self.queued_bytes + size > SEND_QUEUE_BYTES:
             self.overflow()
             return
-        self.queued_bytes += len(text)
+        budget = self.budget
+        if (
+            budget is not None
+            and budget.used + size > budget.total
+            and self.queued_bytes + size > SEND_QUEUE_SHARE_BYTES
+        ):
+            self.overflow()  # memory is short and this viewer is far behind
+            return
+        self._charge(size)
         self.queue.put_nowait(text)
+
+    def _charge(self, size: int) -> None:
+        self.queued_bytes += size
+        if self.budget is not None:
+            self.budget.used += size
+
+    def _release(self, size: int) -> None:
+        size = min(size, self.queued_bytes)
+        self.queued_bytes -= size
+        if self.budget is not None:
+            self.budget.used = max(0, self.budget.used - size)
 
     def error(self, text: str) -> None:
         self.send(view.message("ERROR", {"message": text}))
@@ -329,17 +364,18 @@ class Connection:
         if self.closed:
             return
         self.closed = True
-        self._drain()
+        self.drain_queue()
         if self.writer_task is not None:
             self.writer_task.cancel()
         if self._on_drop is not None:
             self._on_drop(self)
         self._closer = asyncio.get_running_loop().create_task(self._close_socket(CLOSE_TRY_AGAIN))
 
-    def _drain(self) -> None:
+    def drain_queue(self) -> None:
+        """Empty the queue and give its bytes back to the shared budget."""
         while not self.queue.empty():
             self.queue.get_nowait()
-        self.queued_bytes = 0
+        self._release(self.queued_bytes)
 
     async def _close_socket(self, code: int) -> None:
         with contextlib.suppress(Exception):
@@ -350,7 +386,7 @@ class Connection:
             text = await self.queue.get()
             if text is None:
                 break
-            self.queued_bytes = max(0, self.queued_bytes - len(text))
+            self._release(len(text))
             try:
                 await self.ws.send_text(text)
             except Exception:  # noqa: BLE001 - the socket went away
@@ -370,6 +406,7 @@ class Hub:
         self._last_jump: float | None = None
         self._slots = 0  # WebSocket slots reserved (before accept)
         self._slots_per_ip: dict[str, int] = {}
+        self.send_budget = SendBudget()
 
     # --- connection slots ----------------------------------------------------------------------
 
@@ -927,7 +964,7 @@ def create_app(
         writer: asyncio.Task[None] | None = None
         try:
             await ws.accept()
-            conn = Connection(ws, hub.clock, on_drop=hub.drop)
+            conn = Connection(ws, hub.clock, on_drop=hub.drop, budget=hub.send_budget)
             hub.connections.add(conn)
             writer = conn.start()
             await _serve(ws, conn)
@@ -941,6 +978,8 @@ def create_app(
             if writer is not None and not writer.done():  # a dropped viewer's writer is already cancelled
                 with contextlib.suppress(Exception):
                     await asyncio.wait_for(writer, timeout=2)
+            if conn is not None:
+                conn.drain_queue()  # whatever a stuck writer left behind goes back to the budget
 
     async def _serve(ws: WebSocket, conn: Connection) -> None:
         await hub.send_snapshots([conn])
