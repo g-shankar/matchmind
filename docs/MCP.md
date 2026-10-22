@@ -53,7 +53,7 @@ find that moment." or "Check limit: the value is missing or not allowed."
 | `get_recap` | `persona?`, `language?` | `Recap` (so far, or the full match after full time) | `GET /api/match/recap` |
 | `get_cue_sheet` | `persona?`, `language?`, `favourite_team?`, `since_seq?`, `limit?` (1 to 500, default 100) | `CueSheetPage`: numbered broadcast cues so far, including VAR retract and supersede (see CUE-SHEET.md) | `GET /api/match/cue-sheet` |
 | `get_player_stats` | `player_id?` (fictional id like `NBR-9`; omit for everyone) | `{ players: PlayerStats[] }` | `GET /api/match/players` |
-| `get_basic_stats` | none | `BasicStats`: possession, pass accuracy (with its denominator), shots and on target, tackles, interceptions, PPDA, distance and top speed (estimated from synthetic tracking), per team and per player, match so far | `GET /api/match/stats/basic` |
+| `get_basic_stats` | `spoilers?` (default true; false is catch-up mode, goals null) | `BasicStats`: possession, pass accuracy (with its denominator), shots and on target, tackles, interceptions, PPDA, distance and top speed (estimated from synthetic tracking), per team and per player, match so far | `GET /api/match/stats/basic` |
 | `get_metric_registry` | none | `MetricRegistry`: each metric's formula, units, source events, window, range, quality flag and limitations, plus the metrics not computed | `GET /api/metrics` |
 | `get_team_rosters` | none | `{ home, away }` with name, colours, formation, style and squad | `GET /api/teams` |
 | `get_crew_status` | `trace_limit?` (0 to 100, default 20) | `{ status: CrewStatus, traces: CrewTrace[] }` | `GET /api/crew/status` + `GET /api/crew/trace` |

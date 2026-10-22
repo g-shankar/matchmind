@@ -212,3 +212,4 @@ Every linked acceptance criterion has evidence; format/lint, typecheck, unit, in
 - Persona voices use only stats we compute: no game points, bonus systems or real-league fantasy branding (the "Stats scout" persona keeps the API value `fantasy`).
 - Feed input is untrusted even when it is well-formed: type and range-check every value other code reads (scores, enums), take numbers for facts from the stats engine, and keep live appends all-or-nothing.
 - An all-or-nothing rollback restores every structure the step writes (samples, indexes, checkpoints, side state), and its test fails late in the step, not first.
+- Spoiler-free payloads must hide what reveals the result, not just its labels: outcome geometry (shot end points), side events (VAR reviews, kick-off restarts) and every stats surface that counts goals; the leak test checks each.

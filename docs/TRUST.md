@@ -26,7 +26,7 @@ back to English, and a template that fails is withheld (none does today).
 |---|---|---|
 | Numbers | Any number (digits in any script, decimals, percentages, "3.1x") that is not a fact, within printing tolerance | All text |
 | Number words | Spelled-out numbers and count words ("three", "trois", "ثلاثة", "三本", "hat-trick") that are not facts | Model text only |
-| Real names | Real clubs, players, managers, grounds, competitions, broadcasters (accent-folded) | All text |
+| Real names | About 570 real clubs, players, managers, grounds, nicknames, competitions, broadcasters and programmes, with Arabic, Japanese and Cyrillic spellings. Case, accents, full-width forms, Arabic letter variants and the Japanese middle dot are folded; Latin, Cyrillic and Arabic names match as whole words (Arabic with an attached prefix), Japanese anywhere | All text, feed rosters, Ask questions |
 | Squad names | A squad player's or club's name that is not in the moment's facts (a true number pinned on the wrong player) | All text |
 | Units | A number printed with a unit that does not match the fact it equals: "16 km/h" when 16 is the pass distance in metres. Units read: km/h, km, m, %, x, xG, xA, xT, minutes, in all five studio languages (時速 for speed in Japanese) | All text |
 | Range | A percentage over 100 | All text |

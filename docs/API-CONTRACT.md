@@ -418,8 +418,10 @@ A viewer who joins late can keep the result hidden: `set_view { spoilers: false 
 connection gets, on every message: `home_score`, `away_score`, `state.score_*`,
 `MATCH_TICK.score` and players' `goals`/`assists` as `null`; no goal or VAR
 correction cards and no bookmarks for them (`ruled_out` is always false); shot
-and VAR-review events without `outcome`, `reviewed_event_id` or score details;
-`cue_sheet: null` and no `CUES` (the scorebug is the score); and at full time a
+events without `outcome`, `end` (the end point would show which went in),
+`blocked_by` or score details; kick-off passes without their `pass_type` and
+`start`; no `var_review` events at all (that tick is skipped and its other cards
+come with the next one); `cue_sheet: null` and no `CUES` (the scorebug is the score); and at full time a
 spoiler-free story instead of the recap. `set_view { spoilers: true }` reveals:
 the server answers with one fresh `INITIAL_SNAPSHOT` carrying everything. A
 `spoilers` value that is not a boolean gets `ERROR`. Rules and tests:
@@ -476,7 +478,7 @@ collision rules are in [CUE-SHEET.md](CUE-SHEET.md) and
 | `GET /api/crew/trace?limit=20` | `CrewTrace[]` (newest first) |
 | `GET /api/auto-eventing` | `AutoEventingStatus` (computed once per match when the session loads, then served from memory) or 404 if it could not run |
 | `GET /api/metrics` | `MetricRegistry`: every metric's formula, units, source events, window, range, quality flag, limitations and edge cases, plus the metrics we do not compute |
-| `GET /api/match/stats/basic` | `BasicStats`: possession, pass accuracy (with its denominator), shots and on target, tackles, interceptions, PPDA, distance and top speed, per team and per player, match so far |
+| `GET /api/match/stats/basic` | `BasicStats`: possession, pass accuracy (with its denominator), shots and on target, tackles, interceptions, PPDA, distance and top speed, per team and per player, match so far. `?spoilers=false` (catch-up mode) returns `goals` as null for every team and player |
 | `GET /api/source` | `MatchSource`: where the match comes from (file or the live Event Hubs stream) and the stream counters |
 | `GET /api/dataset` | `DatasetIndex`: every downloadable synthetic match with its scenario and seed (docs/DATASET.md) |
 | `GET /api/dataset/export?match_id=&format=jsonl\|csv\|zip[&tracking_period=&tracking_from=&tracking_to=]` | a file download (streamed, `Content-Disposition: attachment`): events as JSON lines (byte for byte as bundled), events as CSV, or a zip with metadata, rosters, schema, data dictionary and, with the three tracking parameters, a 25 Hz synthetic tracking sample of at most 60 s (zip only) |
