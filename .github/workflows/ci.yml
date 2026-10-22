@@ -76,6 +76,11 @@ jobs:
         working-directory: frontend
       - run: npx --yes license-checker --production --excludePrivatePackages --failOn "GPL;AGPL;SSPL;UNKNOWN;UNLICENSED;CC-BY-NC-4.0;BUSL-1.1"
         working-directory: frontend
+      - name: Shipped npm packages have no known advisories
+        # Dev tools (vite, vitest, tailwind) never ship in the image; their advisories are
+        # tracked in qa/launch-checks/report.md (LC-7) until the major upgrades land.
+        run: npm audit --omit=dev --audit-level=low
+        working-directory: frontend
 
   infra:
     name: Bicep build and lint

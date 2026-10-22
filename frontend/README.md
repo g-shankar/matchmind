@@ -11,7 +11,14 @@ English, Spanish and Arabic (right-to-left).
 npm ci
 npm run dev                                    # http://localhost:3000
 VITE_API_URL=http://127.0.0.1:8000 npm run dev # against a local backend
+PITCHPULSE_DEV_HOST=0.0.0.0 npm run dev        # also reachable from your network (e.g. a phone)
 ```
+
+The dev and preview servers listen on `localhost` only unless
+`PITCHPULSE_DEV_HOST` asks for more: the dev tools (vite, vitest, tailwind) have
+open advisories that matter only when their server is reachable from other
+machines. None of them ship in the built app; CI runs `npm audit --omit=dev`
+on the packages that do.
 
 The app talks to the backend over `/ws/match` and the REST routes in
 `docs/API-CONTRACT.md` (TypeScript twin: `src/api/contract.ts`). With no
