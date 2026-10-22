@@ -311,6 +311,10 @@ export interface CrewStatus {
   fallbacks: number;
   rejections: number;
   translator?: TranslatorStatus;
+  /** Who runs the model steps: "templates", Azure OpenAI, or Foundry Agent Service agents. */
+  provider?: "templates" | "azure_openai" | "foundry_agents";
+  /** Who chains the agents: in process, or Microsoft Agent Framework workflows. */
+  orchestrator?: "in_process" | "agent_framework";
 }
 
 export interface CrewTrace {

@@ -154,6 +154,9 @@ class AgentRecord:
     name: str
     version: str
     metadata: dict[str, str] = field(default_factory=dict)
+    # The version's model and instructions as the service reports them (None if not read).
+    model: str | None = None
+    instructions: str | None = None
 
 
 class AgentServiceClient(Protocol):
@@ -174,10 +177,21 @@ def ensure_agent(client: AgentServiceClient, spec: AgentSpec) -> tuple[str, Agen
     """Create the agent, give it a new version if its card changed, or leave it.
     Returns ("created" | "updated" | "unchanged", the version to call)."""
     existing = client.get_agent(spec.name)
-    if existing is not None and existing.metadata.get(DIGEST_KEY) == spec.digest():
+    if existing is not None and _matches(existing, spec):
         return "unchanged", existing
     record = client.create_version(spec.name, spec.body())
     return ("created" if existing is None else "updated"), record
+
+
+def _matches(record: AgentRecord, spec: AgentSpec) -> bool:
+    """Our digest, and (when the service reports them) the same model and
+    instructions: a version edited by hand in the portal is replaced, even if
+    it kept our metadata."""
+    if record.metadata.get(DIGEST_KEY) != spec.digest():
+        return False
+    if record.model is not None and record.model != spec.model:
+        return False
+    return record.instructions is None or record.instructions == spec.instructions
 
 
 def register(
@@ -236,12 +250,10 @@ class AzureAgentService:
             details = self.project_client().agents.get(agent_name=name)
         except not_found:
             return None
-        latest = details.versions.latest
-        return AgentRecord(name=name, version=str(latest.version), metadata=dict(latest.metadata or {}))
+        return _record(name, details.versions.latest)
 
     def create_version(self, name: str, body: dict[str, Any]) -> AgentRecord:
-        version = self.project_client().agents.create_version(agent_name=name, body=body)
-        return AgentRecord(name=name, version=str(version.version), metadata=dict(version.metadata or {}))
+        return _record(name, self.project_client().agents.create_version(agent_name=name, body=body))
 
     def respond(
         self, name: str, version: str, text: str, timeout_s: float, max_output_tokens: int
@@ -256,6 +268,17 @@ class AzureAgentService:
         if status != "completed":
             raise LLMError(status if status in RESPONSE_STATUSES else "not_completed")
         return response.output_text
+
+
+def _record(name: str, version: Any) -> AgentRecord:
+    definition = getattr(version, "definition", None)
+    return AgentRecord(
+        name=name,
+        version=str(version.version),
+        metadata=dict(getattr(version, "metadata", None) or {}),
+        model=getattr(definition, "model", None),
+        instructions=getattr(definition, "instructions", None),
+    )
 
 
 # --------------------------------------------------------------- the client

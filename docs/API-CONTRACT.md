@@ -184,6 +184,11 @@ interface CrewStatus {
   mode: 'ai' | 'template'; model: string | null; breakers_open: string[];
   moments: number; fallbacks: number; rejections: number;
   translator: TranslatorStatus;
+  // Who runs the model steps: 'templates' (no model; show "templates"), 'azure_openai'
+  // (Azure OpenAI deployment) or 'foundry_agents' (show "Foundry Agent Service").
+  provider: 'templates' | 'azure_openai' | 'foundry_agents';
+  // Who chains the agents: our in-process orchestrator or Microsoft Agent Framework workflows.
+  orchestrator: 'in_process' | 'agent_framework';
 }
 interface TranslatorStatus {
   mode: 'azure' | 'off'; available: boolean; breaker_open: boolean;
@@ -304,6 +309,9 @@ API responses carry `Cache-Control: no-store`.
 | `MATCHMIND_STATIC_DIR` | `./static` (working directory) | built frontend served at `/` when it has an `index.html` |
 | `MATCHMIND_BASE_RATE` | `10` | match seconds per real second at 1x |
 | `MATCHMIND_AI_ENABLED` | `false` | `true`, `1` or `yes` (any case): live crew uses the paid model client; the whole-match bookmark pass always uses templates. Model recaps are only made at full time, once per persona, language and favourite club |
+| `MATCHMIND_LLM_PROVIDER` | `azure_openai` | with `MATCHMIND_AI_ENABLED` on: `azure_openai` (chat completions on `AZURE_OPENAI_DEPLOYMENT`) or `foundry_agents` (Microsoft Foundry Agent Service agents on the project at `MATCHMIND_FOUNDRY_PROJECT_ENDPOINT` or `AZURE_AI_PROJECT_ENDPOINT`; `docs/FOUNDRY.md`). Anything else reads as `azure_openai` |
+| `MATCHMIND_FOUNDRY_MODEL` | `AZURE_OPENAI_DEPLOYMENT`, else `gpt-4o-mini` | model deployment the Foundry agents use |
+| `MATCHMIND_ORCHESTRATOR` | `in_process` | `agent_framework`: the crew's chains run as Microsoft Agent Framework workflows (free; needs the `agent-framework` extra, otherwise logged and in process) |
 | `MATCHMIND_AI_BUDGET` | `300` | most paid model calls per process; then templates with `fallback_reason: 'budget'` |
 | `MATCHMIND_AI_RATE_PER_MIN` | `30` | most paid model calls in any 60 s; then templates with `fallback_reason: 'budget'` |
 | `MATCHMIND_TRANSLATOR_ENABLED` | `false` | with `MATCHMIND_AI_ENABLED` also on: world languages are translated by Azure AI Translator (keyless, `AZURE_TRANSLATOR_ENDPOINT` custom subdomain); otherwise they are English with `fallback_reason: 'translator_off'` |

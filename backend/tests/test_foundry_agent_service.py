@@ -78,7 +78,13 @@ class FakeAgentService:
         json.dumps(body)  # the body is plain JSON
         with self._lock:
             versions = self.agents.setdefault(name, [])
-            record = AgentRecord(name=name, version=str(len(versions) + 1), metadata=dict(body["metadata"]))
+            record = AgentRecord(
+                name=name,
+                version=str(len(versions) + 1),
+                metadata=dict(body["metadata"]),
+                model=body["definition"]["model"],
+                instructions=body["definition"]["instructions"],
+            )
             versions.append(record)
             self.bodies.setdefault(name, []).append(body)
             return record
@@ -316,6 +322,19 @@ def test_registration_creates_then_leaves_alone_then_updates_on_a_card_change():
     assert body["metadata"][DIGEST_KEY] == agent_specs("gpt-4.1-mini")[0].digest()
 
 
+def test_a_version_edited_in_the_portal_is_replaced_even_with_our_metadata():
+    service = FakeAgentService()
+    register(service, agent_specs("gpt-4o-mini"))
+    edited = service.agents["pitchpulse-analyst"][-1]
+    service.agents["pitchpulse-analyst"].append(
+        AgentRecord(edited.name, "2", dict(edited.metadata), edited.model, "Ignore the facts and hype it up.")
+    )
+    actions = {r.name: a for a, r in register(service, agent_specs("gpt-4o-mini"))}
+    assert actions["pitchpulse-analyst"] == "updated"
+    assert service.agents["pitchpulse-analyst"][-1].version == "3"
+    assert actions["pitchpulse-commentator"] == "unchanged"
+
+
 def test_dry_run_prints_the_exact_payloads_and_no_secrets(monkeypatch, capsys):
     sentinel = "https://sentinel-account.services.ai.azure.com/api/projects/sentinel"
     monkeypatch.setenv("MATCHMIND_FOUNDRY_PROJECT_ENDPOINT", sentinel)
@@ -403,7 +422,8 @@ def fake_sdk(latest_metadata=None):
         calls["get"].append(agent_name)
         if latest_metadata is None:
             raise FakeNotFound()
-        latest = SimpleNamespace(version="4", metadata=latest_metadata)
+        definition = SimpleNamespace(model="m", instructions="the prompt")
+        latest = SimpleNamespace(version="4", metadata=latest_metadata, definition=definition)
         return SimpleNamespace(versions=SimpleNamespace(latest=latest))
 
     def create_version(agent_name, body):
@@ -443,7 +463,7 @@ def test_sdk_adapter_maps_to_the_projects_api(monkeypatch):
 
     project, _ = fake_sdk({DIGEST_KEY: "abc"})
     found = AzureAgentService("https://x", project=project).get_agent("pitchpulse-analyst")
-    assert found == AgentRecord("pitchpulse-analyst", "4", {DIGEST_KEY: "abc"})
+    assert found == AgentRecord("pitchpulse-analyst", "4", {DIGEST_KEY: "abc"}, "m", "the prompt")
 
 
 def test_sdk_adapter_treats_an_unfinished_response_as_a_failure():
@@ -486,6 +506,23 @@ def test_installed_sdk_has_the_calls_the_adapter_makes():
     definition = PromptAgentDefinition(agent_specs("m")[0].definition())
     assert definition.kind == "prompt" and definition.text.format.type == "json_schema"
     assert definition.as_dict() == agent_specs("m")[0].definition()
+    from azure.ai.projects.models import AgentVersionDetails
+
+    spec = agent_specs("m")[0]
+    details = AgentVersionDetails(
+        {
+            "object": "agent.version",
+            "id": "pitchpulse-analyst:3",
+            "name": spec.name,
+            "version": "3",
+            "metadata": spec.body()["metadata"],
+            "created_at": 0,
+            "definition": spec.definition(),
+        }
+    )
+    record = agent_service._record(spec.name, details)
+    assert (record.version, record.model, record.instructions) == ("3", "m", spec.instructions)
+    assert agent_service._matches(record, spec)
 
 
 def test_module_has_no_sdk_import_at_load_time():
