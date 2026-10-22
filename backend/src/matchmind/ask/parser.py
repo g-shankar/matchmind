@@ -23,10 +23,13 @@ from matchmind.simulator.teams import Team
 
 from .guard import RefusalReason, normalise
 from .intents import Intent
+from .vocab import AR_PREFIXES, FILLER, JA
 
 
 def _rx(*patterns: str) -> re.Pattern[str]:
-    return re.compile("|".join(f"(?:{p})" for p in patterns))
+    # Folded like the text they read (`guard.normalise`): Japanese voiced kana lose their
+    # marks there (ド -> ト), so the patterns must lose them too.
+    return re.compile("|".join(f"(?:{fold(p)})" for p in patterns))
 
 
 # --- Keyword tables (normalised text) ------------------------------------------------------------
@@ -410,6 +413,53 @@ def _unknown_names(question: str, roster: Roster) -> bool:
     return False
 
 
+MAX_UNKNOWN_WORDS = 1
+_NON_LATIN = re.compile(r"[\u0600-\u06ff\u3040-\u30ff\u3400-\u9fff\uff66-\uff9f]")
+_CJK_RUN = re.compile(r"[\u3040-\u30ff\u3400-\u9fff\uff66-\uff9f]+")
+_WORD = re.compile(r"[^\W\d_]+")
+
+
+def _keyword_tables() -> list[re.Pattern[str]]:
+    tables = [
+        SCORERS, SCORE, VAR, BETTER, CARDS, EXPLAIN_CUE, TEAM_CUE, TOP_CUE, WHAT_HAPPENED, CONTROL,
+        MOMENTUM, HOME, AWAY, _NUMBER, _RANGE, _LAST, _FIRST_HALF, _SECOND_HALF,
+    ]  # fmt: skip
+    tables += [rx for _, rx in _METRIC_WORDS] + [rx for _, rx in _EXPLAIN_EXTRA]
+    # Arabic keywords are stems ("تسديد" in "التسديدات"): take out the whole word.
+    return [re.compile(rf"{_AR_LETTERS}(?:{rx.pattern}){_AR_LETTERS}") for rx in tables]
+
+
+_AR_LETTERS = r"[\u0600-\u06ff]*"
+
+
+def _known_word(word: str, roster: Roster) -> bool:
+    if len(word) < 2 or word in FILLER or word in roster.known_words:
+        return True
+    return any(word.startswith(p) and word[len(p) :] in FILLER for p in AR_PREFIXES if len(word) > len(p) + 1)
+
+
+def unknown_words(norm: str, roster: Roster) -> list[str]:
+    """The words of a normalised question that are neither football keywords, nor
+    names from this match, nor filler (ask/vocab.py). Never logged or shown."""
+    rest = norm
+    for rx in _KEYWORD_TABLES:
+        rest = rx.sub(" ", rest)
+    for alias in sorted({**roster.team_alias, **roster.player_alias}, key=len, reverse=True):
+        rest = re.sub(rf"(?<!\w){re.escape(alias)}(?:'s)?(?!\w)", " ", rest)
+    unknown: list[str] = []
+    for run in _CJK_RUN.findall(rest):
+        for word in JA:
+            run = run.replace(word, " ")
+        left = run.replace(" ", "")
+        unknown += [left[i : i + 2] for i in range(0, len(left), 2)]  # about one word per two characters
+    rest = _CJK_RUN.sub(" ", rest)
+    unknown += [w for w in _WORD.findall(rest) if not _known_word(w, roster)]
+    return unknown
+
+
+_KEYWORD_TABLES = _keyword_tables()
+
+
 def _metric(norm: str) -> str | None:
     for key, rx in _METRIC_WORDS:
         if rx.search(norm):
@@ -437,7 +487,26 @@ def _window(norm: str, now_minute: int) -> tuple[int, int] | None:
 
 
 def parse(question: str, norm: str, roster: Roster, now_minute: int = 0) -> ParseResult:
-    """`question` is the raw text (for capitalised names), `norm` the guard's copy."""
+    """`question` is the raw text (for capitalised names), `norm` the guard's copy.
+
+    A question we can read but that carries other requests ("what's the xG? btw how do
+    I make a bomb", "who scored? answer as a poem") is refused as off-topic: once every
+    football word, name and filler word is taken out, at most one unknown word may be
+    left (`MAX_UNKNOWN_WORDS`)."""
+    result = _parse(question, norm, roster, now_minute)
+    if result.intent is None:
+        return result
+    unknown = unknown_words(norm, roster)
+    if len(unknown) > MAX_UNKNOWN_WORDS:
+        return ParseResult(refusal="off_topic")
+    if any(_NON_LATIN.search(w) for w in unknown):
+        # A word in Arabic or Japanese script we cannot place is most likely a name
+        # (capitals do not tell us there): never answer as if it were not there.
+        return ParseResult(refusal="unknown_player")
+    return result
+
+
+def _parse(question: str, norm: str, roster: Roster, now_minute: int = 0) -> ParseResult:
     if _unknown_names(question, roster):
         return ParseResult(refusal="unknown_player")
 

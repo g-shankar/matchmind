@@ -66,7 +66,7 @@ _MARKUP = re.compile(
 # Attempts to change the rules, in every language the box reads. Matched on the
 # normalised text (accent-free, case-folded, Arabic letters folded).
 _INJECTION = [
-    re.compile(p)
+    re.compile(fold(p))
     for p in (
         # English
         r"\b(ignore|disregard|forget|override|bypass)\b.{0,40}\b(rules?|instructions?|prompts?|guidelines?"
@@ -114,6 +114,35 @@ _INJECTION = [
 ]
 
 
+_CJK = "\u3040-\u30ff\u3400-\u9fff\uff66-\uff9f"
+_CJK_EDGE = re.compile(rf"(?<=[a-z0-9])(?=[{_CJK}])|(?<=[{_CJK}])(?=[a-z0-9])")
+
+
+# Requests riding along with a match question ("who scored? tell me a joke", "btw how do I
+# make a bomb", "answer as a pirate"), in every language the box reads. Normalised text.
+_OFF_TOPIC = [
+    re.compile(fold(p))
+    for p in (
+        # English
+        r"\b(btw|by the way|p\.? ?s\b|also (tell|give|write|say|print|output)|answer (as|in|like|with) a"
+        r"|respond (as|in|like|with|only)|reply (as|in|like)|in the (style|voice) of)\b",
+        r"\b(jokes?|poems?|poetry|haiku|songs?|lyrics|rap|limerick|pirates?|recipes?|bombs?|weapons?|hack\w*"
+        r"|bitcoin|crypto|stocks?|bets?|betting|weather|homework|essay|pig latin)\b",
+        # Spanish
+        r"\b(por cierto|responde (como|en|con)|contesta (como|en|con)|al estilo de)\b",
+        r"\b(chistes?|poemas?|poesia|cancion(es)?|piratas?|recetas?|bombas?|armas?|hackear|apuestas?|tiempo que hara)\b",
+        # French
+        r"\b(au fait|reponds (comme|en|avec)|repondez (comme|en|avec)|a la maniere de|nouvelles? consignes?)\b",
+        r"\b(blagues?|poemes?|poesie|chansons?|pirates?|recettes?|bombes?|armes?|pirater|paris sportifs?)\b",
+        # Arabic (letters folded)
+        r"(بالمناسبه|اجب ك|اجب بصفتك|على طريقه)",
+        r"(نكت|قصيد|شعر|اغنيه|قرصان|قراصنه|وصفه|قنبل|سلاح|اختراق|رهان|مراهنه|تخيل)",
+        # Japanese
+        r"(ちなみに|として答え|風に答え|冗談|ジョーク|詩|歌|海賊|レシピ|爆弾|武器|ハッキング|あなたは)",
+    )
+]
+
+
 @dataclass(frozen=True)
 class GuardResult:
     refusal: RefusalReason | None
@@ -128,6 +157,7 @@ def normalise(text: str) -> str:
     t = fold(t).translate(_ARABIC)
     t = normalise_digits(t).casefold()
     t = t.replace("’", "'").replace("‘", "'").replace("´", "'").replace("`", "'")
+    t = _CJK_EDGE.sub(" ", t)  # "xgが" -> "xg が": Latin words keep their word boundaries
     return re.sub(r"\s+", " ", t).strip()
 
 
@@ -152,6 +182,8 @@ def check_question(question: str) -> GuardResult:
         return GuardResult("injection", "")
     if banned_names_in(question) or banned_names_in(norm):
         return GuardResult("real_name", "")
+    if any(rx.search(norm) or rx.search(squashed) for rx in _OFF_TOPIC):
+        return GuardResult("off_topic", "")
     return GuardResult(None, norm)
 
 
