@@ -51,7 +51,7 @@ const ask: StringTable = {
     'speech.off': 'Read aloud: off',
     'speech.toggle': 'Read card headlines and answers aloud',
     'speech.unsupported': 'This browser cannot read aloud.',
-    'speech.noVoice': 'This browser has no {language} voice, so nothing is read aloud in {language}.',
+    'speech.noVoice': 'This browser has no on-device {language} voice, so nothing is read aloud in {language}.',
   },
   es: {
     'ask.title': 'Pregunta al estudio',
@@ -102,7 +102,7 @@ const ask: StringTable = {
     'speech.off': 'Leer en voz alta: no',
     'speech.toggle': 'Leer en voz alta los titulares y las respuestas',
     'speech.unsupported': 'Este navegador no puede leer en voz alta.',
-    'speech.noVoice': 'Este navegador no tiene voz en {language}, así que no se lee nada en voz alta en {language}.',
+    'speech.noVoice': 'Este navegador no tiene una voz en {language} en el propio dispositivo, así que no se lee nada en voz alta en {language}.',
   },
   ar: {
     'ask.title': 'اسأل الاستوديو',
@@ -153,7 +153,7 @@ const ask: StringTable = {
     'speech.off': 'القراءة بصوت عالٍ: متوقفة',
     'speech.toggle': 'اقرأ عناوين البطاقات والإجابات بصوت عالٍ',
     'speech.unsupported': 'هذا المتصفح لا يستطيع القراءة بصوت عالٍ.',
-    'speech.noVoice': 'لا يوجد في هذا المتصفح صوت باللغة {language}، لذا لا يُقرأ شيء بصوت عالٍ باللغة {language}.',
+    'speech.noVoice': 'لا يوجد في هذا المتصفح صوت على الجهاز نفسه باللغة {language}، لذا لا يُقرأ شيء بصوت عالٍ باللغة {language}.',
   },
 };
 

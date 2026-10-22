@@ -142,7 +142,7 @@ One matrix for everything. Labels:
 | Spoiler-safe catch-up (`?catchup=1`, story so far) | Running | `tests/test_spoilers.py` |
 | Ask the studio (guard, rule parser, templates, fact-check) | Running (typed questions need the live server; chips work offline) | [ASK.md](docs/ASK.md), `tests/test_ask.py` |
 | Ask model intent (fixed-schema intent only) | Built, off until deployed | `tests/test_ask.py` |
-| Read-aloud (browser voices, nothing sent to a server) | Running, off by default | `frontend/src/lib/speech.ts` |
+| Read-aloud (on-device browser voices only, nothing sent to a server) | Running, off by default | `frontend/src/lib/speech.ts` |
 | Neural voices (Azure AI Speech) | Planned | |
 | Auto-eventing from 25 Hz tracking, benchmark on held-out seeds | Simulated (synthetic): detected from synthetic tracking, not video | [AUTO-EVENTING.md](docs/AUTO-EVENTING.md) |
 | Pixel path (rendered top-down frames, classical vision) | Simulated (synthetic): rendered synthetic video, not broadcast footage | [AUTO-EVENTING-BENCHMARK.md](docs/AUTO-EVENTING-BENCHMARK.md) |

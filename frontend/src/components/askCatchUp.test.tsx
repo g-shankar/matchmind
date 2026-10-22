@@ -247,6 +247,17 @@ describe('read-aloud', () => {
     expect(voiceFor('zh-Hans', [{ lang: 'zh_CN', localService: true, default: false }])?.lang).toBe('zh_CN');
   });
 
+  it('uses only on-device voices: a network voice is never chosen, even as the default', () => {
+    // Some browsers offer voices that are synthesised by a remote service (localService false):
+    // the text would leave the device, so read-aloud treats the language as having no voice.
+    const remoteOnly = [
+      { lang: 'fr-FR', localService: false, default: true },
+      { lang: 'fr-CA', localService: false, default: false },
+    ];
+    expect(voiceFor('fr', remoteOnly)).toBeNull();
+    expect(voiceFor('fr', [...remoteOnly, { lang: 'fr-BE', localService: true, default: false }])?.lang).toBe('fr-BE');
+  });
+
   it('is off by default and hidden when the browser cannot speak', () => {
     ui(<ReadAloudToggle match={matchWith()} />);
     expect(screen.queryByRole('button')).toBeNull();

@@ -1,7 +1,10 @@
-// Read-aloud with the browser's own Web Speech API (speechSynthesis): no server,
-// no account, nothing leaves the device. Off by default. It speaks only in a
-// language the browser has a voice for, and never in capture mode (OBS / vMix
-// Browser Source), where sound would go out on air.
+// Read-aloud with the browser's own Web Speech API (speechSynthesis): no server
+// of ours, no account. Off by default. It uses only voices the browser marks as
+// on-device (`localService`): some browsers also offer voices synthesised by a
+// remote service, and with those the text would leave the device, so they are
+// never chosen. A language with no on-device voice is not read aloud (the app says
+// so in one plain line). Never in capture mode (OBS / vMix Browser Source), where
+// sound would go out on air.
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 const PREF_KEY = 'pitchpulse.readAloud';
@@ -26,12 +29,12 @@ function synth(): SpeechSynthesis | null {
 
 export const speechSupported = () => synth() !== null && !captureMode();
 
-/** The best voice for a language code ('ar', 'es', 'zh-Hans'): an exact region-free match first, then any regional one. */
+/** The on-device voice for a language code ('ar', 'es', 'zh-Hans'), the browser's default first; null when there is none. */
 export function voiceFor(lang: string, voices: readonly Pick<SpeechSynthesisVoice, 'lang' | 'localService' | 'default'>[]) {
   const base = lang.toLowerCase().split('-')[0];
-  const matching = voices.filter((v) => (v.lang || '').toLowerCase().replace('_', '-').split('-')[0] === base);
+  const matching = voices.filter((v) => v.localService === true && (v.lang || '').toLowerCase().replace('_', '-').split('-')[0] === base);
   if (!matching.length) return null;
-  return [...matching].sort((a, b) => Number(b.localService) - Number(a.localService) || Number(b.default) - Number(a.default))[0];
+  return [...matching].sort((a, b) => Number(b.default) - Number(a.default))[0];
 }
 
 function readPref(): boolean {
@@ -74,7 +77,7 @@ export interface ReadAloud {
   supported: boolean;
   enabled: boolean;
   setEnabled: (on: boolean) => void;
-  /** Whether the browser has a voice for this language (voices can load late). */
+  /** Whether the browser has an on-device voice for this language (voices can load late). */
   hasVoice: (lang: string) => boolean;
   /** Speaks plain text in `lang`, replacing anything still being read. Returns false when it did not. */
   speak: (text: string, lang: string) => boolean;
