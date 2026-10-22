@@ -134,7 +134,7 @@ describe('VAR correction in the offline demo', () => {
 });
 
 describe('the recorded demo in catch-up mode', () => {
-  it('never sends the VAR review, a shot end point or a kick-off spot', async () => {
+  it('never sends the VAR review, a kick-off or a shot end point', async () => {
     const { s, messages } = await connect({ spoilers: false });
     playThrough(s, 0, ticks.length - 1);
     const events = messages.flatMap((m) => (m.type === 'MATCH_TICK' ? [m.data.event] : []));
@@ -144,12 +144,15 @@ describe('the recorded demo in catch-up mode', () => {
     expect(shots.every((e) => e.end === null && e.outcome === null)).toBe(true);
     expect(events.some((e) => e.type === 'var_review')).toBe(false);
     expect(events.some((e) => e.details.pass_type === 'kickoff' || 'blocked_by' in e.details)).toBe(false);
-    expect(events.length).toBe(ticks.length - 1);
+    // Withheld: the VAR review and every kick-off (a restart after the first whistle follows a goal).
+    const withheld = ticks.filter((t) => t.event.type === 'var_review' || t.event.details.pass_type === 'kickoff').length;
+    expect(withheld).toBe(8);
+    expect(events.length).toBe(ticks.length - withheld);
   });
 });
 
 describe('the catch-up snapshot after a jump', () => {
-  it('carries recent events without the VAR review, shot end points or the kick-off spot', async () => {
+  it('carries recent events without the VAR review, kick-offs or shot end points', async () => {
     const { s, messages } = await connect({ spoilers: false });
     messages.length = 0;
     s.send({ action: 'seek', clock_s: ticks[varIndex + 1].event.clock_s, period: ticks[varIndex + 1].event.period });

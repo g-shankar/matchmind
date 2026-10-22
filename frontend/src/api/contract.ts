@@ -143,8 +143,10 @@ export interface EventMetrics {
 }
 
 export interface MatchEvent {
+  /** Catch-up mode: an opaque id (`ev-…`), the same one cards and answers point at. */
   event_id: string;
-  seq: number;
+  /** Catch-up mode: null (the full feed's numbering would show where events were withheld). */
+  seq: number | null;
   match_clock: string;
   clock_s: number;
   period: 1 | 2;

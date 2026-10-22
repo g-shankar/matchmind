@@ -115,7 +115,8 @@ team win!". Every number on every one of those cards is a neutral fact
 A viewer who joins late, or is watching a recording, can keep the result hidden.
 They switch it on with the **Catch up** button in the header, or with a link
 that carries `?catchup=1` (or `?spoilers=0`). That sets `spoilers: false` on
-their profile, for their connection only. One rule set in
+their profile, for their connection only (the app also puts it on the WebSocket
+URL, so the first snapshot already has no score). One rule set in
 `backend/src/matchmind/crew/spoilers.py` decides what is hidden on every
 surface: WebSocket, REST, the recap, and Ask the studio.
 
@@ -124,12 +125,21 @@ surface: WebSocket, REST, the recap, and Ask the studio.
 | The score everywhere: scorebug, snapshot, ticks, match state, player goals and assists | xG, shots, possession, pressure, momentum, control vs chaos |
 | Goal and VAR-correction cards and bookmarks, and any moment whose facts hold a score or a scored shot | Big chances, "should he have passed", unfound runs, cards, pressure spells, momentum swings |
 | Shot and VAR-review outcomes on events, and the score copied into event details | Everything else about the event |
-| Outcome geometry: where a shot ended (every goal ends in the goal mouth; the pitch draws each shot towards the goal centre instead), who blocked it, and a kick-off's label and centre-spot start (a restart follows a goal) | Where the shot was taken from, its xG and speed |
-| VAR review events themselves: here a review always looks at a goal, so the tick is withheld and its other cards ride the next tick | Every other event |
+| Outcome geometry: where a shot ended (every goal ends in the goal mouth; the pitch draws each shot towards the goal centre instead) and who blocked it | Where the shot was taken from, its xG and speed |
+| VAR review events and kick-off passes themselves: here a review always looks at a goal and every restart after the first whistle follows one, so the tick is withheld and its other cards ride the next tick | Every other event |
+| The feed's numbering: events carry `seq: null` and an opaque id, so a withheld event leaves no gap (cards and answers point at the same ids) | Event order and the match clock |
 | Goals in the Lab's basic stats (`GET /api/match/stats/basic?spoilers=false`, MCP `get_basic_stats`): null, and the row is hidden | Shots, on target, passes, tackles and the rest |
 | The cue sheet (its scorebug layer is the score) | Cards in their usual slots |
 | The recap: replaced by the **story so far** | The story: xG and shots for both sides, how many chances, pressure spells and momentum swings, who is on top now, and spoiler-free key moments |
 | Ask the studio's `score`, `scorers` and `var` answers (`hidden`) | Every other question |
+
+**What it promises.** The score, goals and VAR decisions are kept off the screen
+and out of the catch-up messages. It does not change what happened: the clock
+and positions are real, so the pause after a goal and play restarting from the
+halfway line are still there, and someone reading the raw feed can infer a goal
+from them. Moment ids keep the full feed's numbering and counting stats include
+withheld events. Catch-up is a viewing choice, not an access control: anyone can
+still ask the server for the full picture (docs/THREAT-MODEL.md).
 
 **Story so far.** Each of the 5 studio packs has a template family for it
 (`PACK["story"]` in `crew/i18n/<lang>.py`). The story is built only from
@@ -160,8 +170,14 @@ The offline demo applies the same scrub in the browser
 Tests:
 
 - `backend/tests/test_spoilers.py`: a full real match over the WebSocket with
-  no leaks (no shot end point, no VAR review, no kick-off spot), the story in
-  every studio language, and REST flags, basic stats included.
+  no leaks (no shot end point, no VAR review, no kick-off, no feed numbering),
+  a classifier that finds no single field of a shot that marks the goals
+  (`test_catch_up_stream_has_no_goal_marker`), catch-up on the WebSocket URL,
+  the story in every studio language, and REST flags, basic stats included.
+- `frontend/src/api/catchupInference.test.ts`: the same classifier over the
+  recorded demo.
+- `frontend/src/components/panels.test.tsx`: the Lab shows no result or
+  storyline in catch-up mode.
 - `frontend/src/api/corrections.test.ts`: the recorded demo in catch-up mode.
 - `frontend/src/views/LabStats.test.tsx`: no goals row in catch-up mode.
 - `frontend/src/api/catchup.test.ts`

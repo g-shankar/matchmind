@@ -6,6 +6,7 @@ import type { StringTable } from './index';
 const guide: StringTable = {
   en: {
     'guide.replay.badge': 'Replay {speed}x',
+    'guide.replay.short': 'Replay {speed}x',
     'guide.replay.hint': 'A synthetic match replaying on its own at {speed}x. Pause stops it for everyone watching.',
     'guide.pause': 'Pause the replay (pauses it for everyone watching)',
     'guide.play': 'Play the replay (plays it for everyone watching)',
@@ -26,6 +27,7 @@ const guide: StringTable = {
   },
   es: {
     'guide.replay.badge': 'Repetición {speed}x',
+    'guide.replay.short': 'Rep. {speed}x',
     'guide.replay.hint': 'Un partido sintético que se reproduce solo a {speed}x. Pausar lo detiene para todos los que lo ven.',
     'guide.pause': 'Pausar la repetición (se pausa para todos los que la ven)',
     'guide.play': 'Reproducir la repetición (se reproduce para todos los que la ven)',
@@ -46,6 +48,7 @@ const guide: StringTable = {
   },
   ar: {
     'guide.replay.badge': 'إعادة {speed}x',
+    'guide.replay.short': 'إعادة {speed}x',
     'guide.replay.hint': 'مباراة اصطناعية تُعاد تلقائيًا بسرعة {speed}x. الإيقاف المؤقت يوقفها لكل من يشاهد.',
     'guide.pause': 'إيقاف الإعادة مؤقتًا (تتوقف لكل من يشاهد)',
     'guide.play': 'تشغيل الإعادة (تعمل لكل من يشاهد)',

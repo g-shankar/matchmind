@@ -93,3 +93,40 @@ def test_a_language_change_resends_the_jump_list_in_that_language(demo, tmp_path
         again = snapshot(ws)["bookmarks"][0]
     assert first["moment_id"] == again["moment_id"]
     assert first["title"] != again["title"]
+
+
+@pytest.mark.parametrize("language", ["en", "es", "fr", "ar", "ja"])
+def test_catch_up_jump_titles_in_every_language_carry_no_score(demo, language):
+    import re
+
+    snap = view.snapshot_payload(demo, ViewerProfile(language=language, spoilers=False))
+    assert snap["home_score"] is None
+    for b in snap["bookmarks"]:
+        assert not re.search(r"\d\s?[-–]\s?\d", b["title"]), (language, b)
+
+
+def test_a_language_change_in_catch_up_still_sends_a_scrubbed_snapshot(demo, tmp_path):
+    from fastapi.testclient import TestClient
+
+    from matchmind.api.app import create_app
+
+    app = create_app(
+        session=demo,
+        tick_interval=None,
+        allowed_origins=["http://localhost:3000"],
+        static_dir=tmp_path / "none",
+    )
+    with TestClient(app) as client, client.websocket_connect("/ws/match?spoilers=0") as ws:
+        msg = ws.receive_json()
+        while msg["type"] != "INITIAL_SNAPSHOT":
+            msg = ws.receive_json()
+        before = msg["data"]
+        ws.send_json({"action": "set_view", "language": "es"})
+        msg = ws.receive_json()
+        while msg["type"] != "INITIAL_SNAPSHOT":
+            msg = ws.receive_json()
+        snap = msg["data"]
+    assert before["home_score"] is None and snap["home_score"] is None
+    assert snap["profile"]["spoilers"] is False and snap["profile"]["language"] == "es"
+    assert {b["moment_id"] for b in snap["bookmarks"]} == {b["moment_id"] for b in before["bookmarks"]}
+    assert all(e.get("seq") is None for e in snap["recent_events"])

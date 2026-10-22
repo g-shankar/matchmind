@@ -1,0 +1,1 @@
+{'produced_by': 'template', 'fallback_reason': 'circuit_open', 'headline': 'Harbour City piling on the pressure', 'body': 'Harbour City have kept Northbridge FC pinned back for 3 minutes. Something may have to give.'}

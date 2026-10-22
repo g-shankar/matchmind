@@ -212,13 +212,13 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
         <div className="mx-auto flex h-full max-w-7xl items-center gap-2 px-3 sm:gap-3 sm:px-4">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <Logo />
-            <div className="hidden min-w-0 sm:block">
+            <div className="hidden min-w-0 lg:block">
               <h1 className="font-display text-2xl font-extrabold uppercase italic leading-none tracking-broadcast text-pp-chalk">
                 Pitch<span className="text-pp-pulse">Pulse</span>
               </h1>
               <p className="hidden truncate text-[11px] text-pp-mute md:block">{t('visit.tagline')}</p>
             </div>
-            <h1 className="sr-only sm:hidden">PitchPulse</h1>
+            <h1 className="sr-only lg:hidden">PitchPulse</h1>
           </div>
           <div className="hidden items-center gap-2 xl:flex">
             <SourceBadge status={match.status} source={source} />
@@ -235,7 +235,7 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
             >
               {playback.is_running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </button>
-            <div className="hidden items-center gap-2 sm:flex">
+            <div className="hidden items-center gap-2 lg:flex">
               <SpeedAndRestart match={match} actions={actions} />
             </div>
             <button
@@ -270,7 +270,7 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
         </div>
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 sm:px-4">
           <AudiencePicker value={profile.persona === 'player_spotlight' ? 'casual' : profile.persona} onChange={(persona) => actions.setView({ persona })} />
-          <div className="flex items-center gap-2 sm:hidden">
+          <div className="flex items-center gap-2 lg:hidden">
             <SpeedAndRestart match={match} actions={actions} />
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-pp-mute sm:ms-auto">
@@ -684,7 +684,7 @@ const Scoreline: React.FC<{ match: ViewProps['match']; source: 'file' | 'eventhu
   return (
     // Scoreboard strip: team colour blocks either side of a white score panel. Always home
     // on the left and away on the right, also on a right-to-left page.
-    <div dir="ltr" className="flex h-11 min-w-0 items-stretch font-display text-sm font-bold uppercase tracking-broadcast sm:text-base">
+    <div dir="ltr" className="flex h-11 min-w-0 items-stretch font-display text-sm font-bold uppercase tracking-broadcast sm:shrink-0 sm:text-base">
       <bdi className="flex items-center px-1.5 text-white sm:px-2.5" style={{ background: teams.home.primary_color }}>
         {teams.home.short_name}
       </bdi>
@@ -701,9 +701,11 @@ const Scoreline: React.FC<{ match: ViewProps['match']; source: 'file' | 'eventhu
             data-testid="replay-speed"
             dir={dir}
             title={t('guide.replay.hint', { speed: playback.speed_multiplier })}
-            className="mb-0.5 text-[9px] font-bold text-pp-mute"
+            className="mb-0.5 hidden text-[9px] font-bold text-pp-mute min-[375px]:block"
           >
-            {t('guide.replay.badge', { speed: playback.speed_multiplier })}
+            {/* Narrow phones get the short form; the title and screen-reader text say it in full. */}
+            <span className="min-[400px]:hidden">{t('guide.replay.short', { speed: playback.speed_multiplier })}</span>
+            <span className="hidden min-[400px]:inline">{t('guide.replay.badge', { speed: playback.speed_multiplier })}</span>
             <span className="sr-only">. {t('guide.replay.hint', { speed: playback.speed_multiplier })}</span>
           </span>
         )}

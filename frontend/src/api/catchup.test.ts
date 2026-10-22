@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { AskAnswer, ServerMessage } from './contract';
 import { MockMatchServer, type DemoAsk, type DemoFixture } from './mockServer';
-import { isSpoilerCard, scrubEvent, spoilerFreeBookmarks, spoilerFreeTick } from './spoilers';
+import { catchUpIds, isSpoilerCard, scrubEvent, spoilerFreeBookmarks, spoilerFreeTick, withCatchUpIds } from './spoilers';
 import { event, makeFixture } from '../test/fixture';
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
@@ -177,18 +177,33 @@ describe('spoiler scrub helpers', () => {
     expect(pass.outcome).toBe('complete');
   });
 
-  it('hide outcome geometry: shot end points, blockers and the kick-off spot', () => {
+  it('hide outcome geometry and feed numbering: shot end points, blockers and seq', () => {
     // Every goal ends inside the goal mouth, so the end point alone would give it away.
     const goal = scrubEvent(event(1, 10, { type: 'shot', outcome: 'goal', start: { x: 93, y: 35 }, end: { x: 105, y: 34.4 } }));
     expect(goal.end).toBeNull();
     expect(goal.start).toEqual({ x: 93, y: 35 });
+    expect(goal.seq).toBeNull();
     const blocked = scrubEvent(event(1, 11, { type: 'shot', outcome: 'blocked', end: { x: 96, y: 30 }, details: { blocked_by: 'BBB-4' } }));
     expect(blocked.end).toBeNull();
     expect(blocked.details).toEqual({});
-    const kickoff = scrubEvent(event(2, 12, { start: { x: 52.5, y: 34 }, end: { x: 61, y: 30 }, details: { pass_type: 'kickoff' } }));
-    expect(kickoff.start).toBeNull();
-    expect(kickoff.details).toEqual({});
-    expect(kickoff.end).toEqual({ x: 61, y: 30 });
+  });
+
+  it('withhold kick-offs: every restart after the first whistle follows a goal', () => {
+    const f = makeFixture();
+    const tick = { ...f.ticks[1], cards: [] };
+    const kickoff = { ...tick, event: { ...tick.event, type: 'pass' as const, start: { x: 52.5, y: 34 }, details: { pass_type: 'kickoff' } } };
+    expect(spoilerFreeTick(kickoff)).toBeNull();
+    expect(spoilerFreeTick({ ...kickoff, event: { ...kickoff.event, details: { pass_type: 'ground' } } })).not.toBeNull();
+  });
+
+  it('catch-up ids are stable, unique and unordered, and replace every event id in a payload', () => {
+    const idFor = catchUpIds();
+    const ids = Array.from({ length: 50 }, (_, i) => idFor(`T-1-${String(i).padStart(5, '0')}`));
+    expect(new Set(ids).size).toBe(50);
+    expect(ids.every((id) => /^ev-[0-9a-f]{16}$/.test(id))).toBe(true);
+    expect(idFor('T-1-00003')).toBe(ids[3]);
+    const card = { evidence: [{ source_event_id: 'T-1-00003' }, { source_event_id: null }], claims: [{ source_event_ids: ['T-1-00003'] }], replay: { shot_event_id: 'T-1-00004' } };
+    expect(withCatchUpIds(card, idFor)).toEqual({ evidence: [{ source_event_id: ids[3] }, { source_event_id: null }], claims: [{ source_event_ids: [ids[3]] }], replay: { shot_event_id: ids[4] } });
   });
 
   it('withhold VAR review ticks altogether', () => {

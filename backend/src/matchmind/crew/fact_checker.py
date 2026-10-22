@@ -669,14 +669,40 @@ def fold(text: str) -> str:
     return "".join(ch for ch in decomposed if not unicodedata.combining(ch))
 
 
+# Look-alike letters (Cyrillic, Greek, Latin small capitals) -> Latin.
+CONFUSABLES = str.maketrans(
+    {
+        "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "у": "y", "х": "x", "і": "i", "ј": "j",
+        "ѕ": "s", "ԁ": "d", "ɡ": "g", "һ": "h", "ӏ": "l", "ո": "n", "ս": "u", "ν": "v", "ο": "o",
+        "ι": "i", "α": "a", "ε": "e", "ρ": "p", "τ": "t", "κ": "k", "μ": "m", "η": "n", "ω": "w",
+        "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H", "О": "O", "Р": "P", "С": "C",
+        "Т": "T", "У": "Y", "Х": "X", "І": "I", "Ј": "J", "Ѕ": "S", "Α": "A", "Β": "B", "Ε": "E",
+        "Ζ": "Z", "Η": "H", "Ι": "I", "Κ": "K", "Μ": "M", "Ν": "N", "Ο": "O", "Ρ": "P", "Τ": "T",
+        "Υ": "Y", "Χ": "X", "ᴀ": "a", "ʙ": "b", "ᴄ": "c", "ᴅ": "d", "ᴇ": "e", "ɢ": "g", "ʜ": "h",
+        "ɪ": "i", "ᴊ": "j", "ᴋ": "k", "ʟ": "l", "ᴍ": "m", "ɴ": "n", "ᴏ": "o", "ᴘ": "p", "ʀ": "r",
+        "ꜱ": "s", "ᴛ": "t", "ᴜ": "u", "ᴠ": "v", "ᴡ": "w", "ʏ": "y", "ᴢ": "z",
+    }
+)  # fmt: skip
 # Arabic letter variants (teh marbuta, alef maqsura, tatweel) and the Japanese middle dot.
 _BAN_FOLD = str.maketrans({"ة": "ه", "ى": "ي", "ـ": None, "・": None, "･": None})
 _ARABIC_PREFIXES = ("وال", "بال", "فال", "كال", "لل", "ال", "و", "ب", "ل", "ف", "ك")
 _WORD = re.compile(r"\w+")
+# What may sit inside one name written in pieces: "Ha-aland", "Haa.land" (a space only for
+# single letters, "H a a l a n d", or a long name, "Haa land").
+_JOINERS = re.compile(r"[\s\-.'’_·]{1,2}")
+_JOIN_SPACE_MIN = 5  # shorter names split at a space read too much like two ordinary words
+
+
+# The look-alikes after case folding ("Н" -> "н" -> "h"), so a capital look-alike still matches.
+_BAN_CONFUSABLES = {
+    ord(chr(k).casefold()): v.casefold() for k, v in CONFUSABLES.items() if len(chr(k).casefold()) == 1
+}
 
 
 def _ban_fold(text: str) -> str:
-    return fold(text).translate(_BAN_FOLD).casefold()
+    """Look-alike letters to Latin, accents and invisible format characters out, case folded."""
+    text = "".join(ch for ch in text if unicodedata.category(ch) != "Cf").casefold()
+    return fold(text.translate(_BAN_CONFUSABLES)).translate(_BAN_FOLD).casefold()
 
 
 def _is_cjk(name: str) -> bool:
@@ -801,8 +827,46 @@ def length_problems(text: str, field: Field, translated: bool = False) -> list[s
     return reasons
 
 
+def _single_names(word: str) -> list[str]:
+    """One-word banned names `word` spells, as is or as a plural/possessive ("Haalands")."""
+    out = []
+    for form in (word, word[:-1] if len(word) > 3 and word.endswith("s") else None):
+        name = _WORD_NAMES.get((form,)) if form else None
+        if name is not None:
+            out.append(name)
+    return out
+
+
+def _joined_words(folded: str) -> list[str]:
+    """Words written in pieces, put back together: runs of single letters ("h a a l a n d")
+    and two or three pieces with a hyphen, dot or apostrophe between them ("ha-aland"); a
+    space joins pieces only when the result is long enough not to be two ordinary words."""
+    spans = list(_WORD.finditer(folded))
+    out: list[str] = []
+    i = 0
+    while i < len(spans):  # runs of single letters
+        j = i
+        while j < len(spans) and len(spans[j].group()) == 1 and spans[j].group().isalpha():
+            j += 1
+        if j - i >= 3:
+            out.append("".join(m.group() for m in spans[i:j]))
+        i = max(j, i + 1)
+    for i in range(len(spans)):
+        for n in (2, 3):
+            if i + n > len(spans):
+                break
+            gaps = [folded[spans[k].end() : spans[k + 1].start()] for k in range(i, i + n - 1)]
+            if not all(_JOINERS.fullmatch(g) for g in gaps):
+                break
+            joined = "".join(m.group() for m in spans[i : i + n])
+            if all(not g.isspace() for g in gaps) or len(joined) >= _JOIN_SPACE_MIN:
+                out.append(joined)
+    return out
+
+
 def banned_names_in(text: str) -> list[str]:
-    """Real names in `text` (see BANNED_NAMES), in list order."""
+    """Real names in `text` (see BANNED_NAMES), in list order. Look-alike letters, names in
+    pieces and plurals/possessives count ("Hаaland" with a Cyrillic a, "Ha-aland", "Haalands")."""
     folded = _ban_fold(text)
     words = _WORD.findall(folded)
     found: set[str] = set()
@@ -811,9 +875,14 @@ def banned_names_in(text: str) -> list[str]:
             for n in range(1, _MAX_WORDS + 1):
                 if i + n > len(words):
                     break
-                name = _WORD_NAMES.get((first, *words[i + 1 : i + n]))
+                key = (first, *words[i + 1 : i + n])
+                name = _WORD_NAMES.get(key)
+                if name is None and key[-1].endswith("s") and len(key[-1]) > 3:
+                    name = _WORD_NAMES.get((*key[:-1], key[-1][:-1]))  # plural or possessive
                 if name is not None:
                     found.add(name)
+    for joined in _joined_words(folded):
+        found.update(_single_names(joined))
     found.update(name for f, name in _CJK_NAMES if f in folded)
     return [name for name in BANNED_NAMES if name in found]
 

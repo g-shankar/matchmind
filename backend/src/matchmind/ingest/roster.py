@@ -65,9 +65,25 @@ def check_name(value: str, what: str) -> str:
     value = unicodedata.normalize("NFC", " ".join(value.split()))
     if not 2 <= len(value) <= 40 or not NAME_RE.match(value):
         raise ValueError(f"{what} '{value[:40]}' must be 2-40 letters (spaces, ' . - allowed)")
+    if len(_scripts(value)) > 1:
+        # "Hаaland" with a Cyrillic a reads as a real name but would dodge a plain comparison.
+        raise ValueError(f"{what} '{value}' mixes alphabets; write it in one alphabet")
     if banned_names_in(value):
         raise ValueError(f"{what} '{value}' looks like a real name; use invented names only")
     return value
+
+
+_JAPANESE = ("HIRAGANA", "KATAKANA", "CJK")
+
+
+def _scripts(value: str) -> set[str]:
+    """The alphabets a name's letters come from (Japanese kana and kanji count as one)."""
+    out = set()
+    for ch in value:
+        if ch.isalpha():
+            script = unicodedata.name(ch, "UNKNOWN").split()[0]
+            out.add("JAPANESE" if script in _JAPANESE else script)
+    return out
 
 
 class RosterPlayer(BaseModel):

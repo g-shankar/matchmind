@@ -23,7 +23,7 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Literal
 
-from matchmind.crew.fact_checker import banned_names_in, fold, normalise_digits
+from matchmind.crew.fact_checker import CONFUSABLES, banned_names_in, fold, normalise_digits
 
 MAX_QUESTION_CHARS = 200
 
@@ -31,20 +31,8 @@ RefusalReason = Literal[
     "empty", "too_long", "markup", "injection", "real_name", "off_topic", "unknown_player", "fact_check"
 ]
 
-# Look-alike letters (Cyrillic, Greek, Latin small capitals) -> Latin.
-_CONFUSABLES = str.maketrans(
-    {
-        "а": "a", "е": "e", "о": "o", "р": "p", "с": "c", "у": "y", "х": "x", "і": "i", "ј": "j",
-        "ѕ": "s", "ԁ": "d", "ɡ": "g", "һ": "h", "ӏ": "l", "ո": "n", "ս": "u", "ν": "v", "ο": "o",
-        "ι": "i", "α": "a", "ε": "e", "ρ": "p", "τ": "t", "κ": "k", "μ": "m", "η": "n", "ω": "w",
-        "А": "A", "В": "B", "Е": "E", "К": "K", "М": "M", "Н": "H", "О": "O", "Р": "P", "С": "C",
-        "Т": "T", "У": "Y", "Х": "X", "І": "I", "Ј": "J", "Ѕ": "S", "Α": "A", "Β": "B", "Ε": "E",
-        "Ζ": "Z", "Η": "H", "Ι": "I", "Κ": "K", "Μ": "M", "Ν": "N", "Ο": "O", "Ρ": "P", "Τ": "T",
-        "Υ": "Y", "Χ": "X", "ᴀ": "a", "ʙ": "b", "ᴄ": "c", "ᴅ": "d", "ᴇ": "e", "ɢ": "g", "ʜ": "h",
-        "ɪ": "i", "ᴊ": "j", "ᴋ": "k", "ʟ": "l", "ᴍ": "m", "ɴ": "n", "ᴏ": "o", "ᴘ": "p", "ʀ": "r",
-        "ꜱ": "s", "ᴛ": "t", "ᴜ": "u", "ᴠ": "v", "ᴡ": "w", "ʏ": "y", "ᴢ": "z",
-    }
-)  # fmt: skip
+# Look-alike letters (Cyrillic, Greek, Latin small capitals) -> Latin: shared with the ban list.
+_CONFUSABLES = CONFUSABLES
 # Arabic letter variants folded for matching (hamza forms, alef maqsura, teh marbuta, tatweel).
 _ARABIC = str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا", "ى": "ي", "ة": "ه", "ـ": None})
 # Direction overrides and isolates, and Unicode "tag" characters (invisible ASCII smuggling).

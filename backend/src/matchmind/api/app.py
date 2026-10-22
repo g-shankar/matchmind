@@ -86,6 +86,11 @@ POST_BURST, POST_PER_SECOND = 10, 2.0  # per client IP on the POST routes
 # Per client IP on the GET routes that may call a paid service (moment cards and recaps).
 # Room for the app's own bursts: re-voicing 12 cards after a language switch, 4 per split view.
 GET_BURST, GET_PER_SECOND = 30, 3.0
+# Per client IP on the other read routes (snapshot, players, stats, crew status...). Each
+# builds a JSON payload; one address looping on them slowed every viewer on a single core
+# (launch checks LC-1). The app polls these every few seconds, so this leaves wide room.
+# /api/health stays open for the platform's probes.
+READ_BURST, READ_PER_SECOND = 60, 10.0
 IP_LIMITERS_MAX = 10_000
 # Behind the Container Apps ingress the caller's address is the LAST X-Forwarded-For
 # entry (the ingress appends what it saw); anything to its left is client-supplied.
@@ -598,8 +603,8 @@ class Hub:
                         data["cards"] = held[i] + data["cards"]
                         held[i] = []
                     free = view.spoiler_free_tick(session, data)
-                    if free is None:  # a withheld event (VAR review): its other cards ride the next tick
-                        held[i] = view.spoiler_free_cards(session, data["cards"])
+                    if free is None:  # a withheld event (VAR review, kick-off): its cards ride the next tick
+                        held[i] = data["cards"]  # filtered and scrubbed once, with that tick
                         continue
                     out[i].append(view.message("MATCH_TICK", free))
                     continue
@@ -748,6 +753,19 @@ def client_ip(conn: Request | WebSocket) -> str:
     return conn.client.host if conn.client else "unknown"
 
 
+JSON_ONLY = "Send this request as JSON (Content-Type: application/json)."
+
+
+def _is_json(request: Request) -> bool:
+    return request.headers.get("content-type", "").split(";")[0].strip().lower() == "application/json"
+
+
+async def json_only(request: Request) -> None:
+    """415 for a state-changing POST that is not JSON (see `limited` in create_app)."""
+    if not _is_json(request):
+        raise HTTPException(status_code=415, detail=JSON_ONLY)
+
+
 def create_app(
     session: MatchSession | None = None,
     session_factory: Callable[[], MatchSession] = build_session,
@@ -844,10 +862,6 @@ def create_app(
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.get("/api/teams")
-    async def teams() -> dict[str, Any]:
-        return await reads.teams(hub)
-
     def ip_limit(burst: int, per_second: float) -> Callable[[Request], None]:
         """A simple per-client-IP token bucket (its own table per route group)."""
         ip_limiters: OrderedDict[str, RateLimiter] = OrderedDict()
@@ -865,21 +879,28 @@ def create_app(
 
         return check
 
-    limited = [Depends(ip_limit(POST_BURST, POST_PER_SECOND))]
+    # State-changing POSTs take JSON only: a plain cross-site form (urlencoded, multipart,
+    # text/plain) needs no CORS preflight, so without this any page could reset the match.
+    limited = [Depends(json_only), Depends(ip_limit(POST_BURST, POST_PER_SECOND))]
     # One bucket per client IP for every GET that may reach a paid path (moment cards,
     # recaps) and for MCP, so the REST routes and the MCP tools cannot double the burst.
     get_limit = ip_limit(GET_BURST, GET_PER_SECOND)
     limited_get = [Depends(get_limit)]
+    limited_read = [Depends(ip_limit(READ_BURST, READ_PER_SECOND))]
 
-    @app.get("/api/match/snapshot")
+    @app.get("/api/teams", dependencies=limited_read)
+    async def teams() -> dict[str, Any]:
+        return await reads.teams(hub)
+
+    @app.get("/api/match/snapshot", dependencies=limited_read)
     async def snapshot(spoilers: bool = True) -> dict[str, Any]:
         return await reads.snapshot(hub, spoilers)
 
-    @app.get("/api/match/players")
+    @app.get("/api/match/players", dependencies=limited_read)
     async def players() -> list[dict[str, Any]]:
         return await reads.players(hub)
 
-    @app.get("/api/match/bookmarks")
+    @app.get("/api/match/bookmarks", dependencies=limited_read)
     async def bookmarks() -> list[dict[str, Any]]:
         return reads.bookmarks(hub)
 
@@ -930,8 +951,7 @@ def create_app(
         clock. Shares the per-IP bucket of the paid-path GET routes and MCP."""
         # JSON only: a form or text/plain POST is a "simple" cross-site request a browser
         # sends from any page without a CORS preflight.
-        media = request.headers.get("content-type", "").split(";")[0].strip().lower()
-        if media != "application/json":
+        if not _is_json(request):
             raise HTTPException(status_code=415, detail="Send the question as JSON.")
         declared = request.headers.get("content-length")
         if declared is not None and declared.isdigit() and int(declared) > ASK_BODY_MAX:
@@ -965,31 +985,31 @@ def create_app(
     async def reset() -> dict[str, Any]:
         return await hub.reset()
 
-    @app.get("/api/crew/status")
+    @app.get("/api/crew/status", dependencies=limited_read)
     async def crew_status() -> dict[str, Any]:
         return await reads.crew_status(hub)
 
-    @app.get("/api/languages")
+    @app.get("/api/languages", dependencies=limited_read)
     async def languages() -> dict[str, Any]:
         return await reads.languages(hub)
 
-    @app.get("/api/crew/trace")
+    @app.get("/api/crew/trace", dependencies=limited_read)
     async def crew_trace(limit: int = Query(default=20, ge=1, le=100)) -> list[dict[str, Any]]:
         return await reads.crew_traces(hub, limit)
 
     # --- Metric registry and basic stats (docs/METRICS.md) -----------------------------------
 
-    @app.get("/api/metrics")
+    @app.get("/api/metrics", dependencies=limited_read)
     async def metric_registry() -> dict[str, Any]:
         return reads.metric_registry()
 
-    @app.get("/api/match/stats/basic")
+    @app.get("/api/match/stats/basic", dependencies=limited_read)
     async def basic_stats(spoilers: bool = True) -> dict[str, Any]:
         return await reads.basic_stats(hub, spoilers)
 
     # --- end metric registry and basic stats ----------------------------------------------------
 
-    @app.get("/api/auto-eventing")
+    @app.get("/api/auto-eventing", dependencies=limited_read)
     async def auto_eventing() -> dict[str, Any]:
         return reads.auto_eventing(hub)
 
@@ -1057,7 +1077,7 @@ def create_app(
             },
         )
 
-    @app.get("/api/source")
+    @app.get("/api/source", dependencies=limited_read)
     async def source() -> dict[str, Any]:
         return await hub.run(hub.session.source_status)
 
@@ -1073,7 +1093,8 @@ def create_app(
 
     @app.websocket("/ws/match")
     async def ws_match(ws: WebSocket) -> None:
-        if not _origin_ok(ws) or hub._session is None:
+        profile = _view_from_url(ws)
+        if not _origin_ok(ws) or hub._session is None or profile is None:
             await ws.close(code=1008)
             return
         ip = client_ip(ws)
@@ -1085,6 +1106,7 @@ def create_app(
         try:
             await ws.accept()
             conn = Connection(ws, hub.clock, on_drop=hub.drop, budget=hub.send_budget)
+            conn.profile = profile  # catch-up from the first frame: the snapshot never has the score
             rewind = hub.join(conn)
             writer = conn.start()
             if rewind:
@@ -1102,6 +1124,29 @@ def create_app(
                     await asyncio.wait_for(writer, timeout=2)
             if conn is not None:
                 conn.drain_queue()  # whatever a stuck writer left behind goes back to the budget
+
+    def _view_from_url(ws: WebSocket) -> ViewerProfile | None:
+        """The viewer's starting choices from `?spoilers=0|1&persona=&lang=` (all optional),
+        or None when one is not valid or given twice (the handshake is refused)."""
+        params = ws.query_params
+        keys = {"spoilers": "spoilers", "persona": "persona", "lang": "language"}
+        changes: dict[str, Any] = {}
+        for key, field in keys.items():
+            values = params.getlist(key)
+            if not values:
+                continue
+            if len(values) > 1:
+                return None
+            changes[field] = values[0]
+        if "spoilers" in changes:
+            flag = {"0": False, "false": False, "1": True, "true": True}.get(changes["spoilers"])
+            if flag is None:
+                return None
+            changes["spoilers"] = flag
+        try:
+            return ViewerProfile.model_validate(changes)
+        except ValidationError:
+            return None
 
     async def _serve(ws: WebSocket, conn: Connection) -> None:
         await hub.send_snapshots([conn])

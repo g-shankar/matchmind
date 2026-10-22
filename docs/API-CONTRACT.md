@@ -77,7 +77,8 @@ interface LanguageInfo {
 ```ts
 // One match event, already enriched with its metrics. Coordinates absolute.
 interface MatchEvent {
-  event_id: string; seq: number; match_clock: string; clock_s: number; period: 1 | 2;
+  event_id: string; seq: number | null;          // catch-up mode: opaque `ev-…` id and seq null
+  match_clock: string; clock_s: number; period: 1 | 2;
   type: 'pass' | 'carry' | 'dribble' | 'shot' | 'run' | 'interception' | 'tackle'
       | 'clearance' | 'recovery' | 'foul' | 'card' | 'milestone' | 'var_review'
       | 'match_start' | 'period_start' | 'period_end' | 'match_end';
@@ -427,19 +428,35 @@ once that is spent, viewers more than 256 KB behind are disconnected the same wa
 ### Catch-up mode (`spoilers: false`)
 
 A viewer who joins late can keep the result hidden: `set_view { spoilers: false }`
-(the web app's "Catch up" button, or a link with `?catchup=1`). From then on that
-connection gets, on every message: `home_score`, `away_score`, `state.score_*`,
-`MATCH_TICK.score` and players' `goals`/`assists` as `null`; no goal or VAR
-correction cards and no bookmarks for them (`ruled_out` is always false); shot
-events without `outcome`, `end` (the end point would show which went in),
-`blocked_by` or score details; kick-off passes without their `pass_type` and
-`start`; no `var_review` events at all (that tick is skipped and its other cards
-come with the next one); `cue_sheet: null` and no `CUES` (the scorebug is the score); and at full time a
-spoiler-free story instead of the recap. `set_view { spoilers: true }` reveals:
-the server answers with one fresh `INITIAL_SNAPSHOT` carrying everything. A
-`spoilers` value that is not a boolean gets `ERROR`. Rules and tests:
-`backend/src/matchmind/crew/spoilers.py`, `backend/tests/test_spoilers.py`,
-docs/PERSONALISATION.md.
+(the web app's "Catch up" button, or a link with `?catchup=1`). The web app also
+puts its choices on the WebSocket URL, `/ws/match?spoilers=0&persona=casual&lang=en`
+(each optional; `spoilers` is `0`, `1`, `false` or `true`), so the very first
+`INITIAL_SNAPSHOT` already fits them and never carries the score; a bad or repeated
+value refuses the handshake. From then on that connection gets, on every message:
+`home_score`, `away_score`, `state.score_*`, `MATCH_TICK.score` and players'
+`goals`/`assists` as `null`; no goal or VAR correction cards and no bookmarks for
+them (`ruled_out` is always false); shot events without `outcome`, `end` (the end
+point would show which went in), `blocked_by` or score details; no `var_review`
+events and no kick-off passes at all (a review always looks at a goal and every
+restart after the first whistle follows one; that tick is skipped and its other
+cards come with the next one); events with `seq: null` and an opaque `event_id`
+(`ev-` and 16 hex characters, stable while the server runs) instead of the
+numbered one, so withheld events leave no gap, with card evidence, claims, replays,
+the story and Ask answers pointing at the same opaque ids; `cue_sheet: null` and no
+`CUES` (the scorebug is the score); and at full time a spoiler-free story instead of
+the recap. `set_view { spoilers: true }` reveals: the server answers with one fresh
+`INITIAL_SNAPSHOT` carrying everything. A `spoilers` value that is not a boolean
+gets `ERROR`. Rules and tests: `backend/src/matchmind/crew/spoilers.py`,
+`backend/tests/test_spoilers.py`, docs/PERSONALISATION.md.
+
+What catch-up does not hide: the match clock and positions are real, so the long
+stoppage after a goal (every goal in the demo is followed by at least 40 s without
+an event; no other shot by more than 36 s) and play restarting from the halfway
+line can still let someone reading the raw feed infer a goal. Moment ids keep the
+full feed's event numbers (they are what the moment and audit routes look up), and
+counting stats (passes, shots on target) include withheld events. Catch-up is a
+viewer mode, not an access control: the full-information routes stay open
+(docs/THREAT-MODEL.md).
 
 Cards in `MATCH_TICK` are already filtered and ordered for the connection's
 profile: persona and language applied, club heart for the favourite club
@@ -485,7 +502,7 @@ collision rules are in [CUE-SHEET.md](CUE-SHEET.md) and
 | `GET /api/match/cue-sheet?persona=&lang=&favourite_team=&since_seq=0&limit=500` | `CueSheetPage`: the compiled cue sheet up to the current position, cues with `seq > since_seq`, at most `limit` (1-500); page with `next_since_seq` while `has_more` (see CUE-SHEET.md). Same rate limit as `/api/match/moment` |
 | `POST /api/match/seek` `{ clock_s, period? }` | `Playback` |
 | `POST /api/match/speed` `{ speed_multiplier }` | `Playback` |
-| `POST /api/match/reset` | `Playback` |
+| `POST /api/match/reset` `{}` | `Playback`. These three and `POST /api/ask` take `Content-Type: application/json` only (anything else gets 415), so a plain cross-site form cannot change the shared match |
 | `GET /api/crew/status` | `CrewStatus` |
 | `GET /api/languages` | `{ languages: LanguageInfo[], translator: TranslatorStatus }`: every language, its source (studio pack or Azure AI Translator) and whether it can be shown now |
 | `GET /api/crew/trace?limit=20` | `CrewTrace[]` (newest first) |
@@ -560,7 +577,10 @@ Errors: `{ "detail": "plain words" }` with 400 or 404 (429 for a seek or reset
 inside the 0.5 s throttle, a speed change inside the 0.3 s playback throttle, or more than about 2 POSTs a second, bursts of 10,
 from one client IP, or more than about 3 `GET /api/match/moment` and
 `GET /api/match/recap` requests a second, bursts of 30, from one client IP, a bucket the
-moment audit shares; 503 while the match is still loading, 500 with a generic
+moment audit shares, or more than about 10 requests a second, bursts of 60, from one client
+IP across the other read routes: teams, snapshot, players, bookmarks, crew status and
+trace, languages, metrics, basic stats, auto-eventing and source; `/api/health` is never
+limited; 503 while the match is still loading, 500 with a generic
 message if something breaks on our side).
 `GET /api/dataset/export` allows about one request every 5 s per client IP
 (bursts of 6) and at most two exports built at once (429 "Downloads are busy");

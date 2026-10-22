@@ -1,0 +1,4 @@
+{"flood": "/api/match/snapshot", "seconds": 20.0, "health_over_1s": 0, "health_samples": 57, "health_p50_ms": 40, "health_max_ms": 217, "ws_msgs": 79, "ws_gap_p99_ms": 3590, "ws_gap_max_ms": 3590, "flood_requests": 4912, "flood_codes": {"200": 259, "429": 4653}}
+{"flood": null, "seconds": 20.0, "ws_msgs": 88, "ws_gap_p99_ms": 3537, "ws_gap_max_ms": 3537, "health_over_1s": 0, "health_samples": 79, "health_p50_ms": 3, "health_max_ms": 38}
+{"flood": null, "seconds": 15.0, "ws_msgs": 518, "ws_gap_p99_ms": 307, "ws_gap_max_ms": 410, "rest_over_1s": 0, "rest_samples": 58, "rest_p50_ms": 8, "rest_max_ms": 36}
+{"flood": "/api/match/snapshot", "seconds": 20.0, "ws_msgs": 776, "ws_gap_p99_ms": 306, "ws_gap_max_ms": 680, "rest_over_1s": 0, "rest_samples": 54, "rest_p50_ms": 88, "rest_max_ms": 321, "flood_requests": 3315, "flood_codes": {"200": 266, "429": 3049}}
