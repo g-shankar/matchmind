@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { I18nProvider } from '../i18n';
 import type { BetterOptionReplay, UnfoundRunReplay } from '../api/contract';
 import { makeFixture, event } from '../test/fixture';
@@ -56,7 +56,7 @@ describe('Pitch2D', () => {
     expect(screen.getByTestId('replay-nearest').textContent).toContain('4.3 m');
     expect(screen.queryByTestId('event-line')).toBeNull();
     expect(screen.queryByTestId('event-tags')).toBeNull();
-    expect(screen.getByRole('img').getAttribute('aria-label')).toContain('5.6 times better');
+    expect(screen.getByRole('figure').getAttribute('aria-label')).toContain('5.6 times better');
   });
 
   it('draws the unfound-run replay labels', () => {
@@ -118,6 +118,33 @@ describe('Pitch2D', () => {
     const transforms = Array.from(container.querySelectorAll('g[transform]')).map((g) => g.getAttribute('transform'));
     expect(transforms).toContain('translate(10 10)');
     expect(transforms).not.toContain('translate(20 20)');
+  });
+
+  it('labels players by number and shows the name on hover or keyboard focus', () => {
+    const { container } = render(
+      <I18nProvider lang="en">
+        <Pitch2D
+          teams={teams}
+          event={event(1, 200, { player_id: 'BBB-10', receiver_id: null })}
+          positions={{ 'AAA-9': { x: 10, y: 10, clock_s: 190 } }}
+        />
+      </I18nProvider>,
+    );
+    const dot = container.querySelector('[data-player-dot="AAA-9"]') as SVGGElement;
+    expect(dot.textContent).toContain('9');
+    expect(dot.getAttribute('tabindex')).toBe('0');
+    expect(dot.getAttribute('aria-label')).toBe('Number 9, AAA Striker, AAA Town');
+    expect(screen.queryByTestId('player-name-label')).toBeNull();
+    fireEvent.mouseEnter(dot);
+    expect(screen.getByTestId('player-name-label').textContent).toBe('9 A. Striker');
+    fireEvent.mouseLeave(dot);
+    expect(screen.queryByTestId('player-name-label')).toBeNull();
+    // The live actor's dot is tagged too, and keyboard focus works the same way.
+    const actor = container.querySelector('[data-player-dot="BBB-10"]') as SVGGElement;
+    fireEvent.focus(actor);
+    expect(screen.getByTestId('player-name-label').textContent).toContain('B. Playmaker');
+    fireEvent.blur(actor);
+    expect(screen.queryByTestId('player-name-label')).toBeNull();
   });
 
   it('keeps the pitch left-to-right in Arabic', () => {

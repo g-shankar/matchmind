@@ -56,7 +56,7 @@ interface ViewerProfile {
 
 // Resolved identity of a player on moments and cards, so overlays can tag him by
 // name and shirt number. Same order as player_ids.
-interface PlayerRef { player_id: string; name: string; number: number; team: string; position: string }
+interface PlayerIdentity { player_id: string; name: string; number: number; team: string; position: string }
 
 interface Evidence { label: string; value: FactValue; unit: string | null; label_key: string | null; source_event_id: string | null }
 
@@ -193,7 +193,7 @@ interface OverlayCard {
   why: string; tactical_tag: string;         // Analyst
   evidence: Evidence[];                      // the numbers behind it
   player_ids: string[]; team: string | null;
-  players: PlayerRef[];                      // identity of each player in player_ids, same order
+  players: PlayerIdentity[];                 // identity of each player in player_ids, same order
   favourite_side: boolean | null;
   produced_by: 'ai' | 'template'; fallback_reason: string | null;
   replay: BetterOptionReplay | UnfoundRunReplay | null;
