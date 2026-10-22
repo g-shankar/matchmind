@@ -249,7 +249,7 @@ const studio: StringTable = {
   ja: {
     'studio.feed.title': '試合ストーリーフィード',
     'studio.feed.tabs': 'フィードの区分',
-    'studio.feed.stories': 'クルーのストーリー',
+    'studio.feed.stories': 'ストーリー',
     'studio.feed.events': 'ライブイベント',
     'studio.feed.why': 'なぜ重要か',
     'studio.feed.showEvidence': '根拠（{count}）',

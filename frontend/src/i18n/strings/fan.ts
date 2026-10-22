@@ -85,6 +85,8 @@ const fan: StringTable = {
     'fan.metric.noData': 'Not measured yet',
     'fan.metric.trend': '{metric} over the match',
     'fan.metric.scale': 'Positive favours {team}',
+    'team.style.Possession 4-3-3, patient build-up through the half-spaces': 'Possession 4-3-3, patient build-up through the half-spaces',
+    'team.style.Direct 4-2-3-1, high press and quick vertical transitions': 'Direct 4-2-3-1, high press and quick vertical transitions',
   },
   es: {
     'fan.follow.pick': 'Elige un jugador',
@@ -169,6 +171,8 @@ const fan: StringTable = {
     'fan.metric.noData': 'Todavía sin medir',
     'fan.metric.trend': '{metric} durante el partido',
     'fan.metric.scale': 'Positivo favorece a {team}',
+    'team.style.Possession 4-3-3, patient build-up through the half-spaces': '4-3-3 de posesión, salida paciente por los carriles interiores',
+    'team.style.Direct 4-2-3-1, high press and quick vertical transitions': '4-2-3-1 directo, presión alta y transiciones verticales rápidas',
   },
   ar: {
     'fan.follow.pick': 'اختر لاعبًا',
@@ -253,6 +257,8 @@ const fan: StringTable = {
     'fan.metric.noData': 'لم يُقَس بعد',
     'fan.metric.trend': '{metric} على مدار المباراة',
     'fan.metric.scale': 'القيمة الموجبة لصالح {team}',
+    'team.style.Possession 4-3-3, patient build-up through the half-spaces': 'استحواذ بخطة 4-3-3، وبناء صبور عبر أنصاف المساحات',
+    'team.style.Direct 4-2-3-1, high press and quick vertical transitions': 'لعب مباشر بخطة 4-2-3-1، وضغط عالٍ وتحولات عمودية سريعة',
   },
   fr: {
     'fan.follow.pick': 'Choisir un joueur',
@@ -337,6 +343,8 @@ const fan: StringTable = {
     'fan.metric.noData': 'Pas encore mesuré',
     'fan.metric.trend': '{metric} au fil du match',
     'fan.metric.scale': 'Positif : avantage {team}',
+    'team.style.Possession 4-3-3, patient build-up through the half-spaces': 'Possession en 4-3-3, construction patiente par les demi-espaces',
+    'team.style.Direct 4-2-3-1, high press and quick vertical transitions': 'Jeu direct en 4-2-3-1, pressing haut et transitions verticales rapides',
   },
   ja: {
     'fan.follow.pick': '選手を選ぶ',
@@ -421,6 +429,8 @@ const fan: StringTable = {
     'fan.metric.noData': 'まだ計測されていません',
     'fan.metric.trend': '試合を通した{metric}',
     'fan.metric.scale': 'プラスは {team} 優勢',
+    'team.style.Possession 4-3-3, patient build-up through the half-spaces': 'ポゼッション型の 4-3-3、ハーフスペースを使った丁寧なビルドアップ',
+    'team.style.Direct 4-2-3-1, high press and quick vertical transitions': 'ダイレクト型の 4-2-3-1、ハイプレスと素早い縦への切り替え',
   },
 };
 

@@ -385,7 +385,7 @@ const core: StringTable = {
     'tempo.End to end': 'Box-to-box',
     'tempo.Frantic': 'Frénétique',
     'tempo.Furious Chaos': 'Chaos total',
-    'tempo.High-Tempo Transition': 'Transitions à haut rythme',
+    'tempo.High-Tempo Transition': 'Transitions rapides',
     'tempo.Methodical Control': 'Maîtrise méthodique',
     'tempo.Total Positional Control': 'Maîtrise positionnelle totale',
     'unit.kmh': 'km/h',

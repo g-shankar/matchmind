@@ -42,3 +42,15 @@ describe('StatsTables', () => {
     expect(screen.queryByRole('rowheader', { name: /goals/i })).toBeNull();
   });
 });
+
+describe('StatsTables tracking label', () => {
+  it('says "estimated from synthetic tracking" in the page language', () => {
+    render(
+      <I18nProvider lang="fr">
+        <StatsTables stats={{ ...stats([1, 0]), physical_source: 'synthetic_tracking', physical_label: 'Estimated from synthetic tracking' }} />
+      </I18nProvider>,
+    );
+    expect(screen.getByText('Estimé à partir du suivi synthétique')).toBeTruthy();
+    expect(screen.queryByText('Estimated from synthetic tracking')).toBeNull();
+  });
+});

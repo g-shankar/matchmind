@@ -90,7 +90,7 @@ const guide: StringTable = {
   },
   ja: {
     'guide.replay.badge': 'リプレイ {speed}x',
-    'guide.replay.short': 'リプレイ {speed}x',
+    'guide.replay.short': '再生 {speed}x',
     'guide.replay.hint': '合成データの試合を {speed}x で自動再生しています。一時停止すると視聴中の全員で止まります。',
     'guide.pause': 'リプレイを一時停止（視聴中の全員で止まります）',
     'guide.play': 'リプレイを再生（視聴中の全員で再生されます）',

@@ -105,3 +105,19 @@ describe('MyMatch', () => {
     expect(screen.getByText('ناديك: AAA Town')).toBeTruthy();
   });
 });
+
+describe('MyMatch club styles in the interface language', () => {
+  const styled = (style: string) => Object.fromEntries(Object.entries(teams).map(([id, tm]) => [id, { ...tm, style }]));
+
+  it('shows a known roster style in French', () => {
+    renderView(matchWith({ teams: styled('Possession 4-3-3, patient build-up through the half-spaces') }), mockActions(), 'fr');
+    expect(screen.getAllByText('Possession en 4-3-3, construction patiente par les demi-espaces').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/patient build-up/)).toBeNull();
+  });
+
+  it('shows an unknown style as English and marks it as English', () => {
+    renderView(matchWith({ teams: styled('Low block 5-4-1') }), mockActions(), 'ja');
+    const el = screen.getAllByText('Low block 5-4-1')[0];
+    expect(el.getAttribute('lang')).toBe('en');
+  });
+});

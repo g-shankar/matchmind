@@ -338,9 +338,13 @@ export const StatsTables: React.FC<{ stats: BasicStats; hideResult?: boolean }> 
           {stats.pass_accuracy_denominator}
         </span>
         <span>·</span>
-        <span lang="en" className="text-pp-gold">
-          {stats.physical_label}
-        </span>
+        {stats.physical_source === 'synthetic_tracking' ? (
+          <span className="text-pp-gold">{t('fan.stat.trackingLabel')}</span>
+        ) : (
+          <span lang="en" className="text-pp-gold">
+            {stats.physical_label}
+          </span>
+        )}
       </p>
       <div className="relative overflow-x-auto" tabIndex={0} role="region" aria-label={t('lab.stats.teamCaption')}>
         <table className="w-full min-w-[300px] border-collapse text-sm">
