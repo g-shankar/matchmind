@@ -175,15 +175,16 @@ def real_engines() -> Engines:
 def live_llm() -> Any:
     """The paid model client only when MATCHMIND_AI_ENABLED is on; otherwise None (templates).
 
-    The client reads its own AZURE_OPENAI_* settings. If it cannot be built, the crew
-    stays on templates rather than stopping the match.
+    MATCHMIND_LLM_PROVIDER picks Azure OpenAI (default) or Foundry Agent Service; the
+    client reads its own settings. If it cannot be built, the crew stays on templates
+    rather than stopping the match.
     """
     if not ai_enabled():
         return None
     try:
-        from matchmind.crew.llm import AzureOpenAILLM
+        from matchmind.crew.llm import make_llm
 
-        return AzureOpenAILLM()
+        return make_llm()
     except Exception:  # noqa: BLE001 - optional, paid add-on
         logger.warning("MATCHMIND_AI_ENABLED is on but the model client could not start; using templates")
         return None
