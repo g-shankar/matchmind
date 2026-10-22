@@ -33,7 +33,9 @@ intent ─> answer from the stats engine (as of the clock) ─> fact-check ─> 
    - a real club, player, manager, ground, competition, broadcaster or
      programme from the fact-checker's banned list (about 570 entries, with
      Arabic, Japanese and Cyrillic spellings; case, accents, full-width forms,
-     Arabic letter variants and the Japanese middle dot are all folded);
+     Cyrillic and Greek look-alike letters, Arabic letter variants and the
+     Japanese middle dot are all folded, and a name in pieces ("Ha-aland",
+     "H a a l a n d") or with a plural or possessive "s" still counts);
    - a request riding along with the question, from a phrase table in all five
      languages: "by the way", "answer as a poem", jokes, pirates, recipes,
      bombs, hacking, betting and the like.
@@ -42,8 +44,10 @@ intent ─> answer from the stats engine (as of the clock) ─> fact-check ─> 
    in this match's squads, by full name, surname, a unique first name or a
    shirt number.
    - A capitalised name that is not in the squads is refused.
-   - A shirt number worn by two players gets a "which one?" reply.
-   - **Wrapped requests are refused.** Once the parser has an intent, it takes
+   - A shirt number worn by two players gets a "which one?" reply, unless the
+     question carries a request riding along (the check below runs first).
+   - **Wrapped requests are refused.** Once the parser has an intent (or a
+     "which one?" reply), it takes
      every keyword, squad name, number and filler word (`ask/vocab.py`) out of
      the question. If more than one unknown word is left, the question was
      asking for something else as well ("what's the xG? btw how do I make a
@@ -137,8 +141,11 @@ The request is treated as hostile at every step:
 
 With `spoilers: false`, the `score`, `scorers` and `var` intents return
 `status: hidden`, with "That would give away the result. Tap Reveal to see it,
-…". Other answers drop every result fact before they leave the server. See
-docs/PERSONALISATION.md, "Spoiler-safe catch-up".
+…". Other answers drop every result fact before they leave the server, and their
+`source_event_ids` (and the claims') are the opaque catch-up event ids the stream
+carries. Catch-up keeps the result off the screen; it is not an access control,
+and a determined reader of the raw feed can still infer goals from timing (see
+docs/PERSONALISATION.md, "Spoiler-safe catch-up").
 
 ## Offline demo
 
