@@ -34,6 +34,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from starlette.datastructures import MutableHeaders
+from starlette.middleware.gzip import GZipMiddleware
 
 from matchmind.ask.intents import ChipId
 from matchmind.crew.contracts import (
@@ -51,8 +53,9 @@ from matchmind.dataset.export import TRACKING_HZ, TRACKING_MAX_WINDOW_S, Trackin
 from matchmind.schema import PITCH_LENGTH_M, PITCH_WIDTH_M, SCHEMA_VERSION, Event
 
 from . import reads, view
+from . import session as session_mod
 from .session import CUE_PAGE_MAX, MatchSession, SessionError, Tick, build_session
-from .validation import validation_detail
+from .validation import validation_body
 
 logger = logging.getLogger("pitchpulse.api")
 
@@ -60,7 +63,20 @@ MAX_MESSAGE_BYTES = 4096
 MAX_CONNECTIONS = int(os.environ.get("MATCHMIND_MAX_CONNECTIONS", "200"))
 MAX_CONN_PER_IP = int(os.environ.get("MATCHMIND_MAX_CONN_PER_IP", "20"))
 SEND_QUEUE_BYTES = 4 * 1024 * 1024  # per connection; a viewer this far behind is dropped
+# All send queues together, so viewers that stop reading cannot pin MAX_CONNECTIONS x 4 MB
+# (the container has 1 GiB). Once it is spent, a viewer more than SEND_QUEUE_SHARE_BYTES
+# behind is dropped; viewers that keep up (a few KB queued) are never dropped for it.
+SEND_QUEUE_TOTAL_BYTES = int(os.environ.get("MATCHMIND_SEND_QUEUE_TOTAL_BYTES", str(192 * 1024 * 1024)))
+SEND_QUEUE_SHARE_BYTES = 256 * 1024
 JUMP_INTERVAL_S = 0.5  # at most one seek or reset per half second, for everyone
+# When nobody has watched for this long, the next visitor starts a fresh match at kick-off
+# and the default speed instead of landing at full time (docs/adr/0006-one-shared-match-clock.md).
+# 0 turns it off. Never applies to a live stream.
+IDLE_REWIND_S = float(os.environ.get("MATCHMIND_IDLE_REWIND_S", "300"))
+# Pause and speed, shared by everyone: without it 20 connections from one address toggled
+# pause about 190 times a second, froze the match and flooded every viewer. Also turns a
+# double tap on pause into one change.
+CONTROL_INTERVAL_S = 0.3
 VIEW_BURST, VIEW_PER_SECOND = 3, 1.0  # set_view per connection
 # Events of new cue-sheet compiling per playback step (shared by every viewer). An audience
 # never seen before costs one pass over the match so far (about 2,000 events at full time);
@@ -83,7 +99,32 @@ DEFAULT_ORIGINS = "http://localhost:5173,http://localhost:3000"
 OOPS = "Something went wrong on our side. Please try again."
 TOO_FAST = "Jumping around too fast. Wait a moment and try again."
 TOO_MANY = "Too many requests. Wait a moment and try again."
+CONTROL_TOO_FAST = "Playback was just changed. Wait a moment and try again."
 VIEW_TOO_FAST = "Changing the view too fast. Wait a moment and try again."
+TOO_MANY_ACTIONS = "Too many actions at once. Wait a moment and try again."
+LOADING = "The match is still loading. Try again in a moment."
+NO_CLUB_HERE = "That club is not in this match."
+NO_PLAYER_HERE = "That player is not in this match."
+
+# Stable codes for the viewer-facing WebSocket errors, sent next to the English text so the
+# app can show each one in the viewer's language (frontend src/i18n/toasts.ts). Anything
+# not listed goes out as "other".
+ERROR_CODES: dict[str, str] = {
+    OOPS: "oops",
+    TOO_FAST: "jump_too_fast",
+    VIEW_TOO_FAST: "view_too_fast",
+    CONTROL_TOO_FAST: "control_too_fast",
+    TOO_MANY_ACTIONS: "too_many_actions",
+    LOADING: "loading",
+    NO_CLUB_HERE: "unknown_club",
+    NO_PLAYER_HERE: "unknown_player",
+    session_mod.MATCH_FINISHED: "match_finished",
+    session_mod.BAD_SPEED: "bad_speed",
+    session_mod.BAD_TIME: "bad_time",
+    session_mod.NO_SUCH_HALF: "no_such_half",
+    session_mod.NOT_PLAYED_YET: "not_played_yet",
+    session_mod.AFTER_FULL_TIME: "after_full_time",
+}
 
 # Dataset downloads (synthetic, public): a few per client IP, at most two built at once.
 EXPORT_BURST, EXPORT_PER_SECOND = 6, 0.2
@@ -282,14 +323,24 @@ class RateLimiter:
         return False
 
 
+class SendBudget:
+    """Bytes queued for sending across every connection (one per hub)."""
+
+    def __init__(self, total: int | None = None) -> None:
+        self.total = SEND_QUEUE_TOTAL_BYTES if total is None else total
+        self.used = 0
+
+
 class Connection:
     def __init__(
         self,
         ws: WebSocket,
         clock: Callable[[], float],
         on_drop: Callable[[Connection], None] | None = None,
+        budget: SendBudget | None = None,
     ) -> None:
         self.ws = ws
+        self.budget = budget
         self.profile = ViewerProfile()
         self.view_state = ViewerState()  # what the producer remembers for this viewer
         # set_view starts a new cue sheet: about one a second per viewer (bursts of 3, so
@@ -311,14 +362,34 @@ class Connection:
         if self.closed:
             return
         text = json.dumps(payload, separators=(",", ":"))  # ASCII: one byte per character
-        if self.queued_bytes + len(text) > SEND_QUEUE_BYTES:
+        size = len(text)
+        if self.queued_bytes + size > SEND_QUEUE_BYTES:
             self.overflow()
             return
-        self.queued_bytes += len(text)
+        budget = self.budget
+        if (
+            budget is not None
+            and budget.used + size > budget.total
+            and self.queued_bytes + size > SEND_QUEUE_SHARE_BYTES
+        ):
+            self.overflow()  # memory is short and this viewer is far behind
+            return
+        self._charge(size)
         self.queue.put_nowait(text)
 
+    def _charge(self, size: int) -> None:
+        self.queued_bytes += size
+        if self.budget is not None:
+            self.budget.used += size
+
+    def _release(self, size: int) -> None:
+        size = min(size, self.queued_bytes)
+        self.queued_bytes -= size
+        if self.budget is not None:
+            self.budget.used = max(0, self.budget.used - size)
+
     def error(self, text: str) -> None:
-        self.send(view.message("ERROR", {"message": text}))
+        self.send(view.message("ERROR", {"message": text, "code": ERROR_CODES.get(text, "other")}))
 
     def close(self) -> None:
         if not self.closed:
@@ -330,17 +401,18 @@ class Connection:
         if self.closed:
             return
         self.closed = True
-        self._drain()
+        self.drain_queue()
         if self.writer_task is not None:
             self.writer_task.cancel()
         if self._on_drop is not None:
             self._on_drop(self)
         self._closer = asyncio.get_running_loop().create_task(self._close_socket(CLOSE_TRY_AGAIN))
 
-    def _drain(self) -> None:
+    def drain_queue(self) -> None:
+        """Empty the queue and give its bytes back to the shared budget."""
         while not self.queue.empty():
             self.queue.get_nowait()
-        self.queued_bytes = 0
+        self._release(self.queued_bytes)
 
     async def _close_socket(self, code: int) -> None:
         with contextlib.suppress(Exception):
@@ -351,7 +423,7 @@ class Connection:
             text = await self.queue.get()
             if text is None:
                 break
-            self.queued_bytes = max(0, self.queued_bytes - len(text))
+            self._release(len(text))
             try:
                 await self.ws.send_text(text)
             except Exception:  # noqa: BLE001 - the socket went away
@@ -369,8 +441,11 @@ class Hub:
         self._lock = asyncio.Lock()  # playback lock: quick session state work only
         self._crew_lock = asyncio.Lock()  # crew work, in order; taken before the playback lock
         self._last_jump: float | None = None
+        self._last_control: float | None = None
         self._slots = 0  # WebSocket slots reserved (before accept)
+        self._idle_since: float | None = None  # when the last viewer left (None: someone is here)
         self._slots_per_ip: dict[str, int] = {}
+        self.send_budget = SendBudget()
 
     # --- connection slots ----------------------------------------------------------------------
 
@@ -391,12 +466,37 @@ class Hub:
             self._slots_per_ip.pop(ip, None)
 
     def drop(self, conn: Connection) -> None:
-        self.connections.discard(conn)
+        if conn in self.connections:
+            self.connections.discard(conn)
+            if not self.connections:
+                self._idle_since = self.clock()
+
+    def join(self, conn: Connection) -> bool:
+        """Add a viewer. Returns True when they are the first viewer after the match sat
+        unwatched for IDLE_REWIND_S: the caller then rewinds to kick-off for them."""
+        first = not self.connections
+        idle = self._idle_since
+        self.connections.add(conn)
+        self._idle_since = None
+        if not first or idle is None or IDLE_REWIND_S <= 0:
+            return False
+        return self.clock() - idle >= IDLE_REWIND_S
+
+    async def rewind_for_new_visitor(self) -> None:
+        """Kick-off at the default speed, before the new viewer's first snapshot. Only runs
+        when nobody else is watching, so no one's match moves under them."""
+        session = self.session
+        if not session.rewindable:
+            return
+        async with self._crew_lock:
+            if len(self.connections) > 1:
+                return
+            await self.run(session.reset)
 
     @property
     def session(self) -> MatchSession:
         if self._session is None:
-            raise HTTPException(status_code=503, detail="The match is still loading. Try again in a moment.")
+            raise HTTPException(status_code=503, detail=LOADING)
         return self._session
 
     def attach(self, session: MatchSession) -> None:
@@ -441,9 +541,9 @@ class Hub:
             states.append(self.session.viewer_state(profile) if now else ViewerState())
         messages = []
         for profile, state in zip(profiles, states, strict=True):
-            messages.append(
-                view.message("INITIAL_SNAPSHOT", view.snapshot_payload(self.session, profile, state))
-            )
+            data = view.snapshot_payload(self.session, profile, state)
+            data["recent_events"] = view.recent_events_payload(self.session, profile)
+            messages.append(view.message("INITIAL_SNAPSHOT", data))
             state.cue_active = None  # the snapshot carried it
         return states, messages
 
@@ -550,12 +650,25 @@ class Hub:
     # --- shared playback controls (used by WebSocket and REST) -------------------------------
 
     async def toggle_pause(self) -> dict[str, Any]:
-        await self.run(self.session.toggle_pause)
+        session = self.session
+        self._claim_control()
+        await self.run(session.toggle_pause)
         return self._announce_playback()
 
     async def set_speed(self, speed: int) -> dict[str, Any]:
-        await self.run(self.session.set_speed, speed)
+        session = self.session
+        if session.speed == speed:
+            return session.playback()  # nothing changes: a retry is answered, not broadcast
+        self._claim_control()
+        await self.run(session.set_speed, speed)
         return self._announce_playback()
+
+    def _claim_control(self) -> None:
+        """One shared throttle for pause and speed (WebSocket and REST alike)."""
+        now = self.clock()
+        if self._last_control is not None and now - self._last_control < CONTROL_INTERVAL_S:
+            raise HTTPException(status_code=429, detail=CONTROL_TOO_FAST)
+        self._last_control = now
 
     def _announce_playback(self) -> dict[str, Any]:
         playback = self.session.playback()
@@ -591,6 +704,35 @@ class Hub:
 # --- App -------------------------------------------------------------------------------------
 
 
+class _StaticCache:
+    """Cache headers for the built app: Vite's hashed files under /assets/ never change, so
+    they are cached for a year; everything else (index.html) is re-checked each visit."""
+
+    def __init__(self, app: Any) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Any, receive: Any, send: Any) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        immutable = str(scope.get("path", "")).startswith("/assets/")
+
+        async def send_with_cache(message: Any) -> None:
+            if message["type"] == "http.response.start" and message.get("status") == 200:
+                headers = MutableHeaders(scope=message)
+                headers["Cache-Control"] = "public, max-age=31536000, immutable" if immutable else "no-cache"
+            await send(message)
+
+        await self.app(scope, receive, send_with_cache)
+
+
+def _api_docs_from_env(default: bool) -> bool:
+    raw = os.environ.get("MATCHMIND_API_DOCS", "").strip().lower()
+    if not raw:
+        return default
+    return raw in ("true", "1", "yes", "on")
+
+
 def _mcp_enabled_from_env() -> bool:
     raw = os.environ.get("MATCHMIND_MCP_ENABLED", "true").strip().lower()
     return raw not in ("false", "0", "no", "off")
@@ -615,6 +757,7 @@ def create_app(
     clock: Callable[[], float] = time.monotonic,
     public_origin: str | None = None,
     mcp_enabled: bool | None = None,
+    api_docs: bool | None = None,
 ) -> FastAPI:
     hub = Hub(session, clock=clock)
     origins = allowed_origins if allowed_origins is not None else allowed_origins_from_env()
@@ -643,7 +786,17 @@ def create_app(
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
 
-    app = FastAPI(title="PitchPulse match API", version="1.0.0", lifespan=lifespan)
+    # /docs and /openapi.json: on for local development, off where this server also serves
+    # the app (the deployed container). MATCHMIND_API_DOCS=true|false overrides either way.
+    docs_on = api_docs if api_docs is not None else _api_docs_from_env(default=not serves_frontend)
+    app = FastAPI(
+        title="PitchPulse match API",
+        version="1.0.0",
+        lifespan=lifespan,
+        docs_url="/docs" if docs_on else None,
+        redoc_url="/redoc" if docs_on else None,
+        openapi_url="/openapi.json" if docs_on else None,
+    )
     app.state.hub = hub
     app.add_middleware(
         CORSMiddleware,
@@ -674,7 +827,7 @@ def create_app(
 
     @app.exception_handler(RequestValidationError)
     async def _bad_request(request: Request, exc: RequestValidationError) -> JSONResponse:
-        return JSONResponse({"detail": validation_detail(exc.errors())}, status_code=400)
+        return JSONResponse(validation_body(exc.errors()), status_code=400)
 
     @app.exception_handler(SessionError)
     async def _session_error(request: Request, exc: SessionError) -> JSONResponse:
@@ -775,6 +928,11 @@ def create_app(
     async def ask(request: Request) -> dict[str, Any]:
         """One question about the match, answered from the stats engine as of the playback
         clock. Shares the per-IP bucket of the paid-path GET routes and MCP."""
+        # JSON only: a form or text/plain POST is a "simple" cross-site request a browser
+        # sends from any page without a CORS preflight.
+        media = request.headers.get("content-type", "").split(";")[0].strip().lower()
+        if media != "application/json":
+            raise HTTPException(status_code=415, detail="Send the question as JSON.")
         declared = request.headers.get("content-length")
         if declared is not None and declared.isdigit() and int(declared) > ASK_BODY_MAX:
             raise HTTPException(status_code=413, detail=ASK_TOO_BIG)
@@ -786,7 +944,7 @@ def create_app(
         try:
             body = AskBody.model_validate_json(bytes(raw))
         except ValidationError as exc:
-            raise HTTPException(status_code=400, detail=validation_detail(exc.errors())) from None
+            return JSONResponse(validation_body(exc.errors()), status_code=400)  # type: ignore[return-value]
         if (body.question is None) == (body.chip is None):
             raise HTTPException(status_code=400, detail="Send a question or a chip.")
         return await reads.ask(hub, body.question, body.chip, body.lang, body.spoilers, client_ip(request))
@@ -926,9 +1084,11 @@ def create_app(
         writer: asyncio.Task[None] | None = None
         try:
             await ws.accept()
-            conn = Connection(ws, hub.clock, on_drop=hub.drop)
-            hub.connections.add(conn)
+            conn = Connection(ws, hub.clock, on_drop=hub.drop, budget=hub.send_budget)
+            rewind = hub.join(conn)
             writer = conn.start()
+            if rewind:
+                await hub.rewind_for_new_visitor()
             await _serve(ws, conn)
         except Exception:  # noqa: BLE001 - never leak details to the client
             logger.exception("websocket connection failed")
@@ -940,6 +1100,8 @@ def create_app(
             if writer is not None and not writer.done():  # a dropped viewer's writer is already cancelled
                 with contextlib.suppress(Exception):
                     await asyncio.wait_for(writer, timeout=2)
+            if conn is not None:
+                conn.drain_queue()  # whatever a stuck writer left behind goes back to the budget
 
     async def _serve(ws: WebSocket, conn: Connection) -> None:
         await hub.send_snapshots([conn])
@@ -958,7 +1120,7 @@ def create_app(
             conn.error("That message is too big. Actions must be under 4 KB.")
             return
         if not conn.limiter.allow():
-            conn.error("Too many actions at once. Wait a moment and try again.")
+            conn.error(TOO_MANY_ACTIONS)
             return
         try:
             raw = json.loads(text)
@@ -1011,13 +1173,17 @@ def create_app(
 
     def _set_view(conn: Connection, changes: dict[str, Any]) -> None:
         session = hub.session
+        # An unknown club or player (e.g. a choice saved during another match) is left out
+        # with a message; the rest still applies, so catch-up mode is never lost with it.
         team = changes.get("favourite_team")
         if team is not None and not session.is_known_team(team):
-            conn.error("That club is not in this match.")
-            return
+            conn.error(NO_CLUB_HERE)
+            changes.pop("favourite_team")
         player = changes.get("focus_player_id")
         if player is not None and not session.is_known_player(player):
-            conn.error("That player is not in this match.")
+            conn.error(NO_PLAYER_HERE)
+            changes.pop("focus_player_id")
+        if not changes:
             return
         for key in ("persona", "language", "spoilers"):
             if key in changes and changes[key] is None:
@@ -1053,7 +1219,13 @@ def create_app(
     # --- Built frontend ----------------------------------------------------------------------
 
     if serves_frontend:
-        app.mount("/", StaticFiles(directory=static, html=True), name="static")
+        # Compressed, and the hashed build files cached for good, so a phone on a slow network
+        # gets the first screen sooner (the page itself is re-checked on every visit).
+        app.mount(
+            "/",
+            GZipMiddleware(_StaticCache(StaticFiles(directory=static, html=True)), minimum_size=1024),
+            name="static",
+        )
 
     return app
 

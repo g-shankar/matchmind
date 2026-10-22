@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { I18nProvider } from '../i18n';
 import type { BetterOptionReplay, UnfoundRunReplay } from '../api/contract';
 import { makeFixture, event } from '../test/fixture';
-import { Pitch2D, boxAround, decimalsOf } from './Pitch2D';
+import { MARKER_GAP_PX, Pitch2D, boxAround, decimalsOf } from './Pitch2D';
 
 const teams = makeFixture().teams;
 
@@ -89,6 +89,9 @@ describe('Pitch2D', () => {
       </I18nProvider>,
     );
     expect(screen.getByTestId('tag-speed').textContent).toContain('60 km/h');
+    // The ball-speed box sits clear of the player marker it names.
+    expect(MARKER_GAP_PX).toBeGreaterThanOrEqual(14);
+    expect(screen.getByTestId('event-tags').style.transform).toContain(`${MARKER_GAP_PX}px`);
     expect(screen.getByTestId('tag-distance').textContent).toContain('20.0 m');
 
     const base = event(2, 12);

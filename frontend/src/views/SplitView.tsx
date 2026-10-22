@@ -10,6 +10,7 @@ import { Badge, Panel, Segmented, cx } from '../components/ui';
 import { ClubColumn, NumbersVerdict } from '../components/ClubHeart';
 import { compareMoments } from '../components/MomentsList';
 import type { ViewProps } from './types';
+import { tagLabel } from '../lib/labels';
 
 const STORY_SLOTS = new Set<OverlayCard['slot']>(['lower_third', 'side_panel', 'full_screen']);
 
@@ -44,7 +45,19 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
     () => match.bookmarks.filter((b) => compareMoments(b, now) <= 0).sort((a, b) => compareMoments(b, a)),
     [match.bookmarks, now.clock_s, now.period],
   );
-  const momentId = picked ?? latest?.moment_id ?? null;
+  // Opens on the newest moment worth comparing: a kick-off or half-time milestone says the
+  // same thing to everyone, so a story moment (or the newest bookmark) comes first.
+  const latestStory = useMemo(() => {
+    for (let i = match.cards.length - 1; i >= 0; i--) {
+      const c = match.cards[i];
+      if (STORY_SLOTS.has(c.slot) && c.kind !== 'milestone') return c;
+    }
+    return null;
+  }, [match.cards]);
+  const latestBookmark = played.find((b) => b.kind !== 'milestone') ?? null;
+  const autoId = latestStory?.moment_id ?? latestBookmark?.moment_id ?? latest?.moment_id ?? null;
+  const autoBookmark = autoId ? match.bookmarks.find((b) => b.moment_id === autoId) ?? null : null;
+  const momentId = picked ?? latestStory?.moment_id ?? latestBookmark?.moment_id ?? latest?.moment_id ?? null;
 
   useEffect(() => {
     if (!momentId) {
@@ -90,18 +103,19 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
 
   return (
     <div className="space-y-4">
-      <Panel
-        title={t('studio.split.title')}
-        actions={
-          (played.length > 0 || latest) && (
-            <label className="flex items-center gap-2 text-xs text-pp-mute">
+      <Panel title={t('studio.split.title')}>
+        {(played.length > 0 || latest) && (
+            <label className="mb-3 flex min-w-0 flex-wrap items-center gap-2 text-xs text-pp-mute">
               <span className="font-semibold">{t('studio.split.pick')}</span>
               <select
                 value={picked ?? ''}
                 onChange={(e) => setPicked(e.target.value || null)}
-                className="min-h-[34px] max-w-[60vw] rounded-lg border border-pp-line bg-pp-deep px-2 text-xs text-white sm:max-w-xs"
+                className="min-h-[44px] w-full min-w-0 max-w-full rounded-lg border border-pp-line bg-pp-deep px-2 text-xs text-white sm:w-auto sm:max-w-md"
               >
-                <option value="">{t('studio.split.latest')}</option>
+                <option value="">
+                  {t('studio.split.latest')}
+                  {autoBookmark ? ` (${autoBookmark.match_clock} · ${autoBookmark.title})` : ''}
+                </option>
                 {played.map((b) => (
                   <option key={b.moment_id} value={b.moment_id}>
                     {b.match_clock} · {b.title}
@@ -109,9 +123,7 @@ export const SplitView: React.FC<ViewProps> = ({ match, actions }) => {
                 ))}
               </select>
             </label>
-          )
-        }
-      >
+        )}
         <p className="text-sm text-pp-mute">{t(compare === 'clubs' ? 'heart.subtitle' : 'studio.split.subtitle')}</p>
         {match.teams && (
           <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-pp-mute">
@@ -262,7 +274,7 @@ const VoiceColumn: React.FC<{ persona: 'casual' | 'tactical'; card: OverlayCard 
           )}
           {card.tactical_tag && (
             <span className="mt-3 inline-block rounded-md border border-pp-line bg-pp-night px-2 py-0.5 text-[11px] font-semibold text-pp-mute">
-              #{card.tactical_tag}
+              <bdi>#{tagLabel(t, card.tactical_tag)}</bdi>
             </span>
           )}
           {persona === 'tactical' && card.evidence.length > 0 && (

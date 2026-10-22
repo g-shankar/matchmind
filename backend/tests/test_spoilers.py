@@ -288,3 +288,19 @@ def test_basic_stats_take_the_flag(real):
     assert not leaks(free)
     # Everything else tells the same story.
     assert [t["shots"] for t in free["teams"].values()] == [t["shots"] for t in full["teams"].values()]
+
+
+def test_catch_up_snapshot_recent_events_hide_the_var_review_and_shot_ends(real):
+    session, clock = real
+    session.reset()
+    app = create_app(session=session, tick_interval=None, allowed_origins=[ALLOWED], clock=clock)
+    with TestClient(app) as client:
+        client.post("/api/match/seek", json={"clock_s": 40 * 60 + 30, "period": 1})
+        with client.websocket_connect("/ws/match") as ws:
+            full = ws.receive_json()["data"]["recent_events"]
+            ws.send_json({"action": "set_view", "spoilers": False})
+            free = recv_all(ws, "INITIAL_SNAPSHOT")[-1]["data"]["recent_events"]
+    assert any(e["type"] == "var_review" for e in full)  # the jump lands just after the review
+    assert free and not any(e["type"] == "var_review" for e in free)
+    assert all(e["end"] is None for e in free if e["type"] == "shot")
+    assert not leaks({"recent_events": free})

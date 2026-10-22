@@ -33,7 +33,7 @@ export const LanguagePicker: React.FC<{
           value={value}
           title={t('world.hint')}
           onChange={(e) => onChange(e.target.value as Language)}
-          className="min-h-[36px] max-w-[55vw] cursor-pointer appearance-none sm:max-w-none bg-transparent pe-7 ps-7 font-display text-[13px] font-bold uppercase tracking-broadcast text-pp-chalk outline-none"
+          className="min-h-[44px] max-w-[55vw] cursor-pointer appearance-none sm:max-w-none bg-transparent pe-7 ps-7 font-display text-[13px] font-bold uppercase tracking-broadcast text-pp-chalk outline-none"
         >
           <optgroup label={t('world.studioGroup')}>{studio.map(option)}</optgroup>
           {world.length > 0 && <optgroup label={t('world.worldGroup')}>{world.map(option)}</optgroup>}

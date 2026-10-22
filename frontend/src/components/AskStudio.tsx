@@ -3,32 +3,49 @@
 // plain text from a template; the numbers behind it are shown as evidence and
 // each cited moment opens its claim audit ("how we know", components/ClaimAudit).
 import React, { useEffect, useRef, useState } from 'react';
-import { CheckCircle2, MessageCircleQuestion, Search, Volume2 } from 'lucide-react';
+import { CheckCircle2, MessageCircleQuestion, Play, Search, Volume2 } from 'lucide-react';
 import { ASK_CHIPS, ASK_MAX_CHARS, type AskAnswer, type AskChip, type AskFailure } from '../api/contract';
 import { useI18n } from '../i18n';
 import { useReadAloud } from '../lib/speech';
 import type { MatchViewState } from '../state/matchStore';
 import type { MatchActions } from '../state/useMatch';
-import { factValue } from './BroadcastOverlay';
-import { AuditDrawer } from './ClaimAudit';
+import { factValue } from '../lib/facts';
+import { LazyAuditDrawer as AuditDrawer } from './ShowWorking';
 import { Badge, Panel, cx } from './ui';
 
 const MAX_LINKS = 3;
 
+const isSpecialBookmark = (match: MatchViewState, id: string) => {
+  const kind = match.bookmarks.find((b) => b.moment_id === id)?.kind;
+  return kind === 'better_option' || kind === 'unfound_run';
+};
+
 type Result = { answer: AskAnswer } | { failure: AskFailure };
 
-export const AskStudio: React.FC<{ match: MatchViewState; actions: MatchActions; compact?: boolean }> = ({ match, actions, compact }) => {
+// Typing is capped well above the limit so a long paste can be shown as too long (with a
+// count) instead of being cut silently; only questions within ASK_MAX_CHARS are sent.
+const TYPED_CAP = ASK_MAX_CHARS * 5;
+
+export const AskStudio: React.FC<{
+  match: MatchViewState;
+  actions: MatchActions;
+  compact?: boolean;
+  /** Opens the replay of a "should he have passed?" or unfound-run moment the answer cites. */
+  onOpenReplay?: (momentId: string) => void;
+}> = ({ match, actions, compact, onOpenReplay }) => {
   const i18n = useI18n();
   const { t } = i18n;
   const [text, setText] = useState('');
   const [pending, setPending] = useState<AskChip | 'text' | null>(null);
   const [result, setResult] = useState<Result | null>(null);
+  const [hint, setHint] = useState<'empty' | null>(null);
   const [auditId, setAuditId] = useState<string | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   const speech = useReadAloud();
   const seq = useRef(0);
   const inputId = useRef(`ask-${Math.random().toString(36).slice(2, 8)}`).current;
   const chips = ASK_CHIPS.filter((c) => match.profile.spoilers || c !== 'score');
+  const tooLong = text.trim().length > ASK_MAX_CHARS;
 
   const run = async (input: { question: string } | { chip: AskChip }, kind: AskChip | 'text') => {
     const mine = ++seq.current;
@@ -38,6 +55,11 @@ export const AskStudio: React.FC<{ match: MatchViewState; actions: MatchActions;
     setPending(null);
     setResult(res.ok ? { answer: res.answer } : { failure: res.failure });
     if (res.ok) speech.speak(res.answer.answer, res.answer.text_language);
+    // "Should he have passed?" is best answered by the replay itself: open it straight away.
+    if (res.ok && kind === 'better_option' && onOpenReplay) {
+      const special = res.answer.moment_ids.slice().reverse().find((id) => isSpecialBookmark(match, id));
+      if (special) onOpenReplay(special);
+    }
   };
 
   // A language or catch-up switch makes the answer on screen stale: clear it.
@@ -50,8 +72,14 @@ export const AskStudio: React.FC<{ match: MatchViewState; actions: MatchActions;
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const q = text.trim();
-    if (!q || pending) return;
-    void run({ question: q.slice(0, ASK_MAX_CHARS) }, 'text');
+    if (pending) return;
+    if (!q) {
+      setHint('empty');
+      return;
+    }
+    if (q.length > ASK_MAX_CHARS) return; // the counter already says it is too long
+    setHint(null);
+    void run({ question: q }, 'text');
   };
 
   const howWeKnow = (momentId: string, from: HTMLElement) => {
@@ -80,16 +108,20 @@ export const AskStudio: React.FC<{ match: MatchViewState; actions: MatchActions;
           inputMode="text"
           autoComplete="off"
           spellCheck={false}
-          maxLength={ASK_MAX_CHARS}
+          maxLength={TYPED_CAP}
           value={text}
-          onChange={(e) => setText(e.target.value.slice(0, ASK_MAX_CHARS))}
+          onChange={(e) => {
+            setText(e.target.value.slice(0, TYPED_CAP));
+            if (hint) setHint(null);
+          }}
+          aria-invalid={tooLong || hint === 'empty' ? true : undefined}
           placeholder={t('ask.placeholder')}
           aria-describedby={`${inputId}-count`}
           className="min-h-[44px] min-w-0 flex-1 border border-pp-line bg-pp-deep px-3 text-sm text-pp-chalk placeholder:text-pp-mute focus:border-pp-signal focus:outline-none"
         />
         <button
           type="submit"
-          disabled={!text.trim() || !!pending}
+          disabled={!!pending || tooLong}
           aria-busy={pending === 'text'}
           className="flex min-h-[44px] items-center gap-1.5 bg-pp-pulse px-4 font-display text-sm font-extrabold uppercase italic tracking-broadcast text-white hover:bg-pp-chalk hover:text-pp-night disabled:opacity-50"
         >
@@ -97,9 +129,14 @@ export const AskStudio: React.FC<{ match: MatchViewState; actions: MatchActions;
           {pending === 'text' ? t('ask.sending') : t('ask.send')}
         </button>
       </form>
-      <p id={`${inputId}-count`} className="ltr-nums mt-1 text-end text-[10px] text-pp-mute">
+      <p id={`${inputId}-count`} className={cx('ltr-nums mt-1 text-end text-[11px]', tooLong ? 'font-semibold text-pp-gold' : 'text-pp-mute')}>
         {t('ask.count', { n: text.length, max: ASK_MAX_CHARS })}
       </p>
+      {(tooLong || hint === 'empty') && (
+        <p role="alert" data-testid="ask-hint" className="mt-1 border-s-4 border-pp-gold bg-pp-gold/10 px-3 py-1.5 text-xs text-pp-gold">
+          {tooLong ? t('visit.ask.tooLong', { n: text.length, max: ASK_MAX_CHARS }) : t('visit.ask.empty')}
+        </p>
+      )}
 
       <div className="mt-2" role="group" aria-label={t('ask.suggested')}>
         <ul className="flex flex-wrap gap-2">
@@ -111,7 +148,7 @@ export const AskStudio: React.FC<{ match: MatchViewState; actions: MatchActions;
                 disabled={!!pending}
                 aria-busy={pending === chip}
                 className={cx(
-                  'min-h-[36px] rounded-full border px-3 text-xs transition disabled:opacity-60',
+                  'min-h-[44px] rounded-full border px-3 text-xs transition disabled:opacity-60',
                   pending === chip ? 'border-pp-signal bg-pp-signal/15 text-pp-signal' : 'border-pp-line bg-pp-raised text-slate-200 hover:border-pp-signal',
                 )}
               >
@@ -133,6 +170,7 @@ export const AskStudio: React.FC<{ match: MatchViewState; actions: MatchActions;
             answer={result.answer}
             match={match}
             onHowWeKnow={howWeKnow}
+            onOpenReplay={onOpenReplay}
             onSpeak={speech.enabled ? () => speech.speak(result.answer.answer, result.answer.text_language) : undefined}
           />
         )}
@@ -157,7 +195,8 @@ const AnswerCard: React.FC<{
   match: MatchViewState;
   onHowWeKnow: (momentId: string, from: HTMLElement) => void;
   onSpeak?: () => void;
-}> = ({ answer, match, onHowWeKnow, onSpeak }) => {
+  onOpenReplay?: (momentId: string) => void;
+}> = ({ answer, match, onHowWeKnow, onSpeak, onOpenReplay }) => {
   const i18n = useI18n();
   const { t } = i18n;
   const answered = answer.status === 'answered' || answer.status === 'not_yet';
@@ -214,10 +253,19 @@ const AnswerCard: React.FC<{
           {links.map((id) => {
             const b = bookmark(id);
             return (
-              <button key={id} type="button" aria-haspopup="dialog" onClick={(e) => onHowWeKnow(id, e.currentTarget)} className="min-h-[32px] text-pp-signal underline decoration-dotted underline-offset-2 hover:text-pp-chalk">
+              <React.Fragment key={id}>
+              {onOpenReplay && isSpecialBookmark(match, id) && (
+                <button type="button" aria-haspopup="dialog" onClick={() => onOpenReplay(id)} className="inline-flex min-h-[44px] items-center gap-1 bg-pp-pulse px-3 text-xs font-bold text-white hover:bg-pp-pulse/85">
+                  <Play className="h-3.5 w-3.5" aria-hidden />
+                  {t('visit.jump.replay')}
+                  {b ? <span className="ltr-nums"> · {b.match_clock}</span> : null}
+                </button>
+              )}
+              <button type="button" aria-haspopup="dialog" onClick={(e) => onHowWeKnow(id, e.currentTarget)} className="min-h-[44px] text-pp-signal underline decoration-dotted underline-offset-2 hover:text-pp-chalk">
                 {t('ask.howWeKnow')}
                 {b ? <span className="ltr-nums"> · {b.match_clock}</span> : null}
               </button>
+              </React.Fragment>
             );
           })}
         </div>

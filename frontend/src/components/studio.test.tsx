@@ -118,7 +118,7 @@ describe('NarrativeFeed corrections', () => {
 
 describe('MomentsList', () => {
   const bm = (moment_id: string, kind: Bookmark['kind'], clock_s: number, title: string, period: number) =>
-    ({ moment_id, kind, match_clock: '00:00', clock_s, title, period }) as Bookmark;
+    ({ moment_id, kind, match_clock: `${String(Math.floor(clock_s / 60)).padStart(2, '0')}:${String(clock_s % 60).padStart(2, '0')}`, clock_s, title, period }) as Bookmark;
 
   it('seeks to eight seconds before the moment, in its period', () => {
     const actions = actionsMock();
@@ -132,10 +132,33 @@ describe('MomentsList', () => {
     fireEvent.click(screen.getByRole('button', { name: /Shot or pass/ }));
     expect(actions.seek).toHaveBeenLastCalledWith(0, 1);
     expect(screen.getByText('Should he have passed?')).toBeTruthy();
-    // Upcoming goals are not spoiled.
+    // Upcoming goals are not spoiled: the chip says what sort of moment, not what happens.
     expect(screen.queryByText('Late winner')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /Coming up/ }));
+    fireEvent.click(screen.getByRole('button', { name: /50:00.*Attack/ }));
     expect(actions.seek).toHaveBeenLastCalledWith(2992, 2);
+  });
+
+  it('shows one chip for moments at the same clock, led by the most important one', () => {
+    const at = (id: string, kind: Bookmark['kind'], title: string) => ({ ...bm(id, kind, 2422, title, 1), match_clock: '40:22' });
+    const match = matchWith({
+      bookmarks: [at('G', 'goal', 'Goal for AAA'), at('C', 'correction', 'VAR check'), at('M', 'milestone', 'Checking')],
+      playback: { is_running: true, speed_multiplier: 1, clock_s: 2500, match_clock: '41:40', period: 1, ended: false },
+    });
+    ui(<MomentsList match={match} actions={actionsMock()} />);
+    const chips = screen.getAllByRole('button', { name: /40:22/ });
+    expect(chips).toHaveLength(1);
+    expect(chips[0].textContent).toContain('Goal for AAA');
+    expect(chips[0].textContent).toContain('3 moments');
+  });
+
+  it('hands the picked moment to the page when it asks for it (land on the moment)', () => {
+    const onJump = vi.fn();
+    const actions = actionsMock();
+    const match = matchWith({ bookmarks: [bm('M-0', 'better_option', 2056, 'Should Asante have passed?', 1)] });
+    ui(<MomentsList match={match} actions={actions} onJump={onJump} />);
+    fireEvent.click(screen.getByRole('button', { name: /Should Asante have passed/ }));
+    expect(onJump).toHaveBeenCalledWith(expect.objectContaining({ moment_id: 'M-0' }));
+    expect(actions.seek).not.toHaveBeenCalled();
   });
 
   it('flags a goal ruled out by VAR only once the decision is in the past (no spoilers)', () => {

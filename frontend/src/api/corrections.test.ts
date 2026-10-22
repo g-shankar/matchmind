@@ -147,3 +147,18 @@ describe('the recorded demo in catch-up mode', () => {
     expect(events.length).toBe(ticks.length - 1);
   });
 });
+
+describe('the catch-up snapshot after a jump', () => {
+  it('carries recent events without the VAR review, shot end points or the kick-off spot', async () => {
+    const { s, messages } = await connect({ spoilers: false });
+    messages.length = 0;
+    s.send({ action: 'seek', clock_s: ticks[varIndex + 1].event.clock_s, period: ticks[varIndex + 1].event.period });
+    const snap = messages.find((m) => m.type === 'INITIAL_SNAPSHOT');
+    if (!snap || snap.type !== 'INITIAL_SNAPSHOT') throw new Error('no snapshot');
+    const events = snap.data.recent_events ?? [];
+    expect(events.length).toBeGreaterThan(5);
+    expect(events.some((e) => e.type === 'var_review')).toBe(false);
+    expect(events.filter((e) => e.type === 'shot').every((e) => e.end === null && e.outcome === null)).toBe(true);
+    expect(events.some((e) => e.details.pass_type === 'kickoff' || 'blocked_by' in e.details)).toBe(false);
+  });
+});

@@ -685,6 +685,8 @@ export interface SnapshotData {
   auto_eventing: AutoEventingStatus | null;
   /** This viewer's cue sheet: what is on air now (null on the REST snapshot). */
   cue_sheet?: CueSheetState | null;
+  /** The last events played, oldest first, so the pitch is never empty after a jump. */
+  recent_events?: MatchEvent[];
 }
 
 export interface TickData {
@@ -708,7 +710,7 @@ export type ServerMessage =
   | { type: 'PROFILE_CHANGED'; data: ViewerProfile }
   | { type: 'PERSONA_CHANGED'; data: { persona: PersonaType } }
   | { type: 'MATCH_END'; data: { recap: Recap } }
-  | { type: 'ERROR'; data: { message: string } };
+  | { type: 'ERROR'; data: { message: string; code?: string } };
 
 export type ClientAction =
   | { action: 'toggle_pause' }

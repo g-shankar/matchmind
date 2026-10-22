@@ -710,11 +710,13 @@ def test_unknown_fields_get_a_fixed_message_that_never_echoes_the_key(client, pa
     assert r.status_code == 400
     assert "zz_hidden" not in r.text and "onerror" not in r.text and "img" not in r.text
     assert r.json()["detail"] == "This request has a field it does not take. Remove it and try again."
+    assert r.json()["code"] == "unknown_field"
 
 
 def test_known_field_names_are_still_named(client):
     r = client.post("/api/ask", json={"question": "hi", "lang": "xx"})
     assert r.status_code == 400 and r.json()["detail"].startswith("Check lang")
+    assert r.json()["code"] == "bad_request"
 
 
 def test_rest_body_cap(client):

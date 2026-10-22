@@ -5,7 +5,7 @@ import { useI18n } from '../i18n';
 import { playerById, shortName } from '../lib/teams';
 import { Pitch2D, decimalsOf, evidenceLabel, fmtFact, fmtUnit, pct, withClock } from './Pitch2D';
 import { Badge, cx } from './ui';
-import { ShowWorkingButton } from './ClaimAudit';
+import { ShowWorkingButton } from './ShowWorking';
 import { TranslationTag } from './LanguagePicker';
 import { isTranslationReason, textLanguage } from '../lib/languages';
 
@@ -18,6 +18,18 @@ export interface ReplayCardProps {
 
 const STEP_MS = 2500;
 type Step = 1 | 2 | 3;
+
+/** A replay number as the evidence shows it: when the card's evidence carries the same value
+ * rounded (0.24 for 0.238, 4 for 4.0), the text uses that figure and its decimals, so the
+ * story, the verdict and the evidence never disagree. Rounding only; nothing is recomputed. */
+export function asInEvidence(raw: number, evidence: OverlayCard['evidence'], fallbackDecimals = 2): { value: number; decimals: number } {
+  for (const ev of evidence) {
+    if (typeof ev.value !== 'number') continue;
+    const d = decimalsOf(ev.value);
+    if (Math.abs(ev.value - raw) <= 0.5 * 10 ** -d + 1e-9) return { value: ev.value, decimals: d };
+  }
+  return { value: raw, decimals: Math.max(fallbackDecimals, decimalsOf(raw)) };
+}
 
 const clockOf = (s: number) => {
   const total = Math.max(0, Math.floor(s));
@@ -47,6 +59,10 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
   const r = card.replay;
   const better = isBetterOption(r) ? r : null;
   const run = isUnfoundRun(r) ? r : null;
+  const shown = (raw: number, fallbackDecimals = 2) => {
+    const v = asInEvidence(raw, card.evidence, fallbackDecimals);
+    return num(v.value, v.decimals);
+  };
   const name = (id: string | null | undefined) => {
     const p = playerById(teams, id);
     return p ? shortName(p.name) : '';
@@ -54,18 +70,18 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
 
   const steps: { title: string; text: React.ReactNode }[] = better
     ? [
-        { title: t('pitch.steps.better.1.title'), text: t('pitch.steps.better.1.text', { shooter: name(better.shooter_id), xg: num(better.shot_chance_quality, Math.max(2, decimalsOf(better.shot_chance_quality))) }) },
+        { title: t('pitch.steps.better.1.title'), text: t('pitch.steps.better.1.text', { shooter: name(better.shooter_id), xg: shown(better.shot_chance_quality) }) },
         {
           title: t('pitch.steps.better.2.title'),
           text: t('pitch.steps.better.2.text', {
             teammate: name(better.teammate_id),
-            m: num(better.nearest_marker_m, 1),
+            m: shown(better.nearest_marker_m, 1),
             p: pct(better.pass_success),
           }),
         },
         {
           title: t('pitch.steps.better.3.title'),
-          text: t('pitch.steps.better.3.text', { x: num(better.times_better, 1), alt: num(better.alt_chance_quality, Math.max(2, decimalsOf(better.alt_chance_quality))) }),
+          text: t('pitch.steps.better.3.text', { x: shown(better.times_better, 1), alt: shown(better.alt_chance_quality) }),
         },
       ]
     : run
@@ -74,10 +90,10 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
             title: t('pitch.steps.run.1.title'),
             text: withClock(t('pitch.steps.run.1.text', { runner: name(run.runner_id), clock: '\u0000' }), run.pass_on_clock),
           },
-          { title: t('pitch.steps.run.2.title'), text: t('pitch.steps.run.2.text', { carrier: name(run.carrier_id), m: num(run.clear_of_line_m, 1) }) },
+          { title: t('pitch.steps.run.2.title'), text: t('pitch.steps.run.2.text', { carrier: name(run.carrier_id), m: shown(run.clear_of_line_m, 1) }) },
           {
             title: t('pitch.steps.run.3.title'),
-            text: t(run.one_on_one ? 'pitch.steps.run.3.oneOnOne' : 'pitch.steps.run.3.text', { xg: num(run.projected_chance_quality, Math.max(2, decimalsOf(run.projected_chance_quality))) }),
+            text: t(run.one_on_one ? 'pitch.steps.run.3.oneOnOne' : 'pitch.steps.run.3.text', { xg: shown(run.projected_chance_quality) }),
           },
         ]
       : [];
@@ -102,14 +118,15 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
       type="button"
       onClick={onClose}
       aria-label={t('common.close')}
-      className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-pp-line text-pp-mute transition hover:border-pp-pulse hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-pp-signal"
+      data-autofocus
+      className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-pp-line text-pp-mute transition hover:border-pp-pulse hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-pp-signal"
     >
       <X className="h-4 w-4" />
     </button>
   );
 
   const header = (
-    <header className="flex items-start gap-2">
+    <header className={cx('flex items-start gap-2', onClose && 'sticky top-0 z-10 -mx-3 -mt-3 bg-pp-panel px-3 pb-2 pt-3 sm:-mx-4 sm:-mt-4 sm:px-4 sm:pt-4')}>
       <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
         <Badge tone="pulse" className="uppercase tracking-wider">
           {t(`kind.${card.kind}`)}

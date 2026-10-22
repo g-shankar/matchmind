@@ -35,7 +35,7 @@ export const ReadAloudToggle: React.FC<{ match: MatchViewState }> = ({ match }) 
         onClick={() => speech.setEnabled(!speech.enabled)}
         title={t('speech.toggle')}
         className={cx(
-          'flex min-h-[36px] items-center gap-1.5 border px-2.5 font-display text-xs font-bold uppercase tracking-broadcast',
+          'flex min-h-[44px] items-center gap-1.5 border px-2.5 font-display text-xs font-bold uppercase tracking-broadcast',
           speech.enabled ? 'border-pp-signal bg-pp-signal/15 text-pp-signal' : 'border-pp-line bg-pp-deep text-pp-mute hover:text-pp-chalk',
         )}
       >

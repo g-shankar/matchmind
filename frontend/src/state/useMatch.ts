@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
-import type { AskChip, AskResult, OverlayCard, ServerMessage, SpeedMultiplier, ViewerProfile } from '../api/contract';
+import type { AskChip, AskResult, ClientAction, OverlayCard, ServerMessage, SpeedMultiplier, ViewerProfile } from '../api/contract';
 import { LiveTransport } from '../api/liveTransport';
-import { DEFAULT_PROFILE, MockMatchServer, loadDemoFixture } from '../api/mockServer';
+import { DEFAULT_PROFILE } from '../api/defaults';
 import type { MatchTransport } from '../api/transport';
 import { initialMatchState, matchReducer } from './matchStore';
 import { ALL_LANGUAGES } from '../lib/languages';
+import { ControlPacer, JumpPacer, ViewPacer } from './pacer';
+
+type ControlAction = Extract<ClientAction, { action: 'toggle_pause' | 'set_speed' }>;
 
 const PROFILE_KEY = 'pitchpulse.profile';
 const LIVE_TIMEOUT_MS = 2500;
@@ -87,6 +90,13 @@ export function useMatch() {
   const transportRef = useRef<MatchTransport | null>(null);
   const profileRef = useRef(state.profile);
   profileRef.current = state.profile;
+  // The app's own requests, spaced to fit the server's limits (state/pacer.ts).
+  const viewPacer = useRef<ViewPacer<ViewerProfile> | null>(null);
+  viewPacer.current ??= new ViewPacer<ViewerProfile>((changes) => transportRef.current?.send({ action: 'set_view', ...changes }));
+  const jumpPacer = useRef<JumpPacer<ClientAction> | null>(null);
+  jumpPacer.current ??= new JumpPacer<ClientAction>((action) => transportRef.current?.send(action));
+  const controlPacer = useRef<ControlPacer<ControlAction> | null>(null);
+  controlPacer.current ??= new ControlPacer<ControlAction>((action) => transportRef.current?.send(action));
 
   useEffect(() => {
     let disposed = false;
@@ -113,12 +123,17 @@ export function useMatch() {
       transportRef.current?.close();
       transportRef.current = null;
       try {
+        // The offline demo (recording plus its player) loads only when it is needed.
+        const { MockMatchServer, loadDemoFixture } = await import('../api/mockServer');
         const fixture = await loadDemoFixture();
         if (disposed) return;
         dispatch({ type: 'status', status: 'demo' });
         transportRef.current = new MockMatchServer(fixture, onMessage, { profile: profileRef.current });
       } catch {
-        dispatch({ type: 'message', message: { type: 'ERROR', data: { message: 'The match could not be loaded. Refresh to try again.' } } });
+        dispatch({
+          type: 'message',
+          message: { type: 'ERROR', data: { message: 'The match could not be loaded. Refresh to try again.', code: 'load_failed' } },
+        });
       }
     };
 
@@ -133,6 +148,7 @@ export function useMatch() {
           dispatch({ type: 'status', status: 'live' });
           // Viewer choices are per connection, so restate them after every (re)connect.
           live.send({ action: 'set_view', ...profileRef.current });
+          viewPacer.current?.restart(1);
         },
         onClose: (everOpened) => {
           if (disposed) return;
@@ -159,6 +175,9 @@ export function useMatch() {
 
     return () => {
       disposed = true;
+      viewPacer.current?.dispose();
+      jumpPacer.current?.dispose();
+      controlPacer.current?.dispose();
       timers.forEach(clearTimeout);
       timers = [];
       transportRef.current?.close();
@@ -174,7 +193,7 @@ export function useMatch() {
       const next = { ...profileRef.current, ...changes };
       dispatch({ type: 'profile', changes });
       saveProfileChanges(changes);
-      send({ action: 'set_view', ...changes });
+      viewPacer.current?.push(changes);
       // Re-voice the cards already on screen so a language or audience switch shows at once.
       if (('language' in changes || 'persona' in changes) && transportRef.current) {
         const t = transportRef.current;
@@ -191,10 +210,10 @@ export function useMatch() {
   );
 
   const actions = {
-    togglePause: () => send({ action: 'toggle_pause' }),
-    setSpeed: (speed_multiplier: SpeedMultiplier) => send({ action: 'set_speed', speed_multiplier }),
-    reset: () => send({ action: 'reset' }),
-    seek: (clock_s: number, period?: number) => send({ action: 'seek', clock_s, ...(period ? { period } : {}) }),
+    togglePause: () => controlPacer.current?.push({ action: 'toggle_pause' }),
+    setSpeed: (speed_multiplier: SpeedMultiplier) => controlPacer.current?.push({ action: 'set_speed', speed_multiplier }),
+    reset: () => jumpPacer.current?.push({ action: 'reset' }),
+    seek: (clock_s: number, period?: number) => jumpPacer.current?.push({ action: 'seek', clock_s, ...(period ? { period } : {}) }),
     setView,
     clearError: () => dispatch({ type: 'clearError' }),
     // `favouriteTeam` overrides the viewer's club for this one request (the club-heart comparison).

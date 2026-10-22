@@ -239,7 +239,10 @@ def test_recap_route(client):
 def test_bad_query_gets_plain_400(client):
     r = client.get("/api/match/recap?persona=hacker")
     assert r.status_code == 400
-    assert r.json() == {"detail": "Check persona: the value is missing or not allowed."}
+    assert r.json() == {
+        "detail": "Check persona: the value is missing or not allowed.",
+        "code": "bad_request",
+    }
 
 
 def test_players_route(client, clock):
@@ -321,7 +324,7 @@ def test_app_created_at_import_and_loads_lazily():
 def test_ws_initial_snapshot_then_ticks_in_order(client, clock):
     with client.websocket_connect("/ws/match") as ws:
         snap = recv(ws, "INITIAL_SNAPSHOT")
-        assert set(snap) == SNAPSHOT_KEYS
+        assert set(snap) == SNAPSHOT_KEYS | {"recent_events"}  # the pitch's last events (WS only)
         pump(client, clock, 0.6)  # 60 match seconds at the default 10x
         seqs = []
         for _ in range(4):
@@ -421,6 +424,7 @@ def test_ws_shared_playback_reaches_everyone(client, clock):
         a.send_json({"action": "toggle_pause"})
         assert recv(a, "PLAYBACK_CONTROL")["is_running"] is False
         assert recv(b, "PLAYBACK_CONTROL")["is_running"] is False
+        clock.t += 1  # pause and speed changes share a 0.3 s throttle
         b.send_json({"action": "set_speed", "speed_multiplier": 1})
         assert recv(a, "PLAYBACK_CONTROL")["speed_multiplier"] == 1
         assert recv(b, "PLAYBACK_CONTROL")["speed_multiplier"] == 1

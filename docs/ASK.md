@@ -169,7 +169,7 @@ Most of these are in `backend/tests/test_ask.py`. The catch-up tests are in
 | The model path maps only to the fixed schema | a fake model returning prose, a wrong schema or an injected player name, plus the breaker and budget; any adapter exception is a refusal |
 | One client cannot drain the model budget | per-client quota keyed on the last X-Forwarded-For entry, Ask's own budget, the crew's budget untouched, the question cache |
 | `POST /api/ask` matches the `ask_studio` MCP tool | `backend/tests/test_mcp.py` parity |
-| REST controls | `no-store`; 400 and 413; the shared rate limit; the question is never logged |
+| REST controls | `no-store`; 400, 413 and 415 (JSON only); the shared rate limit; the question is never logged |
 | The offline demo's recorded answers are current and never read ahead | `test_demo_answers_are_current_and_never_read_ahead` |
 | The web widget | `frontend/src/components/askCatchUp.test.tsx`: chip by id, 200-character cap, text-only rendering, failure sentence, right-to-left Arabic, the claim-audit drawer from "how we know" |
 | The demo transport | `frontend/src/api/catchup.test.ts` |

@@ -27,3 +27,13 @@ def validation_detail(errors: Iterable[Mapping[str, Any]]) -> str:
     if not names:
         return "Bad request."
     return f"Check {', '.join(sorted(names))}: the value is missing or not allowed."
+
+
+def validation_code(errors: Iterable[Mapping[str, Any]]) -> str:
+    """The stable code next to `validation_detail` (docs/API-CONTRACT.md, errors)."""
+    return "unknown_field" if any(e.get("type") == "extra_forbidden" for e in errors) else "bad_request"
+
+
+def validation_body(errors: Iterable[Mapping[str, Any]]) -> dict[str, str]:
+    errors = list(errors)
+    return {"detail": validation_detail(errors), "code": validation_code(errors)}

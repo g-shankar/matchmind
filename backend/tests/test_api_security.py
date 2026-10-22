@@ -74,7 +74,10 @@ def test_rest_seek_burst_gets_429_and_shares_the_throttle_with_ws(client, clock)
     with client.websocket_connect("/ws/match") as ws:
         ws.receive_json()
         ws.send_json({"action": "reset"})
-        assert ws.receive_json() == {"type": "ERROR", "data": {"message": app_mod.TOO_FAST}}
+        assert ws.receive_json() == {
+            "type": "ERROR",
+            "data": {"message": app_mod.TOO_FAST, "code": "jump_too_fast"},
+        }
     clock.t += app_mod.JUMP_INTERVAL_S
     assert client.post("/api/match/reset").status_code == 200
 

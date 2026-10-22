@@ -213,3 +213,6 @@ Every linked acceptance criterion has evidence; format/lint, typecheck, unit, in
 - Feed input is untrusted even when it is well-formed: type and range-check every value other code reads (scores, enums), take numbers for facts from the stats engine, and keep live appends all-or-nothing.
 - An all-or-nothing rollback restores every structure the step writes (samples, indexes, checkpoints, side state), and its test fails late in the step, not first.
 - Spoiler-free payloads must hide what reveals the result, not just its labels: outcome geometry (shot end points), side events (VAR reviews, kick-off restarts) and every stats surface that counts goals; the leak test checks each.
+- A jump must land somewhere visible: the snapshot carries the last events (pitch never empty), the page keeps the pitch in view and shows the picked moment's own card; never leave a viewer paused on a blank pitch.
+- Server refusals reach viewers through a stable error code and a translated toast, never raw English; the app spaces its own requests to fit the server's rate limits instead of loosening them.
+- A per-connection limit is not a limit on shared state: anything every viewer shares (the playback clock, process memory across send queues) needs a cap for the whole process, sized against the container.

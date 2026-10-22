@@ -38,7 +38,7 @@ import type { MatchTransport, MessageHandler } from './transport';
 import { metricAlertText } from './mockText';
 import { DemoCueSheet, type DemoCueMoment } from './mockCues';
 import { defaultLanguages, isWorldLanguage } from '../lib/languages';
-import { SPOILER_KINDS, isSpoilerCard, spoilerFreeSnapshot, spoilerFreeTick } from './spoilers';
+import { SPOILER_KINDS, isSpoilerCard, spoilerFreeEvents, spoilerFreeSnapshot, spoilerFreeTick } from './spoilers';
 
 export interface FixtureTick {
   event: MatchEvent;
@@ -118,14 +118,8 @@ export interface DemoAsk {
   checkpoints: DemoAskCheckpoint[];
 }
 
-export const DEFAULT_PROFILE: ViewerProfile = {
-  persona: 'casual',
-  language: 'en',
-  favourite_team: null,
-  focus_player_id: null,
-  focus_metric: null,
-  spoilers: true,
-};
+import { DEFAULT_PROFILE } from './defaults';
+export { DEFAULT_PROFILE };
 
 const STEP_MS = 100;
 const MATCH_SECONDS_PER_REAL_SECOND = 10; // per unit of speed, as on the server
@@ -404,7 +398,7 @@ export class MockMatchServer implements MatchTransport {
         return;
       case 'set_speed':
         if (!SPEEDS.includes(action.speed_multiplier)) {
-          this.emit({ type: 'ERROR', data: { message: 'Speed must be 1, 10 or 60.' } });
+          this.emit({ type: 'ERROR', data: { message: 'Speed must be 1, 10 or 60.', code: 'bad_speed' } });
           return;
         }
         this.speed = action.speed_multiplier;
@@ -414,12 +408,27 @@ export class MockMatchServer implements MatchTransport {
         this.emit({ type: 'MATCH_RESET', data: {} });
         this.jumpTo(0);
         this.running = true;
+        this.speed = 1; // a restart is a fresh start at the default speed, as on the server
         this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
         return;
-      case 'seek':
-        this.jumpTo(seekIndex(this.fixture.ticks, Math.max(0, action.clock_s), action.period));
+      case 'seek': {
+        // Same refusals as the live server: nothing moves on a bad time.
+        if (!Number.isFinite(action.clock_s) || action.clock_s < 0 || (action.period !== undefined && action.period !== 1 && action.period !== 2)) {
+          this.emit({ type: 'ERROR', data: { message: 'Seek needs clock_s, a time in seconds from kick-off (and optionally period 1 or 2).', code: 'other' } });
+          return;
+        }
+        const index = seekIndex(this.fixture.ticks, action.clock_s, action.period);
+        if (index >= this.fixture.ticks.length) {
+          this.emit({ type: 'ERROR', data: { message: 'That time is after full time.', code: 'after_full_time' } });
+          return;
+        }
+        const wasEnded = this.ended;
+        this.jumpTo(index);
+        // A jump back into a finished match plays from there, as on the server.
+        if (wasEnded && !this.ended) this.running = true;
         this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
         return;
+      }
       case 'set_persona':
       case 'set_view': {
         const changes =
@@ -427,7 +436,7 @@ export class MockMatchServer implements MatchTransport {
             ? { persona: action.persona, ...(action.spotlight_player_id !== undefined ? { focus_player_id: action.spotlight_player_id } : {}) }
             : (({ action: _a, ...rest }) => rest)(action);
         if ('spoilers' in changes && typeof changes.spoilers !== 'boolean') {
-          this.emit({ type: 'ERROR', data: { message: 'Check spoilers: it must be true or false.' } });
+          this.emit({ type: 'ERROR', data: { message: 'Check spoilers: it must be true or false.', code: 'other' } });
           return;
         }
         const revealChanged = 'spoilers' in changes && changes.spoilers !== this.profile.spoilers;
@@ -445,7 +454,7 @@ export class MockMatchServer implements MatchTransport {
         return;
       }
       default:
-        this.emit({ type: 'ERROR', data: { message: 'That action is not supported.' } });
+        this.emit({ type: 'ERROR', data: { message: 'That action is not supported.', code: 'other' } });
     }
   }
 
@@ -683,6 +692,7 @@ export class MockMatchServer implements MatchTransport {
     return {
       ...free,
       recent_cards: free.recent_cards.filter((c) => !hidden(c.moment_id) && !isSpoilerCard(c)),
+      recent_events: spoilerFreeEvents(full.recent_events ?? []),
       bookmarks: free.bookmarks.filter((b) => !hidden(b.moment_id)),
     };
   }
@@ -716,6 +726,7 @@ export class MockMatchServer implements MatchTransport {
       crew: this.fixture.crew,
       languages: demoLanguages(),
       auto_eventing: null,
+      recent_events: ticks.slice(Math.max(0, this.next - 30), this.next).map((t) => t.event),
       cue_sheet: {
         sheet_id: this.sheet.sheetId,
         last_seq: this.sheet.seq,

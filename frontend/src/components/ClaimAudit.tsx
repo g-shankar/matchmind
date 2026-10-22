@@ -4,7 +4,7 @@
 // result and the crew's trace. Wording is never claimed as verified.
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { ArrowLeft, Gavel, ListChecks, ShieldCheck, X } from 'lucide-react';
+import { ArrowLeft, Gavel, ShieldCheck, X } from 'lucide-react';
 import type { Claim, ClaimField, FactValue, MomentAudit, MomentKind, PersonaType, RenderingAudit } from '../api/contract';
 import { insights } from '../api/insights';
 import { useI18n } from '../i18n';
@@ -38,46 +38,8 @@ export function claimSegments(claim: Claim): Segment[] {
   return out;
 }
 
-// ------------------------------------------------------------------ the button
-
-export const ShowWorkingButton: React.FC<{
-  momentId: string;
-  persona?: PersonaType;
-  language?: string;
-  className?: string;
-}> = ({ momentId, persona, language, className }) => {
-  const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLButtonElement>(null);
-  return (
-    <>
-      <button
-        ref={ref}
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-haspopup="dialog"
-        className={cx(
-          'inline-flex min-h-[44px] items-center gap-1.5 border border-pp-line bg-pp-night px-3 font-display text-[13px] font-bold uppercase tracking-broadcast text-pp-chalk transition hover:border-pp-signal hover:text-pp-signal focus:outline-none focus-visible:ring-2 focus-visible:ring-pp-signal',
-          className,
-        )}
-      >
-        <ListChecks className="h-4 w-4 text-pp-signal" aria-hidden />
-        {t('audit.button')}
-      </button>
-      {open && (
-        <AuditDrawer
-          momentId={momentId}
-          persona={persona}
-          language={language}
-          onClose={() => {
-            setOpen(false);
-            ref.current?.focus();
-          }}
-        />
-      )}
-    </>
-  );
-};
+// The button lives in ShowWorking.tsx (small, on every card); this module is the drawer.
+export { ShowWorkingButton } from './ShowWorking';
 
 // ------------------------------------------------------------------ the drawer
 
@@ -91,6 +53,8 @@ export const AuditDrawer: React.FC<{
   const mode = useInsightMode();
   const titleId = useId();
   const [stack, setStack] = useState<string[]>([momentId]);
+  // Always the working for the moment that was asked for, even if this drawer is reused.
+  useEffect(() => setStack([momentId]), [momentId]);
   const current = stack[stack.length - 1];
   const { state, reload } = useInsight(() => insights.audit(mode, current), `${mode}:${current}`);
   const panel = useRef<HTMLDivElement>(null);

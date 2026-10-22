@@ -1,6 +1,6 @@
 # ADR 0006: One shared match clock per server
 
-Status: Accepted (Oct 2026)
+Status: Accepted (Oct 2026); amended by [ADR 0008](0008-first-visit-on-the-shared-clock.md)
 
 ## Decision
 

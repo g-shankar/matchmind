@@ -20,6 +20,9 @@ export function isSpoilerCard(card: Pick<OverlayCard, 'kind' | 'retracts' | 'evi
   return card.evidence.some((e) => !!e.label_key && SPOILER_LABEL_KEYS.includes(e.label_key));
 }
 
+/** Events for a catch-up viewer: withheld ones dropped, the rest scrubbed. */
+export const spoilerFreeEvents = (events: MatchEvent[]): MatchEvent[] => events.filter((e) => !isWithheldEvent(e)).map(scrubEvent);
+
 export function scrubEvent(e: MatchEvent): MatchEvent {
   const details = { ...e.details };
   for (const k of SPOILER_DETAIL_KEYS) delete details[k];
@@ -53,6 +56,8 @@ export function spoilerFreeSnapshot(d: SnapshotData): SnapshotData {
     recent_cards: spoilerFreeCards(d.recent_cards),
     bookmarks: spoilerFreeBookmarks(d.bookmarks),
     players: d.players.map(scrubPlayer),
+    // The last events seed the pitch and feed; their score-bearing text goes too.
+    ...(d.recent_events ? { recent_events: spoilerFreeEvents(d.recent_events) } : {}),
     // The cue sheet carries the scorebug, so a catch-up viewer gets none.
     cue_sheet: null,
   };

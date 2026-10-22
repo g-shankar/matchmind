@@ -336,6 +336,8 @@ const PlayerDot: React.FC<{
 // HTML labels laid over the SVG, so text stays readable on a phone at any zoom.
 
 type Tone = 'dark' | 'signal' | 'gold' | 'pulse' | 'white';
+/** Space between a label and the point it names, so it never covers the marker there. */
+export const MARKER_GAP_PX = 16;
 const TONES: Record<Tone, string> = {
   dark: 'border-white/15 bg-black/75 text-slate-100',
   signal: 'border-pp-signal/60 bg-pp-deep/90 text-pp-signal',
@@ -360,10 +362,11 @@ const Label: React.FC<{
   const top = clamp(((at.y - vb.y) / vb.h) * 100, 4, 96);
   const tx = left > 72 ? '-100%' : left < 28 ? '0%' : '-50%';
   const nudge = left > 72 ? '8px' : left < 28 ? '-8px' : '0px';
-  const ty = place === 'above' ? 'calc(-100% - 9px)' : '9px';
+  // Clear of the player marker (about 12 px across on a phone, more on a desktop pitch).
+  const ty = place === 'above' ? `calc(-100% - ${MARKER_GAP_PX}px)` : `${MARKER_GAP_PX}px`;
   const flipBelow = place === 'above' && top < 16;
   const flipAbove = place === 'below' && top > 84;
-  const y = flipBelow ? '9px' : flipAbove ? 'calc(-100% - 9px)' : ty;
+  const y = flipBelow ? `${MARKER_GAP_PX}px` : flipAbove ? `calc(-100% - ${MARKER_GAP_PX}px)` : ty;
   return (
     <div
       className={cx('pointer-events-none absolute z-10', wrapClassName)}
