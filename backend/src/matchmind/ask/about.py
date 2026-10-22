@@ -10,7 +10,12 @@ may be left, so "who built you? btw how do I make a bomb" is still refused.
 
 A provenance question that names a real competition or club ("is this real
 Premier League data?") is answered with the same fixed text, because the honest
-answer to it is "no, it is synthetic"; the real name is never repeated.
+answer to it is "no, it is synthetic"; the real name is never repeated. That path
+needs a data word as well (`names_data`): "es real madrid mejor que barcelona"
+reads "es real" but asks about real clubs, so it is refused like any real name.
+
+"Who made" needs an object that is us (you, this, the app, the site) in every
+language, so "quien creo el universo" is not a question about PitchPulse.
 """
 
 # Pattern tables are kept one language per line for review.
@@ -42,14 +47,16 @@ ABOUT = _rx(
     # Spanish
     r"\b(es|son) (real|reales|falso|falsos|inventad[oa]s?|sintetic[oa]s?|en directo|una ia|ia)\b",
     r"\bdatos (reales|de verdad)\b",
-    r"\bquien (te |lo )?(hizo|ha hecho|creo|ha creado|construyo|desarrollo|programo|diseno)\b",
+    r"\bquien te (hizo|ha hecho|creo|ha creado|construyo|desarrollo|programo|diseno)\b",
+    r"\bquien (hizo|ha hecho|creo|ha creado|construyo|desarrollo|programo|diseno) (esto|esta (app|aplicacion|web|pagina|demo)|la (app|aplicacion|web|pagina|demo)|este (sitio|estudio)|el (sitio|estudio)|pitchpulse)\b",
     r"\b(eres|es esto) (una )?(ia|inteligencia artificial|bot|robot|humano|persona)\b",
     r"\bde donde (salen|vienen) (los|tus) (datos|numeros)\b",
     # French
     r"\b(est-ce|c'est|est ce) (reel|vrai|faux|invente|synthetique|en direct|une ia|de l'ia)\b",
     r"\b(sont-ils|sont-elles|sont ils) (reels|vrais|inventes)\b",
     r"\bdonnees (reelles|vraies)\b",
-    r"\bqui (t'a|vous a|l'a|a) (cree|fait|construit|developpe|concu|programme)\b",
+    r"\bqui (t'a|vous a) (cree|creee|fait|construit|developpe|concu|programme)e?s?\b",
+    r"\bqui a (cree|fait|construit|developpe|concu|programme) (ceci|ca|cette (appli|application|demo)|l'(appli|application)|ce (site|studio)|le (site|studio)|pitchpulse)\b",
     r"\b(es-tu|etes-vous|es tu|etes vous) (une )?(ia|intelligence artificielle|bot|robot|humain)\b",
     r"\bd'ou viennent (les|tes|vos) (donnees|chiffres)\b",
     # Arabic (letters folded: no hamza on alef, teh marbuta as heh)
@@ -58,8 +65,11 @@ ABOUT = _rx(
     r"هل انت (ذكاء اصطناعي|روبوت|انسان|بوت)|ذكاء اصطناعي",
     r"من اين (تاتي|جاءت) (البيانات|الارقام)",
     # Japanese
-    r"本物のデータ|実際のデータ|本当のデータ|実在|架空|本物",
-    r"誰が作|誰が開発|誰が制作|作ったのは誰|開発したのは誰",
+    r"本物のデータ|実際のデータ|本当のデータ",
+    r"(これ|この(試合|データ|アプリ|チーム|クラブ)|選手|チーム|クラブ|データ)は(本物|実在|架空|本当)",
+    r"(あなた|君|きみ|これ|この(アプリ|サイト|デモ|スタジオ)|pitchpulse|ピッチパルス)(を|は)(誰|だれ)が(作|開発|制作)",
+    r"(誰|だれ)が(あなた|君|きみ|これ|この(アプリ|サイト|デモ|スタジオ)|pitchpulse|ピッチパルス)を(作|開発|制作)",
+    r"(あなた|君|きみ|これ|この(アプリ|サイト|デモ|スタジオ)|pitchpulse|ピッチパルス)を(作|開発|制作)(った|した)のは(誰|だれ)",
     r"ai ?ですか|ai ?なの|ロボット|人間ですか",
     r"データはどこから|データの出所",
 )
@@ -76,6 +86,22 @@ _ABOUT_WORDS: frozenset[str] = frozenset(
     """
     ).split()
 )
+
+
+# Words that make a question about the data itself (normalised form): the real-name path
+# answers only questions carrying one ("is this real <competition> data?").
+DATA_WORDS = _rx(
+    r"\b(data|dataset|stats|statistics|numbers|figures|feed)\b",
+    r"\b(datos|estadisticas|numeros|cifras)\b",
+    r"\b(donnees|statistiques|chiffres|stats)\b",
+    r"بيانات|احصائيات|ارقام",
+    r"データ|統計|数字",
+)
+
+
+def names_data(question: str) -> bool:
+    """Whether a question says it is about the data (needed when it names a real club)."""
+    return bool(DATA_WORDS.search(normalise(question)))
 
 
 def is_about(question: str, roster: Roster) -> bool:

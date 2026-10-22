@@ -47,7 +47,12 @@ PROVENANCE = [
     ("ar", "من صنعك؟"),
     ("ar", "هل أنت ذكاء اصطناعي؟"),
     ("ja", "これは本物のデータですか？"),
-    ("ja", "誰が作ったの？"),
+    ("ja", "誰があなたを作ったの？"),
+    ("ja", "このアプリは誰が作ったの？"),
+    ("es", "¿Quién creó esta app?"),
+    ("fr", "Qui a créé cette appli ?"),
+    ("fr", "Qui t'a créé ?"),
+    ("ja", "これは本物ですか？"),
 ]
 
 
@@ -93,6 +98,31 @@ def test_about_answers_have_no_numbers():
 def test_match_questions_still_win_over_about(ctx70, question):
     a = ask(ctx70, question=question)
     assert a.intent is not None and a.intent.kind == "top_player"
+
+
+@pytest.mark.parametrize(
+    ("lang", "question", "reason"),
+    [
+        # Security review round 5: "who created" with no object is not about us...
+        ("es", "quien creo el universo", "off_topic"),
+        ("fr", "qui a cree la tour eiffel", "off_topic"),
+        ("ja", "宇宙は誰が作ったの", "off_topic"),
+        # ...a bare "real" next to a real club is a match question about real clubs...
+        ("es", "es real madrid mejor que barcelona", "real_name"),
+        # ...and a bare "genuine" is not a question about the data.
+        ("ja", "本物", "off_topic"),
+        ("ja", "実在", "off_topic"),
+    ],
+)
+def test_loose_about_lookalikes_are_refused(ctx70, lang, question, reason):
+    a = ask(ctx70, question=question, language=lang)
+    assert a.status == "refused" and a.reason == reason, (question, a.status, a.intent)
+
+
+def test_a_real_name_with_a_data_word_still_gets_the_about_answer(ctx70):
+    for question in ("is this real Premier League data?", "Are these real Premier League stats?"):
+        a = ask(ctx70, question=question)
+        assert a.intent is not None and a.intent.kind == "about", question
 
 
 def test_a_real_name_without_a_provenance_question_is_still_refused(ctx70):

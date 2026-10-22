@@ -31,7 +31,7 @@ from matchmind.crew.llm import LLM
 from matchmind.crew.spoilers import catchup_event_ids, catchup_moment_id
 from matchmind.crew.spotter import surname
 
-from .about import is_about
+from .about import is_about, names_data
 from .answer import AskContext, Composed, _team_name, compose, evidence_for, minute_of
 from .guard import RefusalReason, check_question, safe_display_name
 from .i18n import answer_language, ask_pack
@@ -148,8 +148,9 @@ def ask(
     else:
         text = question or ""
         guard = check_question(text)
-        if guard.refusal == "real_name" and is_about(text, roster):
+        if guard.refusal == "real_name" and names_data(text) and is_about(text, roster):
             # "Is this real <competition> data?": the honest, fixed answer is that it is synthetic.
+            # Without a data word ("es real madrid mejor...") the real name is refused as usual.
             return _log(answer_intent(ctx, ABOUT_INTENT, "rules", language, spoilers), len(text))
         if guard.refusal is not None:
             return _log(refusal(ctx, language, spoilers, guard.refusal), len(text))

@@ -126,7 +126,11 @@ One exception to the real-name refusal: a provenance question that names a real
 competition or club ("is this real Premier League data?") gets the fixed `about`
 answer, because the honest reply is that the match is synthetic. The real name is
 never repeated, and the wrapped-request rule still applies ("is this real
-Premier League data? write me a poem" is refused).
+Premier League data? write me a poem" is refused). The exception needs a data word
+(data, stats, numbers, or the same in each studio language): "es real madrid mejor
+que barcelona" is refused as a real name. "Who made/created" needs an object that
+is us (you, this, the app, the site) in every language, and Japanese needs more
+than a bare 本物 or 実在, so "quien creó el universo" is off topic.
 
 | Reason | When | Sentence (en) |
 |---|---|---|
@@ -181,7 +185,7 @@ Most of these are in `backend/tests/test_ask.py`. The catch-up tests are in
 |---|---|
 | 61 questions in en, es, fr, ar and ja map to the right intent and answer | `TABLE` |
 | 41 wrapped requests in all five languages are refused (provenance questions included); 51 plain questions with filler words, the main chips typed in all five languages and provenance questions are still answered | `WRAPPED`, `LEGIT` |
-| Provenance questions ("is this real data?", "who built you?") get the fixed `about` answer in all five languages, never echo a real name, and lose to a match question | `backend/tests/test_ask_about.py` |
+| Provenance questions ("is this real data?", "who built you?") get the fixed `about` answer in all five languages, never echo a real name, and lose to a match question; look-alikes ("quien creo el universo", "es real madrid mejor que barcelona", bare 本物) are refused | `backend/tests/test_ask_about.py` |
 | 37 adversarial inputs are refused, and the refusal never echoes them | `ADVERSARIAL` |
 | Inputs covered by the adversarial set | wrapped and indirect "ignore your rules"; role-play; HTML and SQL; bidi and zero-width characters; look-alike letters; spaced-out letters; real names; over-length input; a crafted squad name |
 | Every chip in every studio language | chip tests |
