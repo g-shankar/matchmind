@@ -199,9 +199,32 @@ interface CrewTrace {
   steps: { agent: string; ms: number; status: 'ok' | 'fallback' | 'rejected' | 'error' | 'skipped'; detail: string | null }[];
 }
 
-interface AutoEventingStatus {                 // filled by the auto-eventing work; null until then
+interface AutoEventingStatus {                 // synthetic tracking-to-event benchmark; null if it could not run
   source: 'synthetic_tracking'; label: string; // "Detected from synthetic tracking, not video"
   passes_detected_pct: number; speed_mae_kmh: number; events_checked: number;
+  // Optional, added by the benchmark (older clients can ignore them). See docs/AUTO-EVENTING.md.
+  name?: string;                               // "Synthetic tracking-to-event benchmark"
+  match_id?: string | null;
+  speed_mae_ci_kmh?: [number, number] | null;  // 95% bootstrap interval for speed_mae_kmh
+  classes?: BenchmarkClassRow[] | null;        // pass, shot, clearance, tackle, interception, recovery
+  pressure?: BenchmarkClassRow | null;         // pressure on kicks vs the event data's under_pressure flag
+  confusion?: { rows: string[]; columns: string[]; counts: number[][] } | null;
+                                               // rows: true kinds + 'spurious'; columns: detected kinds + 'missed'
+  baseline?: { name: string; classes: BenchmarkClassRow[] } | null;  // naive detector, same scoring
+  pixel_path?: PixelPathRow | null;            // first 30 s only: a smoke check, not the benchmark
+  caveat?: string | null;                      // the circularity caveat, in plain words
+}
+interface BenchmarkClassRow {
+  kind: 'pass' | 'shot' | 'clearance' | 'tackle' | 'interception' | 'recovery' | 'pressure';
+  support: number; detected: number; matched: number;   // support = true events of this kind
+  precision: number; recall: number; f1: number;        // 0-1
+  precision_ci: [number, number] | null; recall_ci: [number, number] | null;  // 95% Wilson
+}
+interface PixelPathRow {                       // label: "Rendered synthetic top-down video, not broadcast footage; no real-video model"
+  label: string; window_s: number; frames: number; width_px: number; height_px: number;
+  player_error_m: number | null; ball_error_m: number | null; ball_found_pct: number;
+  coordinate: BenchmarkClassRow[]; pixels: BenchmarkClassRow[];   // same frames, both paths (last row: pressure)
+  speed_mae_kmh_coordinate: number | null; speed_mae_kmh_pixels: number | null;
 }
 ```
 
@@ -292,7 +315,7 @@ the focus metric (one place in `MatchSession.cards_for`).
 | `GET /api/crew/status` | `CrewStatus` |
 | `GET /api/languages` | `{ languages: LanguageInfo[], translator: TranslatorStatus }`: every language, its source (studio pack or Azure AI Translator) and whether it can be shown now |
 | `GET /api/crew/trace?limit=20` | `CrewTrace[]` (newest first) |
-| `GET /api/auto-eventing` | `AutoEventingStatus` or 404 until built |
+| `GET /api/auto-eventing` | `AutoEventingStatus` (computed once per match when the session loads, then served from memory) or 404 if it could not run |
 | `GET /api/source` | `MatchSource`: where the match comes from (file or the live Event Hubs stream) and the stream counters |
 | `GET /api/dataset` | `DatasetIndex`: every downloadable synthetic match with its scenario and seed (docs/DATASET.md) |
 | `GET /api/dataset/export?match_id=&format=jsonl\|csv\|zip[&tracking_period=&tracking_from=&tracking_to=]` | a file download (streamed, `Content-Disposition: attachment`): events as JSON lines (byte for byte as bundled), events as CSV, or a zip with metadata, rosters, schema, data dictionary and, with the three tracking parameters, a 25 Hz synthetic tracking sample of at most 60 s (zip only) |
