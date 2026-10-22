@@ -535,6 +535,23 @@ def _static_app(session, clock, tmp_path, public_origin, origins=()):
     )
 
 
+def test_csp_connect_src_names_the_public_origin_and_its_websocket_twin(session, clock, tmp_path):
+    """LC-14: the page may open sockets only to this server's own origin and the listed ones."""
+    app = _static_app(
+        session, clock, tmp_path, "https://pitchpulse.example", origins=["http://localhost:3000"]
+    )
+    with TestClient(app) as c:
+        csp = c.get("/").headers["content-security-policy"]
+    directives = dict(d.strip().split(" ", 1) for d in csp.split(";"))
+    assert directives["connect-src"].split() == [
+        "'self'",
+        "https://pitchpulse.example",
+        "wss://pitchpulse.example",
+        "http://localhost:3000",
+        "ws://localhost:3000",
+    ]
+
+
 def test_pages_carry_a_content_security_policy_and_api_routes_do_not(session, clock, tmp_path):
     app = _static_app(
         session, clock, tmp_path, "", origins=["https://api.pitchpulse.example", "bad; script-src *"]
@@ -551,7 +568,9 @@ def test_pages_carry_a_content_security_policy_and_api_routes_do_not(session, cl
     assert directives["media-src"] == "'self'"
     assert directives["style-src"] == "'self' 'unsafe-inline'"
     connect = directives["connect-src"].split()
-    assert connect[:3] == ["'self'", "ws:", "wss:"]
+    # Launch checks LC-14: only listed origins and their WebSocket twins, never any ws:/wss: host.
+    assert connect[0] == "'self'"
+    assert "ws:" not in connect and "wss:" not in connect
     assert {"https://api.pitchpulse.example", "wss://api.pitchpulse.example"} <= set(connect)
     assert "*" not in csp and "bad" not in csp  # a malformed origin never widens the policy
     assert "content-security-policy" not in api.headers

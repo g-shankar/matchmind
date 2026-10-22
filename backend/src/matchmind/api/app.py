@@ -283,16 +283,20 @@ class SpeedBody(BaseModel):
 # --- Connections -----------------------------------------------------------------------------
 
 
-def content_security_policy(origins: list[str]) -> str:
-    """CSP for the app pages: everything from this server, plus the API origins in the
-    allow-list (a frontend built with VITE_API_URL talks to one of them). Fonts are
+def content_security_policy(origins: list[str], own: str | None = None) -> str:
+    """CSP for the app pages: everything from this server, plus the configured origins.
+
+    connect-src lists, each with its ws:/wss: twin, this server's public origin
+    (MATCHMIND_PUBLIC_ORIGIN; spelled out because older browsers do not match 'self'
+    for WebSockets) and the allow-list (a frontend built with VITE_API_URL talks to one
+    of them). Never a bare ws:/wss: scheme, which would allow any WebSocket host. Fonts are
     bundled; React sets inline styles, so styles allow 'unsafe-inline' (scripts do not)."""
     extra: list[str] = []
-    for o in origins:
+    for o in [*([own] if own else []), *origins]:
         o = o.strip().rstrip("/")
         if o.startswith(("http://", "https://")) and all(c not in o for c in " ;'\"*"):
             extra += [o, "ws" + o[4:]]
-    connect = " ".join(["'self'", "ws:", "wss:", *dict.fromkeys(extra)])
+    connect = " ".join(["'self'", *dict.fromkeys(extra)])
     return (
         "default-src 'self'; "
         "script-src 'self'; "
@@ -824,7 +828,7 @@ def create_app(
         allow_headers=["Content-Type"],
     )
 
-    csp = content_security_policy(origins)
+    csp = content_security_policy(origins, own or None)
     hsts = own.startswith("https://")
 
     @app.middleware("http")
