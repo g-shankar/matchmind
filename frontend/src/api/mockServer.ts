@@ -38,7 +38,7 @@ import type { MatchTransport, MessageHandler } from './transport';
 import { metricAlertText } from './mockText';
 import { DemoCueSheet, type DemoCueMoment } from './mockCues';
 import { defaultLanguages, isWorldLanguage } from '../lib/languages';
-import { SPOILER_KINDS, isSpoilerCard, spoilerFreeSnapshot, spoilerFreeTick } from './spoilers';
+import { SPOILER_KINDS, isSpoilerCard, scrubEvent, spoilerFreeSnapshot, spoilerFreeTick } from './spoilers';
 
 export interface FixtureTick {
   event: MatchEvent;
@@ -403,7 +403,7 @@ export class MockMatchServer implements MatchTransport {
         return;
       case 'set_speed':
         if (!SPEEDS.includes(action.speed_multiplier)) {
-          this.emit({ type: 'ERROR', data: { message: 'Speed must be 1, 10 or 60.' } });
+          this.emit({ type: 'ERROR', data: { message: 'Speed must be 1, 10 or 60.', code: 'bad_speed' } });
           return;
         }
         this.speed = action.speed_multiplier;
@@ -413,12 +413,17 @@ export class MockMatchServer implements MatchTransport {
         this.emit({ type: 'MATCH_RESET', data: {} });
         this.jumpTo(0);
         this.running = true;
+        this.speed = 1; // a restart is a fresh start at the default speed, as on the server
         this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
         return;
-      case 'seek':
+      case 'seek': {
+        const wasEnded = this.ended;
         this.jumpTo(seekIndex(this.fixture.ticks, Math.max(0, action.clock_s), action.period));
+        // A jump back into a finished match plays from there, as on the server.
+        if (wasEnded && !this.ended) this.running = true;
         this.emit({ type: 'INITIAL_SNAPSHOT', data: this.snapshot() });
         return;
+      }
       case 'set_persona':
       case 'set_view': {
         const changes =
@@ -444,7 +449,7 @@ export class MockMatchServer implements MatchTransport {
         return;
       }
       default:
-        this.emit({ type: 'ERROR', data: { message: 'That action is not supported.' } });
+        this.emit({ type: 'ERROR', data: { message: 'That action is not supported.', code: 'other' } });
     }
   }
 
@@ -676,6 +681,7 @@ export class MockMatchServer implements MatchTransport {
     return {
       ...free,
       recent_cards: free.recent_cards.filter((c) => !hidden(c.moment_id) && !isSpoilerCard(c)),
+      recent_events: (full.recent_events ?? []).map(scrubEvent),
       bookmarks: free.bookmarks.filter((b) => !hidden(b.moment_id)),
     };
   }
@@ -709,6 +715,7 @@ export class MockMatchServer implements MatchTransport {
       crew: this.fixture.crew,
       languages: demoLanguages(),
       auto_eventing: null,
+      recent_events: ticks.slice(Math.max(0, this.next - 30), this.next).map((t) => t.event),
       cue_sheet: {
         sheet_id: this.sheet.sheetId,
         last_seq: this.sheet.seq,

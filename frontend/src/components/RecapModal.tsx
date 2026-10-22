@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import { AlertTriangle, Award, CheckCircle2, FileText, X } from 'lucide-react';
 import type { Recap, Teams } from '../api/contract';
 import { useI18n } from '../i18n';
@@ -6,7 +6,9 @@ import { playerById } from '../lib/teams';
 import { Badge } from './ui';
 import { TranslationTag } from './LanguagePicker';
 import { textLanguage } from '../lib/languages';
-import { factLabel, factValue } from './BroadcastOverlay';
+import { factValue } from './BroadcastOverlay';
+import { Modal } from './Modal';
+import { recapStatRows } from '../lib/labels';
 
 export interface RecapModalProps {
   open: boolean;
@@ -45,7 +47,7 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
   const potm = playerById(teams, recap.player_of_the_match_id);
   const potmName = recap.player_of_the_match ?? potm?.name ?? null;
   const potmColor = potm?.team.primary_color ?? '#ff9f1c';
-  const stats = Object.entries(recap.stats);
+  const stats = recapStatRows(t, recap.stats, teams);
   const lang = textLanguage(recap);
 
   return (
@@ -133,10 +135,10 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
                 </tr>
               </thead>
               <tbody>
-                {stats.map(([key, value], i) => (
+                {stats.map(({ key, label, value }, i) => (
                   <tr key={key} className={i % 2 ? 'bg-pp-deep' : 'bg-pp-night/60'}>
                     <th scope="row" className="px-3 py-1.5 text-start font-normal text-pp-mute">
-                      {factLabel(t, key)}
+                      {label}
                     </th>
                     <td className="px-3 py-1.5 text-end font-semibold text-white">
                       <span className="ltr-nums">{factValue(i18n, value)}</span>
@@ -172,47 +174,27 @@ const RecapBody: React.FC<{ recap: Recap; teams: Teams | null }> = ({ recap, tea
 };
 
 export const RecapModal: React.FC<RecapModalProps> = ({ open, onClose, recap, loading, teams }) => {
-  const { t, dir } = useI18n();
-  const closeRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    closeRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
+  const { t } = useI18n();
   return (
-    <div
-      dir={dir}
-      className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-black/80 p-3 backdrop-blur-md sm:p-4"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="recap-title"
-        onClick={(e) => e.stopPropagation()}
-        className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-pp-line bg-pp-panel shadow-2xl"
-      >
-        <header className="flex items-center justify-between gap-3 border-b border-pp-line to-pp-panel px-4 py-3 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2">
-            <FileText className="h-5 w-5 shrink-0 text-pp-pulse" aria-hidden />
-            <h2 id="recap-title" lang={recap ? textLanguage(recap) : undefined} className="truncate font-display text-lg font-bold uppercase tracking-wider text-white">
+    <Modal open={open} onClose={onClose} labelledBy="recap-title" name="recap" className="max-w-3xl">
+      <div className="flex max-h-[100dvh] flex-col overflow-hidden border border-pp-line bg-pp-panel shadow-2xl sm:max-h-[90vh] sm:rounded-2xl">
+        <header className="flex items-start justify-between gap-3 border-b border-pp-line px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 items-start gap-2">
+            <FileText className="mt-0.5 h-5 w-5 shrink-0 text-pp-pulse" aria-hidden />
+            <h2
+              id="recap-title"
+              lang={recap ? textLanguage(recap) : undefined}
+              className="min-w-0 break-words font-display text-base font-bold uppercase leading-tight tracking-wider text-white sm:text-lg"
+            >
               {recap?.title || t('broadcast.recap.title')}
             </h2>
           </div>
           <button
-            ref={closeRef}
             type="button"
             onClick={onClose}
+            data-autofocus
             aria-label={t('broadcast.recap.close')}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-pp-mute transition hover:bg-white/10 hover:text-white"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-pp-mute transition hover:bg-white/10 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-pp-signal"
           >
             <X className="h-5 w-5" />
           </button>
@@ -236,12 +218,12 @@ export const RecapModal: React.FC<RecapModalProps> = ({ open, onClose, recap, lo
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[36px] rounded-lg bg-pp-pulse px-4 text-xs font-bold text-white transition hover:bg-pp-pulse/85"
+            className="min-h-[44px] rounded-lg bg-pp-pulse px-4 text-xs font-bold text-white transition hover:bg-pp-pulse/85"
           >
             {t('broadcast.recap.close')}
           </button>
         </footer>
       </div>
-    </div>
+    </Modal>
   );
 };

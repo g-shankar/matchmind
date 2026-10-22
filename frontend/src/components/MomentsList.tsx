@@ -1,10 +1,11 @@
-import type { MomentKind } from '../api/contract';
+import type { Bookmark, MomentKind } from '../api/contract';
 import React, { useMemo } from 'react';
 import { Award, Clock, History } from 'lucide-react';
 import { useI18n } from '../i18n';
 import type { ViewProps } from '../views/types';
 import { Panel, cx } from './ui';
 import { KIND_ICON, isSpecialKind } from './NarrativeFeed';
+import { groupByClock, upcomingLabelKey } from '../lib/labels';
 
 /** Where a jump lands: a few seconds of build-up before the moment. */
 export const seekTarget = (clockS: number) => Math.max(0, clockS - 8);
@@ -20,13 +21,15 @@ const periodOf = (x: WithPeriod) => x.period ?? (x.clock_s >= 2700 ? 2 : 1);
 /** Orders by (period, clock_s) so a second-half moment always comes after the first half. */
 export const compareMoments = (a: WithPeriod, b: WithPeriod) => periodOf(a) - periodOf(b) || a.clock_s - b.clock_s;
 
-export const MomentsList: React.FC<ViewProps> = ({ match, actions }) => {
+export const MomentsList: React.FC<ViewProps & { onJump?: (b: Bookmark) => void }> = ({ match, actions, onJump }) => {
   const { t } = useI18n();
   const now: WithPeriod = { clock_s: match.playback.clock_s, period: match.playback.period };
   const bookmarks = useMemo(
     () => match.bookmarks.filter((b) => !MINOR_KINDS.has(b.kind)).sort(compareMoments),
     [match.bookmarks],
   );
+  const groups = useMemo(() => groupByClock(bookmarks), [bookmarks]);
+  const jump = onJump ?? ((b: Bookmark) => actions.seek(seekTarget(b.clock_s), b.period));
 
   return (
     <Panel
@@ -42,14 +45,15 @@ export const MomentsList: React.FC<ViewProps> = ({ match, actions }) => {
         <p className="py-3 text-center text-sm text-pp-mute">{t('studio.moments.empty')}</p>
       ) : (
         <ul className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 sm:flex-wrap sm:overflow-visible">
-          {bookmarks.map((b) => {
+          {groups.map(({ lead: b, count }) => {
             const past = compareMoments(b, now) <= 0;
             const special = isSpecialKind(b.kind);
             // Upcoming moments stay spoiler-free (no goal or card titles), except the "should he have passed?" specials.
             const hidden = !past && !special;
             const Icon = hidden ? Clock : KIND_ICON[b.kind] ?? Award;
             const kindLabel = t(`kind.${b.kind}`);
-            const title = hidden ? t('studio.moments.upcoming') : b.title;
+            // Upcoming: say what sort of moment it is, never what happens.
+            const title = hidden ? t(upcomingLabelKey(b.kind)) : b.title;
             // A goal later ruled out by VAR is flagged only once the decision is in the past (no spoilers).
             const ruled =
               !!b.ruled_out &&
@@ -60,11 +64,11 @@ export const MomentsList: React.FC<ViewProps> = ({ match, actions }) => {
               <li key={b.moment_id} className="shrink-0">
                 <button
                   type="button"
-                  onClick={() => actions.seek(seekTarget(b.clock_s), b.period)}
+                  onClick={() => jump(b)}
                   aria-label={t('studio.moments.jump', { clock: b.match_clock, title })}
                   title={past || hidden ? title : `${t('studio.moments.upcoming')}: ${title}`}
                   className={cx(
-                    'flex min-h-[40px] max-w-[260px] items-center gap-2 rounded-xl border px-2.5 py-1.5 text-start text-xs transition hover:border-pp-pulse',
+                    'flex min-h-[44px] max-w-[260px] items-center gap-2 rounded-xl border px-2.5 py-1.5 text-start text-xs transition hover:border-pp-pulse',
                     special
                       ? 'border-pp-gold/60 bg-pp-gold/10 text-pp-gold'
                       : past
@@ -75,10 +79,12 @@ export const MomentsList: React.FC<ViewProps> = ({ match, actions }) => {
                 >
                   <Icon className="h-4 w-4 shrink-0" aria-hidden />
                   <span className="ltr-nums shrink-0 font-bold text-pp-signal">{b.match_clock}</span>
+                  {hidden && <span className="text-[11px] uppercase tracking-wider">{title}</span>}
                   {!hidden && (
                   <span className="min-w-0">
                     {special && kindLabel !== b.title && <span className="block text-[10px] font-bold uppercase tracking-wider">{kindLabel}</span>}
                     <span className={cx('line-clamp-1 block', ruled && 'line-through decoration-pp-pulse')}>{title}</span>
+                    {count > 1 && <span className="block text-[10px] text-pp-mute">{t('visit.moments.count', { n: count })}</span>}
                     {ruled && (
                       <span data-testid="moment-ruled-out" className="block text-[10px] font-bold uppercase tracking-wider text-pp-pulse">
                         {t('cue.ruledOut')}

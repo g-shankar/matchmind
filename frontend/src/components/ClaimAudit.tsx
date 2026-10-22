@@ -91,6 +91,8 @@ export const AuditDrawer: React.FC<{
   const mode = useInsightMode();
   const titleId = useId();
   const [stack, setStack] = useState<string[]>([momentId]);
+  // Always the working for the moment that was asked for, even if this drawer is reused.
+  useEffect(() => setStack([momentId]), [momentId]);
   const current = stack[stack.length - 1];
   const { state, reload } = useInsight(() => insights.audit(mode, current), `${mode}:${current}`);
   const panel = useRef<HTMLDivElement>(null);

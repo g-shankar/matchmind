@@ -73,17 +73,45 @@ describe('AskStudio', () => {
     expect(screen.getByRole('list', { name: 'Numbers behind this answer' }).textContent).toContain('0.31');
   });
 
-  it('caps typed questions at 200 characters and trims them before sending', async () => {
+  it('says a question is too long (with the count) instead of cutting it, and trims before sending', async () => {
     const ask = vi.fn().mockResolvedValue({ ok: true, answer: answer() });
     ui(<AskStudio match={matchWith()} actions={actionsMock({ ask })} />);
     const box = screen.getByLabelText('Your question') as HTMLInputElement;
-    expect(box.maxLength).toBe(200);
     fireEvent.change(box, { target: { value: `  ${'x'.repeat(250)}` } });
-    expect(box.value).toHaveLength(200);
+    expect(box.value).toHaveLength(252);
+    expect(screen.getByTestId('ask-hint').textContent).toContain('up to 200');
+    expect((screen.getByRole('button', { name: 'Ask' }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.submit(box.closest('form')!);
+    expect(ask).not.toHaveBeenCalled();
+    fireEvent.change(box, { target: { value: 'x'.repeat(5000) } });
+    expect(box.value.length).toBeLessThanOrEqual(1000);
     fireEvent.change(box, { target: { value: '  who is fastest  ' } });
+    expect(screen.queryByTestId('ask-hint')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
     expect(ask).toHaveBeenCalledWith({ question: 'who is fastest' });
     await screen.findByTestId('ask-answer');
+  });
+
+  it('an empty or blank question gets a hint, not silence', () => {
+    const ask = vi.fn();
+    ui(<AskStudio match={matchWith()} actions={actionsMock({ ask })} />);
+    const box = screen.getByLabelText('Your question');
+    fireEvent.change(box, { target: { value: '   ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
+    expect(ask).not.toHaveBeenCalled();
+    expect(screen.getByTestId('ask-hint').textContent).toContain('Type a question first');
+  });
+
+  it('"Should he have passed?" opens the replay of the moment it cites', async () => {
+    const onOpenReplay = vi.fn();
+    const ask = vi.fn().mockResolvedValue({ ok: true, answer: answer({ moment_ids: ['M-BO'] }) });
+    const match = matchWith({ bookmarks: [{ moment_id: 'M-BO', kind: 'better_option', match_clock: '34:16', clock_s: 2056, period: 1, title: 'Should Asante have passed?' }] });
+    ui(<AskStudio match={match} actions={actionsMock({ ask })} onOpenReplay={onOpenReplay} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Should he have passed?' }));
+    await screen.findByTestId('ask-answer');
+    expect(onOpenReplay).toHaveBeenCalledWith('M-BO');
+    fireEvent.click(screen.getByRole('button', { name: /Show the replay/ }));
+    expect(onOpenReplay).toHaveBeenCalledTimes(2);
   });
 
   it('renders answers as text, never as markup', async () => {

@@ -65,6 +65,8 @@ export interface MatchViewState {
   /** This viewer's cue sheet and the moments ruled out (VAR) so far. */
   cue: CueViewState;
   error: string | null;
+  /** Stable code of the last server error (src/i18n/toasts.ts), when it sent one. */
+  errorCode: string | null;
 }
 
 export const MAX_EVENTS = 60;
@@ -84,7 +86,7 @@ export const initialMatchState = (profile: ViewerProfile = DEFAULT_PROFILE): Mat
   state: null,
   controlChaos: null,
   profile,
-  playback: { is_running: false, speed_multiplier: 10, clock_s: 0, match_clock: '00:00', period: 1, ended: false },
+  playback: { is_running: false, speed_multiplier: 1, clock_s: 0, match_clock: '00:00', period: 1, ended: false },
   events: [],
   lastEvent: null,
   cards: [],
@@ -99,6 +101,7 @@ export const initialMatchState = (profile: ViewerProfile = DEFAULT_PROFILE): Mat
   recap: null,
   cue: initialCueState(),
   error: null,
+  errorCode: null,
 });
 
 export type MatchAction =
@@ -119,7 +122,7 @@ const sample = (s: MatchState): MetricSample => ({
   xg_away: s.xg_away,
 });
 
-function trackPositions(state: MatchViewState, e: MatchEvent) {
+function trackPositions(state: Pick<MatchViewState, 'positions' | 'trails'>, e: MatchEvent) {
   const positions = { ...state.positions };
   const trails = { ...state.trails };
   const put = (id: string | null, p: XY | null) => {
@@ -150,7 +153,7 @@ export function matchReducer(state: MatchViewState, action: MatchAction): MatchV
     case 'recap':
       return { ...state, recap: action.recap };
     case 'clearError':
-      return { ...state, error: null };
+      return { ...state, error: null, errorCode: null };
     case 'replaceCards': {
       const byMoment = new Map(action.cards.map((c) => [c.moment_id, c]));
       return { ...state, cards: state.cards.map((c) => byMoment.get(c.moment_id) ?? c) };
@@ -172,6 +175,10 @@ function applyMessage(state: MatchViewState, m: ServerMessage): MatchViewState {
       const players: Record<string, PlayerStats> = {};
       for (const p of d.players.slice(0, MAX_PLAYERS)) players[p.player_id] = p;
       const sameMatch = state.matchId === d.match_id;
+      // The last events played place the players and ball at once (after a jump, while paused).
+      const recentEvents = (d.recent_events ?? []).slice(-MAX_EVENTS);
+      let placed: Pick<MatchViewState, 'positions' | 'trails'> = { positions: {}, trails: {} };
+      for (const e of recentEvents) placed = trackPositions(placed, e);
       // After a seek or reset the timeline restarts, so history behind the new clock is dropped.
       const history = sameMatch ? state.history.filter((h) => h.clock_s <= d.state.clock_s) : [];
       return {
@@ -185,12 +192,12 @@ function applyMessage(state: MatchViewState, m: ServerMessage): MatchViewState {
         controlChaos: d.control_chaos,
         profile: d.profile,
         playback: d.playback,
-        events: [],
-        lastEvent: null,
+        events: recentEvents,
+        lastEvent: recentEvents[recentEvents.length - 1] ?? null,
         cards: d.recent_cards.slice(-MAX_CARDS),
         players,
-        positions: {},
-        trails: {},
+        positions: placed.positions,
+        trails: placed.trails,
         history: [...history, sample(d.state)].slice(-MAX_HISTORY),
         bookmarks: d.bookmarks.slice(0, MAX_BOOKMARKS),
         crew: d.crew,
@@ -250,7 +257,7 @@ function applyMessage(state: MatchViewState, m: ServerMessage): MatchViewState {
     case 'MATCH_END':
       return { ...state, recap: m.data.recap, playback: { ...state.playback, ended: true, is_running: false } };
     case 'ERROR':
-      return { ...state, error: m.data.message };
+      return { ...state, error: m.data.message, errorCode: m.data.code ?? null };
   }
 }
 

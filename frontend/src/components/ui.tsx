@@ -58,15 +58,18 @@ export function Segmented<T extends string | number>({
   onChange,
   label,
   className,
+  dir,
 }: {
   options: { value: T; label: React.ReactNode; title?: string }[];
   value: T;
   onChange: (v: T) => void;
   label: string;
   className?: string;
+  /** Keep the options' order on a right-to-left page (speeds read 1x, 10x, 60x everywhere). */
+  dir?: 'ltr' | 'rtl';
 }) {
   return (
-    <div role="radiogroup" aria-label={label} className={cx('flex items-stretch border border-pp-line bg-pp-deep', className)}>
+    <div role="radiogroup" aria-label={label} dir={dir} className={cx('flex items-stretch border border-pp-line bg-pp-deep', className)}>
       {options.map((o) => (
         <button
           key={String(o.value)}

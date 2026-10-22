@@ -43,6 +43,17 @@ body {
   clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%);
 }
 
+/* Touch screens: every control is at least 44 px tall (and icon buttons 44 px wide). */
+@media (pointer: coarse) {
+  button,
+  select,
+  summary,
+  [role='radio'],
+  [role='tab'] {
+    min-height: 44px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

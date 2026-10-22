@@ -43,6 +43,32 @@ describe('matchReducer', () => {
     expect(s.languages.find((l) => l.code === 'pt')).toMatchObject({ available: false, reason: 'translator_off' });
   });
 
+  it('places players and ball from the snapshot\'s recent events, so a jump or pause never shows an empty pitch', () => {
+    const f = makeFixture();
+    const s = matchReducer(initialMatchState(), {
+      type: 'message',
+      message: {
+        type: 'INITIAL_SNAPSHOT',
+        data: {
+          match_id: 'T-1', clock: '34:06', period: 1, home_score: 1, away_score: 0, teams: f.teams, state: state(2046),
+          control_chaos: f.ticks[0].control_chaos, profile: DEFAULT_PROFILE,
+          playback: { is_running: false, speed_multiplier: 1, clock_s: 2046, match_clock: '34:06', period: 1, ended: false },
+          recent_cards: [], bookmarks: [], players: [], crew: f.crew, auto_eventing: null,
+          recent_events: [event(40, 2040), event(41, 2046, { player_id: 'BBB-9', team: 'BBB', receiver_id: 'BBB-10' })],
+        },
+      },
+    });
+    expect(s.lastEvent?.seq).toBe(41);
+    expect(s.events).toHaveLength(2);
+    expect(Object.keys(s.positions).sort()).toEqual(['AAA-10', 'AAA-9', 'BBB-10', 'BBB-9']);
+  });
+
+  it('keeps the error code next to the message for a translated toast', () => {
+    const s = matchReducer(initialMatchState(), { type: 'message', message: { type: 'ERROR', data: { message: 'x', code: 'jump_too_fast' } } });
+    expect(s.errorCode).toBe('jump_too_fast');
+    expect(matchReducer(s, { type: 'clearError' }).errorCode).toBeNull();
+  });
+
   it('takes the language list from the snapshot', () => {
     const f = makeFixture();
     const live = defaultLanguages(true);

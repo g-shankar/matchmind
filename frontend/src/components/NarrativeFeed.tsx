@@ -30,6 +30,7 @@ import type { ViewProps } from '../views/types';
 import { playerName, shortName, teamById } from '../lib/teams';
 import { Badge, Panel, TeamDot, cx } from './ui';
 import { ShowWorkingButton } from './ClaimAudit';
+import { tagLabel } from '../lib/labels';
 
 export interface NarrativeFeedProps extends ViewProps {
   onOpenReplay: (card: OverlayCard) => void;
@@ -123,6 +124,16 @@ export const NarrativeFeed: React.FC<NarrativeFeedProps> = ({ match, onOpenRepla
   const [tab, setTab] = useState<Tab>('stories');
   const cards = useMemo(() => match.cards.filter((c) => c.slot !== 'pitch_tag').slice().reverse(), [match.cards]);
   const events = useMemo(() => match.events.slice().reverse(), [match.events]);
+  // Stable keys (not list positions), so a new card arriving on top never hands one
+  // card's open evidence or "Show your working" to the card below it.
+  const keys = useMemo(() => {
+    const seen = new Map<string, number>();
+    return cards.map((c) => {
+      const n = seen.get(c.card_id) ?? 0;
+      seen.set(c.card_id, n + 1);
+      return n ? `${c.card_id}#${n}` : c.card_id;
+    });
+  }, [cards]);
   const favourite = teamById(match.teams, match.profile.favourite_team);
 
   const tabs: { id: Tab; label: string; count: number }[] = [
@@ -152,7 +163,7 @@ export const NarrativeFeed: React.FC<NarrativeFeedProps> = ({ match, onOpenRepla
             aria-controls={`feed-panel-${x.id}`}
             onClick={() => setTab(x.id)}
             className={cx(
-              'flex min-h-[34px] flex-1 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition',
+              'flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg px-3 text-xs font-bold transition',
               tab === x.id ? 'bg-pp-raised text-white ring-1 ring-pp-pulse/60' : 'text-pp-mute hover:text-white',
             )}
           >
@@ -175,10 +186,10 @@ export const NarrativeFeed: React.FC<NarrativeFeedProps> = ({ match, onOpenRepla
           ) : (
             cards.map((c, i) =>
               c.slot === 'metric_alert' ? (
-                <AlertRow key={`${c.card_id}-${i}`} card={c} match={match} />
+                <AlertRow key={keys[i]} card={c} match={match} />
               ) : (
                 <StoryCard
-                  key={`${c.card_id}-${i}`}
+                  key={keys[i]}
                   card={c}
                   match={match}
                   isTop={i === 0}
@@ -231,13 +242,14 @@ const ClockPill: React.FC<{ clock: string | null }> = ({ clock }) =>
     </span>
   ) : null;
 
-const StoryCard: React.FC<{
+export const StoryCard: React.FC<{
   card: OverlayCard;
   match: MatchViewState;
   isTop: boolean;
   favouriteColor: string | null;
   onOpenReplay: (card: OverlayCard) => void;
-}> = ({ card, match, isTop, favouriteColor, onOpenReplay }) => {
+  highlight?: boolean;
+}> = ({ card, match, isTop, favouriteColor, onOpenReplay, highlight }) => {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const special = isSpecialKind(card.kind);
@@ -254,6 +266,7 @@ const StoryCard: React.FC<{
         'animate-slide-up rounded-xl border bg-pp-raised/60 p-3.5',
         special ? 'border-pp-signal bg-pp-raised border-s-4' : 'border-pp-line/80',
         isTop && 'ring-1 ring-pp-pulse/40',
+        highlight && 'ring-2 ring-pp-signal',
         ruledOut && 'opacity-60 grayscale',
         card.kind === 'correction' && 'border-s-4 border-pp-pulse',
         favouriteColor && 'border-s-4',
@@ -301,7 +314,7 @@ const StoryCard: React.FC<{
       <div className="mt-2 flex flex-wrap items-center gap-2">
         {card.tactical_tag && (
           <span className="rounded-md border border-pp-line bg-pp-night px-2 py-0.5 text-[11px] font-semibold text-pp-mute">
-            #{card.tactical_tag}
+            <bdi>#{tagLabel(t, card.tactical_tag)}</bdi>
           </span>
         )}
         {card.evidence.length > 0 && (
@@ -309,7 +322,7 @@ const StoryCard: React.FC<{
             type="button"
             onClick={() => setOpen((v) => !v)}
             aria-expanded={open}
-            className="inline-flex min-h-[32px] items-center gap-1 rounded-lg px-2 text-xs font-semibold text-pp-signal hover:bg-pp-deep"
+            className="inline-flex min-h-[44px] items-center gap-1 rounded-lg px-2 text-xs font-semibold text-pp-signal hover:bg-pp-deep"
           >
             <ChevronDown className={cx('h-3.5 w-3.5 transition', open && 'rotate-180')} aria-hidden />
             {open ? t('studio.feed.hideEvidence') : t('studio.feed.showEvidence', { count: card.evidence.length })}
@@ -320,7 +333,7 @@ const StoryCard: React.FC<{
           <button
             type="button"
             onClick={() => onOpenReplay(card)}
-            className="ms-auto inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-pp-pulse px-3 text-xs font-bold text-white shadow hover:bg-pp-pulse/85"
+            className="ms-auto inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-pp-pulse px-3 text-xs font-bold text-white shadow hover:bg-pp-pulse/85"
           >
             <Play className="h-3.5 w-3.5" aria-hidden />
             {t('studio.feed.replay')}
