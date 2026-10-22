@@ -158,10 +158,11 @@
   {
    "id": "s7b",
    "scene": 7,
-   "text": "Or follow one player, all match.",
-   "gap_before": 2.0,
+   "text": "And when VAR rules a goal out, the crew takes it back on air.",
+   "gap_before": 1.4,
    "cues": [
-    "follow one player"
+    "VAR",
+    "takes it back"
    ],
    "caption": false
   },

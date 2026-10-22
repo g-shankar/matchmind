@@ -43,3 +43,9 @@ Round 5 review (final, 60 fps): "ship". 118.0 s, 1920x1080 60 fps, H.264 High yu
 -14.0 LUFS, true peak -1.7 dBTP, no silences, no frozen holds outside the end card.
 Minor items left as is: some analyst labels are assembled from facts values rather than verbatim strings;
 overlay-scene marker numbers are small at 1080p.
+
+Round 6 (22 Oct, data refresh after the competitive-review upgrades landed on main):
+- facts.json rebuilt from main (2,142 events). The 34:16 better-option numbers are unchanged.
+- facts.py no longer counts a goal that VAR overturns; final stays 2-3, red card now 53:06.
+- Scene 7 swaps player focus for the VAR beat: the crew's 39:11 goal card is struck and replaced by its
+  40:22 correction card (real crew API output); the bug shows 2-0 then 1-0. Film length unchanged at 118 s.

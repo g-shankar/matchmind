@@ -35,3 +35,6 @@ Decision log
   Cairo and IBM Plex Sans Arabic, chalk-on-black with pulse red and floodlight yellow, 2 px corners,
   slanted chalk section tabs, red heartbeat logo, turf-green pitch. Gowri asked for no default look.
 - 2026-10-21 Final at 60 fps, high quality.
+
+22 Oct: data refresh. Player focus cut from scene 7 to make room for the VAR correction beat, which shows the
+crew retracting its own on-air card; it says more about trust than player focus did, at no extra length.

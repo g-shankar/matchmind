@@ -489,13 +489,13 @@
   {
    "id": "s7b",
    "scene": 7,
-   "start": 100.84,
-   "end": 103.144,
+   "start": 100.24,
+   "end": 104.208,
    "speech": [
-    100.866,
-    103.047
+    100.281,
+    104.106
    ],
-   "text": "Or follow one player, all match.",
+   "text": "And when VAR rules a goal out, the crew takes it back on air.",
    "caption": null
   },
   {
@@ -554,7 +554,8 @@
   "s6a.spanish": 79.364,
   "s6a.arabic": 80.204,
   "s7a.broadcast": 98.153,
-  "s7b.follow-one-player": 101.07,
+  "s7b.var": 100.845,
+  "s7b.takes-it-back": 102.789,
   "s8a.azure": 107.331,
   "s8a.container-apps": 107.812,
   "s8a.event-hubs": 108.912,
@@ -593,7 +594,8 @@
   "s6a.spanish": 79.5,
   "s6a.arabic": 80.0,
   "s7a.broadcast": 98.0,
-  "s7b.follow-one-player": 101.0,
+  "s7b.var": 101.0,
+  "s7b.takes-it-back": 103.0,
   "s8a.azure": 107.5,
   "s8a.container-apps": 108.0,
   "s8a.event-hubs": 109.0,
