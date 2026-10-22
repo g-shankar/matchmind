@@ -1,10 +1,16 @@
-"""Auto-eventing: find passes, shots and clearances in a tracking feed.
+"""Find passes, shots, clearances, possession changes and pressure in a tracking feed.
 
 The detector sees only what a tracking provider delivers (ball and player
 positions per frame, a ball-in-play flag, team ids and playing directions). It
 never reads the simulator's events or labels.
 
 Method, in plain words:
+0. Clean the feed. Estimate the position noise from the ball's own track (the
+   spread of its second differences). On a clean feed (under 8 cm) nothing is
+   smoothed. On a noisier one, positions are averaged over a short centred
+   window sized to bring the noise back to about 5 cm (at most 0.5 s). Short
+   gaps in a player's track (up to 2 s) are bridged in a straight line. The
+   kick speed is still fitted on the unsmoothed ball.
 1. Fill short ball dropouts by straight-line interpolation.
 2. Ball velocity from a central difference over about 0.08 s.
 3. A player controls the ball in a frame when they are the nearest player,
@@ -19,6 +25,16 @@ Method, in plain words:
 6. A shot that goes out of play is a goal when play restarts on the centre
    spot, saved when it ended on the goal line between the posts, otherwise off
    target. A shot an opponent controls at once is blocked.
+7. Possession changes, between two spells of control with the ball in play:
+   - a tackle when control passes to the other team without a kick in between;
+   - an interception when the other team takes a pass of the old team in
+     flight (no loose spell first);
+   - a recovery when someone takes a loose ball (after a clearance, a blocked
+     shot or any kick that came to rest for 0.4 s), whichever team they are on.
+   The event is placed on the first frame of the new spell of control.
+8. Pressure: at the moment of every kick, the kicker is under pressure when an
+   opponent has been within 3.5 m of the ball for at least 0.2 s up to the
+   kick. 3.5 m is the radius the event data uses for its own pressure flag.
 """
 
 from __future__ import annotations
@@ -26,6 +42,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from typing import Literal
+
+import numpy as np
 
 from .tracking import TrackingFeed
 
@@ -41,8 +59,18 @@ SHOT_MIN_SPEED_MPS = 18.0
 SHOT_AIM_HALF_WIDTH_M = 12.0
 GOAL_HALF_WIDTH_M = 3.66
 CENTRE = (52.5, 34.0)
+PRESSURE_RADIUS_M = 3.5
+PRESSURE_MIN_S = 0.2
+RECOVERY_AFTER_SHOT_S = 2.0  # a change of control this soon after a blocked shot is a recovery
+NOISE_FLOOR_M = 0.08  # below this estimated noise the feed is used as it is
+SMOOTH_TARGET_M = 0.05
+MAX_SMOOTH_S = 0.5
+MAX_PLAYER_GAP_S = 2.0
+SETTLED_S = 0.3  # a spell of control this short, with no kick, is a touch in a duel, not a gain
 
-Kind = Literal["pass", "shot", "clearance"]
+Kind = Literal["pass", "shot", "clearance", "tackle", "interception", "recovery", "pressure"]
+KICK_KINDS = ("pass", "shot", "clearance")
+GAIN_KINDS = ("tackle", "interception", "recovery")
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,6 +86,7 @@ class DetectedEvent:
     ball_speed_mps: float
     receiver_id: str | None = None  # whoever controlled the ball next, if anyone
     source: str = "synthetic_tracking"
+    pressed_by: tuple[str, ...] = ()  # pressure only: the opponents near the ball
 
 
 @dataclass(slots=True)
@@ -122,17 +151,103 @@ def _fit_speed(ball: list, first: int, last: int, dt: float) -> float:
     return math.hypot(vx, vy)
 
 
+def estimate_noise(ball: list[tuple[float, float] | None]) -> float:
+    """Robust per-axis position noise (m) from the ball track's second differences.
+
+    For a ball moving at constant velocity the second difference is pure noise
+    with standard deviation sqrt(6) x sigma; kicks and stops are rare enough
+    that the median ignores them.
+    """
+    d2 = []
+    for k in range(1, len(ball) - 1):
+        a, b, c = ball[k - 1], ball[k], ball[k + 1]
+        if a is not None and b is not None and c is not None:
+            d2.append(abs(c[0] - 2 * b[0] + a[0]))
+            d2.append(abs(c[1] - 2 * b[1] + a[1]))
+    if len(d2) < 50:
+        return 0.0
+    return float(1.4826 * np.median(d2) / math.sqrt(6))
+
+
+def smoothing_half_window(noise_m: float, hz: float) -> int:
+    """Half-width (frames) of the moving average that brings noise_m down to about 5 cm."""
+    if noise_m <= NOISE_FLOOR_M:
+        return 0
+    length = (noise_m / SMOOTH_TARGET_M) ** 2
+    cap = max(0, round(MAX_SMOOTH_S * hz / 2))
+    return int(min(cap, max(1, round((length - 1) / 2))))
+
+
+def _moving_average(col: np.ndarray, half: int) -> np.ndarray:
+    """Centred moving average within each run of finite values (window shrinks at run ends)."""
+    out = col.copy()
+    ok = np.isfinite(col)
+    if half <= 0 or not ok.any():
+        return out
+    edges = np.flatnonzero(np.diff(np.concatenate(([0], ok.astype(np.int8), [0]))))
+    for start, stop in zip(edges[0::2], edges[1::2], strict=True):
+        seg = col[start:stop]
+        c = np.concatenate(([0.0], np.cumsum(seg)))
+        i = np.arange(len(seg))
+        lo, hi = np.maximum(0, i - half), np.minimum(len(seg), i + half + 1)
+        out[start:stop] = (c[hi] - c[lo]) / (hi - lo)
+    return out
+
+
+def _bridge(col: np.ndarray, max_gap: int) -> np.ndarray:
+    """Straight-line fill of NaN gaps up to max_gap frames with values on both sides."""
+    bad = ~np.isfinite(col)
+    if not bad.any() or bad.all():
+        return col
+    edges = np.flatnonzero(np.diff(np.concatenate(([0], bad.astype(np.int8), [0]))))
+    out = col.copy()
+    for start, stop in zip(edges[0::2], edges[1::2], strict=True):
+        if start == 0 or stop == len(col) or stop - start > max_gap:
+            continue
+        a, b = col[start - 1], col[stop]
+        f = np.arange(1, stop - start + 1) / (stop - start + 1)
+        out[start:stop] = a + (b - a) * f
+    return out
+
+
+def _player_rows(feed: TrackingFeed, lo: int, hi: int, smooth: int) -> list:
+    frames = feed.frames[lo:hi]
+    if not frames:
+        return []
+    xy = np.array([f.xy for f in frames], dtype=np.float64)
+    gaps = np.isnan(xy).any(axis=0)
+    if smooth == 0 and not gaps.any():
+        return [f.xy for f in frames]
+    max_gap = round(MAX_PLAYER_GAP_S * feed.hz)
+    for c in range(xy.shape[1]):
+        col = _bridge(xy[:, c], max_gap) if gaps[c] else xy[:, c]
+        xy[:, c] = _moving_average(col, smooth) if smooth else col
+    return xy.tolist()
+
+
+def _smooth_ball(ball: list[tuple[float, float] | None], half: int) -> list[tuple[float, float] | None]:
+    arr = np.array([(math.nan, math.nan) if b is None else b for b in ball], dtype=np.float64)
+    sx, sy = _moving_average(arr[:, 0], half), _moving_average(arr[:, 1], half)
+    return [None if b is None else (float(x), float(y)) for b, x, y in zip(ball, sx, sy, strict=True)]
+
+
 class _Period:
     def __init__(self, feed: TrackingFeed, lo: int, hi: int) -> None:
         self.feed, self.lo, self.hi = feed, lo, hi
         self.dt = 1.0 / feed.hz
         self.half = max(1, round(0.04 * feed.hz))
-        self.ball = _fill_ball(feed, lo, hi)
-        self.vel = _velocity(self.ball, self.half, self.dt)
         self.alive = [feed.frames[k].alive for k in range(lo, hi)]
+        self.raw_ball = _fill_ball(feed, lo, hi)
+        self.noise_m = estimate_noise(self.raw_ball)
+        self.smooth = smoothing_half_window(self.noise_m, feed.hz)
+        self.ball = _smooth_ball(self.raw_ball, self.smooth) if self.smooth else self.raw_ball
+        self.vel = _velocity(self.ball, self.half, self.dt)
+        self.rows = _player_rows(feed, lo, hi, self.smooth)
 
     def player_xy(self, k: int, n: int) -> tuple[float, float] | None:
-        return self.feed.frames[self.lo + k].player(n)
+        row = self.rows[k]
+        x = row[2 * n]
+        return None if x != x else (x, row[2 * n + 1])
 
     def speed(self, k: int) -> float | None:
         v = self.vel[k]
@@ -142,7 +257,7 @@ class _Period:
         b = self.ball[k]
         if b is None or not self.alive[k]:
             return None
-        xy = self.feed.frames[self.lo + k].xy
+        xy = self.rows[k]
         best, best_d = -1, CONTROL_RADIUS_M
         for n in range(len(xy) // 2):
             x = xy[2 * n]
@@ -194,6 +309,8 @@ def _detect_period(feed: TrackingFeed, lo: int, hi: int) -> list[DetectedEvent]:
     frames, ids, teams = feed.frames, feed.player_ids, feed.player_teams
     runs = p.controls()
     out: list[DetectedEvent] = []
+    kicks: dict[int, DetectedEvent] = {}  # run index -> the kick that ended it
+    loose_after: set[int] = set()  # run indexes whose kick left the ball loose
     n_fit = max(2, round(SPEED_FIT_S * feed.hz))
     for i, run in enumerate(runs):
         nxt = runs[i + 1] if i + 1 < len(runs) else None
@@ -220,7 +337,7 @@ def _detect_period(feed: TrackingFeed, lo: int, hi: int) -> list[DetectedEvent]:
         end_k = rest if rest is not None else flight_stop - 1
         # Fit only frames that are already in flight.
         fit_hi = min(launch + n_fit - 1, end_k)
-        speed = _fit_speed(p.ball, launch, fit_hi, p.dt) if fit_hi > launch else max(speeds)
+        speed = _fit_speed(p.raw_ball, launch, fit_hi, p.dt) if fit_hi > launch else max(speeds)
         start = p.ball[run.last] or p.ball[k0]
         last_seen = next((p.ball[k] for k in range(end_k, run.last, -1) if p.ball[k] is not None), start)
         if start is None or last_seen is None:
@@ -261,20 +378,127 @@ def _detect_period(feed: TrackingFeed, lo: int, hi: int) -> list[DetectedEvent]:
             kind, outcome = "pass", "incomplete"
         else:
             continue
+        if loose:
+            loose_after.add(i)
+        kick = DetectedEvent(
+            kind=kind,
+            period=frames[lo + run.last].period,
+            clock_s=frames[lo + run.last].clock_s,
+            player_id=player,
+            team=team,
+            outcome=outcome,
+            start=(round(start[0], 2), round(start[1], 2)),
+            end=(round(last_seen[0], 2), round(last_seen[1], 2)),
+            ball_speed_mps=round(speed, 2),
+            receiver_id=receiver if nxt is not None and nxt.player != run.player else None,
+        )
+        kicks[i] = kick
+        out.append(kick)
+        pressed_by = _pressers(p, run.player, run.last)
+        if pressed_by:
+            out.append(
+                DetectedEvent(
+                    kind="pressure",
+                    period=kick.period,
+                    clock_s=kick.clock_s,
+                    player_id=player,
+                    team=team,
+                    outcome="pressed",
+                    start=kick.start,
+                    end=kick.start,
+                    ball_speed_mps=0.0,
+                    pressed_by=tuple(ids[n] for n in pressed_by),
+                )
+            )
+    out.extend(_gains(p, runs, kicks, loose_after))
+    out.sort(key=lambda d: (d.period, d.clock_s))
+    return out
+
+
+def _gains(
+    p: _Period, runs: list[_Control], kicks: dict[int, DetectedEvent], loose_after: set[int]
+) -> list[DetectedEvent]:
+    """Tackles, interceptions and recoveries: who takes the ball, and how."""
+    feed = p.feed
+    frames, ids, teams = feed.frames, feed.player_ids, feed.player_teams
+    out: list[DetectedEvent] = []
+    settled_n = max(1, round(SETTLED_S * feed.hz))
+    # Brief touches in a duel flip the nearest player back and forth; only spells
+    # that last, or end in a kick, count as someone having the ball.
+    keep = [i for i, r in enumerate(runs) if i in kicks or r.last - r.first + 1 >= settled_n]
+    for j in range(1, len(keep)):
+        i = keep[j]
+        prev, run = runs[keep[j - 1]], runs[i]
+        if prev.player == run.player or not p._alive_between(prev.last, run.first):
+            continue  # same player again, or play stopped (a restart is not a gain)
+        switched = teams[prev.player] != teams[run.player]
+        kick = kicks.get(keep[j - 1])
+        after_block = False
+        if kick is None and j >= 2:
+            # The blocker smothers a shot for a moment; whoever takes it from there recovers it.
+            shot = kicks.get(keep[j - 2])
+            after_block = (
+                shot is not None
+                and shot.kind == "shot"
+                and shot.outcome == "blocked"
+                and (run.first - prev.first) * p.dt <= RECOVERY_AFTER_SHOT_S
+            )
+        kind: Kind
+        if (kick is not None and (keep[j - 1] in loose_after or kick.kind == "clearance")) or after_block:
+            kind = "recovery"
+        elif kick is not None and kick.kind == "shot" and kick.outcome == "blocked":
+            # The block itself. The blocker recovers the ball only if they keep it;
+            # otherwise whoever takes it from them next recovers it (see after_block).
+            nxt = runs[keep[j + 1]] if j + 1 < len(keep) else None
+            if nxt is not None and (nxt.first - run.first) * p.dt <= RECOVERY_AFTER_SHOT_S:
+                continue
+            kind = "recovery"
+        elif not switched:
+            continue  # a teammate taking a pass is just the pass
+        elif kick is None:
+            kind = "tackle"
+        else:
+            kind = "interception"
+        b = p.ball[run.first] or (0.0, 0.0)
+        f = frames[p.lo + run.first]
         out.append(
             DetectedEvent(
                 kind=kind,
-                period=frames[lo + run.last].period,
-                clock_s=frames[lo + run.last].clock_s,
-                player_id=player,
-                team=team,
-                outcome=outcome,
-                start=(round(start[0], 2), round(start[1], 2)),
-                end=(round(last_seen[0], 2), round(last_seen[1], 2)),
-                ball_speed_mps=round(speed, 2),
-                receiver_id=receiver if nxt is not None and nxt.player != run.player else None,
+                period=f.period,
+                clock_s=f.clock_s,
+                player_id=ids[run.player],
+                team=teams[run.player],
+                outcome="won",
+                start=(round(b[0], 2), round(b[1], 2)),
+                end=(round(b[0], 2), round(b[1], 2)),
+                ball_speed_mps=0.0,
             )
         )
+    return out
+
+
+def _pressers(p: _Period, player: int, k: int) -> list[int]:
+    """Opponents within the pressure radius of the ball for long enough, up to frame k."""
+    ball = p.ball[k]
+    if ball is None:
+        return []
+    teams = p.feed.player_teams
+    need = max(1, round(PRESSURE_MIN_S * p.feed.hz))
+    out = []
+    for n in range(len(teams)):
+        if teams[n] == teams[player]:
+            continue
+        ok = True
+        for j in range(k, k - need, -1):
+            if j < 0:
+                ok = False
+                break
+            b, q = p.ball[j], p.player_xy(j, n)
+            if b is None or q is None or math.hypot(q[0] - b[0], q[1] - b[1]) > PRESSURE_RADIUS_M:
+                ok = False
+                break
+        if ok:
+            out.append(n)
     return out
 
 
@@ -306,7 +530,7 @@ def _restart_on_centre(p: _Period, dead_at: int) -> bool:
 
 
 def detect_events(feed: TrackingFeed) -> list[DetectedEvent]:
-    """Every pass, shot and clearance the detector finds, in time order."""
+    """Every pass, shot, clearance, possession change and pressure the detector finds, in time order."""
     out: list[DetectedEvent] = []
     lo = 0
     frames = feed.frames
