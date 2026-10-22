@@ -175,6 +175,65 @@ def template_texts_with_templates(
     )
 
 
+# ------------------------------------------------------------------ spoiler-free story
+
+STORY_ON_TOP_MOMENTUM = 15  # |momentum| at or above this names the side on top
+
+
+def story_facts(
+    moments: list[Moment], snapshot: MatchStateSnapshot, teams: dict[str, Team]
+) -> dict[str, FactValue]:
+    """Facts for the spoiler-free story so far: chances, pressure and momentum, never
+    the score, the goals, the player of the match or a VAR decision (crew/spoilers.py)."""
+    from matchmind.crew.spoilers import scrub_facts, spoiler_free_moments
+
+    def team_name(tid: str) -> str:
+        return teams[tid].name if tid in teams else tid
+
+    kept = spoiler_free_moments(moments)
+    kinds = [m.kind for m in kept]
+    facts: dict[str, FactValue] = {
+        "home": team_name(snapshot.home_id),
+        "away": team_name(snapshot.away_id),
+        "xg_home": r2(snapshot.xg_home),
+        "xg_away": r2(snapshot.xg_away),
+        "shots_home": snapshot.shots_home,
+        "shots_away": snapshot.shots_away,
+        "generated_at": snapshot.match_clock,
+        "n_big_chances": kinds.count(MomentKind.BIG_CHANCE),
+        "n_better_options": kinds.count(MomentKind.BETTER_OPTION),
+        "n_unfound_runs": kinds.count(MomentKind.UNFOUND_RUN),
+        "n_pressure_spells": kinds.count(MomentKind.PRESSURE_SPELL),
+        "n_momentum_swings": kinds.count(MomentKind.MOMENTUM_SWING),
+    }
+    if abs(snapshot.momentum) >= STORY_ON_TOP_MOMENTUM:
+        facts["on_top"] = facts["home"] if snapshot.momentum > 0 else facts["away"]
+    return scrub_facts(facts)
+
+
+def story_texts_with_templates(
+    facts: dict[str, FactValue], language: str
+) -> tuple[str, str, list[str], tuple[str, str, list[str]]]:
+    """Title, headline and two or three paragraphs of the spoiler-free story, plus
+    the template behind each (same shape as `template_texts_with_templates`)."""
+    s = pack(language)["story"]
+    sep = "" if language == "ja" else " "
+    title = fill(s["title"], facts, language)
+    headline = fill(s["headline"], facts, language)
+    side_t = s["on_top"] if "on_top" in facts else s["level"]
+    p1_t = s["p1"]
+    p2_t = f"{s['p2']}{sep}{side_t}"
+    pieces = [(fill(p1_t, facts, language), p1_t), (fill(p2_t, facts, language), p2_t)]
+    if facts.get("n_better_options") or facts.get("n_unfound_runs"):
+        pieces.append((fill(s["watch"], facts, language), s["watch"]))
+    return (
+        title,
+        headline,
+        [text for text, _ in pieces],
+        (s["title"], s["headline"], [tpl for _, tpl in pieces]),
+    )
+
+
 def key_moments(moments: list[Moment], headline_for) -> list[RecapMoment]:
     chosen = [m for m in moments if m.priority >= KEY_MOMENT_PRIORITY]
     chosen.sort(key=lambda m: (m.period, m.clock_s, m.moment_id))

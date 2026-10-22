@@ -907,3 +907,15 @@ PACK["heart"]["attack_stopped"] = {
         ),
     ],
 }
+
+# ملخص بلا حرق للنتيجة (crew/spoilers.py): قصة المباراة دون النتيجة أو الأهداف
+# أو قرارات الفيديو. الحقائق من `recap.story_facts` فقط.
+PACK["story"] = {
+    "title": "القصة حتى الآن: {home} ضد {away}",
+    "headline": "تابع ما فاتك دون النتيجة",
+    "p1": "عند الدقيقة {generated_at}: الأهداف المتوقعة {xg_home} مقابل {xg_away}، من {shots_home} و{shots_away} تسديدة.",
+    "p2": "رصدنا فرصا كبيرة: {n_big_chances}، وفترات ضغط: {n_pressure_spells}، وتحولات في الزخم: {n_momentum_swings}.",
+    "on_top": "{on_top} هو الطرف الأفضل الآن.",
+    "level": "لا أفضلية لأي فريق الآن.",
+    "watch": "شاهد تسديدات كان التمرير فيها أفضل: {n_better_options}، وانطلاقات بلا تمريرة: {n_unfound_runs}.",
+}

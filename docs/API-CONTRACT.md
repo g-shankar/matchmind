@@ -53,6 +53,7 @@ interface ViewerProfile {
   persona: PersonaType; language: Language;
   favourite_team: string | null; focus_player_id: string | null;
   focus_metric: FocusMetric | null;
+  spoilers: boolean;                          // default true; false = catch-up mode (see below)
 }
 
 // Resolved identity of a player on moments and cards, so overlays can tag him by
@@ -112,7 +113,7 @@ interface TeamWindow {                        // rolling 5 minutes of match cloc
 
 interface MatchState {
   match_id: string; clock_s: number; match_clock: string; period: number;
-  home_id: string; away_id: string; score_home: number; score_away: number;
+  home_id: string; away_id: string; score_home: number | null; score_away: number | null;  // null in catch-up mode
   home: TeamWindow; away: TeamWindow;
   momentum: number;                           // -100..100, + = home on top
   control_chaos: number;                      // -1 chaos .. +1 control
@@ -132,7 +133,7 @@ interface PlayerStats {
   player_id: string; team: string;
   name: string | null; number: number | null; position: string | null; // identity, from the squads
   touches: number; passes: number; passes_completed: number; pass_accuracy: number; // %
-  key_passes: number; shots: number; shots_on_target: number; goals: number; assists: number;
+  key_passes: number; shots: number; shots_on_target: number; goals: number | null; assists: number | null;  // null in catch-up mode
   xg: number; xa: number;
   tackles_won: number; tackles_lost: number;   // lost = dribbled past
   tackles_attempted: number; tackle_success_pct: number;
@@ -257,6 +258,8 @@ interface Recap {
   text_language: Language; translated_by: 'azure_ai_translator' | null;
   fallback_reason: string | null;            // world languages only: why the recap is in English
   claims: Claim[];                           // title, headline, paragraphs, key-moment lines
+  spoiler_free: boolean;                     // true: the story so far for catch-up mode (no score,
+                                             // scorers, player of the match or VAR outcomes)
 }
 
 interface CrewStatus {
@@ -350,9 +353,9 @@ Server -> client. Every message is `{ "type": ..., "data": ... }`.
 
 | type | data | when |
 |---|---|---|
-| `INITIAL_SNAPSHOT` | `{ match_id, clock, period, home_score, away_score, teams: { home: TeamInfo, away: TeamInfo }, state: MatchState, control_chaos: ControlChaosState, profile: ViewerProfile, playback: Playback, recent_cards: OverlayCard[], bookmarks: Bookmark[], players: PlayerStats[], crew: CrewStatus, languages: LanguageInfo[], auto_eventing: AutoEventingStatus \| null, cue_sheet: CueSheetState }` | on connect, after `MATCH_RESET`, after a seek |
-| `MATCH_TICK` | `{ event: MatchEvent, clock, period, score: { home, away }, state: MatchState, control_chaos: ControlChaosState, cards: OverlayCard[], players_changed: PlayerStats[] }` | every event as it is played |
-| `CUES` | `{ sheet_id, cues: Cue[], active?: Cue[] }` | after a `MATCH_TICK` that produced cues for this viewer; `active` (what is on air now) is present when a new sheet starts, e.g. after `set_view` |
+| `INITIAL_SNAPSHOT` | `{ match_id, clock, period, home_score, away_score (null in catch-up mode), teams: { home: TeamInfo, away: TeamInfo }, state: MatchState, control_chaos: ControlChaosState, profile: ViewerProfile, playback: Playback, recent_cards: OverlayCard[], bookmarks: Bookmark[], players: PlayerStats[], crew: CrewStatus, languages: LanguageInfo[], auto_eventing: AutoEventingStatus \| null, cue_sheet: CueSheetState }` | on connect, after `MATCH_RESET`, after a seek, after `set_view` changes `spoilers` |
+| `MATCH_TICK` | `{ event: MatchEvent, clock, period, score: { home, away } \| null, state: MatchState, control_chaos: ControlChaosState, cards: OverlayCard[], players_changed: PlayerStats[] }` | every event as it is played |
+| `CUES` | `{ sheet_id, cues: Cue[], active?: Cue[] }` | never in catch-up mode; otherwise after a `MATCH_TICK` that produced cues for this viewer; `active` (what is on air now) is present when a new sheet starts, e.g. after `set_view` |
 | `PLAYBACK_CONTROL` | `Playback` | play, pause, speed change |
 | `MATCH_RESET` | `{}` | reset (followed by `INITIAL_SNAPSHOT`) |
 | `PROFILE_CHANGED` | `ViewerProfile` | after this connection's `set_view` |
@@ -408,6 +411,21 @@ viewer that falls more than 4 MB behind on messages is disconnected with code
 | `set_view` | any subset of `ViewerProfile` | this connection only; `PROFILE_CHANGED`, cards from now on follow it. `null` clears `favourite_team`, `focus_player_id` or `focus_metric`; the club and player must be in this match |
 | `set_persona` | `persona`, `spotlight_player_id?` | old alias for `set_view` (`spotlight_player_id` sets `focus_player_id`) |
 
+### Catch-up mode (`spoilers: false`)
+
+A viewer who joins late can keep the result hidden: `set_view { spoilers: false }`
+(the web app's "Catch up" button, or a link with `?catchup=1`). From then on that
+connection gets, on every message: `home_score`, `away_score`, `state.score_*`,
+`MATCH_TICK.score` and players' `goals`/`assists` as `null`; no goal or VAR
+correction cards and no bookmarks for them (`ruled_out` is always false); shot
+and VAR-review events without `outcome`, `reviewed_event_id` or score details;
+`cue_sheet: null` and no `CUES` (the scorebug is the score); and at full time a
+spoiler-free story instead of the recap. `set_view { spoilers: true }` reveals:
+the server answers with one fresh `INITIAL_SNAPSHOT` carrying everything. A
+`spoilers` value that is not a boolean gets `ERROR`. Rules and tests:
+`backend/src/matchmind/crew/spoilers.py`, `backend/tests/test_spoilers.py`,
+docs/PERSONALISATION.md.
+
 Cards in `MATCH_TICK` are already filtered and ordered for the connection's
 profile: persona and language applied, club heart for the favourite club
 (its moments boosted, rival minor moments dropped, fan's-side framing: see
@@ -442,12 +460,13 @@ collision rules are in [CUE-SHEET.md](CUE-SHEET.md) and
 |---|---|
 | `GET /api/health` | `{ status: 'ok' }` |
 | `GET /api/teams` | `{ home: TeamInfo, away: TeamInfo }` |
-| `GET /api/match/snapshot` | `INITIAL_SNAPSHOT.data` for the default profile |
+| `GET /api/match/snapshot?spoilers=` | `INITIAL_SNAPSHOT.data` for the default profile; `spoilers=false` gives the catch-up view |
 | `GET /api/match/players` | `PlayerStats[]` |
 | `GET /api/match/bookmarks` | `Bookmark[]` for the whole match (leaves out `speed_burst`, `rocket_shot`, `distance_milestone` and `hard_pass`, which still arrive as tick cards; same list in `INITIAL_SNAPSHOT.bookmarks`) |
 | `GET /api/match/moment/{moment_id}?persona=&lang=&favourite_team=` | `OverlayCard` (for "jump to moment" and replays) |
 | `GET /api/match/moment/{moment_id}/audit` | `MomentAudit`: facts, source events, evidence, every rendering's claims and fact-check, parity, trace (docs/TRUST.md) |
-| `GET /api/match/recap?persona=&lang=` | `Recap` (so far, or full match after the end; the same after a seek as after watching straight through) |
+| `GET /api/match/recap?persona=&lang=&spoilers=` | `Recap` (so far, or full match after the end; the same after a seek as after watching straight through); `spoilers=false` gives the spoiler-free story so far (`spoiler_free: true`) |
+| `POST /api/ask` `{ question?, chip?, lang, spoilers }` | `AskAnswer` (below): Ask the studio, one question or one suggested chip, answered as of the match clock (docs/ASK.md) |
 | `GET /api/match/cue-sheet?persona=&lang=&favourite_team=&since_seq=0&limit=500` | `CueSheetPage`: the compiled cue sheet up to the current position, cues with `seq > since_seq`, at most `limit` (1-500); page with `next_since_seq` while `has_more` (see CUE-SHEET.md). Same rate limit as `/api/match/moment` |
 | `POST /api/match/seek` `{ clock_s, period? }` | `Playback` |
 | `POST /api/match/speed` `{ speed_multiplier }` | `Playback` |
@@ -496,6 +515,29 @@ interface MatchSource {
     too_big: number; before_start: number; other_match: number; after_end: number;
     reordered: number; skipped: number; last_problem: string | null;
   };
+}
+```
+
+```ts
+// POST /api/ask. Exactly one of question (free text, refused past 200 characters)
+// or chip ('score' | 'top_xg' | 'furthest' | 'fastest' | 'on_top' | 'better_option'
+// | 'explain_xg'). Body at most 2 KB (413), unknown fields 400. Shares the GET rate
+// limit bucket of /api/match/moment and /api/match/recap. The question is never
+// echoed back or logged.
+interface AskAnswer {
+  status: 'answered' | 'refused' | 'hidden' | 'clarify' | 'not_yet';
+  reason: 'empty' | 'too_long' | 'markup' | 'injection' | 'real_name' | 'off_topic'
+        | 'unknown_player' | 'fact_check' | null;           // refused only
+  intent: Intent | null;                    // the fixed-schema intent that was answered
+  understood_by: 'chip' | 'rules' | 'model' | null;
+  answer: string;                           // plain text, render as text
+  language: Language; text_language: Language; rtl: boolean;
+  as_of: { clock: string; period: number; clock_s: number; ended: boolean };
+  spoilers: boolean;                        // false: no result facts (score/scorers/VAR are 'hidden')
+  facts: Record<string, FactValue>; evidence: Evidence[]; claims: Claim[];
+  source_event_ids: string[]; moment_ids: string[];        // moment_ids open the claim audit
+  metric: { id: string; name: string; formula: string; quality: string } | null;  // explain_metric
+  produced_by: 'template'; fact_check: { ok: boolean; reasons: string[] };
 }
 ```
 

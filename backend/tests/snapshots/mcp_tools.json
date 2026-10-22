@@ -2473,6 +2473,12 @@
               ],
               "title": "Persona",
               "type": "string"
+            },
+            "spoilers": {
+              "default": true,
+              "description": "False: spoiler-safe catch-up (no score, goals, VAR outcomes) until the viewer reveals",
+              "title": "Spoilers",
+              "type": "boolean"
             }
           },
           "title": "ViewerProfile",
@@ -4126,6 +4132,12 @@
         "rtl": {
           "default": false,
           "title": "Rtl",
+          "type": "boolean"
+        },
+        "spoiler_free": {
+          "default": false,
+          "description": "True: the spoiler-free story so far (no score, goals or VAR outcomes)",
+          "title": "Spoiler Free",
           "type": "boolean"
         },
         "stats": {
@@ -7566,5 +7578,694 @@
       "type": "object"
     },
     "title": "Simulate a synthetic match"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "Ask one question about this match in plain words (or pick a suggested chip) and get a short answer built from stats engine numbers as of the playback clock, with its facts, evidence, claims and source event ids. Questions that are off-topic, about real people, or try to change the rules are refused in one sentence. Set spoilers false for catch-up mode. Same payload as POST /api/ask. All clubs, players and matches are fictional and synthetic.",
+    "inputSchema": {
+      "properties": {
+        "chip": {
+          "anyOf": [
+            {
+              "enum": [
+                "score",
+                "top_xg",
+                "furthest",
+                "fastest",
+                "on_top",
+                "better_option",
+                "explain_xg"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A suggested question by id, instead of text.",
+          "title": "Chip"
+        },
+        "language": {
+          "default": "en",
+          "description": "Language of the answer (en, es, fr, ar; others get English).",
+          "enum": [
+            "en",
+            "es",
+            "fr",
+            "ar",
+            "ja",
+            "pt",
+            "de",
+            "hi",
+            "zh-Hans",
+            "sw",
+            "id",
+            "tr",
+            "ko"
+          ],
+          "title": "Language",
+          "type": "string"
+        },
+        "question": {
+          "anyOf": [
+            {
+              "maxLength": 1000,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "A question about this match, in plain words (answers over 200 characters are refused). Never echoed back. Send this or chip.",
+          "title": "Question"
+        },
+        "spoilers": {
+          "default": true,
+          "description": "False: catch-up mode, the answer never states the score, goals or VAR outcomes.",
+          "title": "Spoilers",
+          "type": "boolean"
+        }
+      },
+      "title": "ask_studioArguments",
+      "type": "object"
+    },
+    "name": "ask_studio",
+    "outputSchema": {
+      "$defs": {
+        "AskClock": {
+          "description": "The playback position the answer was computed at. Nothing later is read.",
+          "properties": {
+            "clock": {
+              "title": "Clock",
+              "type": "string"
+            },
+            "clock_s": {
+              "title": "Clock S",
+              "type": "number"
+            },
+            "ended": {
+              "title": "Ended",
+              "type": "boolean"
+            },
+            "period": {
+              "title": "Period",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "clock",
+            "period",
+            "clock_s",
+            "ended"
+          ],
+          "title": "AskClock",
+          "type": "object"
+        },
+        "Claim": {
+          "description": "One sentence a viewer sees, with what was machine-checked about it.\n\n`verified_numeric`: every number in it matches a fact (bound in `bindings`).\n`verified_name`: no numbers; its squad names match the facts.\n`unverified_text`: nothing to check (tone, wording), or a check failed (`reason`).\nWording, tone and causal claims are never machine-verified, whatever `check` says.",
+          "properties": {
+            "bindings": {
+              "items": {
+                "$ref": "#/$defs/ClaimBinding"
+              },
+              "title": "Bindings",
+              "type": "array"
+            },
+            "check": {
+              "enum": [
+                "verified_numeric",
+                "verified_name",
+                "unverified_text"
+              ],
+              "title": "Check",
+              "type": "string"
+            },
+            "fact_keys": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Fact Keys",
+              "type": "array"
+            },
+            "field": {
+              "enum": [
+                "headline",
+                "body",
+                "why",
+                "title",
+                "paragraph",
+                "key_moment"
+              ],
+              "title": "Field",
+              "type": "string"
+            },
+            "numbers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Numbers",
+              "type": "array"
+            },
+            "origin": {
+              "default": "matched",
+              "description": "template: keys from the template's placeholders; matched: found by value (model or translated text)",
+              "enum": [
+                "template",
+                "matched"
+              ],
+              "title": "Origin",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            },
+            "sentence": {
+              "title": "Sentence",
+              "type": "string"
+            },
+            "source_event_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Source Event Ids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "sentence",
+            "field",
+            "check",
+            "reason"
+          ],
+          "title": "Claim",
+          "type": "object"
+        },
+        "ClaimBinding": {
+          "description": "One number or name in a sentence and the fact it was matched to.",
+          "properties": {
+            "entity_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Squad player or club id for names",
+              "title": "Entity Id"
+            },
+            "fact_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "None: matches no fact (never on a shown card)",
+              "title": "Fact Key"
+            },
+            "kind": {
+              "enum": [
+                "number",
+                "name",
+                "text"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "text": {
+              "description": "As printed",
+              "title": "Text",
+              "type": "string"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Unit"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Value"
+            }
+          },
+          "required": [
+            "text",
+            "kind"
+          ],
+          "title": "ClaimBinding",
+          "type": "object"
+        },
+        "Evidence": {
+          "properties": {
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "label_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Label Key"
+            },
+            "source_event_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Source Event Id"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Unit"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ],
+              "title": "Value"
+            }
+          },
+          "required": [
+            "label",
+            "value"
+          ],
+          "title": "Evidence",
+          "type": "object"
+        },
+        "FactCheck": {
+          "properties": {
+            "ok": {
+              "title": "Ok",
+              "type": "boolean"
+            },
+            "reasons": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Reasons",
+              "type": "array"
+            }
+          },
+          "required": [
+            "ok"
+          ],
+          "title": "FactCheck",
+          "type": "object"
+        },
+        "Intent": {
+          "additionalProperties": false,
+          "description": "One question, as data. `metric` must suit `kind`; ids are checked against the\nmatch's own squads before anything is answered.",
+          "properties": {
+            "from_minute": {
+              "anyOf": [
+                {
+                  "maximum": 130,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "From Minute"
+            },
+            "kind": {
+              "enum": [
+                "score",
+                "scorers",
+                "team_stat",
+                "top_player",
+                "player_stats",
+                "control",
+                "momentum",
+                "better_option",
+                "var",
+                "cards",
+                "explain_metric",
+                "window"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "metric": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-z_]{2,32}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Metric"
+            },
+            "player_id": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{2,5}-[0-9]{1,3}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Player Id"
+            },
+            "team": {
+              "anyOf": [
+                {
+                  "pattern": "^[A-Z]{2,5}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Team"
+            },
+            "to_minute": {
+              "anyOf": [
+                {
+                  "maximum": 130,
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "To Minute"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "title": "Intent",
+          "type": "object"
+        },
+        "MetricInfo": {
+          "description": "For explain_metric: the registry entry behind the explanation (GET /api/metrics).",
+          "properties": {
+            "formula": {
+              "title": "Formula",
+              "type": "string"
+            },
+            "id": {
+              "title": "Id",
+              "type": "string"
+            },
+            "name": {
+              "title": "Name",
+              "type": "string"
+            },
+            "quality": {
+              "title": "Quality",
+              "type": "string"
+            }
+          },
+          "required": [
+            "id",
+            "name",
+            "formula",
+            "quality"
+          ],
+          "title": "MetricInfo",
+          "type": "object"
+        }
+      },
+      "properties": {
+        "answer": {
+          "description": "Plain text. Render as text, never as HTML.",
+          "title": "Answer",
+          "type": "string"
+        },
+        "as_of": {
+          "$ref": "#/$defs/AskClock"
+        },
+        "claims": {
+          "items": {
+            "$ref": "#/$defs/Claim"
+          },
+          "title": "Claims",
+          "type": "array"
+        },
+        "evidence": {
+          "items": {
+            "$ref": "#/$defs/Evidence"
+          },
+          "title": "Evidence",
+          "type": "array"
+        },
+        "fact_check": {
+          "$ref": "#/$defs/FactCheck"
+        },
+        "facts": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "title": "Facts",
+          "type": "object"
+        },
+        "intent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Intent"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "language": {
+          "enum": [
+            "en",
+            "es",
+            "fr",
+            "ar",
+            "ja",
+            "pt",
+            "de",
+            "hi",
+            "zh-Hans",
+            "sw",
+            "id",
+            "tr",
+            "ko"
+          ],
+          "title": "Language",
+          "type": "string"
+        },
+        "metric": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/MetricInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "moment_ids": {
+          "description": "Moments behind the answer (claim audit)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Moment Ids",
+          "type": "array"
+        },
+        "produced_by": {
+          "const": "template",
+          "default": "template",
+          "title": "Produced By",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "empty",
+                "too_long",
+                "markup",
+                "injection",
+                "real_name",
+                "off_topic",
+                "unknown_player",
+                "fact_check"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Why a question was refused",
+          "title": "Reason"
+        },
+        "rtl": {
+          "title": "Rtl",
+          "type": "boolean"
+        },
+        "source_event_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Source Event Ids",
+          "type": "array"
+        },
+        "spoilers": {
+          "description": "False: answered in catch-up mode (no result facts)",
+          "title": "Spoilers",
+          "type": "boolean"
+        },
+        "status": {
+          "enum": [
+            "answered",
+            "refused",
+            "hidden",
+            "clarify",
+            "not_yet"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "text_language": {
+          "enum": [
+            "en",
+            "es",
+            "fr",
+            "ar",
+            "ja",
+            "pt",
+            "de",
+            "hi",
+            "zh-Hans",
+            "sw",
+            "id",
+            "tr",
+            "ko"
+          ],
+          "title": "Text Language",
+          "type": "string"
+        },
+        "understood_by": {
+          "anyOf": [
+            {
+              "enum": [
+                "chip",
+                "rules",
+                "model"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "chip: a suggested question; rules: the parser; model: the optional model path",
+          "title": "Understood By"
+        }
+      },
+      "required": [
+        "status",
+        "answer",
+        "language",
+        "text_language",
+        "rtl",
+        "as_of",
+        "spoilers"
+      ],
+      "title": "AskAnswer",
+      "type": "object"
+    },
+    "title": "Ask the studio"
   }
 ]

@@ -935,3 +935,17 @@ PACK["heart"]["attack_stopped"] = {
         ),
     ],
 }
+
+# Spoiler-safe catch-up (crew/spoilers.py): the story so far without the score,
+# the goals or VAR outcomes. Only facts from `recap.story_facts` are filled in.
+PACK["story"] = {
+    "title": "The story so far: {home} v {away}",
+    "headline": "Catch up without the score",
+    "p1": "At {generated_at}: xG {xg_home} to {xg_away}, from {shots_home} and {shots_away} shots.",
+    "p2": "We flagged {n_big_chances|big chance|big chances}, {n_pressure_spells|pressure spell|pressure spells} "
+    "and {n_momentum_swings|momentum swing|momentum swings}.",
+    "on_top": "{on_top} are on top right now.",
+    "level": "Neither side is on top right now.",
+    "watch": "Watch for {n_better_options|shot where the pass was better|shots where the pass was better} "
+    "and {n_unfound_runs|unfound run|unfound runs}.",
+}

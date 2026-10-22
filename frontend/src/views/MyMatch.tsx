@@ -7,6 +7,8 @@ import type { MatchViewState, MetricSample } from '../state/matchStore';
 import { playerName, teamById } from '../lib/teams';
 import { CardItem } from './PlayerFocus';
 import type { ViewProps } from './types';
+import { ScoreValue } from '../components/CatchUp';
+import { AskStudio } from '../components/AskStudio';
 
 type Side = 'home' | 'away';
 const METRICS: FocusMetric[] = ['pressure', 'xg', 'pass_difficulty', 'top_speed', 'momentum'];
@@ -17,7 +19,7 @@ export function favouriteSide(teams: Teams | null, favourite: string | null): Si
 }
 
 /** Score from the favourite's point of view (home first when there is none). */
-export function perspectiveScore(score: { home: number; away: number }, side: Side | null) {
+export function perspectiveScore(score: { home: number | null; away: number | null }, side: Side | null) {
   return side === 'away' ? { us: score.away, them: score.home } : { us: score.home, them: score.away };
 }
 
@@ -284,15 +286,15 @@ export const MyMatch: React.FC<ViewProps> = ({ match, actions }) => {
             {side ? <Heart className="h-5 w-5" style={{ color: theme, fill: theme }} aria-hidden /> : <Info className="h-5 w-5 text-pp-mute" aria-hidden />}
             {side ? t('fan.my.yourClub', { name: us.name }) : t('fan.my.neutral')}
           </h2>
-          <div className="flex items-center gap-3" aria-label={`${us.name} ${score.us}, ${them.name} ${score.them}`} data-testid="perspective-score">
+          <div className="flex items-center gap-3" aria-label={`${us.name} ${score.us ?? t('catchup.hiddenValue')}, ${them.name} ${score.them ?? t('catchup.hiddenValue')}`} data-testid="perspective-score">
             <span className="flex flex-col items-center text-[10px] uppercase text-pp-mute">
               <span className="font-bold text-white">{us.short_name}</span>
               {side && t('fan.my.us')}
             </span>
             <span className="flex items-center font-display text-4xl font-extrabold tabular-nums text-white">
-              <span style={{ color: side ? theme : undefined }}>{score.us}</span>
+              <span style={{ color: side ? theme : undefined }}><ScoreValue value={score.us} /></span>
               <span className="mx-1 text-pp-mute">–</span>
-              <span>{score.them}</span>
+              <span><ScoreValue value={score.them} /></span>
             </span>
             <span className="flex flex-col items-center text-[10px] uppercase text-pp-mute">
               <span className="font-bold text-white">{them.short_name}</span>
@@ -325,6 +327,7 @@ export const MyMatch: React.FC<ViewProps> = ({ match, actions }) => {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <div className="space-y-4 lg:col-span-7">
+          <AskStudio match={match} actions={actions} compact />
           {state && (
             <Panel title={t('fan.my.numbers')}>
               <div className="mb-2 flex items-center justify-between text-[11px] font-semibold text-pp-mute">

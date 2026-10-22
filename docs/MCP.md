@@ -22,8 +22,11 @@ never from a model.
   the real demo match parked at 70:00. A test fails if a new tool is registered
   without a parity case.
 - **Typed both ways.** Inputs are closed pydantic models: enums, fixed-pattern
-  ids and bounded numbers. No tool takes free text, so nothing a caller types
-  can reach a model prompt. Outputs publish a JSON Schema
+  ids and bounded numbers. The one exception is `ask_studio`'s `question`
+  (at most 1000 characters, refused past 200): it goes through the same guard
+  and rule-based parser as `POST /api/ask` and reaches a model only if the
+  owner switches paid AI on, and then only to be mapped to a fixed-schema
+  intent ([ASK.md](ASK.md)). Outputs publish a JSON Schema
   (`structuredContent`), and the text block carries the same canonical JSON for
   clients that read text only.
 - **Contract snapshot.** `backend/tests/snapshots/mcp_tools.json` holds every
@@ -56,6 +59,7 @@ find that moment." or "Check limit: the value is missing or not allowed."
 | `get_crew_status` | `trace_limit?` (0 to 100, default 20) | `{ status: CrewStatus, traces: CrewTrace[] }` | `GET /api/crew/status` + `GET /api/crew/trace` |
 | `get_auto_eventing` | none | `AutoEventingStatus` (events detected from synthetic tracking, not video, scored against the simulator) | `GET /api/auto-eventing` |
 | `get_recent_events` | `limit?` (1 to 100, default 20) | `{ count, events }`: the latest events played, oldest first, each with its stats engine `metrics`, in the `MATCH_TICK.event` shape | engine |
+| `ask_studio` | `question` (plain words, at most 200 characters answered) or `chip` (score, top_xg, furthest, fastest, on_top, better_option, explain_xg), `language?`, `spoilers?` (default true; false is catch-up mode) | `AskAnswer`: `status` (answered, refused, hidden, clarify, not_yet), `answer` (plain text), `intent`, `facts`, `evidence`, `claims`, `source_event_ids`, `moment_ids`, `as_of` (the playback clock). See [ASK.md](ASK.md) | `POST /api/ask` |
 | `simulate_match` | `seed` (1 to 99999), `home?` (`NBR` or `HCY`) | `{ source: 'synthetic_simulator', match_id, seed, home, away, score_home, score_away, events, goals, final_state }` | engine (simulator + stats engine) |
 
 Payload shapes are in [API-CONTRACT.md](API-CONTRACT.md); each tool's exact

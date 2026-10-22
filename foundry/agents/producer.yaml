@@ -465,6 +465,11 @@ contract:
             - type: 'null'
             default: null
             title: Focus Metric
+          spoilers:
+            default: true
+            description: 'False: spoiler-safe catch-up (no score, goals, VAR outcomes) until the viewer reveals'
+            title: Spoilers
+            type: boolean
         title: ViewerProfile
         type: object
     properties:

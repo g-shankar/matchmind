@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
-import type { OverlayCard, ServerMessage, SpeedMultiplier, ViewerProfile } from '../api/contract';
+import type { AskChip, AskResult, OverlayCard, ServerMessage, SpeedMultiplier, ViewerProfile } from '../api/contract';
 import { LiveTransport } from '../api/liveTransport';
 import { DEFAULT_PROFILE, MockMatchServer, loadDemoFixture } from '../api/mockServer';
 import type { MatchTransport } from '../api/transport';
@@ -27,6 +27,7 @@ export function sanitizeProfile(raw: unknown): ViewerProfile {
     favourite_team: idOrNull(r.favourite_team),
     focus_player_id: idOrNull(r.focus_player_id),
     focus_metric: pick(r.focus_metric, METRICS.includes(r.focus_metric as string), null),
+    spoilers: typeof r.spoilers === 'boolean' ? r.spoilers : true,
   };
 }
 
@@ -49,14 +50,17 @@ function storedProfile(): ViewerProfile {
 // vMix Browser Source (its own empty browser storage) shows the right sheet. Checked like
 // anything else from outside: each value is checked on its own, and an unknown one leaves
 // the saved choice in place. Pinned values are never written back to storage.
+// `?catchup=1` (or `?spoilers=0`) opens in catch-up mode: the result stays hidden.
 export function urlProfile(base: ViewerProfile, search = window.location.search): ViewerProfile {
   const q = new URLSearchParams(search);
+  const catchUp = q.get('catchup') === '1' || q.get('spoilers') === '0';
   const checked = sanitizeProfile({ persona: q.get('persona'), language: q.get('lang'), favourite_team: q.get('club') });
   return {
     ...base,
     persona: q.get('persona') !== null && checked.persona === q.get('persona') ? checked.persona : base.persona,
     language: q.get('lang') !== null && checked.language === q.get('lang') ? checked.language : base.language,
     favourite_team: q.get('club') && checked.favourite_team === q.get('club') ? checked.favourite_team : base.favourite_team,
+    spoilers: catchUp ? false : base.spoilers,
   };
 }
 
@@ -199,9 +203,23 @@ export function useMatch() {
       Promise.resolve(null),
     loadRecap: async () => {
       const p = profileRef.current;
-      const recap = (await transportRef.current?.getRecap(p.persona, p.language)) ?? null;
+      const recap = (await transportRef.current?.getRecap(p.persona, p.language, p.spoilers)) ?? null;
       dispatch({ type: 'recap', recap });
       return recap;
+    },
+    // Catch-up mode on or off. One set_view per real change (the server rate-limits set_view),
+    // and the server answers with a fresh snapshot that hides or reveals the result.
+    setSpoilers: (spoilers: boolean) => {
+      if (profileRef.current.spoilers === spoilers) return;
+      profileRef.current = { ...profileRef.current, spoilers };
+      setView({ spoilers });
+    },
+    // Ask the studio, answered as of the match clock in the viewer's language and spoiler setting.
+    ask: (input: { question: string } | { chip: AskChip }): Promise<AskResult> => {
+      const t = transportRef.current;
+      if (!t) return Promise.resolve({ ok: false, failure: 'unavailable' });
+      const p = profileRef.current;
+      return t.ask({ ...input, lang: p.language, spoilers: p.spoilers });
     },
   };
 

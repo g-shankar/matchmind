@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import asdict
 from typing import Any
 
+from matchmind.crew import spoilers
 from matchmind.crew.contracts import CrewStatus, MomentBundle, OverlayCard, ViewerProfile
 from matchmind.crew.cues import Cue
 from matchmind.crew.languages import language_list
@@ -255,7 +256,57 @@ def cues_message(state: ViewerState, cues: list[Cue]) -> dict[str, Any] | None:
 def snapshot_payload(
     session: MatchSession, profile: ViewerProfile, state: ViewerState | None = None
 ) -> dict[str, Any]:
-    """INITIAL_SNAPSHOT.data for one viewer profile (and their fresh cue sheet state)."""
+    """INITIAL_SNAPSHOT.data for one viewer profile (and their fresh cue sheet state).
+    A spoiler-safe viewer (`profile.spoilers` false) gets it without the result."""
+    data = _snapshot_payload(session, profile, state)
+    return data if profile.spoilers else spoiler_free_snapshot(session, data)
+
+
+def _is_spoiler_card(session: MatchSession, card: dict[str, Any]) -> bool:
+    bundle = session.bundle(str(card.get("moment_id", "")))
+    return spoilers.card_is_spoiler(card, bundle.moment if bundle is not None else None)
+
+
+def spoiler_free_cards(session: MatchSession, cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [c for c in cards if not _is_spoiler_card(session, c)]
+
+
+def spoiler_free_snapshot(session: MatchSession, data: dict[str, Any]) -> dict[str, Any]:
+    """The snapshot with every score, goal and VAR outcome taken out (crew/spoilers.py)."""
+    out = dict(data)
+    out["home_score"] = None
+    out["away_score"] = None
+    out["state"] = spoilers.scrub_state(data["state"])
+    out["recent_cards"] = spoiler_free_cards(session, data["recent_cards"])
+    kept = []
+    for b in data["bookmarks"]:
+        bundle = session.bundle(b["moment_id"])
+        if bundle is not None and spoilers.is_spoiler_moment(bundle.moment):
+            continue
+        if bundle is None and spoilers.is_spoiler_kind(b["kind"]):
+            continue
+        kept.append({**b, "ruled_out": False})
+    out["bookmarks"] = kept
+    out["players"] = [spoilers.scrub_player(p) for p in data["players"]]
+    out["cue_sheet"] = None  # its scorebug layer is the score
+    return out
+
+
+def spoiler_free_tick(session: MatchSession, data: dict[str, Any]) -> dict[str, Any]:
+    """MATCH_TICK.data for a spoiler-safe viewer."""
+    return {
+        **data,
+        "event": spoilers.scrub_event(data["event"]),
+        "score": None,
+        "state": spoilers.scrub_state(data["state"]),
+        "players_changed": [spoilers.scrub_player(p) for p in data["players_changed"]],
+        "cards": spoiler_free_cards(session, data.get("cards", [])),
+    }
+
+
+def _snapshot_payload(
+    session: MatchSession, profile: ViewerProfile, state: ViewerState | None = None
+) -> dict[str, Any]:
     snap = session.snapshot
     home, away = session.score
     crew = session.crew_status()

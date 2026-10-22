@@ -32,6 +32,8 @@ const actionsMock = (over: Partial<MatchActions> = {}): MatchActions => ({
   clearError: vi.fn(),
   getMoment: vi.fn().mockResolvedValue(null),
   loadRecap: vi.fn().mockResolvedValue(null),
+  setSpoilers: vi.fn(),
+  ask: vi.fn().mockResolvedValue({ ok: false, failure: 'unavailable' }),
   ...over,
 });
 const ui = (node: React.ReactNode, { lang = 'en', mode = 'live' as InsightMode } = {}) =>

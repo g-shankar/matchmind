@@ -935,3 +935,17 @@ PACK["heart"]["attack_stopped"] = {
         ),
     ],
 }
+
+# Resumen sin spoilers (crew/spoilers.py): la historia hasta ahora sin marcador,
+# goles ni decisiones del VAR. Solo hechos de `recap.story_facts`.
+PACK["story"] = {
+    "title": "La historia hasta ahora: {home} - {away}",
+    "headline": "Ponte al día sin ver el marcador",
+    "p1": "En el minuto {generated_at}: xG {xg_home} a {xg_away}, con {shots_home} y {shots_away} tiros.",
+    "p2": "Señalamos {n_big_chances|ocasión clara|ocasiones claras}, {n_pressure_spells|fase de presión|fases de presión} "
+    "y {n_momentum_swings|cambio de inercia|cambios de inercia}.",
+    "on_top": "{on_top} domina ahora mismo.",
+    "level": "Ahora mismo ningún equipo domina.",
+    "watch": "Atento a {n_better_options|tiro en el que el pase era mejor|tiros en los que el pase era mejor} "
+    "y {n_unfound_runs|desmarque sin premio|desmarques sin premio}.",
+}

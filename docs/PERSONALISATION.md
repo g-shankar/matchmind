@@ -16,6 +16,7 @@ that is not one of the moment's facts. What changes is **what is shown**
 | `favourite_team` | a club in this match, or none | **Club heart**: rival minor moments dropped (table below) | Own club +15; rival momentum and pressure -10 | Club heart frames: let-off, next step after a goal conceded, constructive "should he have passed", comeback, full-time result from the fan's side; the fan's club prints as "your team" |
 | `focus_player_id` | a player in this match, or none | That player's moments are always kept, even a rival's minor moments | +20 | Player cam voice for that player's moments |
 | `focus_metric` | `pressure`, `xg`, `pass_difficulty`, `top_speed`, `momentum`, or none | Adds `metric_alert` cards when the metric moves meaningfully; with a favourite club, they follow that club | - | A momentum move towards the rival is worded as a warning |
+| `spoilers` | `true` (default) or `false` (catch-up mode) | `false`: goals, VAR corrections and anything that gives the result away are left out until the viewer reveals (section below) | - | The recap becomes the spoiler-free story so far |
 
 Precedence in the producer (`wanted` in `crew/producer.py`): focus player
 first (always kept), then metric alerts (always kept), then club heart (may
@@ -108,6 +109,57 @@ reads the same goals as "Varga pulls a goal back!", "Level! Petrov brings your
 team back" and "GOAL! Clarke puts your team in front", and ends on "Full-time: your
 team win!". Every number on every one of those cards is a neutral fact
 (`test_three_viewers_get_different_cards_with_identical_numbers`).
+
+## Spoiler-safe catch-up
+
+A viewer who joins late, or is watching a recording, can keep the result hidden.
+They switch it on with the **Catch up** button in the header, or with a link
+that carries `?catchup=1` (or `?spoilers=0`). That sets `spoilers: false` on
+their profile, for their connection only. One rule set in
+`backend/src/matchmind/crew/spoilers.py` decides what is hidden on every
+surface: WebSocket, REST, the recap, and Ask the studio.
+
+| Hidden until reveal | Kept |
+|---|---|
+| The score everywhere: scorebug, snapshot, ticks, match state, player goals and assists | xG, shots, possession, pressure, momentum, control vs chaos |
+| Goal and VAR-correction cards and bookmarks, and any moment whose facts hold a score or a scored shot | Big chances, "should he have passed", unfound runs, cards, pressure spells, momentum swings |
+| Shot and VAR-review outcomes on events, and the score copied into event details | Everything else about the event |
+| The cue sheet (its scorebug layer is the score) | Cards in their usual slots |
+| The recap: replaced by the **story so far** | The story: xG and shots for both sides, how many chances, pressure spells and momentum swings, who is on top now, and spoiler-free key moments |
+| Ask the studio's `score`, `scorers` and `var` answers (`hidden`) | Every other question |
+
+**Story so far.** Each of the 5 studio packs has a template family for it
+(`PACK["story"]` in `crew/i18n/<lang>.py`). The story is built only from
+templates, never by a model, and is fact-checked like any recap. World
+languages get the English story.
+
+**Ways forward.** The catch-up banner offers four:
+
+- **Story so far** opens the story.
+- **Watch the key moments** steps through the spoiler-free bookmarks up to now,
+  one every 15 s, with *Next moment*.
+- **Jump to live** returns to where the viewer was. Playback is shared, so the
+  button says that watching the key moments moves the clock for everyone on
+  this match.
+- **Reveal the score** turns catch-up off. The server answers with one fresh
+  snapshot that shows everything.
+
+Each switch sends exactly one `set_view`, so it stays inside that action's
+rate limit.
+
+The choice is saved with the rest of the profile on the device. A link that
+pinned catch-up is never saved.
+
+The offline demo applies the same scrub in the browser
+(`frontend/src/api/spoilers.ts`). Its stories are recorded by
+`frontend/scripts/build_demo_ask.py`.
+
+Tests:
+
+- `backend/tests/test_spoilers.py`: a full real match over the WebSocket with
+  no leaks, the story in every studio language, and REST flags.
+- `frontend/src/api/catchup.test.ts`
+- `frontend/src/components/askCatchUp.test.tsx`
 
 ## Where it lives
 

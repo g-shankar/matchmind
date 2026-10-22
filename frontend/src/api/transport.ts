@@ -1,4 +1,6 @@
 import type {
+  AskRequest,
+  AskResult,
   ClientAction,
   Language,
   OverlayCard,
@@ -21,7 +23,10 @@ export interface MatchTransport {
     language: Language,
     favouriteTeam: string | null,
   ): Promise<OverlayCard | null>;
-  getRecap(persona: PersonaType, language: Language): Promise<Recap | null>;
+  /** spoilers false: the spoiler-free story so far (catch-up mode). */
+  getRecap(persona: PersonaType, language: Language, spoilers?: boolean): Promise<Recap | null>;
+  /** Ask the studio: one question or suggested chip, answered as of the match clock. */
+  ask(request: AskRequest): Promise<AskResult>;
   close(): void;
 }
 

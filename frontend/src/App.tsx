@@ -21,6 +21,10 @@ import { Lab } from './views/Lab';
 import { CrewHealth } from './components/CrewHealth';
 import { InsightModeProvider } from './state/useInsight';
 import { demoRequested } from './api/insights';
+// Ask the studio, catch-up mode and read-aloud.
+import { AskStudio } from './components/AskStudio';
+import { CatchUpBanner, CatchUpButton, ScoreValue } from './components/CatchUp';
+import { ReadAloudCards, ReadAloudToggle } from './components/ReadAloud';
 
 type ViewMode = 'studio' | 'overlay' | 'split' | 'follow' | 'fan' | 'lab';
 const VIEWS: ViewMode[] = ['studio', 'overlay', 'split', 'follow', 'fan', 'lab'];
@@ -193,7 +197,9 @@ const Shell: React.FC<ViewProps> = ({ match, actions }) => {
               />
             </div>
             <Scoreline match={match} />
-            <div className="flex items-center gap-2 text-xs text-pp-mute">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-pp-mute">
+              <CatchUpButton match={match} actions={actions} />
+              <ReadAloudToggle match={match} />
               <span className="font-semibold">{t('lang.label')}</span>
               <LanguagePicker
                 value={profile.language}
@@ -204,6 +210,9 @@ const Shell: React.FC<ViewProps> = ({ match, actions }) => {
           </div>
         </div>
       </header>
+
+      <CatchUpBanner match={match} actions={actions} onStory={openRecap} />
+      <ReadAloudCards match={match} />
 
       {match.status === 'demo' && (
         <div className="border-b border-pp-gold/30 bg-pp-gold/10 px-4 py-1.5 text-center text-xs text-pp-gold">
@@ -236,7 +245,10 @@ const Shell: React.FC<ViewProps> = ({ match, actions }) => {
                   <CrewHealth match={match} />
                 </div>
                 <div className="lg:col-span-5">
-                  <NarrativeFeed match={match} actions={actions} onOpenReplay={setReplay} />
+                  <div className="space-y-4">
+                    <AskStudio match={match} actions={actions} />
+                    <NarrativeFeed match={match} actions={actions} onOpenReplay={setReplay} />
+                  </div>
                 </div>
               </div>
             )}
@@ -296,7 +308,7 @@ const Scoreline: React.FC<{ match: ViewProps['match'] }> = ({ match }) => {
         {teams.home.short_name}
       </span>
       <span className="ltr-nums flex items-center bg-pp-chalk px-2.5 text-xl font-extrabold text-pp-night">
-        {score.home}-{score.away}
+        <ScoreValue value={score.home} />-<ScoreValue value={score.away} />
       </span>
       <span className="flex items-center px-2.5 text-white" style={{ background: teams.away.primary_color }}>
         {teams.away.short_name}

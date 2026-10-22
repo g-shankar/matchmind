@@ -194,6 +194,10 @@ class ViewerProfile(BaseModel):
     favourite_team: str | None = None
     focus_player_id: str | None = None
     focus_metric: FocusMetric | None = None
+    spoilers: bool = Field(
+        default=True,
+        description="False: spoiler-safe catch-up (no score, goals, VAR outcomes) until the viewer reveals",
+    )
 
 
 Slot = Literal["lower_third", "side_panel", "pitch_tag", "metric_alert", "full_screen"]
@@ -275,6 +279,9 @@ class Recap(BaseModel):
     translated_by: TranslatedBy | None = None
     fallback_reason: str | None = None
     claims: list[Claim] = Field(default_factory=list, description="Each sentence, tied to its facts")
+    spoiler_free: bool = Field(
+        default=False, description="True: the spoiler-free story so far (no score, goals or VAR outcomes)"
+    )
 
     @model_validator(mode="after")
     def _text_language(self) -> Recap:

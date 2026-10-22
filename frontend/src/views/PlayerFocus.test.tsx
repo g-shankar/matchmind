@@ -21,6 +21,8 @@ const mockActions = () =>
     clearError: vi.fn(),
     getMoment: vi.fn(),
     loadRecap: vi.fn(),
+    setSpoilers: vi.fn(),
+    ask: vi.fn().mockResolvedValue({ ok: false, failure: 'unavailable' }),
   }) as unknown as MatchActions;
 
 const stats = (over: Partial<PlayerStats> = {}): PlayerStats => ({

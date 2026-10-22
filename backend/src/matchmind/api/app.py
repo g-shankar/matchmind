@@ -35,6 +35,7 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
+from matchmind.ask.intents import ChipId
 from matchmind.crew.contracts import (
     LANGUAGES,
     FocusMetric,
@@ -89,6 +90,12 @@ EXPORT_CONCURRENCY = 2
 EXPORT_CHUNK = 64 * 1024
 DATASET_CACHE = "public, max-age=3600"
 EXPORTS_BUSY = "Downloads are busy right now. Try again in a few seconds."
+
+# Ask the studio (docs/ASK.md): bodies are tiny; questions over 200 characters get a
+# plain refusal, anything past these caps a 400 or 413.
+ASK_BODY_MAX = 2048
+ASK_QUESTION_MAX = 1000
+ASK_TOO_BIG = "That question is too long. Keep it under 200 characters."
 
 T = TypeVar("T")
 
@@ -174,6 +181,7 @@ class SetView(_Action):
     favourite_team: str | None = Field(default=None, max_length=32)
     focus_player_id: str | None = Field(default=None, max_length=32)
     focus_metric: FocusMetric | None = None
+    spoilers: bool | None = None
 
 
 class SetPersona(_Action):
@@ -202,6 +210,16 @@ ACTION_HELP: dict[str, str] = {
     ),
     "set_persona": "Persona must be casual, tactical, fantasy or player_spotlight.",
 }
+
+
+class AskBody(BaseModel):
+    """POST /api/ask: a typed question or a suggested chip id, never both."""
+
+    model_config = ConfigDict(extra="forbid")
+    question: str | None = Field(default=None, max_length=ASK_QUESTION_MAX)
+    chip: ChipId | None = None
+    lang: Language = "en"
+    spoilers: bool = True
 
 
 class SeekBody(BaseModel):
@@ -472,8 +490,11 @@ class Hub:
                 state = states[i]
                 cards = session.cards_for(tick.bundles, profile, state, tick)
                 data = dict(shared, cards=[view.card_payload(c) for c in cards])
-                out[i].append(view.message("MATCH_TICK", data))
                 cues = view.cues_message(state, session.tick_cues(tick, cards, state))
+                if not profile.spoilers:  # catch-up mode: no result, no cue sheet (docs/PERSONALISATION.md)
+                    out[i].append(view.message("MATCH_TICK", view.spoiler_free_tick(session, data)))
+                    continue
+                out[i].append(view.message("MATCH_TICK", data))
                 if cues is not None:
                     out[i].append(cues)
             if tick.is_last:
@@ -693,8 +714,8 @@ def create_app(
     limited_get = [Depends(get_limit)]
 
     @app.get("/api/match/snapshot")
-    async def snapshot() -> dict[str, Any]:
-        return await reads.snapshot(hub)
+    async def snapshot(spoilers: bool = True) -> dict[str, Any]:
+        return await reads.snapshot(hub, spoilers)
 
     @app.get("/api/match/players")
     async def players() -> list[dict[str, Any]]:
@@ -729,8 +750,10 @@ def create_app(
     # --- end claim audit -----------------------------------------------------------------------
 
     @app.get("/api/match/recap", dependencies=limited_get)
-    async def recap(persona: Persona = "casual", lang: Language = "en") -> dict[str, Any]:
-        return await reads.recap(hub, persona, lang)
+    async def recap(
+        persona: Persona = "casual", lang: Language = "en", spoilers: bool = True
+    ) -> dict[str, Any]:
+        return await reads.recap(hub, persona, lang, spoilers)
 
     @app.get("/api/match/cue-sheet", dependencies=limited_get)
     async def cue_sheet(
@@ -741,6 +764,35 @@ def create_app(
         limit: int = Query(default=CUE_PAGE_MAX, ge=1, le=CUE_PAGE_MAX),
     ) -> dict[str, Any]:
         return await reads.cue_sheet(hub, persona, lang, favourite_team, since_seq, limit)
+
+    # --- Ask the studio (docs/ASK.md) ---------------------------------------------------------
+    @app.post("/api/ask", dependencies=limited_get)
+    async def ask(request: Request) -> dict[str, Any]:
+        """One question about the match, answered from the stats engine as of the playback
+        clock. Shares the per-IP bucket of the paid-path GET routes and MCP."""
+        declared = request.headers.get("content-length")
+        if declared is not None and declared.isdigit() and int(declared) > ASK_BODY_MAX:
+            raise HTTPException(status_code=413, detail=ASK_TOO_BIG)
+        raw = bytearray()
+        async for chunk in request.stream():
+            raw.extend(chunk)
+            if len(raw) > ASK_BODY_MAX:
+                raise HTTPException(status_code=413, detail=ASK_TOO_BIG)
+        try:
+            body = AskBody.model_validate_json(bytes(raw))
+        except ValidationError as exc:
+            fields = sorted({str(e["loc"][-1]) for e in exc.errors() if e.get("loc")})
+            detail = (
+                f"Check {', '.join(fields)}: the value is missing or not allowed."
+                if fields
+                else "Bad request."
+            )
+            raise HTTPException(status_code=400, detail=detail) from None
+        if (body.question is None) == (body.chip is None):
+            raise HTTPException(status_code=400, detail="Send a question or a chip.")
+        return await reads.ask(hub, body.question, body.chip, body.lang, body.spoilers)
+
+    # --- end ask the studio -------------------------------------------------------------------
 
     @app.post("/api/match/seek", dependencies=limited)
     async def seek(body: SeekBody) -> dict[str, Any]:
@@ -952,7 +1004,11 @@ def create_app(
                     changes["focus_player_id"] = action.spotlight_player_id
             else:
                 changes = {k: getattr(action, k) for k in action.model_fields_set if k != "action"}
+            before = conn.profile.spoilers
             _set_view(conn, changes)
+            if conn.profile.spoilers != before:
+                # Catch-up turned on or the viewer tapped reveal: what is on screen changes at once.
+                await hub.send_snapshots([conn])
 
     def _set_view(conn: Connection, changes: dict[str, Any]) -> None:
         session = hub.session
@@ -964,7 +1020,7 @@ def create_app(
         if player is not None and not session.is_known_player(player):
             conn.error("That player is not in this match.")
             return
-        for key in ("persona", "language"):
+        for key in ("persona", "language", "spoilers"):
             if key in changes and changes[key] is None:
                 changes.pop(key)  # these always have a value
         if not conn.view_limiter.allow():
