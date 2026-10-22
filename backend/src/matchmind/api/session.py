@@ -13,6 +13,12 @@ Speed: `speed_multiplier` is 1, 10 or 60. One real second plays
 MATCHMIND_BASE_RATE), so 1x plays the 90 minutes in about 9 real minutes, 10x in
 about 54 seconds and 60x in about 9 seconds.
 
+Source: the match comes from a file (MATCHMIND_MATCH_FILE, default the bundled
+demo; JSON lines in our schema or the generic CSV, both through the strict
+checks in `matchmind.ingest`) or, with MATCHMIND_SOURCE=eventhubs, from the live
+Event Hubs stream the simulator publishes. A live session grows as events
+arrive (`append`) and only ends at match_end.
+
 Seek replays stats from the nearest checkpoint (a copy of the stats engine taken
 every CHECKPOINT_EVERY events at load), so a jump costs at most that many
 events of work. Moments before the jump point come from the load-time pass, so
@@ -44,7 +50,6 @@ from matchmind.crew.llm import ai_enabled
 from matchmind.crew.producer import ViewerState
 from matchmind.crew.translator import TRANSIENT_REASONS
 from matchmind.schema import Event, EventType
-from matchmind.simulator.publisher import read_jsonl
 from matchmind.simulator.teams import Team, get_team
 from matchmind.stats.models import EventMetrics, MatchStateSnapshot, PlayerStats
 
@@ -80,6 +85,15 @@ class SessionError(ValueError):
 
 
 # --- What the session needs from the stats engine and the crew -------------------------------
+
+
+class LiveFeedLike(Protocol):
+    """A live source (matchmind.ingest.live.LiveFeed): checked events in seq order."""
+
+    def drain(self, limit: int = ...) -> list[Event]: ...
+    @property
+    def exhausted(self) -> bool: ...
+    def status(self) -> dict[str, Any]: ...
 
 
 class StatsEngineLike(Protocol):
@@ -240,28 +254,48 @@ class _Live:
     score_away: int = 0
 
 
-def load_events(path: str | Path | None = None) -> list[Event]:
+def load_match_feed(path: str | Path | None = None) -> Any:
+    """The match file (MATCHMIND_MATCH_FILE or the bundled demo), checked by the ingest
+    adapter. MATCHMIND_ROSTER_FILE adds invented clubs; MATCHMIND_FEED_MAPPING maps a CSV."""
+    from matchmind.ingest.errors import IngestError
+    from matchmind.ingest.feed import load_feed
+
     path = Path(path or os.environ.get("MATCHMIND_MATCH_FILE") or DEFAULT_MATCH_FILE)
     if not path.is_file():
         raise RuntimeError(f"Match file not found: {path}")
-    events = read_jsonl(path)
-    if not events or events[0].type != EventType.MATCH_START:
-        raise RuntimeError(f"{path} does not start with a match_start event")
-    return events
+    try:
+        return load_feed(
+            path,
+            roster=os.environ.get("MATCHMIND_ROSTER_FILE") or None,
+            mapping=os.environ.get("MATCHMIND_FEED_MAPPING") or None,
+        )
+    except IngestError as exc:
+        raise RuntimeError(f"{path.name} cannot be played: {exc}") from None
+
+
+def load_events(path: str | Path | None = None) -> list[Event]:
+    return load_match_feed(path).events
 
 
 def _timeline(events: list[Event]) -> list[float]:
     """Monotonic playback seconds: periods glued end to end."""
     out: list[float] = []
-    offset, last_tl, period = 0.0, 0.0, None
-    for e in events:
-        if period is not None and e.period != period:
-            offset = last_tl - e.clock_s
-        period = e.period
-        tl = max(last_tl, e.clock_s + offset)
-        out.append(tl)
-        last_tl = tl
+    _extend_timeline(out, [], events)
     return out
+
+
+def _extend_timeline(tl: list[float], before: list[Event], new: list[Event]) -> None:
+    """Append the playback seconds of `new`, which follow `before` (whose seconds are in `tl`)."""
+    last_tl = tl[-1] if tl else 0.0
+    prev = before[-1] if before else None
+    offset = (last_tl - prev.clock_s) if prev is not None else 0.0
+    # Within a period the offset is constant; recover it from the last event.
+    for e in new:
+        if prev is not None and e.period != prev.period:
+            offset = last_tl - e.clock_s
+        tl_e = max(last_tl, e.clock_s + offset)
+        tl.append(tl_e)
+        last_tl, prev = tl_e, e
 
 
 class MatchSession:
@@ -275,6 +309,8 @@ class MatchSession:
         clock: Callable[[], float] = time.monotonic,
         base_rate: float | None = None,
         auto_eventing: dict[str, Any] | None = None,
+        live_feed: LiveFeedLike | None = None,
+        source: dict[str, Any] | None = None,
     ) -> None:
         if not events or events[0].type != EventType.MATCH_START:
             raise ValueError("A match needs events starting with match_start")
@@ -289,6 +325,11 @@ class MatchSession:
         self._clock = clock
         self.base_rate = float(base_rate or os.environ.get("MATCHMIND_BASE_RATE") or DEFAULT_BASE_RATE)
         self.auto_eventing = auto_eventing
+        self._feed = live_feed
+        self.consumer: Any = None  # the live consumer, when there is one (kept alive with the session)
+        self._source = source or {"source": "eventhubs" if live_feed is not None else "file"}
+        # A live match stays open (not ended at its last event) until match_end arrives.
+        self._open = live_feed is not None and events[-1].type != EventType.MATCH_END
         self._tl = _timeline(events)
         self._period_starts = self._first_clock_per_period()
         self._player_ids = {p.player_id for t in self.teams.values() for p in t.players}
@@ -329,8 +370,14 @@ class MatchSession:
 
     def _precompute(self) -> None:
         """Run stats and a template crew over the whole match once, for bookmarks and replays."""
-        stats = self._new_stats()
-        for i, event in enumerate(self.events):
+        self._pre_stats = self._new_stats()
+        self._precompute_from(0)
+
+    def _precompute_from(self, start: int) -> None:
+        """The load-time pass over events[start:] (all of them, or the ones a live feed just added)."""
+        stats = self._pre_stats
+        for i in range(start, len(self.events)):
+            event = self.events[i]
             if i % CHECKPOINT_EVERY == 0:
                 self._checkpoints.append((i, copy.deepcopy(stats)))  # stats after events[:i]
             metrics = stats.process(event)
@@ -492,10 +539,54 @@ class MatchSession:
     def crew_traces(self, limit: int) -> list[CrewTrace]:
         return self.crew.traces(limit)
 
+    # --- live source -------------------------------------------------------------------------
+
+    @property
+    def is_live(self) -> bool:
+        return self._feed is not None
+
+    def append(self, events: list[Event]) -> None:
+        """Add events a live feed has just delivered (already checked, in seq order).
+        Callers hold the same locks as for a seek: the load-time pass grows here."""
+        if not events:
+            return
+        if not self._open:
+            raise ValueError("This match is complete; nothing more can be added")
+        if events[0].seq <= self.events[-1].seq or events[0].match_id != self.match_id:
+            raise ValueError("Live events must follow the match so far")
+        start = len(self.events)
+        _extend_timeline(self._tl, self.events, events)
+        self.events.extend(events)
+        for e in events:
+            self._period_starts.setdefault(e.period, e.clock_s)
+        self._precompute_from(start)
+        if self.events[-1].type == EventType.MATCH_END:
+            self._open = False
+
+    def _pull(self) -> None:
+        """Take what the live feed has ready. A feed that stops for good closes the match."""
+        if self._feed is None or not self._open:
+            return
+        self.append(self._feed.drain())
+        if self._open and self._feed.exhausted:
+            self._open = False
+            if self._live.next_index >= len(self.events) and self._live.next_index > 0:
+                self.ended = True
+                self.is_running = False
+
+    def source_status(self) -> dict[str, Any]:
+        """Where the match comes from, for GET /api/source (counts only, no event content)."""
+        out = dict(self._source)
+        out.update({"match_id": self.match_id, "events_loaded": len(self.events), "complete": not self._open})
+        if self._feed is not None:
+            out["stream"] = self._feed.status()
+        return out
+
     # --- playback ----------------------------------------------------------------------------
 
     def touch(self) -> None:
         """Keep the wall clock reference fresh without playing (e.g. nobody is watching)."""
+        self._pull()
         self._last_wall = self._clock()
 
     def advance(self, with_crew: bool = True) -> list[Tick]:
@@ -503,6 +594,7 @@ class MatchSession:
 
         `with_crew=False` plays stats only; the caller then runs `crew_tick` on each
         tick, in order, outside the playback lock (model calls can be slow)."""
+        self._pull()
         now = self._clock()
         if self.is_running and not self.ended:
             self._position += max(0.0, now - self._last_wall) * self.base_rate * self.speed
@@ -535,7 +627,7 @@ class MatchSession:
         live.metrics, live.snapshot = metrics, snapshot
         live.score_home, live.score_away = snapshot.score_home, snapshot.score_away
         live.next_index = i + 1
-        is_last = live.next_index >= len(self.events)
+        is_last = live.next_index >= len(self.events) and not self._open
         if is_last:
             self.ended = True
             self.is_running = False
@@ -577,6 +669,8 @@ class MatchSession:
                 target = i
                 break
         if target >= len(self.events):
+            if self._open:
+                raise SessionError("That part of the match has not been played yet.")
             raise SessionError("That time is after full time.")
         # Landing on the start of the match or a half includes its kick-off markers.
         while target < len(self.events) - 1 and self.events[target].type in (
@@ -625,10 +719,79 @@ class MatchSession:
         }
 
 
+SOURCES = ("file", "eventhubs")
+DEFAULT_LIVE_WAIT_S = 90.0
+
+
 def build_session(match_file: str | Path | None = None, engines: Engines | None = None) -> MatchSession:
-    """The real session: demo match (or MATCHMIND_MATCH_FILE), real stats engine and crew."""
-    events = load_events(match_file)
-    return MatchSession(events, engines=engines or real_engines(), auto_eventing=_auto_eventing(events))
+    """The real session: demo match (or MATCHMIND_MATCH_FILE), real stats engine and crew.
+
+    MATCHMIND_SOURCE=eventhubs plays the live Event Hubs stream instead (off by default)."""
+    source = (os.environ.get("MATCHMIND_SOURCE") or "file").strip().lower()
+    if source not in SOURCES:
+        raise RuntimeError("MATCHMIND_SOURCE must be 'file' or 'eventhubs'")
+    engines = engines or real_engines()
+    if source == "eventhubs" and match_file is None:
+        live = build_live_session(engines)
+        if live is not None:
+            return live
+        note = "No live match started within the wait; replaying the match file instead."
+        return _file_session(match_file, engines, {"source": "file", "requested": "eventhubs", "note": note})
+    return _file_session(match_file, engines, None)
+
+
+def _file_session(
+    match_file: str | Path | None, engines: Engines, source: dict[str, Any] | None
+) -> MatchSession:
+    feed = load_match_feed(match_file)
+    return MatchSession(
+        feed.events,
+        teams=feed.teams,
+        engines=engines,
+        auto_eventing=_auto_eventing(feed.events),
+        source=source or {"source": "file", "format": feed.source},
+    )
+
+
+def build_live_session(
+    engines: Engines,
+    consumer_factory: Callable[[], Any] | None = None,
+    wait_s: float | None = None,
+) -> MatchSession | None:
+    """A session on the live stream, once its match_start arrives; None if none does in time."""
+    from matchmind.ingest.eventhubs import EventHubsSource, default_consumer
+    from matchmind.ingest.live import LiveFeed
+    from matchmind.ingest.roster import load_roster
+    from matchmind.ingest.stream import StreamValidator
+
+    roster_file = os.environ.get("MATCHMIND_ROSTER_FILE")
+    validator = StreamValidator(
+        match_id=os.environ.get("MATCHMIND_EVENTHUBS_MATCH_ID") or None,
+        roster=load_roster(roster_file) if roster_file else None,
+    )
+    feed = LiveFeed(validator)
+    consumer = EventHubsSource(feed, consumer_factory or default_consumer)
+    consumer.start()
+    wait = (
+        wait_s
+        if wait_s is not None
+        else float(os.environ.get("MATCHMIND_EVENTHUBS_WAIT_S") or DEFAULT_LIVE_WAIT_S)
+    )
+    start = feed.wait_for_start(wait)
+    if start is None:
+        logger.warning("no live match_start within %.0f s; falling back to the match file", wait)
+        consumer.close()
+        return None
+    assert feed.teams is not None
+    session = MatchSession(
+        [start],
+        teams=feed.teams,
+        engines=engines,
+        live_feed=feed,
+        source={"source": "eventhubs", "starting_position": consumer.starting_position},
+    )
+    session.consumer = consumer  # kept alive with the session
+    return session
 
 
 def _auto_eventing(events: list[Event]) -> dict[str, Any] | None:

@@ -25,8 +25,8 @@ env:
   RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
   LOCATION: ${{ vars.AZURE_LOCATION }}
   IMAGE_REPO: pitchpulse
-  # Paid AI switches live in repo variables so every deploy keeps the
-  # owner's choice. Unset means off.
+  # Paid AI switches (and the live Event Hubs source switch) live in repo
+  # variables so every deploy keeps the owner's choice. Unset means off.
   AI_PARAMS: >-
     deployOpenAi=${{ vars.DEPLOY_OPENAI || 'false' }}
     deployTranslator=${{ vars.DEPLOY_TRANSLATOR || 'false' }}
@@ -34,6 +34,7 @@ env:
     deployObservability=${{ vars.DEPLOY_OBSERVABILITY || 'false' }}
     llmProvider=${{ vars.MATCHMIND_LLM_PROVIDER || 'azure_openai' }}
     orchestrator=${{ vars.MATCHMIND_ORCHESTRATOR || 'in_process' }}
+    eventHubsSource=${{ vars.MATCHMIND_EVENTHUBS_SOURCE || 'false' }}
 
 jobs:
   azure:

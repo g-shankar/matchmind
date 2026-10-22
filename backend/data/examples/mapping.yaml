@@ -1,0 +1,30 @@
+# Mapping for the generic CSV example: how our fields line up with the file's
+# columns and words. docs/DATASET.md describes every key.
+format: generic-csv/1
+match_id: EXT-DEMO-001
+kickoff: 2026-10-24T15:00:00Z
+home: RVT
+away: GLD
+columns:
+  type: action
+types:
+  Pass: pass
+  Carry: carry
+  Shot: shot
+  Tackle: tackle
+  Interception: interception
+  Clearance: clearance
+  Foul: foul
+  Card: card
+outcomes:
+  Complete: complete
+  Incomplete: incomplete
+  Goal: goal
+  Saved: saved
+  Wide: off_target
+  Yellow: yellow
+pitch:
+  length: 100
+  width: 100
+  origin: top_left
+player_ref: number

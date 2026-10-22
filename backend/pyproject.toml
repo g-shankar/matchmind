@@ -60,6 +60,7 @@ matchmind-autoevent = "matchmind.autoevent.cli:main"
 matchmind-lakehouse = "matchmind.analytics.cli:main"
 matchmind-foundry = "matchmind.foundry.cli:main"
 matchmind-mcp = "matchmind.mcp.__main__:main"
+matchmind-ingest = "matchmind.ingest.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/matchmind"]

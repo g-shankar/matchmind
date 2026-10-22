@@ -19,17 +19,19 @@ import json
 import logging
 import math
 import os
+import threading
 import time
 from collections import OrderedDict
 from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, TypeVar
 
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, WebSocket
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -41,6 +43,11 @@ from matchmind.crew.contracts import (
     ViewerProfile,
 )
 from matchmind.crew.producer import ViewerState
+from matchmind.dataset import catalog as dataset_catalog
+from matchmind.dataset.dictionary import cached_dictionary
+from matchmind.dataset.export import FORMATS as DATASET_FORMATS
+from matchmind.dataset.export import TRACKING_HZ, TRACKING_MAX_WINDOW_S, TrackingWindow, export_parts
+from matchmind.schema import PITCH_LENGTH_M, PITCH_WIDTH_M, SCHEMA_VERSION, Event
 
 from . import reads, view
 from .session import MatchSession, SessionError, Tick, build_session
@@ -70,7 +77,60 @@ OOPS = "Something went wrong on our side. Please try again."
 TOO_FAST = "Jumping around too fast. Wait a moment and try again."
 TOO_MANY = "Too many requests. Wait a moment and try again."
 
+# Dataset downloads (synthetic, public): a few per client IP, at most two built at once.
+EXPORT_BURST, EXPORT_PER_SECOND = 6, 0.2
+EXPORT_CONCURRENCY = 2
+EXPORT_CHUNK = 64 * 1024
+DATASET_CACHE = "public, max-age=3600"
+EXPORTS_BUSY = "Downloads are busy right now. Try again in a few seconds."
+
 T = TypeVar("T")
+
+
+# --- Dataset export (docs/DATASET.md) ------------------------------------------------ begin
+
+
+@lru_cache(maxsize=1)
+def dataset_index() -> dict[str, Any]:
+    """GET /api/dataset: every downloadable match, with its scenario and seed."""
+    return {
+        "synthetic": True,
+        "note": "Synthetic matches from the PitchPulse engine. Invented clubs and players only.",
+        "schema_version": SCHEMA_VERSION,
+        "pitch": {"length_m": PITCH_LENGTH_M, "width_m": PITCH_WIDTH_M, "home_attacks": "+x"},
+        "formats": list(DATASET_FORMATS),
+        "tracking": {"hz": TRACKING_HZ, "max_window_s": TRACKING_MAX_WINDOW_S, "formats": ["zip"]},
+        "scenarios": dict(dataset_catalog.SCENARIOS),
+        "seeded": {
+            "seed_start": dataset_catalog.SEED_START,
+            "seed_end": dataset_catalog.SEED_START + dataset_catalog.API_SEED_COUNT - 1,
+            "match_id": "MM-GEN-<seed, 5 digits>",
+        },
+        "matches": [e.as_dict() for e in dataset_catalog.api_entries()],
+    }
+
+
+@lru_cache(maxsize=6)
+def dataset_export_bytes(
+    match_id: str, fmt: str, window: tuple[int, float, float] | None
+) -> tuple[str, str, bytes]:
+    """One export, built whole (at most a few MB) so the slot is held only while building."""
+    entry = dataset_catalog.find(match_id)
+    if entry is None:
+        raise KeyError(match_id)
+    tracking = TrackingWindow(*window) if window else None
+    name, media, chunks = export_parts(
+        entry,
+        dataset_catalog.load_match(entry),
+        fmt,
+        cached_dictionary(),
+        Event.model_json_schema(),
+        tracking,
+    )
+    return name, media, b"".join(chunks)
+
+
+# --- Dataset export -------------------------------------------------------------------- end
 
 
 def allowed_origins_from_env() -> list[str]:
@@ -485,7 +545,10 @@ def create_app(
         response = await call_next(request)
         response.headers.setdefault("X-Content-Type-Options", "nosniff")
         response.headers.setdefault("Referrer-Policy", "no-referrer")
-        if request.url.path.startswith("/api/"):
+        path = request.url.path
+        # Downloads of the synthetic dataset may be cached publicly; nothing else under /api.
+        public = path.startswith("/api/dataset") and response.status_code == 200
+        if path.startswith("/api/") and not public:
             response.headers["Cache-Control"] = "no-store"
         return response
 
@@ -590,6 +653,76 @@ def create_app(
     @app.get("/api/auto-eventing")
     async def auto_eventing() -> dict[str, Any]:
         return reads.auto_eventing(hub)
+
+    # --- Dataset export and match source (docs/DATASET.md) ------------------------ begin
+    # Read-only downloads of synthetic data. There is deliberately no upload route: an
+    # external feed is a file the operator plays with matchmind-ingest or
+    # MATCHMIND_MATCH_FILE (CLAUDE.md upload rules; docs/DATASET.md).
+
+    export_limited = [Depends(ip_limit(EXPORT_BURST, EXPORT_PER_SECOND))]
+    export_slots = threading.BoundedSemaphore(EXPORT_CONCURRENCY)
+
+    @app.get("/api/dataset", dependencies=limited_get)
+    async def dataset() -> JSONResponse:
+        data = await asyncio.to_thread(dataset_index)
+        return JSONResponse(data, headers={"Cache-Control": DATASET_CACHE})
+
+    @app.get("/api/dataset/export", dependencies=export_limited)
+    async def dataset_export(
+        match_id: str = Query(min_length=3, max_length=32, pattern=r"^[A-Z0-9][A-Z0-9-]+$"),
+        format: Literal["jsonl", "csv", "zip"] = "zip",
+        tracking_period: int | None = Query(default=None, ge=1, le=2),
+        tracking_from: float | None = Query(default=None, ge=0, le=7200),
+        tracking_to: float | None = Query(default=None, ge=0, le=7200),
+    ) -> StreamingResponse:
+        if dataset_catalog.find(match_id) is None:
+            raise HTTPException(
+                status_code=404, detail="We do not have that match. GET /api/dataset lists them."
+            )
+        window: tuple[int, float, float] | None = None
+        given = [v is not None for v in (tracking_period, tracking_from, tracking_to)]
+        if any(given):
+            if not all(given):
+                raise HTTPException(
+                    status_code=400,
+                    detail="A tracking sample needs tracking_period, tracking_from and tracking_to.",
+                )
+            assert tracking_period is not None and tracking_from is not None and tracking_to is not None
+            if format != "zip":
+                raise HTTPException(
+                    status_code=400, detail="The tracking sample comes in the zip format only."
+                )
+            window = (tracking_period, round(tracking_from, 1), round(tracking_to, 1))
+            try:
+                TrackingWindow(*window)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=f"Check the tracking window: {exc}.") from None
+        if not export_slots.acquire(blocking=False):
+            raise HTTPException(status_code=429, detail=EXPORTS_BUSY)
+        try:
+            name, media, body = await asyncio.to_thread(dataset_export_bytes, match_id, format, window)
+        finally:
+            export_slots.release()
+
+        def chunks():
+            for i in range(0, len(body), EXPORT_CHUNK):
+                yield body[i : i + EXPORT_CHUNK]
+
+        return StreamingResponse(
+            chunks(),
+            media_type=media,
+            headers={
+                "Content-Disposition": f'attachment; filename="{name}"',
+                "Content-Length": str(len(body)),
+                "Cache-Control": DATASET_CACHE,
+            },
+        )
+
+    @app.get("/api/source")
+    async def source() -> dict[str, Any]:
+        return await hub.run(hub.session.source_status)
+
+    # --- Dataset export and match source ------------------------------------------------ end
 
     # --- WebSocket ---------------------------------------------------------------------------
 
