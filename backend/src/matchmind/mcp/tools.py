@@ -122,7 +122,8 @@ async def _simulate(ctx: ToolContext, a: m.SimulateIn) -> dict[str, Any]:
 async def _ask(ctx: ToolContext, a: m.AskIn) -> dict[str, Any]:
     if (a.question is None) == (a.chip is None):
         raise HTTPException(status_code=400, detail="Send a question or a chip.")
-    return await reads.ask(ctx.hub, a.question, a.chip, a.language, a.spoilers)
+    # One shared model quota for every MCP caller: the tool has no per-caller address.
+    return await reads.ask(ctx.hub, a.question, a.chip, a.language, a.spoilers, client="mcp")
 
 
 # --- The tools ----------------------------------------------------------------------------------

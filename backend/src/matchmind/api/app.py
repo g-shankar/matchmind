@@ -789,7 +789,7 @@ def create_app(
             raise HTTPException(status_code=400, detail=validation_detail(exc.errors())) from None
         if (body.question is None) == (body.chip is None):
             raise HTTPException(status_code=400, detail="Send a question or a chip.")
-        return await reads.ask(hub, body.question, body.chip, body.lang, body.spoilers)
+        return await reads.ask(hub, body.question, body.chip, body.lang, body.spoilers, client_ip(request))
 
     # --- end ask the studio -------------------------------------------------------------------
 

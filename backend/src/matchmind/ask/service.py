@@ -131,8 +131,10 @@ def ask(
     spoilers: bool = True,
     llm: LLM | None = None,
     metric_info: dict[str, MetricInfo] | None = None,
+    client: str = "local",
 ) -> AskAnswer:
-    """Answer one question (or suggested chip) about the match as of `ctx`."""
+    """Answer one question (or suggested chip) about the match as of `ctx`. `client`
+    keys the optional model path's per-client quota (never logged)."""
     roster = Roster.build(ctx.teams, ctx.home_id, ctx.away_id)
     understood: UnderstoodBy
     if chip is not None:
@@ -155,7 +157,7 @@ def ask(
         intent = parsed.intent
         understood = "rules"
         if intent is None and llm is not None:
-            intent = model_intent(text, llm, roster)
+            intent = model_intent(text, llm, roster, client=client)
             understood = "model"
         if intent is None:
             return _log(refusal(ctx, language, spoilers, "off_topic"), len(text))

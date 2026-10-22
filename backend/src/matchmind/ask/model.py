@@ -3,9 +3,12 @@ understand to the same fixed-schema intent. Off by default.
 
 It runs only when paid AI is switched on (`MATCHMIND_AI_ENABLED=true`), only
 after the guard has passed the question, only when the rule-based parser found
-no intent, and only within the shared model budget and its own circuit
-breaker. The model sees the question (as data) and nothing else: no roster, no
-stats, no stored text. Its answer must be `IntentGuess` JSON; anything else is
+no intent, and only within Ask's own limits: a small model budget of its own
+(never the crew's), a per-client quota (keyed by the caller's address, which
+behind the ingress is the last X-Forwarded-For entry) and its own circuit
+breaker. A cache by normalised question answers repeats without a call. The
+model sees the question (as data) and nothing else: no roster, no stats, no
+stored text. Its answer must be `IntentGuess` JSON; anything else is
 dropped. A named player is resolved by the same squad lookup the parser uses,
 and the intent is answered by the same deterministic code. Model text is never
 shown to a viewer.
@@ -14,13 +17,16 @@ shown to a viewer.
 from __future__ import annotations
 
 import logging
+import threading
 import time
+from collections import OrderedDict, deque
+from collections.abc import Callable
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from matchmind.crew.breaker import CircuitBreaker
-from matchmind.crew.llm import LLM, ModelBudget, default_budget
+from matchmind.crew.llm import LLM, ModelBudget, _env_int
 
 from .guard import check_question, normalise
 from .intents import INTENT_KINDS, Intent
@@ -30,6 +36,73 @@ logger = logging.getLogger("pitchpulse.ask")
 
 TIMEOUT_S = 4.0
 BREAKER = CircuitBreaker(time.monotonic)
+
+
+class ClientQuota:
+    """At most `per_window` model calls per client in a rolling window. Bounded: the
+    least recently seen clients are forgotten past `max_clients` (Ask's own budget
+    still caps everyone together)."""
+
+    def __init__(
+        self,
+        per_window: int = 2,
+        window_s: float = 60.0,
+        max_clients: int = 4096,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self.per_window, self.window_s, self.max_clients, self.clock = (
+            per_window,
+            window_s,
+            max_clients,
+            clock,
+        )
+        self._calls: OrderedDict[str, deque[float]] = OrderedDict()
+        self._lock = threading.Lock()
+
+    def take(self, client: str) -> bool:
+        with self._lock:
+            now = self.clock()
+            calls = self._calls.pop(client, None) or deque()
+            while calls and now - calls[0] >= self.window_s:
+                calls.popleft()
+            self._calls[client] = calls
+            while len(self._calls) > self.max_clients:
+                self._calls.popitem(last=False)
+            if len(calls) >= self.per_window:
+                return False
+            calls.append(now)
+            return True
+
+
+class GuessCache:
+    """The model's validated guess per normalised question (LRU). Failures are never
+    cached; a guess is resolved against the squads again on every use."""
+
+    def __init__(self, size: int = 256) -> None:
+        self.size = size
+        self._items: OrderedDict[str, IntentGuess] = OrderedDict()
+        self._lock = threading.Lock()
+
+    def get(self, key: str) -> IntentGuess | None:
+        with self._lock:
+            guess = self._items.get(key)
+            if guess is not None:
+                self._items.move_to_end(key)
+            return guess
+
+    def put(self, key: str, guess: IntentGuess) -> None:
+        if self.size <= 0:
+            return
+        with self._lock:
+            self._items[key] = guess
+            self._items.move_to_end(key)
+            while len(self._items) > self.size:
+                self._items.popitem(last=False)
+
+
+def cache_key(question: str) -> str:
+    return " ".join(normalise(question).split())[:200]
+
 
 SYSTEM = """You map one viewer question about a single football match to an intent for PitchPulse.
 Answer with JSON only, matching this schema:
@@ -78,6 +151,16 @@ class IntentGuess(BaseModel):
 
 assert set(INTENT_KINDS) <= set(IntentGuess.model_fields["kind"].annotation.__args__)  # type: ignore[union-attr]
 
+# Ask's own limits, separate from the crew's process-wide budget, so a viewer looping on
+# /api/ask can never starve live commentary (MATCHMIND_ASK_AI_BUDGET total calls,
+# MATCHMIND_ASK_AI_RATE_PER_MIN per minute for everyone, MATCHMIND_ASK_AI_PER_CLIENT per
+# client per minute).
+ASK_BUDGET = ModelBudget(
+    total=_env_int("MATCHMIND_ASK_AI_BUDGET", 60), per_minute=_env_int("MATCHMIND_ASK_AI_RATE_PER_MIN", 6)
+)
+ASK_QUOTA = ClientQuota(per_window=_env_int("MATCHMIND_ASK_AI_PER_CLIENT", 2))
+ASK_CACHE = GuessCache()
+
 
 def model_intent(
     question: str,
@@ -85,15 +168,26 @@ def model_intent(
     roster: Roster,
     budget: ModelBudget | None = None,
     breaker: CircuitBreaker | None = None,
+    *,
+    client: str = "local",
+    quota: ClientQuota | None = None,
+    cache: GuessCache | None = None,
 ) -> Intent | None:
-    """The model's intent for a question the rules could not read, or None."""
+    """The model's intent for a question the rules could not read, or None. `client`
+    keys the per-client quota (the caller's address; "mcp" for the MCP tool)."""
     if not getattr(llm, "enabled", False):
         return None
     breaker = breaker or BREAKER
-    budget = budget or default_budget()
+    budget = budget or ASK_BUDGET
+    quota = quota or ASK_QUOTA
+    cache = cache or ASK_CACHE
+    key = cache_key(question)
+    cached = cache.get(key)
+    if cached is not None:
+        return to_intent(cached, roster)
     if breaker.is_open():
         return None
-    if not budget.take():
+    if not quota.take(client) or not budget.take():
         breaker.cancel_probe()
         return None
     try:
@@ -105,8 +199,9 @@ def model_intent(
         return None
     try:
         guess = raw if isinstance(raw, IntentGuess) else IntentGuess.model_validate(raw.model_dump())
-    except ValidationError:
+    except (ValidationError, AttributeError):
         return None
+    cache.put(key, guess)
     return to_intent(guess, roster)
 
 

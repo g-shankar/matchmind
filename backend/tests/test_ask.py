@@ -458,6 +458,86 @@ def test_model_path_respects_the_budget_and_breaker(ctx70):
     assert len(failing.calls) == 3  # open after three failures
 
 
+# --- Ask's own model limits: one client can never drain the crew's budget (docs/ASK.md) ---------
+
+
+def test_client_quota_and_ask_budget_are_separate_from_the_crew(ctx70, monkeypatch):
+    from matchmind.ask import model
+    from matchmind.crew import llm as crew_llm
+
+    clock = FakeClock()
+    monkeypatch.setattr(model, "ASK_BUDGET", ModelBudget(total=5, per_minute=5, clock=clock))
+    monkeypatch.setattr(model, "ASK_QUOTA", model.ClientQuota(per_window=2, window_s=60, clock=clock))
+    monkeypatch.setattr(model, "ASK_CACHE", model.GuessCache(size=64))
+    roster = Roster.build(ctx70.teams, "NBR", "HCY")
+    llm = FakeLLM(IntentGuess(kind="momentum"))
+    for i in range(10):
+        model_intent(f"how are things looking {i}", llm, roster, client="198.51.100.7")
+    assert len(llm.calls) == 2  # the client's quota for this minute
+    assert crew_llm.BUDGET.used == 0  # the crew's budget is untouched
+    assert model.ASK_BUDGET.used == 2
+    # Another client has its own quota, but the ask budget caps everyone together.
+    for i in range(10):
+        model_intent(f"what is going on {i}", llm, roster, client="203.0.113.9")
+    assert len(llm.calls) == 4
+    clock.t += 61
+    for i in range(10):
+        model_intent(f"and now {i}", llm, roster, client="192.0.2.1")
+    assert len(llm.calls) == 5 and model.ASK_BUDGET.used == 5  # total spent: no more calls
+    assert crew_llm.BUDGET.used == 0
+
+
+def test_repeated_question_is_answered_from_the_cache(ctx70, monkeypatch):
+    from matchmind.ask import model
+
+    monkeypatch.setattr(model, "ASK_QUOTA", model.ClientQuota(per_window=1, window_s=60))
+    monkeypatch.setattr(model, "ASK_CACHE", model.GuessCache(size=64))
+    roster = Roster.build(ctx70.teams, "NBR", "HCY")
+    llm = FakeLLM(IntentGuess(kind="momentum"))
+    for q in ("How are things looking?", "how are THINGS   looking?", "How are things looking?"):
+        intent = model_intent(q, llm, roster, client="198.51.100.7")
+        assert intent is not None and intent.kind == "momentum"
+    assert len(llm.calls) == 1  # one call; the rest from the cache, without spending quota
+    # A failure is never cached.
+    failing = FakeLLM(error=LLMError("down"))
+    monkeypatch.setattr(model, "ASK_QUOTA", model.ClientQuota(per_window=10, window_s=60))
+    for _ in range(2):
+        model_intent("something else entirely", failing, roster, client="x")
+    assert len(failing.calls) == 2
+
+
+def test_rest_model_quota_is_keyed_on_the_last_forwarded_address(demo, monkeypatch):
+    from matchmind.api import app as app_mod
+    from matchmind.ask import model
+    from matchmind.crew import llm as crew_llm
+
+    monkeypatch.setattr(app_mod, "TRUST_FORWARDED_FOR", True)
+    monkeypatch.setattr(model, "ASK_QUOTA", model.ClientQuota(per_window=2, window_s=60))
+    monkeypatch.setattr(model, "ASK_CACHE", model.GuessCache(size=64))
+    monkeypatch.setattr(crew_llm, "ai_enabled", lambda: True)
+    fake = FakeLLM(IntentGuess(kind="momentum"))
+    monkeypatch.setattr(demo.crew, "llm", fake, raising=False)
+    app = create_app(session=demo, tick_interval=None, allowed_origins=[ALLOWED])
+    with TestClient(app) as c:
+        statuses = []
+        for i in range(8):  # a spoofed left-hand entry never buys a fresh quota
+            r = c.post(
+                "/api/ask",
+                json={"question": f"Tell me how things are going out there {i}"},
+                headers={"x-forwarded-for": f"10.0.0.{i}, 198.51.100.7"},
+            )
+            statuses.append(r.json()["status"])
+        assert len(fake.calls) == 2 and statuses[:2] == ["answered"] * 2
+        assert set(statuses[2:]) == {"refused"}
+        r = c.post(
+            "/api/ask",
+            json={"question": "Tell me how things are going out there 99"},
+            headers={"x-forwarded-for": "203.0.113.9"},
+        )
+        assert r.json()["status"] == "answered" and len(fake.calls) == 3
+    assert crew_llm.BUDGET.used == 0
+
+
 def test_ai_switch_off_means_no_model(demo, monkeypatch):
     monkeypatch.delenv("MATCHMIND_AI_ENABLED", raising=False)
     called = []

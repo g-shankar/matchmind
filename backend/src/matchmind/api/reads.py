@@ -266,8 +266,10 @@ async def ask(
     chip: str | None,
     lang: Language = "en",
     spoilers: bool = True,
+    client: str = "local",
 ) -> dict[str, Any]:
-    """POST /api/ask and the `ask_studio` MCP tool: one answer as of the playback clock."""
+    """POST /api/ask and the `ask_studio` MCP tool: one answer as of the playback clock.
+    `client` keys the optional model path's per-client quota (docs/ASK.md)."""
     from matchmind.ask import ask as ask_studio
     from matchmind.crew.llm import ai_enabled
 
@@ -283,6 +285,7 @@ async def ask(
             spoilers=spoilers,
             llm=llm,
             metric_info=_metric_info(),
+            client=client,
         )
     )
     return answer.model_dump(mode="json")
