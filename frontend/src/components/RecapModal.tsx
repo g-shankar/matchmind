@@ -218,7 +218,7 @@ export const RecapModal: React.FC<RecapModalProps> = ({ open, onClose, recap, lo
           <button
             type="button"
             onClick={onClose}
-            className="min-h-[44px] rounded-lg bg-pp-pulse px-4 text-xs font-bold text-white transition hover:bg-pp-pulse/85"
+            className="min-h-[44px] rounded-lg bg-pp-pulseFill px-4 text-xs font-bold text-white transition hover:bg-pp-pulseFill/85"
           >
             {t('broadcast.recap.close')}
           </button>

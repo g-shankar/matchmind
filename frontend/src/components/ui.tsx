@@ -33,7 +33,7 @@ export const Badge: React.FC<{ tone?: 'pulse' | 'signal' | 'gold' | 'mute'; clas
   children,
 }) => {
   const tones = {
-    pulse: 'bg-pp-pulse text-white',
+    pulse: 'bg-pp-pulseFill text-white',
     signal: 'bg-pp-signal text-pp-night',
     gold: 'bg-pp-gold text-pp-night',
     mute: 'border border-pp-line bg-pp-deep text-pp-mute',

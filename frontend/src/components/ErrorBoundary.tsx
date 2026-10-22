@@ -16,7 +16,7 @@ export class ErrorBoundary extends React.Component<{ children: React.ReactNode }
         <p className="font-display text-xl">Something went wrong. Refresh the page to restart the match.</p>
         <p>Algo ha fallado. Recarga la página para reiniciar el partido.</p>
         <p dir="rtl">حدث خطأ. أعد تحميل الصفحة لإعادة تشغيل المباراة.</p>
-        <button type="button" onClick={() => window.location.reload()} className="mt-3 rounded-lg bg-pp-pulse px-4 py-2 font-bold text-white">
+        <button type="button" onClick={() => window.location.reload()} className="mt-3 rounded-lg bg-pp-pulseFill px-4 py-2 font-bold text-white">
           Refresh
         </button>
       </div>

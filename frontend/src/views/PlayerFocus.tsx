@@ -9,6 +9,7 @@ import { useI18n } from '../i18n';
 import { activeCards } from '../state/matchStore';
 import { playerById, shortName, type PlayerRef } from '../lib/teams';
 import type { ViewProps } from './types';
+import { inkOn } from '../lib/contrast';
 
 const LINE_ORDER = { GK: 0, DEF: 1, MID: 2, FWD: 3 } as const;
 
@@ -283,7 +284,7 @@ const PlayerPicker: React.FC<{ teams: Teams; selected: string | null; onPick: (i
                         >
                           <span
                             className="ltr-nums flex h-6 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-bold"
-                            style={{ background: team.primary_color, color: team.secondary_color }}
+                            style={{ background: team.primary_color, color: inkOn(team.primary_color) }}
                           >
                             {p.number}
                           </span>
@@ -360,7 +361,7 @@ export const PlayerFocus: React.FC<ViewProps> = ({ match, actions }) => {
           <div className="flex flex-wrap items-center gap-3">
             <div
               className="ltr-nums flex h-14 w-14 shrink-0 items-center justify-center rounded-xl font-display text-2xl font-extrabold shadow-inner"
-              style={{ background: color, color: player.team.secondary_color }}
+              style={{ background: color, color: inkOn(color) }}
             >
               {player.number}
             </div>
@@ -384,7 +385,7 @@ export const PlayerFocus: React.FC<ViewProps> = ({ match, actions }) => {
               title={t('fan.follow.playerCamHint')}
               className={cx(
                 'flex min-h-[40px] items-center gap-2 rounded-xl border px-3 text-xs font-bold transition',
-                camOn ? 'border-pp-pulse bg-pp-pulse text-white' : 'border-pp-line bg-pp-night text-slate-200 hover:border-pp-pulse',
+                camOn ? 'border-pp-pulse bg-pp-pulseFill text-white' : 'border-pp-line bg-pp-night text-slate-200 hover:border-pp-pulse',
               )}
             >
               <Video className="h-4 w-4" aria-hidden />

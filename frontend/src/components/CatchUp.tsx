@@ -125,7 +125,7 @@ export const CatchUpBanner: React.FC<{ match: MatchViewState; actions: MatchActi
                 <SkipForward className="h-4 w-4" aria-hidden />
                 {t('catchup.next')}
               </button>
-              <button type="button" onClick={() => backToLive(tour.live)} className={cx(btn, 'bg-pp-pulse text-white hover:bg-pp-chalk hover:text-pp-night')}>
+              <button type="button" onClick={() => backToLive(tour.live)} className={cx(btn, 'bg-pp-pulseFill text-white hover:bg-pp-chalk hover:text-pp-night')}>
                 <Radio className="h-4 w-4" aria-hidden />
                 {t('catchup.jumpLive')}
               </button>

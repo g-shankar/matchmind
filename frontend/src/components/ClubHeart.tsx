@@ -60,7 +60,7 @@ const Highlighted: React.FC<{ text: string; shared: Set<string> }> = ({ text, sh
           {m[0]}
         </mark>
       ) : (
-        <mark key={at} data-own-number className="ltr-nums bg-pp-pulse px-0.5 font-bold text-white">
+        <mark key={at} data-own-number className="ltr-nums bg-pp-pulseFill px-0.5 font-bold text-white">
           {m[0]}
         </mark>
       ),

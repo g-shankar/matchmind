@@ -136,7 +136,7 @@ export const AskStudio: React.FC<{
           type="submit"
           disabled={!!pending || tooLong}
           aria-busy={pending === 'text'}
-          className="flex min-h-[44px] items-center gap-1.5 bg-pp-pulse px-4 font-display text-sm font-extrabold uppercase italic tracking-broadcast text-white hover:bg-pp-chalk hover:text-pp-night disabled:opacity-50"
+          className="flex min-h-[44px] items-center gap-1.5 bg-pp-pulseFill px-4 font-display text-sm font-extrabold uppercase italic tracking-broadcast text-white hover:bg-pp-chalk hover:text-pp-night disabled:opacity-50"
         >
           <Search className="h-4 w-4" aria-hidden />
           {pending === 'text' ? t('ask.sending') : t('ask.send')}
@@ -272,7 +272,7 @@ const AnswerCard: React.FC<{
         <div data-testid="ask-upcoming" className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
           <span className="text-slate-300">{t('guide.ask.firstAt', { clock: `⁦${upcoming.match_clock}⁩` })}</span>
           {onJump && (
-            <button type="button" onClick={() => onJump(upcoming)} className="inline-flex min-h-[44px] items-center gap-1 bg-pp-pulse px-3 text-xs font-bold text-white hover:bg-pp-pulse/85">
+            <button type="button" onClick={() => onJump(upcoming)} className="inline-flex min-h-[44px] items-center gap-1 bg-pp-pulseFill px-3 text-xs font-bold text-white hover:bg-pp-pulseFill/85">
               <Play className="h-3.5 w-3.5" aria-hidden />
               <span className="ltr-nums">{t('guide.ask.jumpTo', { clock: upcoming.match_clock })}</span>
             </button>
@@ -286,7 +286,7 @@ const AnswerCard: React.FC<{
             return (
               <React.Fragment key={id}>
               {onOpenReplay && isSpecialBookmark(match, id) && (
-                <button type="button" aria-haspopup="dialog" onClick={() => onOpenReplay(id)} className="inline-flex min-h-[44px] items-center gap-1 bg-pp-pulse px-3 text-xs font-bold text-white hover:bg-pp-pulse/85">
+                <button type="button" aria-haspopup="dialog" onClick={() => onOpenReplay(id)} className="inline-flex min-h-[44px] items-center gap-1 bg-pp-pulseFill px-3 text-xs font-bold text-white hover:bg-pp-pulseFill/85">
                   <Play className="h-3.5 w-3.5" aria-hidden />
                   {t('visit.jump.replay')}
                   {b ? <span className="ltr-nums"> · {b.match_clock}</span> : null}

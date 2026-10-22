@@ -9,6 +9,7 @@ import { CardItem } from './PlayerFocus';
 import type { ViewProps } from './types';
 import { ScoreValue } from '../components/CatchUp';
 import { AskStudio } from '../components/AskStudio';
+import { inkOn } from '../lib/contrast';
 
 type Side = 'home' | 'away';
 const METRICS: FocusMetric[] = ['pressure', 'xg', 'pass_difficulty', 'top_speed', 'momentum'];
@@ -81,14 +82,14 @@ const ClubButton: React.FC<{ team: TeamInfo; on: boolean; onPick: () => void }> 
       type="button"
       aria-pressed={on}
       onClick={onPick}
-      className={cx('relative min-h-[96px] overflow-hidden rounded-2xl border-2 bg-pp-deep p-3 text-start transition', on ? 'shadow-lg' : 'opacity-80 hover:opacity-100')}
+      className={cx('relative min-h-[96px] overflow-hidden rounded-2xl border-2 bg-pp-deep p-3 text-start transition', on && 'shadow-lg')}
       style={{ borderColor: on ? team.primary_color : `${team.primary_color}55`, boxShadow: on ? `0 0 24px ${team.primary_color}44` : undefined }}
     >
       <span aria-hidden className="absolute inset-y-0 start-0 w-2" style={{ background: `linear-gradient(${team.primary_color}, ${team.secondary_color})` }} />
       <span className="flex items-center gap-2 ps-2">
         <span
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xs font-extrabold"
-          style={{ background: team.primary_color, color: team.secondary_color }}
+          style={{ background: team.primary_color, color: inkOn(team.primary_color) }}
         >
           {team.short_name}
         </span>

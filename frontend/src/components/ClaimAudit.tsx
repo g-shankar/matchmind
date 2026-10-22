@@ -191,7 +191,7 @@ const Mark: React.FC<{ kind: 'number' | 'name' | 'unbound'; title?: string; chil
       'ltr-nums px-0.5 font-bold',
       kind === 'number' && 'bg-pp-signal text-pp-night',
       kind === 'name' && 'bg-transparent text-pp-chalk outline outline-1 outline-pp-chalk/70',
-      kind === 'unbound' && 'bg-pp-pulse text-white line-through',
+      kind === 'unbound' && 'bg-pp-pulseFill text-white line-through',
     )}
   >
     {children}

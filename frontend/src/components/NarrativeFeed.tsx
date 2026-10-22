@@ -361,7 +361,7 @@ export const StoryCard: React.FC<{
           <button
             type="button"
             onClick={() => onOpenReplay(card)}
-            className="ms-auto inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-pp-pulse px-3 text-xs font-bold text-white shadow hover:bg-pp-pulse/85"
+            className="ms-auto inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-pp-pulseFill px-3 text-xs font-bold text-white shadow hover:bg-pp-pulseFill/85"
           >
             <Play className="h-3.5 w-3.5" aria-hidden />
             {t('studio.feed.replay')}

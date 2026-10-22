@@ -12,6 +12,7 @@ import { Badge, cx } from './ui';
 import { Pitch2D } from './Pitch2D';
 import { ReplayCard } from './ReplayCard';
 import { ScoreValue } from './CatchUp';
+import { inkOn } from '../lib/contrast';
 
 type Layer = 'scorebug' | Slot;
 const LAYERS: Layer[] = ['scorebug', 'lower_third', 'side_panel', 'pitch_tag', 'metric_alert', 'full_screen'];
@@ -89,7 +90,7 @@ const LowerThird: React.FC<{ card: OverlayCard; teams: Teams | null; favourite: 
           {t(`kind.${card.kind}`)}
         </Badge>
         {accent && (
-          <span className="rounded-full px-1.5 py-0.5 text-[clamp(8px,1vw,11px)] font-bold text-white" style={{ background: accent }}>
+          <span className="rounded-full px-1.5 py-0.5 text-[clamp(8px,1vw,11px)] font-bold" style={{ background: accent, color: inkOn(accent) }}>
             {t('broadcast.yourTeam')}
           </span>
         )}
@@ -135,7 +136,7 @@ export const CorrectionCard: React.FC<{ card: OverlayCard; reason?: string | nul
       className="pointer-events-auto w-full max-w-3xl animate-slide-up border-2 border-pp-pulse bg-pp-deep/95 px-[clamp(10px,2.4vw,22px)] py-[clamp(8px,1.6vw,16px)] shadow-2xl"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex animate-stamp-in items-center gap-1.5 border-2 border-pp-pulse bg-pp-pulse px-2 py-0.5 font-display text-[clamp(12px,2vw,22px)] font-extrabold uppercase tracking-broadcast text-white">
+        <span className="inline-flex animate-stamp-in items-center gap-1.5 border-2 border-pp-pulse bg-pp-pulseFill px-2 py-0.5 font-display text-[clamp(12px,2vw,22px)] font-extrabold uppercase tracking-broadcast text-white">
           <Gavel className="h-[1em] w-[1em]" aria-hidden />
           {t('cue.ruledOut')}
         </span>
@@ -188,7 +189,7 @@ const CueLog: React.FC<{ cues: Cue[] }> = ({ cues }) => {
               <span
                 className={cx(
                   'shrink-0 px-1 font-bold uppercase',
-                  c.op === 'retract' || c.op === 'supersede' ? 'bg-pp-pulse text-white' : 'bg-pp-raised text-slate-200',
+                  c.op === 'retract' || c.op === 'supersede' ? 'bg-pp-pulseFill text-white' : 'bg-pp-raised text-slate-200',
                 )}
               >
                 {t(`cue.op.${c.op}`)}
@@ -228,7 +229,7 @@ const Scorebug: React.FC<ViewProps & { corrected?: boolean }> = ({ match, correc
           <span
             data-testid="scorebug-var"
             title={t('cue.scoreReverted')}
-            className="flex items-center bg-pp-pulse px-1.5 text-[0.7em] font-extrabold uppercase tracking-wider"
+            className="flex items-center bg-pp-pulseFill px-1.5 text-[0.7em] font-extrabold uppercase tracking-wider"
           >
             {t('cue.var')}
             <span className="sr-only"> · {t('cue.scoreReverted')}</span>
@@ -409,7 +410,7 @@ export const BroadcastOverlay: React.FC<ViewProps & { capture?: boolean }> = ({ 
             data-testid="metric-ticker"
             className="absolute inset-x-0 bottom-0 flex h-[10%] min-h-[18px] items-center gap-3 overflow-hidden bg-black/80 px-[2%] text-[clamp(9px,1.2vw,13px)]"
           >
-            <span className="flex shrink-0 items-center gap-1 rounded bg-pp-pulse px-1.5 font-bold uppercase text-white">
+            <span className="flex shrink-0 items-center gap-1 rounded bg-pp-pulseFill px-1.5 font-bold uppercase text-white">
               <Activity className="h-3 w-3" aria-hidden />
               {t('broadcast.alert')}
             </span>

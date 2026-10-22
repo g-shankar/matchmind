@@ -22,6 +22,7 @@ import { apiBase } from './api/transport';
 import { AskStudio } from './components/AskStudio';
 import { CatchUpBanner, CatchUpButton, ScoreValue } from './components/CatchUp';
 import { ReadAloudCards, ReadAloudToggle } from './components/ReadAloud';
+import { inkOn } from './lib/contrast';
 
 // The heavier views load on first use, so the first screen arrives sooner on slow networks.
 const SplitView = lazy(() => import('./views/SplitView').then((m) => ({ default: m.SplitView })));
@@ -453,7 +454,7 @@ const ViewTabs: React.FC<{ view: ViewMode; onPick: (v: ViewMode) => void }> = ({
             aria-current={view === v ? 'page' : undefined}
             className={cx(
               'min-h-[44px] shrink-0 whitespace-nowrap border-b-2 px-3 font-display text-sm font-bold uppercase tracking-broadcast transition',
-              view === v ? 'border-pp-pulse bg-pp-pulse text-white' : 'border-transparent text-pp-mute hover:text-pp-chalk',
+              view === v ? 'border-pp-pulse bg-pp-pulseFill text-white' : 'border-transparent text-pp-mute hover:text-pp-chalk',
             )}
           >
             {t(`view.${v}`)}
@@ -535,7 +536,7 @@ const FullTimeBanner: React.FC<{ onRestart: () => void; onRecap: () => void; onD
           </h2>
           <p className="mt-0.5 text-sm text-slate-300">{t('visit.ft.body')}</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <button type="button" onClick={onRestart} className="inline-flex min-h-[44px] items-center gap-1.5 bg-pp-pulse px-4 font-display text-sm font-extrabold uppercase italic tracking-broadcast text-white hover:bg-pp-chalk hover:text-pp-night">
+            <button type="button" onClick={onRestart} className="inline-flex min-h-[44px] items-center gap-1.5 bg-pp-pulseFill px-4 font-display text-sm font-extrabold uppercase italic tracking-broadcast text-white hover:bg-pp-chalk hover:text-pp-night">
               <RotateCcw className="h-4 w-4" aria-hidden />
               {t('visit.ft.watch')}
             </button>
@@ -685,13 +686,13 @@ const Scoreline: React.FC<{ match: ViewProps['match']; source: 'file' | 'eventhu
     // Scoreboard strip: team colour blocks either side of a white score panel. Always home
     // on the left and away on the right, also on a right-to-left page.
     <div dir="ltr" className="flex h-11 min-w-0 items-stretch font-display text-sm font-bold uppercase tracking-broadcast sm:shrink-0 sm:text-base">
-      <bdi className="flex items-center px-1.5 text-white sm:px-2.5" style={{ background: teams.home.primary_color }}>
+      <bdi className="flex items-center px-1.5 sm:px-2.5" style={{ background: teams.home.primary_color, color: inkOn(teams.home.primary_color) }}>
         {teams.home.short_name}
       </bdi>
       <span className="ltr-nums flex items-center bg-pp-chalk px-1.5 text-lg font-extrabold text-pp-night sm:px-2.5 sm:text-xl">
         <ScoreValue value={score.home} />-<ScoreValue value={score.away} />
       </span>
-      <bdi className="flex items-center px-1.5 text-white sm:px-2.5" style={{ background: teams.away.primary_color }}>
+      <bdi className="flex items-center px-1.5 sm:px-2.5" style={{ background: teams.away.primary_color, color: inkOn(teams.away.primary_color) }}>
         {teams.away.short_name}
       </bdi>
       <span className="ltr-nums flex shrink-0 flex-col items-start justify-center whitespace-nowrap bg-pp-night px-1.5 leading-none text-pp-signal sm:px-2.5">

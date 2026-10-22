@@ -19,6 +19,12 @@ import { useInsight, useInsightMode } from '../state/useInsight';
 import { CopyField, InsightGate, SubHead } from '../components/InsightStatus';
 import { Badge, Panel, Segmented, cx } from '../components/ui';
 import type { ViewProps } from './types';
+import { blend, inkOn } from '../lib/contrast';
+
+// Confusion-matrix heat map: floodlight yellow for hits, pulse red for misses, over pp.deep.
+const HEAT_HIT = '#ffd400';
+const HEAT_MISS = '#ff3e32';
+const HEAT_BASE = '#121210';
 
 const SECTIONS = [
   { id: 'lab-metrics', key: 'lab.metrics.title', icon: Sigma },
@@ -571,11 +577,13 @@ export const Confusion: React.FC<{ confusion: NonNullable<AutoEventingStatus['co
                   const v = confusion.counts[i]?.[j] ?? 0;
                   const diag = r === c;
                   const a = v === 0 ? 0 : 0.15 + 0.85 * Math.sqrt(v / max);
+                  // Cell colour drawn over the panel; the count takes whichever ink reads better on it.
+                  const cell = blend(diag ? HEAT_HIT : HEAT_MISS, a, HEAT_BASE);
                   return (
                     <td
                       key={c}
-                      className={cx('ltr-nums h-10 min-w-[3.25rem] border border-pp-night p-1 text-center font-bold', a > 0.55 ? 'text-pp-night' : 'text-pp-chalk')}
-                      style={{ background: v === 0 ? '#121210' : diag ? `rgba(255,212,0,${a})` : `rgba(255,59,47,${a})` }}
+                      className="ltr-nums h-10 min-w-[3.25rem] border border-pp-night p-1 text-center font-bold"
+                      style={{ background: `rgb(${cell.join(',')})`, color: inkOn(cell) }}
                     >
                       {v}
                     </td>

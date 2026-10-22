@@ -52,7 +52,10 @@ export default {
           line: '#34332d',
           mute: '#a19c8f',
           chalk: '#f2efe8',
-          pulse: '#ff3b2f',
+          // Nudged from #ff3b2f so red text also reads at 4.5:1 on the raised panel.
+          pulse: '#ff3e32',
+          // Deeper red for filled buttons, the active tab and tags carrying white text (5.3:1).
+          pulseFill: '#d0261c',
           pulseSoft: '#ff8a80',
           signal: '#ffd400',
           gold: '#ff9f1c',
@@ -92,7 +95,7 @@ export default {
         },
         scoreFlash: {
           '0%, 100%': { backgroundColor: 'rgba(34,34,30,1)' },
-          '40%': { backgroundColor: 'rgba(255,59,47,0.9)' },
+          '40%': { backgroundColor: 'rgba(208,38,28,0.9)' },
         },
         heartbeat: {
           '0%, 100%': { transform: 'scale(1)', opacity: '1' },
