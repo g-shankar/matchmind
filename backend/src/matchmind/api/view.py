@@ -272,7 +272,7 @@ def _is_spoiler_card(session: MatchSession, card: dict[str, Any]) -> bool:
 
 
 def spoiler_free_cards(session: MatchSession, cards: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [c for c in cards if not _is_spoiler_card(session, c)]
+    return [spoilers.scrub_card(c) for c in cards if not _is_spoiler_card(session, c)]
 
 
 def spoiler_free_snapshot(session: MatchSession, data: dict[str, Any]) -> dict[str, Any]:

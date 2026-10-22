@@ -59,6 +59,7 @@ from matchmind.crew.i18n import MissingFact, fill_first_with_template, pack
 from matchmind.crew.llm import LLM, LLMSchemaError, ModelBudget, default_budget, make_llm, provider_of
 from matchmind.crew.orchestration import make_workflows
 from matchmind.crew.producer import ViewerState, build_card, select
+from matchmind.crew.spoilers import catchup_event_ids
 from matchmind.crew.spotter import Spotter, surname
 from matchmind.crew.translator import TRANSIENT_REASONS, TranslationService, Translator
 from matchmind.crew.wording import localise_teams
@@ -807,7 +808,11 @@ class Crew:
             None,
         )
         out.spoiler_free = True
-        out.claims = self._recap_claims(out, kept, templates, headline_templates)
+        # Catch-up event ids, the same opaque ones the stream carries (crew/spoilers.py).
+        out.claims = [
+            c.model_copy(update={"source_event_ids": catchup_event_ids(c.source_event_ids)})
+            for c in self._recap_claims(out, kept, templates, headline_templates)
+        ]
         status = "ok" if verdict.ok else "rejected"
         with self._lock:
             trace = CrewTrace(

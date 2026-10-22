@@ -598,8 +598,8 @@ class Hub:
                         data["cards"] = held[i] + data["cards"]
                         held[i] = []
                     free = view.spoiler_free_tick(session, data)
-                    if free is None:  # a withheld event (VAR review): its other cards ride the next tick
-                        held[i] = view.spoiler_free_cards(session, data["cards"])
+                    if free is None:  # a withheld event (VAR review, kick-off): its cards ride the next tick
+                        held[i] = data["cards"]  # filtered and scrubbed once, with that tick
                         continue
                     out[i].append(view.message("MATCH_TICK", free))
                     continue
