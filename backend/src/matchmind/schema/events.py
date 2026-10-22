@@ -13,7 +13,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 SCHEMA_VERSION = "1.0"
 PITCH_LENGTH_M = 105.0
@@ -35,6 +35,7 @@ class EventType(StrEnum):
     FOUL = "foul"
     CARD = "card"
     MILESTONE = "milestone"
+    VAR_REVIEW = "var_review"
     PERIOD_END = "period_end"
     MATCH_END = "match_end"
 
@@ -50,6 +51,16 @@ class Outcome(StrEnum):
     OFF_TARGET = "off_target"
     FOUND = "found"
     NOT_FOUND = "not_found"
+    OVERTURNED = "overturned"  # var_review: the on-field decision is reversed
+    STANDS = "stands"  # var_review: the on-field decision stands
+
+
+class ReviewReason(StrEnum):
+    """Why a VAR review looked at an event (var_review only)."""
+
+    OFFSIDE = "offside"
+    HANDBALL = "handball"
+    FOUL = "foul"
 
 
 class BodyPart(StrEnum):
@@ -132,6 +143,12 @@ class Event(BaseModel):
         description="Runs only: runner, ball carrier, back line and keeper every 0.5 s for 3 s.",
     )
     lineups: list[LineupPlayer] | None = Field(default=None, description="match_start only.")
+    reviewed_event_id: str | None = Field(
+        default=None,
+        description="var_review only: the earlier event under review (e.g. the goal's shot). "
+        "Outcome `overturned` reverses its on-field decision; `stands` keeps it.",
+    )
+    review_reason: ReviewReason | None = Field(default=None, description="var_review only.")
     details: dict[str, str | int | float | bool] = Field(default_factory=dict)
     labels: list[str] = Field(
         default_factory=list,
@@ -140,6 +157,17 @@ class Event(BaseModel):
             "Consumers must strip these before anything reaches an agent."
         ),
     )
+
+    @model_validator(mode="after")
+    def _review_fields(self) -> Event:
+        if self.type == EventType.VAR_REVIEW:
+            if not self.reviewed_event_id:
+                raise ValueError("a var_review needs reviewed_event_id")
+            if self.outcome not in (Outcome.OVERTURNED, Outcome.STANDS):
+                raise ValueError("a var_review outcome is overturned or stands")
+        elif self.reviewed_event_id is not None or self.review_reason is not None:
+            raise ValueError("reviewed_event_id and review_reason belong to var_review events only")
+        return self
 
     def to_json(self) -> str:
         return self.model_dump_json(exclude_none=True)

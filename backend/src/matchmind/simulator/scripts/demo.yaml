@@ -2,7 +2,9 @@
 # Northbridge go 2-0 up, lose a centre-back to a red card, then Harbour City
 # take over during a 15-minute pressure spell and win it 3-2 in stoppage time.
 # Both "Should he have passed?" triggers appear: a missed square ball (34',
-# 78') and a run in behind that is never found (61:12).
+# 78') and a run in behind that is never found (61:12). Just before the
+# break Northbridge think they have a third, but a VAR review rules it out for
+# offside (the correction path: retract the goal, supersede it on screen).
 match_id: MM-DEMO-001
 home: NBR
 away: HCY
@@ -12,6 +14,7 @@ random_goals: false
 beats:
   - {type: goal, at: "23:10", team: NBR, player: NBR-9, assist: NBR-7}
   - {type: missed_option, at: "34:05", team: NBR, player: NBR-11, open_player: NBR-9, outcome: saved}
+  - {type: disallowed_goal, at: "39:00", team: NBR, player: NBR-11, assist: NBR-10, reason: offside, review_s: 70}
   - {type: goal, at: "41:30", team: NBR, player: NBR-10, assist: NBR-9}
   - {type: red_card, at: "52:40", team: NBR, player: NBR-4}
   - {type: pressure_spell, at: "60:00", until: "75:00", team: HCY, intensity: 0.6}

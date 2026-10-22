@@ -40,6 +40,7 @@ PACK = {
         "shots_home": "تسديدات أصحاب الأرض",
         "shots_away": "تسديدات الضيوف",
         "appearance_n": "المشاركات مع النادي",
+        "ruled_out_clock": "هدف ملغى (سُجل عند)",
     },
     "zones": {
         "Penalty Box": "منطقة الجزاء",
@@ -58,6 +59,7 @@ PACK = {
     "card_name": {"yellow": "بطاقة صفراء", "red": "بطاقة حمراء"},
     "card_name_cap": {"yellow": "بطاقة صفراء", "red": "بطاقة حمراء"},
     "card_action": {"yellow": "ينال إنذارًا", "red": "يُطرد"},
+    "var_reason": {"offside": "التسلل", "handball": "لمسة اليد", "foul": "خطأ"},
     "fav_goal": {
         "for": "هدف لفريقك! {player_short} يسجل",
         "against": "{player_short} يسجل في مرمى فريقك",
@@ -373,6 +375,32 @@ PACK = {
                 )
             ],
         },
+        "correction": {
+            "casual": [
+                (
+                    "لا هدف! الـVAR يلغي هدف {player_short}",
+                    "أُلغي هدف {player} عند {ruled_out_clock} بداعي {reason_phrase} بعد مراجعة الـVAR. تبقى النتيجة {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+            "tactical": [
+                (
+                    "الـVAR: إلغاء هدف {player_short}",
+                    "أُلغي القرار بعد المراجعة بداعي {reason_phrase}. تعود النتيجة إلى {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+            "fantasy": [
+                (
+                    "هدف ملغى: {player_short}",
+                    "الـVAR يلغي الهدف بداعي {reason_phrase}، والتسديدة تبقى محسوبة. {player_short} اليوم: الأهداف {p_goals}، التسديدات {p_shots}، و{p_xg} xG.",
+                )
+            ],
+            "player_spotlight": [
+                (
+                    "لا هدف! الـVAR يلغي هدف {player_short}",
+                    "أُلغي هدف {player} عند {ruled_out_clock} بداعي {reason_phrase} بعد مراجعة الـVAR. تبقى النتيجة {home} {score_home}-{score_away} {away}.",
+                )
+            ],
+        },
         "milestone.kick_off": {
             "casual": [
                 (
@@ -484,6 +512,9 @@ PACK = {
         "rocket_shot": ["بسرعة {shot_speed_kmh} كم/س لا يملك الحارس وقتًا للتصرف."],
         "distance_milestone": ["نحو {milestone_km} كم تقديريًا تظهر الجهد خلف تنظيم {team}."],
         "hard_pass": ["صعوبة {pass_difficulty} من {difficulty_scale} تعني تمريرة لا ينجح فيها إلا القليل."],
+        "correction": [
+            "ألغى الـVAR هدف {ruled_out_clock} بداعي {reason_phrase}: تعود النتيجة إلى {home} {score_home}-{score_away} {away}."
+        ],
         "milestone.kick_off": ["انطلقت المباراة."],
         "milestone.half_time": ["بين الشوطين، الأهداف المتوقعة {xg_home} مقابل {xg_away}."],
         "milestone.full_time": ["الأهداف المتوقعة النهائية: {xg_home} مقابل {xg_away}."],

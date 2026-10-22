@@ -105,6 +105,15 @@ describe('ControlChaosGauge', () => {
   });
 });
 
+describe('NarrativeFeed corrections', () => {
+  it('strikes through a ruled-out goal and labels it', () => {
+    const match = matchWith({ cards: [goal], cue: { ...initialMatchState().cue, ruledOut: [goal.moment_id] } });
+    ui(<NarrativeFeed match={match} actions={actionsMock()} onOpenReplay={vi.fn()} />);
+    expect(screen.getByText('Ruled out by VAR')).toBeTruthy();
+    expect(screen.getByText('Goal for AAA').className).toContain('line-through');
+  });
+});
+
 describe('MomentsList', () => {
   const bm = (moment_id: string, kind: Bookmark['kind'], clock_s: number, title: string, period: number) =>
     ({ moment_id, kind, match_clock: '00:00', clock_s, title, period }) as Bookmark;
@@ -125,6 +134,17 @@ describe('MomentsList', () => {
     expect(screen.queryByText('Late winner')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /Coming up/ }));
     expect(actions.seek).toHaveBeenLastCalledWith(2992, 2);
+  });
+
+  it('flags a goal ruled out by VAR only once the decision is in the past (no spoilers)', () => {
+    const marks = [{ ...bm('M-1', 'goal', 20, 'Goal for AAA', 1), ruled_out: true }, bm('C-1', 'correction', 90, 'No goal! VAR rules out Nine', 1)];
+    const at = (clock_s: number) =>
+      matchWith({ bookmarks: marks, playback: { is_running: true, speed_multiplier: 10, clock_s, match_clock: '00:00', period: 1, ended: false } });
+    ui(<MomentsList match={at(40)} actions={actionsMock()} />);
+    expect(screen.queryByTestId('moment-ruled-out')).toBeNull();
+    cleanup();
+    ui(<MomentsList match={at(120)} actions={actionsMock()} />);
+    expect(screen.getByTestId('moment-ruled-out').textContent).toBe('Ruled out by VAR');
   });
 
   it('orders by period before clock', () => {

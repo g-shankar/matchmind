@@ -99,6 +99,7 @@ Key facts per moment kind (`claims.KEY_FACTS`):
 | Kind | Key facts |
 |---|---|
 | goal | scorer, club, home score, away score |
+| correction (VAR) | scorer of the ruled-out goal, corrected home and away score, time of the ruled-out goal |
 | card | player, card colour |
 | big chance | player, xG |
 | better option | shooter, teammate, pass vs shot multiplier |

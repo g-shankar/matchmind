@@ -48,6 +48,7 @@ find that moment." or "Check limit: the value is missing or not allowed."
 | `get_moment` | `moment_id` | `{ moment, explanation, replay, played }`: the moment's `facts` (the only numbers any agent may say about it), the analyst's `evidence`, its `source_event_ids`, and whether the live position has reached it | engine (the moment as spotted, before any persona voices it) |
 | `get_overlay_card` | `moment_id`, `persona?` (casual, tactical, fantasy, player_spotlight), `language?` (en, es, fr, ar, ja, pt, de, hi, zh-Hans, sw, id, tr, ko), `favourite_team?` (club id) | `OverlayCard` | `GET /api/match/moment/{moment_id}` |
 | `get_recap` | `persona?`, `language?` | `Recap` (so far, or the full match after full time) | `GET /api/match/recap` |
+| `get_cue_sheet` | `persona?`, `language?`, `favourite_team?`, `since_seq?`, `limit?` (1 to 500, default 100) | `CueSheetPage`: numbered broadcast cues so far, including VAR retract and supersede (see CUE-SHEET.md) | `GET /api/match/cue-sheet` |
 | `get_player_stats` | `player_id?` (fictional id like `NBR-9`; omit for everyone) | `{ players: PlayerStats[] }` | `GET /api/match/players` |
 | `get_team_rosters` | none | `{ home, away }` with name, colours, formation, style and squad | `GET /api/teams` |
 | `get_crew_status` | `trace_limit?` (0 to 100, default 20) | `{ status: CrewStatus, traces: CrewTrace[] }` | `GET /api/crew/status` + `GET /api/crew/trace` |
@@ -79,7 +80,6 @@ their accessor lands. They are not listed by the server until then.
 
 | tool | planned purpose |
 |---|---|
-| `get_cue_sheet` | the producer's timed cue sheet for a persona |
 | `get_metric_registry` | every metric with its definition, unit and source |
 | `export_dataset` | a bundled synthetic match as events and stats |
 | `audit_claims` | which numbers in crew text were checked against which facts |

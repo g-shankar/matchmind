@@ -148,7 +148,9 @@ def test_demo_match_loads_and_plays_with_fakes(clock: FakeClock):
     events = load_events()
     assert events[0].match_id == "MM-DEMO-001"
     s = MatchSession(events, engines=FAKE_ENGINES, clock=clock)
-    assert len(s.bookmarks) == 5  # the five goals in the 2-3 demo match
+    # the five goals of the 2-3 demo match, the goal VAR ruled out, and that correction
+    assert len(s.bookmarks) == 7
+    assert [b.kind for b in s.bookmarks if b.ruled_out] == ["goal"]
     play_until(s, clock, 10_000)
     assert s.ended and s.score == (2, 3)
 

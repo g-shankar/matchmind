@@ -43,6 +43,7 @@ the club-heart rule keeps it; the persona filter still applies after it.
 | `distance_milestone` | shown | +15 | kind's own wording | dropped | - | - | Rival distance tags are dropped. |
 | `hard_pass` | shown | +15 | kind's own wording | dropped | - | - | Rival hard-pass tags are dropped. |
 | `milestone` | shown | +15 | kind's own wording | dropped | - | - | Rival player milestones are dropped. |
+| `correction` | shown | +15 | kind's own wording | shown | 0 | kind's own wording | A VAR decision is always shown, in its own neutral wording: the score must be right for every fan. |
 
 | Framing variant | When |
 |---|---|

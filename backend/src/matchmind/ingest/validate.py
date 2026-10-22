@@ -27,7 +27,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from matchmind.crew.fact_checker import banned_names_in
-from matchmind.schema import Event, EventType, FramePlayer, LineupPlayer, TrackingFrame
+from matchmind.schema import Event, EventType, FramePlayer, LineupPlayer, Outcome, TrackingFrame
 from matchmind.simulator.teams import Team
 
 from .errors import IngestError
@@ -79,6 +79,9 @@ class MatchContext:
     id_map: dict[str, str]  # player id as the feed wrote it -> canonical <team>-<number>
     team_of: dict[str, str]  # canonical player id -> team
     limits: Limits = field(default=DEFAULT_LIMITS)
+    # Goals seen so far: event id as the feed wrote it -> canonical event id. A VAR review
+    # may only name one of these (an earlier goal of this match), never any other id.
+    goal_ids: dict[str, str] = field(default_factory=dict)
 
     @classmethod
     def from_start(
@@ -231,7 +234,15 @@ class MatchContext:
         if event.type == EventType.MATCH_START:
             assert event.lineups is not None
             update["lineups"] = [self._lineup(lp) for lp in event.lineups]
-        return event.model_copy(update=update)
+        if event.type == EventType.VAR_REVIEW:
+            reviewed = self.goal_ids.get(event.reviewed_event_id or "")
+            if reviewed is None:
+                raise IngestError("reviewed_event_id must name an earlier goal in this match")
+            update["reviewed_event_id"] = reviewed
+        out = event.model_copy(update=update)
+        if out.type == EventType.SHOT and out.outcome == Outcome.GOAL:
+            self.goal_ids[event.event_id] = out.event_id
+        return out
 
     def _lineup(self, lp: LineupPlayer) -> LineupPlayer:
         pid = self.id_map[lp.player_id]

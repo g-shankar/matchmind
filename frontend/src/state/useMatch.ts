@@ -31,13 +31,31 @@ export function sanitizeProfile(raw: unknown): ViewerProfile {
 }
 
 function storedProfile(): ViewerProfile {
+  let profile = DEFAULT_PROFILE;
   try {
     const raw = localStorage.getItem(PROFILE_KEY);
-    if (raw) return sanitizeProfile(JSON.parse(raw));
+    if (raw) profile = sanitizeProfile(JSON.parse(raw));
   } catch {
     // Private windows and blocked storage fall back to defaults.
   }
-  return DEFAULT_PROFILE;
+  return urlProfile(profile);
+}
+
+// `?persona=tactical&lang=es&club=NBR` pins the audience in the link itself, so an OBS or
+// vMix Browser Source (its own empty browser storage) shows the right sheet. Checked like
+// anything else from outside: unknown values are ignored.
+export function urlProfile(base: ViewerProfile, search = window.location.search): ViewerProfile {
+  const q = new URLSearchParams(search);
+  const over: Record<string, unknown> = { ...base };
+  if (q.has('persona')) over.persona = q.get('persona');
+  if (q.has('lang')) over.language = q.get('lang');
+  if (q.has('club')) over.favourite_team = q.get('club');
+  const next = sanitizeProfile(over);
+  return {
+    ...next,
+    persona: q.has('persona') && next.persona === DEFAULT_PROFILE.persona && q.get('persona') !== DEFAULT_PROFILE.persona ? base.persona : next.persona,
+    language: q.has('lang') && next.language === DEFAULT_PROFILE.language && q.get('lang') !== DEFAULT_PROFILE.language ? base.language : next.language,
+  };
 }
 
 function saveProfile(profile: ViewerProfile) {
