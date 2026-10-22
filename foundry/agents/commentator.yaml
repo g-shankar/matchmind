@@ -269,6 +269,12 @@ contract:
             minimum: 0
             title: Priority
             type: integer
+          retracts:
+            description: 'Moment ids this moment rules out (a correction): they no longer count anywhere.'
+            items:
+              type: string
+            title: Retracts
+            type: array
         required:
         - moment_id
         - kind
@@ -293,6 +299,7 @@ contract:
         - distance_milestone
         - hard_pass
         - milestone
+        - correction
         title: MomentKind
         type: string
     description: A spotted moment with its fact-checked explanation, before it is voiced.

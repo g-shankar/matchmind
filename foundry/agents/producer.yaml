@@ -128,7 +128,10 @@ behaviour: |-
   - moments about the focus player are always kept and boosted;
   - de-duplicated by moment id per viewer;
   - at most one lower third per 8 s of match clock (extra ones move to the
-    side panel, or are dropped when minor).
+    side panel, or are dropped when minor);
+  - corrections: a card that rules earlier moments out (`retracts`) is always
+    kept, and a card for a moment already ruled out is never shown, even if it
+    arrives late or twice (out-of-order or repeated delivery).
   Per-viewer memory lives in `ViewerState`, one per connection.
 
   Recap:
@@ -261,6 +264,12 @@ contract:
             minimum: 0
             title: Priority
             type: integer
+          retracts:
+            description: 'Moment ids this moment rules out (a correction): they no longer count anywhere.'
+            items:
+              type: string
+            title: Retracts
+            type: array
         required:
         - moment_id
         - kind
@@ -304,6 +313,7 @@ contract:
         - distance_milestone
         - hard_pass
         - milestone
+        - correction
         title: MomentKind
         type: string
       Narrative:
@@ -606,6 +616,7 @@ contract:
         - distance_milestone
         - hard_pass
         - milestone
+        - correction
         title: MomentKind
         type: string
     description: 'Producer output: one timed, machine-readable overlay for one viewer.'
@@ -751,6 +762,12 @@ contract:
         - type: 'null'
         default: null
         title: Translated By
+      retracts:
+        description: 'Correction cards only: moment ids this card rules out (their cards come down)'
+        items:
+          type: string
+        title: Retracts
+        type: array
       claims:
         description: Each sentence of headline, body and why, tied to its facts
         items:

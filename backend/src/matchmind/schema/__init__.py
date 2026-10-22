@@ -9,6 +9,7 @@ from .events import (
     LineupPlayer,
     Outcome,
     Point,
+    ReviewReason,
     TrackingFrame,
 )
 
@@ -23,5 +24,6 @@ __all__ = [
     "LineupPlayer",
     "Outcome",
     "Point",
+    "ReviewReason",
     "TrackingFrame",
 ]

@@ -77,6 +77,10 @@ async def _recap(ctx: ToolContext, a: m.RecapIn) -> dict[str, Any]:
     return await reads.recap(ctx.hub, a.persona, a.language)
 
 
+async def _cue_sheet(ctx: ToolContext, a: m.CueSheetIn) -> dict[str, Any]:
+    return await reads.cue_sheet(ctx.hub, a.persona, a.language, a.favourite_team, a.since_seq, a.limit)
+
+
 async def _players(ctx: ToolContext, a: m.PlayerStatsIn) -> dict[str, Any]:
     if a.player_id is None:
         return {"players": await reads.players(ctx.hub)}
@@ -143,6 +147,13 @@ register(ToolSpec(
     m.RecapIn, m.Recap, _recap,
 ))  # fmt: skip
 register(ToolSpec(
+    "get_cue_sheet", "Cue sheet",
+    "The broadcast cue sheet so far for a persona and language: numbered show, update, retract, "
+    "supersede and clear cues per graphics layer, including VAR corrections. Page with since_seq. "
+    "Same payload as GET /api/match/cue-sheet.",
+    m.CueSheetIn, m.CueSheetOut, _cue_sheet,
+))  # fmt: skip
+register(ToolSpec(
     "get_player_stats", "Player stats",
     "Stats engine numbers so far for one fictional player (by id, e.g. NBR-9) or for everyone "
     "involved, home side first. Same rows as GET /api/match/players.",
@@ -181,4 +192,4 @@ register(ToolSpec(
 
 # Planned (not built here; each will be one register(...) line when its accessor lands):
 # get_cue_sheet, get_metric_registry, export_dataset, audit_claims. See docs/MCP.md.
-PLANNED_TOOLS: tuple[str, ...] = ("get_cue_sheet", "get_metric_registry", "export_dataset", "audit_claims")
+PLANNED_TOOLS: tuple[str, ...] = ("get_metric_registry", "export_dataset", "audit_claims")

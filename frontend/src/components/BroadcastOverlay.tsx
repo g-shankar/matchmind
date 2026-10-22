@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Activity, Eye, EyeOff, Radio } from 'lucide-react';
-import type { Evidence, FactValue, OverlayCard, Slot, Teams } from '../api/contract';
+import React, { useEffect, useState } from 'react';
+import { Activity, Eye, EyeOff, Gavel, Radio } from 'lucide-react';
+import type { Cue, Evidence, FactValue, OverlayCard, Slot, Teams } from '../api/contract';
 import { useI18n, type I18n } from '../i18n';
 import { activeCards } from '../state/matchStore';
 import { teamById } from '../lib/teams';
@@ -135,7 +135,88 @@ const SideCard: React.FC<{ card: OverlayCard; teams: Teams | null; favourite: st
   );
 };
 
-const Scorebug: React.FC<ViewProps> = ({ match }) => {
+/** The supersede card for a VAR decision: says plainly that the goal no longer counts. */
+export const CorrectionCard: React.FC<{ card: OverlayCard; reason?: string | null }> = ({ card, reason }) => {
+  const { t } = useI18n();
+  const reasonKey = reason ? `cue.reason.${reason}` : '';
+  const reasonText = reasonKey && t(reasonKey) !== reasonKey ? t(reasonKey) : null;
+  return (
+    <div
+      data-testid="correction-card"
+      role="status"
+      lang={textLanguage(card)}
+      className="pointer-events-auto w-full max-w-3xl animate-slide-up border-2 border-pp-pulse bg-pp-deep/95 px-[clamp(10px,2.4vw,22px)] py-[clamp(8px,1.6vw,16px)] shadow-2xl"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex animate-stamp-in items-center gap-1.5 border-2 border-pp-pulse bg-pp-pulse px-2 py-0.5 font-display text-[clamp(12px,2vw,22px)] font-extrabold uppercase tracking-broadcast text-white">
+          <Gavel className="h-[1em] w-[1em]" aria-hidden />
+          {t('cue.ruledOut')}
+        </span>
+        {reasonText && (
+          <span className="font-display text-[clamp(11px,1.6vw,18px)] font-bold uppercase tracking-wide text-pp-pulseSoft">{reasonText}</span>
+        )}
+      </div>
+      <h3 className="mt-2 font-display text-[clamp(12px,2.2vw,24px)] font-bold uppercase leading-tight tracking-wide text-white">
+        {card.headline}
+      </h3>
+      <p className="mt-0.5 line-clamp-2 text-[clamp(9px,1.3vw,14px)] leading-snug text-slate-200 max-sm:hidden">{card.body}</p>
+      <div className="mt-1 flex flex-wrap gap-1">
+        {card.evidence.slice(0, 3).map((e, i) => (
+            <EvidenceChip key={`${e.label}-${i}`} evidence={e} className="text-[clamp(8px,1vw,11px)]" />
+          ))}
+      </div>
+      <SourceLine card={card} />
+    </div>
+  );
+};
+
+/** A card whose moment was just ruled out: it greys and slides away once, then stays hidden. */
+const ExitingCard: React.FC<{ card: OverlayCard; teams: Teams | null; favourite: string | null }> = ({ card, teams, favourite }) => {
+  const { t } = useI18n();
+  return (
+    <div data-testid="retracting-card" aria-hidden className="pointer-events-none relative w-full max-w-3xl animate-retract-out">
+      <LowerThird card={card} teams={teams} favourite={favourite} />
+      <span className="absolute end-3 top-2 -rotate-6 border-2 border-pp-pulse px-1.5 font-display text-[clamp(10px,1.4vw,16px)] font-extrabold uppercase text-pp-pulse">
+        {t('cue.ruledOutShort')}
+      </span>
+    </div>
+  );
+};
+
+const CueLog: React.FC<{ cues: Cue[] }> = ({ cues }) => {
+  const { t } = useI18n();
+  const recent = cues.slice(-8).reverse();
+  return (
+    <section data-testid="cue-log" className="rounded-2xl border border-pp-line/70 bg-pp-panel/80 p-4">
+      <h3 className="font-display text-sm font-semibold uppercase tracking-wider text-slate-200">{t('cue.panel')}</h3>
+      <p className="mb-2 text-xs text-pp-mute">{t('cue.panelHint')}</p>
+      {recent.length === 0 ? (
+        <p className="text-xs text-pp-mute">{t('cue.empty')}</p>
+      ) : (
+        <ol className="space-y-1 text-xs">
+          {recent.map((c) => (
+            <li key={c.cue_id} className="flex min-w-0 items-center gap-2">
+              <span className="ltr-nums shrink-0 text-pp-mute">#{c.seq}</span>
+              <span className="ltr-nums shrink-0 font-bold text-pp-signal">{c.start.match_clock}</span>
+              <span
+                className={cx(
+                  'shrink-0 px-1 font-bold uppercase',
+                  c.op === 'retract' || c.op === 'supersede' ? 'bg-pp-pulse text-white' : 'bg-pp-raised text-slate-200',
+                )}
+              >
+                {t(`cue.op.${c.op}`)}
+              </span>
+              <span className="shrink-0 text-pp-mute">{c.layer === 'all' ? '*' : t(`broadcast.slot.${c.layer}`) === `broadcast.slot.${c.layer}` ? c.layer.replace(/_/g, ' ') : t(`broadcast.slot.${c.layer}`)}</span>
+              <span className="min-w-0 truncate text-slate-300">{c.text?.headline ?? ''}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+};
+
+const Scorebug: React.FC<ViewProps & { corrected?: boolean }> = ({ match, corrected }) => {
   const { t, num } = useI18n();
   const { teams, score, clock, period, playback, controlChaos } = match;
   if (!teams) return null;
@@ -150,9 +231,22 @@ const Scorebug: React.FC<ViewProps> = ({ match }) => {
           <span aria-hidden className="h-[1.1em] w-1.5 rounded-sm" style={{ background: teams.home.primary_color }} />
           {teams.home.short_name}
         </span>
-        <span className="ltr-nums flex items-center bg-pp-raised px-[clamp(6px,1vw,12px)] text-[1.15em]">
+        <span
+          key={corrected ? 'corrected' : 'live'}
+          className={cx('ltr-nums flex items-center bg-pp-raised px-[clamp(6px,1vw,12px)] text-[1.15em]', corrected && 'animate-score-flash')}
+        >
           {score.home} - {score.away}
         </span>
+        {corrected && (
+          <span
+            data-testid="scorebug-var"
+            title={t('cue.scoreReverted')}
+            className="flex items-center bg-pp-pulse px-1.5 text-[0.7em] font-extrabold uppercase tracking-wider"
+          >
+            {t('cue.var')}
+            <span className="sr-only"> · {t('cue.scoreReverted')}</span>
+          </span>
+        )}
         <span className="flex items-center gap-1.5 px-[clamp(6px,1vw,12px)] py-1">
           {teams.away.short_name}
           <span aria-hidden className="h-[1.1em] w-1.5 rounded-sm" style={{ background: teams.away.primary_color }} />
@@ -189,8 +283,13 @@ const Scorebug: React.FC<ViewProps> = ({ match }) => {
   );
 };
 
-export const BroadcastOverlay: React.FC<ViewProps> = ({ match, actions }) => {
+export const BroadcastOverlay: React.FC<ViewProps & { capture?: boolean }> = ({ match, actions, capture = false }) => {
   const { t } = useI18n();
+  useEffect(() => {
+    if (!capture) return;
+    document.documentElement.classList.add('pp-capture');
+    return () => document.documentElement.classList.remove('pp-capture');
+  }, [capture]);
   const [shown, setShown] = useState<Record<Layer, boolean>>({
     scorebug: true,
     lower_third: true,
@@ -201,7 +300,8 @@ export const BroadcastOverlay: React.FC<ViewProps> = ({ match, actions }) => {
   });
   const { teams, cards, playback, profile, crew } = match;
   const clockS = playback.clock_s;
-  const bySlot = (slot: Slot) => activeCards(cards, clockS, slot);
+  const ruledOut = match.cue.ruledOut;
+  const bySlot = (slot: Slot) => activeCards(cards, clockS, slot, ruledOut);
   const lower = bySlot('lower_third');
   const side = bySlot('side_panel').slice(0, 2);
   const alerts = bySlot('metric_alert');
@@ -209,6 +309,9 @@ export const BroadcastOverlay: React.FC<ViewProps> = ({ match, actions }) => {
   const full = bySlot('full_screen');
   const replay = full.find((c) => c.replay) ?? null;
   const fullPlain = replay ? null : (full[0] ?? null);
+  // VAR: cards that were on screen when their moment was ruled out leave with an animation.
+  const exiting = activeCards(match.cue.exiting, clockS);
+  const corrected = activeCards(cards, clockS, undefined, ruledOut).some((c) => c.kind === 'correction');
   const favourite = profile.favourite_team;
   const counts: Record<Layer, number> = {
     scorebug: teams ? 1 : 0,
@@ -220,18 +323,19 @@ export const BroadcastOverlay: React.FC<ViewProps> = ({ match, actions }) => {
   };
   const nothingOnAir = !lower.length && !side.length && !alerts.length && !tags.length && !full.length;
 
-  return (
-    <div className="mx-auto w-full max-w-5xl space-y-4">
-      <div>
-        <h2 className="font-display text-lg font-bold uppercase tracking-wide text-white">{t('broadcast.title')}</h2>
-        <p className="text-sm text-pp-mute">{t('broadcast.subtitle')}</p>
-      </div>
-
+  const stage = (
       <section
         aria-label={t('broadcast.stageLabel')}
-        className="relative aspect-video w-full overflow-hidden rounded-2xl border border-pp-line bg-pp-turf shadow-2xl shadow-black/50"
+        data-testid="overlay-stage"
+        className={cx(
+          'relative w-full overflow-hidden',
+          capture
+            ? 'h-screen bg-transparent'
+            : 'aspect-video rounded-2xl border border-pp-line bg-pp-turf shadow-2xl shadow-black/50',
+        )}
       >
-        {/* Backdrop: the synthetic match stands in for the video feed. */}
+        {/* Backdrop: the synthetic match stands in for the video feed (left out when captured over real video). */}
+        {!capture && (
         <div dir="ltr" aria-hidden className="absolute inset-0 flex items-center justify-center opacity-60">
           <div className="aspect-[105/68] h-full max-w-full">
             <Pitch2D
@@ -245,9 +349,13 @@ export const BroadcastOverlay: React.FC<ViewProps> = ({ match, actions }) => {
             />
           </div>
         </div>
-        <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70" />
+        )}
+        {!capture && (
+          <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70" />
+        )}
 
         {/* Corner badges */}
+        {!capture && (
         <div className="absolute end-[2%] top-[3%] flex flex-col items-end gap-1">
           <span
             title={t('broadcast.feedHint')}
@@ -268,10 +376,11 @@ export const BroadcastOverlay: React.FC<ViewProps> = ({ match, actions }) => {
             </span>
           )}
         </div>
+        )}
 
         {shown.scorebug && (
           <div className="absolute start-[2%] top-[3%] max-w-[62%]">
-            <Scorebug match={match} actions={actions} />
+            <Scorebug match={match} actions={actions} corrected={corrected} />
           </div>
         )}
 
@@ -338,19 +447,46 @@ export const BroadcastOverlay: React.FC<ViewProps> = ({ match, actions }) => {
             ) : (
               fullPlain && (
                 <div className="w-full max-w-[70%]">
-                  <LowerThird card={fullPlain} teams={teams} favourite={favourite} />
+                  {fullPlain.kind === 'correction' ? (
+                    <CorrectionCard
+                      card={fullPlain}
+                      reason={[...match.cue.onAir, ...match.cue.log].find((c) => c.moment_id === fullPlain.moment_id && c.reason)?.reason ?? null}
+                    />
+                  ) : (
+                    <LowerThird card={fullPlain} teams={teams} favourite={favourite} />
+                  )}
                 </div>
               )
             )}
           </div>
         )}
 
-        {nothingOnAir && !playback.ended && (
+        {exiting.length > 0 && (
+          <div className="pointer-events-none absolute inset-x-[15%] bottom-[18%] z-20 flex flex-col items-center gap-2">
+            {exiting.map((c) => (
+              <ExitingCard key={`exit-${c.card_id}`} card={c} teams={teams} favourite={favourite} />
+            ))}
+          </div>
+        )}
+
+        {nothingOnAir && !playback.ended && !capture && (
           <p className="absolute inset-x-[10%] bottom-[5%] text-center text-[clamp(9px,1.2vw,13px)] text-slate-300/80">
             {match.events.length || match.playback.clock_s > 0 ? t('broadcast.idle') : t('common.waiting')}
           </p>
         )}
       </section>
+  );
+
+  if (capture) return stage;
+
+  return (
+    <div className="mx-auto w-full max-w-5xl space-y-4">
+      <div>
+        <h2 className="font-display text-lg font-bold uppercase tracking-wide text-white">{t('broadcast.title')}</h2>
+        <p className="text-sm text-pp-mute">{t('broadcast.subtitle')}</p>
+      </div>
+
+      {stage}
 
       <section className="rounded-2xl border border-pp-line/70 bg-pp-panel/80 p-4">
         <header className="mb-1 flex flex-wrap items-center justify-between gap-2">
@@ -398,6 +534,8 @@ export const BroadcastOverlay: React.FC<ViewProps> = ({ match, actions }) => {
           })}
         </ul>
       </section>
+
+      <CueLog cues={match.cue.log} />
     </div>
   );
 };

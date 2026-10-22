@@ -32,126 +32,126 @@
       103,
       104
     ],
-    "frames": 732204,
+    "frames": 731850,
     "classes": [
       {
         "kind": "pass",
-        "support": 6453,
-        "detected": 6434,
-        "matched": 6419,
-        "precision": 0.9977,
-        "recall": 0.9947,
+        "support": 6499,
+        "detected": 6478,
+        "matched": 6464,
+        "precision": 0.9978,
+        "recall": 0.9946,
         "f1": 0.9962,
         "precision_ci": [
-          0.9962,
-          0.9986
+          0.9964,
+          0.9987
         ],
         "recall_ci": [
-          0.9926,
-          0.9962
+          0.9925,
+          0.9961
         ]
       },
       {
         "kind": "shot",
-        "support": 159,
-        "detected": 163,
-        "matched": 153,
-        "precision": 0.9387,
-        "recall": 0.9623,
-        "f1": 0.9504,
+        "support": 157,
+        "detected": 160,
+        "matched": 151,
+        "precision": 0.9437,
+        "recall": 0.9618,
+        "f1": 0.9527,
         "precision_ci": [
-          0.8908,
-          0.9663
+          0.8966,
+          0.9701
         ],
         "recall_ci": [
-          0.9201,
-          0.9826
+          0.9191,
+          0.9824
         ]
       },
       {
         "kind": "clearance",
-        "support": 48,
-        "detected": 45,
-        "matched": 44,
-        "precision": 0.9778,
-        "recall": 0.9167,
-        "f1": 0.9463,
+        "support": 47,
+        "detected": 44,
+        "matched": 43,
+        "precision": 0.9773,
+        "recall": 0.9149,
+        "f1": 0.9451,
         "precision_ci": [
-          0.8843,
-          0.9961
+          0.8819,
+          0.996
         ],
         "recall_ci": [
-          0.8045,
-          0.9671
+          0.8007,
+          0.9664
         ]
       },
       {
         "kind": "tackle",
-        "support": 296,
-        "detected": 275,
-        "matched": 257,
-        "precision": 0.9345,
-        "recall": 0.8682,
-        "f1": 0.9001,
+        "support": 305,
+        "detected": 282,
+        "matched": 264,
+        "precision": 0.9362,
+        "recall": 0.8656,
+        "f1": 0.8995,
         "precision_ci": [
-          0.8989,
-          0.9582
+          0.9014,
+          0.9592
         ],
         "recall_ci": [
-          0.825,
-          0.9021
+          0.8227,
+          0.8993
         ]
       },
       {
         "kind": "interception",
-        "support": 1126,
-        "detected": 1115,
-        "matched": 1098,
-        "precision": 0.9848,
-        "recall": 0.9751,
-        "f1": 0.9799,
+        "support": 1144,
+        "detected": 1134,
+        "matched": 1116,
+        "precision": 0.9841,
+        "recall": 0.9755,
+        "f1": 0.9798,
         "precision_ci": [
-          0.9757,
-          0.9905
+          0.975,
+          0.9899
         ],
         "recall_ci": [
-          0.9643,
-          0.9827
+          0.9649,
+          0.983
         ]
       },
       {
         "kind": "recovery",
-        "support": 57,
-        "detected": 55,
-        "matched": 38,
-        "precision": 0.6909,
-        "recall": 0.6667,
-        "f1": 0.6786,
+        "support": 54,
+        "detected": 51,
+        "matched": 34,
+        "precision": 0.6667,
+        "recall": 0.6296,
+        "f1": 0.6476,
         "precision_ci": [
-          0.5597,
-          0.7972
+          0.5297,
+          0.7803
         ],
         "recall_ci": [
-          0.5372,
-          0.7751
+          0.4963,
+          0.7458
         ]
       }
     ],
     "pressure": {
       "kind": "pressure",
-      "support": 1129,
-      "detected": 1539,
-      "matched": 1061,
-      "precision": 0.6894,
-      "recall": 0.9398,
-      "f1": 0.7954,
+      "support": 1155,
+      "detected": 1582,
+      "matched": 1087,
+      "precision": 0.6871,
+      "recall": 0.9411,
+      "f1": 0.7943,
       "precision_ci": [
-        0.6658,
-        0.712
+        0.6638,
+        0.7095
       ],
       "recall_ci": [
-        0.9243,
-        0.9522
+        0.926,
+        0.9533
       ]
     },
     "confusion": {
@@ -175,27 +175,27 @@
       ],
       "counts": [
         [
-          6419,
-          10,
+          6464,
+          9,
           1,
           0,
           0,
           0,
-          23
+          25
         ],
         [
-          5,
-          153,
+          4,
+          151,
           0,
           0,
           0,
           0,
-          1
+          2
         ],
         [
           4,
           0,
-          44,
+          43,
           0,
           0,
           0,
@@ -205,19 +205,19 @@
           0,
           0,
           0,
-          257,
+          264,
           4,
           0,
-          35
+          37
         ],
         [
           0,
           0,
           0,
           0,
-          1098,
-          9,
-          19
+          1116,
+          7,
+          21
         ],
         [
           0,
@@ -225,50 +225,50 @@
           0,
           1,
           1,
-          38,
-          17
+          34,
+          18
         ],
         [
           6,
           0,
           0,
           17,
-          12,
-          8,
+          13,
+          10,
           0
         ]
       ]
     },
-    "speed_mae_kmh": 1.03,
+    "speed_mae_kmh": 1.04,
     "speed_mae_ci_kmh": [
-      0.983,
-      1.078
+      0.994,
+      1.091
     ],
-    "speed_samples": 6572,
-    "receiver_accuracy": 0.994,
+    "speed_samples": 6615,
+    "receiver_accuracy": 0.9939,
     "baseline": {
       "name": "Naive baseline: every ball-speed spike is a pass, every change of nearest team is a tackle",
       "classes": [
         {
           "kind": "pass",
-          "support": 6453,
-          "detected": 9339,
-          "matched": 6214,
-          "precision": 0.6654,
-          "recall": 0.963,
-          "f1": 0.787,
+          "support": 6499,
+          "detected": 9357,
+          "matched": 6267,
+          "precision": 0.6698,
+          "recall": 0.9643,
+          "f1": 0.7905,
           "precision_ci": [
-            0.6557,
-            0.6749
+            0.6602,
+            0.6792
           ],
           "recall_ci": [
-            0.9581,
-            0.9673
+            0.9595,
+            0.9685
           ]
         },
         {
           "kind": "shot",
-          "support": 159,
+          "support": 157,
           "detected": 0,
           "matched": 0,
           "precision": 0.0,
@@ -277,12 +277,12 @@
           "precision_ci": null,
           "recall_ci": [
             0.0,
-            0.0236
+            0.0239
           ]
         },
         {
           "kind": "clearance",
-          "support": 48,
+          "support": 47,
           "detected": 0,
           "matched": 0,
           "precision": 0.0,
@@ -291,29 +291,29 @@
           "precision_ci": null,
           "recall_ci": [
             0.0,
-            0.0741
+            0.0756
           ]
         },
         {
           "kind": "tackle",
-          "support": 296,
-          "detected": 4442,
-          "matched": 283,
-          "precision": 0.0637,
-          "recall": 0.9561,
-          "f1": 0.1194,
+          "support": 305,
+          "detected": 4504,
+          "matched": 293,
+          "precision": 0.0651,
+          "recall": 0.9607,
+          "f1": 0.1219,
           "precision_ci": [
-            0.0569,
-            0.0713
+            0.0582,
+            0.0726
           ],
           "recall_ci": [
-            0.9263,
-            0.9742
+            0.9325,
+            0.9774
           ]
         },
         {
           "kind": "interception",
-          "support": 1126,
+          "support": 1144,
           "detected": 0,
           "matched": 0,
           "precision": 0.0,
@@ -322,12 +322,12 @@
           "precision_ci": null,
           "recall_ci": [
             0.0,
-            0.0034
+            0.0033
           ]
         },
         {
           "kind": "recovery",
-          "support": 57,
+          "support": 54,
           "detected": 0,
           "matched": 0,
           "precision": 0.0,
@@ -336,24 +336,24 @@
           "precision_ci": null,
           "recall_ci": [
             0.0,
-            0.0631
+            0.0664
           ]
         },
         {
           "kind": "pressure",
-          "support": 1129,
-          "detected": 2378,
-          "matched": 1098,
-          "precision": 0.4617,
-          "recall": 0.9725,
-          "f1": 0.6261,
+          "support": 1155,
+          "detected": 2409,
+          "matched": 1125,
+          "precision": 0.467,
+          "recall": 0.974,
+          "f1": 0.6313,
           "precision_ci": [
-            0.4418,
-            0.4818
+            0.4471,
+            0.487
           ],
           "recall_ci": [
-            0.9613,
-            0.9806
+            0.9632,
+            0.9817
           ]
         }
       ]
@@ -1856,7 +1856,7 @@
     },
     "speed_mae_kmh_coordinate": 1.16,
     "speed_mae_kmh_pixels": 1.4,
-    "seconds_per_match": 26.9
+    "seconds_per_match": 36.6
   },
   "failures": [
     {
@@ -1910,5 +1910,5 @@
       "image": "benchmark-failure-5.svg"
     }
   ],
-  "runtime_s": 198.6
+  "runtime_s": 273.9
 }

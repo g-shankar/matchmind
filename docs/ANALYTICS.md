@@ -66,13 +66,13 @@ Row counts of the bundled dataset (5 matches in `backend/data/matches`), checked
 | `teams` | dim | 2 | The two fictional clubs |
 | `players` | dim | 22 | Fictional squads, 11 per club |
 | `matches` | dim | 5 | One row per match: score, xG, seed, kick-off |
-| `events` | fact | 10433 | Every event, with stats-engine metrics (xG, pass difficulty, pressure, xT, sprint) and the running match state (score, cumulative xG, momentum, five-minute pressure index) |
-| `moments` | fact | 358 | Spotter output: kind, priority, players, facts as JSON |
-| `moment_facts` | fact | 5933 | The same facts, one row per fact (text and numeric value) |
+| `events` | fact | 10506 | Every event, with stats-engine metrics (xG, pass difficulty, pressure, xT, sprint) and the running match state (score, cumulative xG, momentum, five-minute pressure index) |
+| `moments` | fact | 367 | Spotter output: kind, priority, players, facts as JSON |
+| `moment_facts` | fact | 6097 | The same facts, one row per fact (text and numeric value) |
 | `better_options` | fact | 6 | "Should he have passed?": shot vs best pass, and unfound runs, with positions |
 | `player_match` | fact | 110 | Per-player aggregates for one match |
 | `team_match` | fact | 10 | Per-club aggregates for one match |
-| `decision_labels` | fact | 6612 | ML training set (`labels` command, or `export --with-labels`) |
+| `decision_labels` | fact | 6656 | ML training set (`labels` command, or `export --with-labels`) |
 
 Relationships (also in each `_schema.json`): every fact row points to `matches` by `match_id`, to
 `teams` by `team_id` and to `players` by `player_id`; `moments`, `better_options` and

@@ -375,7 +375,7 @@ export const PlayerFocus: React.FC<ViewProps> = ({ match, actions }) => {
               focusPlayerId={focusId}
               zoomOnFocus={zoom}
               showTags
-              pitchTags={activeCards(match.cards, clockS, 'pitch_tag').filter((c) => c.player_ids.includes(focusId))}
+              pitchTags={activeCards(match.cards, clockS, 'pitch_tag', match.cue.ruledOut).filter((c) => c.player_ids.includes(focusId))}
             />
           </div>
         </Panel>

@@ -66,6 +66,7 @@ model_steps:
           - work_rate
           - line_breaking
           - game_state
+          - officiating
           type: string
         title: Allowed Tactical Tags
         type: array
@@ -103,6 +104,7 @@ model_steps:
         - work_rate
         - line_breaking
         - game_state
+        - officiating
         title: Tactical Tag
         type: string
     required:
@@ -149,6 +151,7 @@ contract:
         - distance_milestone
         - hard_pass
         - milestone
+        - correction
         title: MomentKind
         type: string
     description: 'Spotter output: something worth telling, with the numbers that back it.'
@@ -198,6 +201,12 @@ contract:
         minimum: 0
         title: Priority
         type: integer
+      retracts:
+        description: 'Moment ids this moment rules out (a correction): they no longer count anywhere.'
+        items:
+          type: string
+        title: Retracts
+        type: array
     required:
     - moment_id
     - kind

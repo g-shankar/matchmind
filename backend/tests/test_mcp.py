@@ -149,6 +149,9 @@ def parity_cases(session: MatchSession) -> list[tuple[str, dict, Any]]:
     async def players(http):
         return {"players": await _get(http, "/api/match/players")}
 
+    async def cue_sheet(http):
+        return await _get(http, "/api/match/cue-sheet", persona="tactical", lang="es", since_seq=2, limit=5)
+
     async def one_player(http):
         rows = await _get(http, "/api/match/players")
         return {"players": [r for r in rows if r["player_id"] == player_id]}
@@ -179,6 +182,7 @@ def parity_cases(session: MatchSession) -> list[tuple[str, dict, Any]]:
         ("get_moment", {"moment_id": first.moment_id}, moment),
         ("get_overlay_card", {"moment_id": first.moment_id, "persona": "tactical", "language": "es"}, card),
         ("get_recap", {"persona": "fantasy", "language": "fr"}, recap),
+        ("get_cue_sheet", {"persona": "tactical", "language": "es", "since_seq": 2, "limit": 5}, cue_sheet),
         ("get_player_stats", {}, players),
         ("get_player_stats", {"player_id": player_id}, one_player),
         ("get_team_rosters", {}, teams),

@@ -3,6 +3,8 @@ comes from one of these models."""
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field, computed_field
 
 
@@ -29,6 +31,7 @@ class EventMetrics(BaseModel):
     xt_delta: float | None = None
     better_option: BetterOption | None = None
     unfound_run: UnfoundRun | None = None
+    var_decision: VarDecision | None = None
 
 
 class BetterOption(BaseModel):
@@ -66,6 +69,29 @@ class UnfoundRun(BaseModel):
     runner_path: list[XY]
     target: XY
     defenders_at_pass: list[XY]
+
+
+class VarDecision(BaseModel):
+    """A VAR review as the stats engine applied it (docs/METRICS.md, "Corrections").
+
+    An overturned goal comes off the score and off the scorer's goals (and the
+    assist), while the shot itself still counts as a shot with its xG."""
+
+    review_event_id: str
+    reviewed_event_id: str
+    outcome: Literal["overturned", "stands"]
+    reason: str | None = None
+    team: str | None = Field(default=None, description="Team of the reviewed event")
+    player_id: str | None = Field(default=None, description="Actor of the reviewed event (the scorer)")
+    assist_id: str | None = Field(default=None, description="Assist taken away with the goal, if any")
+    reviewed_clock: str | None = Field(default=None, description="Match clock of the reviewed event")
+    reviewed_period: int | None = None
+    reviewed_clock_s: float | None = None
+    goal_removed: bool = Field(
+        default=False, description="True only when this review took a counted goal off the score"
+    )
+    score_home: int
+    score_away: int
 
 
 class TeamWindow(BaseModel):

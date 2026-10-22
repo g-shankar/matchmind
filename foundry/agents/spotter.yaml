@@ -227,6 +227,20 @@ contract:
             default: null
             description: match_start only.
             title: Lineups
+          reviewed_event_id:
+            anyOf:
+            - type: string
+            - type: 'null'
+            default: null
+            description: 'var_review only: the earlier event under review (e.g. the goal''s shot). Outcome `overturned`
+              reverses its on-field decision; `stands` keeps it.'
+            title: Reviewed Event Id
+          review_reason:
+            anyOf:
+            - $ref: '#/$defs/ReviewReason'
+            - type: 'null'
+            default: null
+            description: var_review only.
           details:
             additionalProperties:
               anyOf:
@@ -340,6 +354,11 @@ contract:
             - $ref: '#/$defs/UnfoundRun'
             - type: 'null'
             default: null
+          var_decision:
+            anyOf:
+            - $ref: '#/$defs/VarDecision'
+            - type: 'null'
+            default: null
         required:
         - event_id
         title: EventMetrics
@@ -360,6 +379,7 @@ contract:
         - foul
         - card
         - milestone
+        - var_review
         - period_end
         - match_end
         title: EventType
@@ -529,6 +549,8 @@ contract:
         - off_target
         - found
         - not_found
+        - overturned
+        - stands
         title: Outcome
         type: string
       PlayerStats:
@@ -621,6 +643,14 @@ contract:
         - y
         title: Point
         type: object
+      ReviewReason:
+        description: Why a VAR review looked at an event (var_review only).
+        enum:
+        - offside
+        - handball
+        - foul
+        title: ReviewReason
+        type: string
       TeamWindow:
         description: Rolling five-minute numbers for one team.
         properties:
@@ -739,6 +769,90 @@ contract:
         - defenders_at_pass
         title: UnfoundRun
         type: object
+      VarDecision:
+        description: |-
+          A VAR review as the stats engine applied it (docs/METRICS.md, "Corrections").
+
+          An overturned goal comes off the score and off the scorer's goals (and the
+          assist), while the shot itself still counts as a shot with its xG.
+        properties:
+          review_event_id:
+            title: Review Event Id
+            type: string
+          reviewed_event_id:
+            title: Reviewed Event Id
+            type: string
+          outcome:
+            enum:
+            - overturned
+            - stands
+            title: Outcome
+            type: string
+          reason:
+            anyOf:
+            - type: string
+            - type: 'null'
+            default: null
+            title: Reason
+          team:
+            anyOf:
+            - type: string
+            - type: 'null'
+            default: null
+            description: Team of the reviewed event
+            title: Team
+          player_id:
+            anyOf:
+            - type: string
+            - type: 'null'
+            default: null
+            description: Actor of the reviewed event (the scorer)
+            title: Player Id
+          assist_id:
+            anyOf:
+            - type: string
+            - type: 'null'
+            default: null
+            description: Assist taken away with the goal, if any
+            title: Assist Id
+          reviewed_clock:
+            anyOf:
+            - type: string
+            - type: 'null'
+            default: null
+            description: Match clock of the reviewed event
+            title: Reviewed Clock
+          reviewed_period:
+            anyOf:
+            - type: integer
+            - type: 'null'
+            default: null
+            title: Reviewed Period
+          reviewed_clock_s:
+            anyOf:
+            - type: number
+            - type: 'null'
+            default: null
+            title: Reviewed Clock S
+          goal_removed:
+            default: false
+            description: True only when this review took a counted goal off the score
+            title: Goal Removed
+            type: boolean
+          score_home:
+            title: Score Home
+            type: integer
+          score_away:
+            title: Score Away
+            type: integer
+        required:
+        - review_event_id
+        - reviewed_event_id
+        - outcome
+        - score_home
+        - score_away
+        title: VarDecision
+        type: object
       XY:
         properties:
           x:
@@ -822,6 +936,12 @@ contract:
             minimum: 0
             title: Priority
             type: integer
+          retracts:
+            description: 'Moment ids this moment rules out (a correction): they no longer count anywhere.'
+            items:
+              type: string
+            title: Retracts
+            type: array
         required:
         - moment_id
         - kind
@@ -846,6 +966,7 @@ contract:
         - distance_milestone
         - hard_pass
         - milestone
+        - correction
         title: MomentKind
         type: string
     properties:

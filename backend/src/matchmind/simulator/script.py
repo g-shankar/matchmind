@@ -16,7 +16,9 @@ from .teams import get_team
 HALF_S = 2700.0
 FULL_S = 5400.0
 
-BeatType = Literal["goal", "missed_option", "run_not_found", "red_card", "pressure_spell", "milestone"]
+BeatType = Literal[
+    "goal", "disallowed_goal", "missed_option", "run_not_found", "red_card", "pressure_spell", "milestone"
+]
 
 _CLOCK = re.compile(r"(\d{1,2})(?:\+(\d{1,2}))?:(\d{2})")
 
@@ -59,6 +61,9 @@ class Beat(BaseModel):
     outcome: Literal["saved", "blocked", "off_target"] = "saved"
     intensity: float = Field(default=0.5, ge=0, le=1)
     label: str | None = None
+    # disallowed_goal: why VAR rules it out, and how long the check takes (match seconds).
+    reason: Literal["offside", "handball", "foul"] = "offside"
+    review_s: float = Field(default=70.0, ge=10, le=300)
 
     @property
     def period(self) -> int:
@@ -75,6 +80,7 @@ class Beat(BaseModel):
 
 _REQUIRED = {
     "goal": ("player",),
+    "disallowed_goal": ("player",),
     "missed_option": ("player", "open_player"),
     "run_not_found": ("player",),
     "red_card": ("player",),

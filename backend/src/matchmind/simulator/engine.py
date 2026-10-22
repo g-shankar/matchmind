@@ -24,6 +24,7 @@ from matchmind.schema import (
     LineupPlayer,
     Outcome,
     Point,
+    ReviewReason,
     TrackingFrame,
 )
 
@@ -632,7 +633,8 @@ class MatchEngine:
         decide: float | None = None,
         labels=(),
         details: dict | None = None,
-    ) -> None:
+        restart: bool = True,
+    ) -> Event:
         team, shooter, opp = self.poss_team, self.carrier, self._opp(self.poss_team)
         s = self._f(team, self.ball)
         opp_keeper = self._keeper_id(opp)
@@ -690,7 +692,7 @@ class MatchEngine:
             info["blocked_by"] = blocker
         pressers = self._pressers(pos)
         self.clock += self.rng.uniform(0.3, 1.0) if decide is None else decide
-        self._emit(
+        event = self._emit(
             EventType.SHOT,
             team=team,
             player_id=shooter,
@@ -706,7 +708,9 @@ class MatchEngine:
             labels=labels,
         )
         self.clock += pitch.dist(self.ball, end) / speed
-        self._after_shot(outcome, pos, blocker)
+        if restart:
+            self._after_shot(outcome, pos, blocker)
+        return event
 
     def _after_shot(self, outcome: Outcome, pos: dict[str, Pos], blocker: str | None) -> None:
         team, opp = self.poss_team, self._opp(self.poss_team)
@@ -900,8 +904,10 @@ class MatchEngine:
             self._pass(pos, receiver=holder, end=spot, force=True, labels=labels)
 
     def _beat_goal(self, beat: Beat) -> None:
+        self._scripted_goal(beat, ["scripted:goal"])
+
+    def _scripted_goal(self, beat: Beat, labels: list[str], restart: bool = True) -> Event:
         team, scorer = beat.team, beat.player
-        labels = ["scripted:goal"]
         assister = beat.assist or self._pick_line(team, {"MID", "FWD"}, exclude={scorer})
         self._take_possession(team)
         side_v = self.teams[team].player(assister).base[1] - 34
@@ -924,14 +930,39 @@ class MatchEngine:
             kind="cross" if cross else "through_ball",
             labels=labels,
         )
-        self._shot(
+        return self._shot(
             self._positions(),
             forced=Outcome.GOAL,
             body_part=BodyPart.HEAD if cross else None,
             decide=0.3 if cross else None,
             labels=labels,
             details={"assist_id": assister},
+            restart=restart,
         )
+
+    def _beat_disallowed_goal(self, beat: Beat) -> None:
+        """A goal that a VAR review rules out (offside in the build-up, a handball
+        or a foul) `review_s` seconds later, before the restart. The shot stays a
+        shot; the goal comes off the score."""
+        team = beat.team
+        shot = self._scripted_goal(beat, ["scripted:disallowed_goal"], restart=False)
+        self.clock += beat.review_s
+        self.score[team] -= 1
+        self._emit(
+            EventType.VAR_REVIEW,
+            team=team,
+            player_id=beat.player,
+            outcome=Outcome.OVERTURNED,
+            reviewed_event_id=shot.event_id,
+            review_reason=ReviewReason(beat.reason),
+            details=self._score_details(),
+            labels=["scripted:var_review"],
+        )
+        # Restart: a free kick to the defending side, deep in its own half.
+        opp = self._opp(team)
+        self.ball = self._f(opp, (self.rng.uniform(14, 22), 34 + self.rng.uniform(-12, 12)))
+        self._change_possession(self._pick_line(opp, {"DEF"}, exclude=set()))
+        self.clock += self.rng.uniform(8, 15)
 
     def _beat_missed_option(self, beat: Beat) -> None:
         """Trigger 1: the shooter goes for goal from a tight angle while a

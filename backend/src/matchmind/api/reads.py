@@ -23,7 +23,7 @@ from fastapi import HTTPException
 from matchmind.crew.contracts import Language, Persona, ViewerProfile, is_world_language
 
 from . import view
-from .session import MatchSession
+from .session import CUE_PAGE_MAX, MatchSession
 
 T = TypeVar("T")
 
@@ -121,6 +121,20 @@ def profile_for(hub: HubLike, persona: Persona, lang: Language, favourite_team: 
     if favourite_team is not None and not hub.session.is_known_team(favourite_team):
         raise HTTPException(status_code=400, detail=NO_CLUB)
     return ViewerProfile(persona=persona, language=lang, favourite_team=favourite_team)
+
+
+async def cue_sheet(
+    hub: HubLike,
+    persona: Persona,
+    lang: Language,
+    favourite_team: str | None,
+    since_seq: int = 0,
+    limit: int = CUE_PAGE_MAX,
+) -> dict[str, Any]:
+    """The compiled cue sheet so far for one audience (docs/CUE-SHEET.md). Template text only,
+    so it never calls a paid service; compiled off the event loop and cached per position."""
+    profile = profile_for(hub, persona, lang, favourite_team)
+    return await asyncio.to_thread(hub.session.cue_sheet, profile, since_seq, limit)
 
 
 async def moment_detail(hub: HubLike, moment_id: str) -> dict[str, Any]:

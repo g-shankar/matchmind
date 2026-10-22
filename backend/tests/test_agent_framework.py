@@ -96,6 +96,9 @@ def test_template_cards_are_identical_under_agent_framework():
     assert len(bundles_a) > 20 and any(c is not None for c in cards_a)
     assert [x.model_dump(mode="json") for x in bundles_a] == [x.model_dump(mode="json") for x in bundles_b]
     assert cards_a == cards_b  # byte-identical cards, one per moment x profile
+    # The VAR overturn takes the same path: the correction supersedes the goal on both orchestrators.
+    corrections = [c for c in cards_b if c and c["kind"] == "correction"]
+    assert corrections and all(c["retracts"] and c["retracts"][0].startswith("goal-") for c in corrections)
     # Claims are made on the Agent Framework path too (and so compared above).
     assert all(c["claims"] for c in cards_b if c is not None)
     assert [x.model_dump(mode="json") for x in again_a] == [x.model_dump(mode="json") for x in again_b]

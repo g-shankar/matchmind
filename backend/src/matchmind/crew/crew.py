@@ -52,6 +52,7 @@ from matchmind.crew.contracts import (
     Recap,
     ViewerProfile,
     is_world_language,
+    without_retracted,
 )
 from matchmind.crew.fact_checker import banned_names_in, check, check_all
 from matchmind.crew.i18n import MissingFact, fill_first_with_template, pack
@@ -673,7 +674,8 @@ class Crew:
         favourite club); before that, and once the budget is spent, templates.
         World languages get the English recap, translated and fact-checked again."""
         t0 = time.perf_counter()
-        moments = self.moments() if moments is None else list(moments)
+        # A goal a correction ruled out no longer counts anywhere in the recap.
+        moments = without_retracted(self.moments() if moments is None else list(moments))
         if is_world_language(profile.language):
             english = self.recap(snapshot, players, profile.model_copy(update={"language": "en"}), moments)
             return self.translate_recap(english, moments, profile, snapshot)

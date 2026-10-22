@@ -66,6 +66,12 @@ class Replay:
         return cards
 
 
+def standing_goals(cards: list[OverlayCard]) -> list[OverlayCard]:
+    """Goal cards a later correction card (VAR) did not rule out."""
+    ruled = {mid for c in cards for mid in c.retracts}
+    return [c for c in cards if c.kind == MomentKind.GOAL and c.moment_id not in ruled]
+
+
 @pytest.fixture(scope="module")
 def replay() -> Replay:
     return Replay()
@@ -273,7 +279,7 @@ def test_three_viewers_get_different_cards_with_identical_numbers(replay):
                 assert (card.headline, card.body) != (base.headline, base.body)
     # framing: every goal, let-off and lesson reads differently for each fan
     assert framed["NBR"] >= 10 and framed["HCY"] >= 10, framed
-    goals = {fan: [c.headline for c in watched[fan] if c.kind == MomentKind.GOAL] for fan in VIEWERS}
+    goals = {fan: [c.headline for c in standing_goals(watched[fan])] for fan in VIEWERS}
     assert len(goals[None]) == 5
     for a, b in zip(goals["NBR"], goals["HCY"], strict=True):
         assert a != b
@@ -283,9 +289,7 @@ def test_three_viewers_get_different_cards_with_identical_numbers(replay):
 
 def test_the_demo_storyline_reads_from_each_side(replay):
     def headlines(fan: str) -> list[str]:
-        return [
-            c.headline for c in replay.watch(ViewerProfile(favourite_team=fan)) if c.kind == MomentKind.GOAL
-        ]
+        return [c.headline for c in standing_goals(replay.watch(ViewerProfile(favourite_team=fan)))]
 
     nbr, hcy = headlines("NBR"), headlines("HCY")
     assert nbr[0] == "GOAL! Kerrigan puts your team in front" and nbr[-1] == "Late blow: Clarke scores"

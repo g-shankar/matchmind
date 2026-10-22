@@ -360,7 +360,7 @@ DECISION_LABELS = Table(
         Col("best_alt_nearest_marker_m", F, "Shots: marker distance of the best pass option."),
         Col("label_better_option", B, "Shots: flagged 'should have passed' by the engine's thresholds."),
         Col("label_xg_gain", F, "Shots: max(0, best_alt_value - shot_xg)."),
-        Col("label_goal", B, "Shots: scored."),
+        Col("label_goal", B, "Shots: scored (false for a goal VAR ruled out)."),
         Col("label_completed", B, "Passes: completed."),
         Col("label_progressive", B, "Passes: progressive."),
         Col("label_leads_to_shot", B, "Passes: same club shoots in the same possession within 15 s."),

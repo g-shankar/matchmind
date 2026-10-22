@@ -241,6 +241,12 @@
               "title": "Period",
               "type": "integer"
             },
+            "ruled_out": {
+              "default": false,
+              "description": "A goal VAR later ruled out",
+              "title": "Ruled Out",
+              "type": "boolean"
+            },
             "title": {
               "title": "Title",
               "type": "string"
@@ -731,6 +737,440 @@
           "title": "CrewStatus",
           "type": "object"
         },
+        "Cue": {
+          "additionalProperties": false,
+          "description": "One line of the cue sheet.",
+          "properties": {
+            "clears": {
+              "description": "op clear: layers emptied.",
+              "items": {
+                "enum": [
+                  "lower_third",
+                  "side_panel",
+                  "pitch_tag",
+                  "metric_alert",
+                  "full_screen",
+                  "scorebug",
+                  "momentum_ribbon",
+                  "telestration"
+                ],
+                "type": "string"
+              },
+              "title": "Clears",
+              "type": "array"
+            },
+            "collision": {
+              "enum": [
+                "replace",
+                "queue",
+                "stack",
+                "latest"
+              ],
+              "title": "Collision",
+              "type": "string"
+            },
+            "cue_id": {
+              "description": "Stable id: the same cue has the same id on every compile.",
+              "title": "Cue Id",
+              "type": "string"
+            },
+            "duration_s": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "None: stays until updated, retracted or cleared.",
+              "title": "Duration S"
+            },
+            "end": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/CueTime"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/Evidence"
+              },
+              "title": "Evidence",
+              "type": "array"
+            },
+            "kind": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/MomentKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "language": {
+              "enum": [
+                "en",
+                "es",
+                "fr",
+                "ar",
+                "ja",
+                "pt",
+                "de",
+                "hi",
+                "zh-Hans",
+                "sw",
+                "id",
+                "tr",
+                "ko"
+              ],
+              "title": "Language",
+              "type": "string"
+            },
+            "layer": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "lower_third",
+                    "side_panel",
+                    "pitch_tag",
+                    "metric_alert",
+                    "full_screen",
+                    "scorebug",
+                    "momentum_ribbon",
+                    "telestration"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "const": "all",
+                  "type": "string"
+                }
+              ],
+              "description": "'all' only for op clear (see `clears`).",
+              "title": "Layer"
+            },
+            "moment_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Moment Id"
+            },
+            "op": {
+              "enum": [
+                "show",
+                "update",
+                "retract",
+                "supersede",
+                "clear"
+              ],
+              "title": "Op",
+              "type": "string"
+            },
+            "persona": {
+              "enum": [
+                "casual",
+                "tactical",
+                "fantasy",
+                "player_spotlight"
+              ],
+              "title": "Persona",
+              "type": "string"
+            },
+            "player_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Player Ids",
+              "type": "array"
+            },
+            "priority": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Priority",
+              "type": "integer"
+            },
+            "produced_by": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "ai",
+                    "template"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Produced By"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "var_offside",
+                    "var_handball",
+                    "var_foul",
+                    "period_end",
+                    "full_time"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Why cues are retracted or cleared.",
+              "title": "Reason"
+            },
+            "retracts": {
+              "description": "op retract: cue ids taken down.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Retracts",
+              "type": "array"
+            },
+            "ribbon": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Ribbon"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "rtl": {
+              "default": false,
+              "title": "Rtl",
+              "type": "boolean"
+            },
+            "schema_version": {
+              "const": "1.0",
+              "default": "1.0",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "scorebug": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Scorebug"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "seq": {
+              "description": "Position in this sheet; strictly increasing.",
+              "minimum": 1,
+              "title": "Seq",
+              "type": "integer"
+            },
+            "source_event_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Source Event Ids",
+              "type": "array"
+            },
+            "start": {
+              "$ref": "#/$defs/CueTime"
+            },
+            "supersedes": {
+              "description": "op supersede: cue ids this cue replaces.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Supersedes",
+              "type": "array"
+            },
+            "team": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Team"
+            },
+            "telestration": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Telestration"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "text": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/CueText"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          "required": [
+            "cue_id",
+            "seq",
+            "op",
+            "layer",
+            "start",
+            "priority",
+            "collision",
+            "persona",
+            "language"
+          ],
+          "title": "Cue",
+          "type": "object"
+        },
+        "CueSheetStateOut": {
+          "properties": {
+            "active": {
+              "items": {
+                "$ref": "#/$defs/Cue"
+              },
+              "title": "Active",
+              "type": "array"
+            },
+            "last_seq": {
+              "title": "Last Seq",
+              "type": "integer"
+            },
+            "sheet_id": {
+              "title": "Sheet Id",
+              "type": "string"
+            }
+          },
+          "required": [
+            "sheet_id",
+            "last_seq",
+            "active"
+          ],
+          "title": "CueSheetStateOut",
+          "type": "object"
+        },
+        "CueText": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "default": "",
+              "title": "Body",
+              "type": "string"
+            },
+            "claims": {
+              "description": "Each sentence tied to its facts and source events, as on the card (docs/TRUST.md).",
+              "items": {
+                "$ref": "#/$defs/Claim"
+              },
+              "title": "Claims",
+              "type": "array"
+            },
+            "headline": {
+              "title": "Headline",
+              "type": "string"
+            },
+            "text_language": {
+              "description": "Language the text is really in.",
+              "enum": [
+                "en",
+                "es",
+                "fr",
+                "ar",
+                "ja",
+                "pt",
+                "de",
+                "hi",
+                "zh-Hans",
+                "sw",
+                "id",
+                "tr",
+                "ko"
+              ],
+              "title": "Text Language",
+              "type": "string"
+            },
+            "why": {
+              "default": "",
+              "title": "Why",
+              "type": "string"
+            }
+          },
+          "required": [
+            "headline",
+            "text_language"
+          ],
+          "title": "CueText",
+          "type": "object"
+        },
+        "CueTime": {
+          "additionalProperties": false,
+          "description": "One instant, in the engine's period-aware match clock.",
+          "properties": {
+            "clock_s": {
+              "description": "Engine match clock in seconds. Period 2 starts at 2700; first-half stoppage time runs past 2700 while period is still 1, so read it with `period`.",
+              "minimum": 0,
+              "title": "Clock S",
+              "type": "number"
+            },
+            "match_clock": {
+              "description": "Broadcast clock, e.g. '67:30' or '45+1:30'.",
+              "title": "Match Clock",
+              "type": "string"
+            },
+            "period": {
+              "maximum": 2,
+              "minimum": 1,
+              "title": "Period",
+              "type": "integer"
+            },
+            "t_s": {
+              "description": "Seconds of play since kick-off with the halves joined end to end (no half-time break). Always increases, so renderers can sort and time cues by it.",
+              "minimum": 0,
+              "title": "T S",
+              "type": "number"
+            }
+          },
+          "required": [
+            "period",
+            "clock_s",
+            "match_clock",
+            "t_s"
+          ],
+          "title": "CueTime",
+          "type": "object"
+        },
         "Evidence": {
           "properties": {
             "label": {
@@ -995,7 +1435,8 @@
             "rocket_shot",
             "distance_milestone",
             "hard_pass",
-            "milestone"
+            "milestone",
+            "correction"
           ],
           "title": "MomentKind",
           "type": "string"
@@ -1129,6 +1570,14 @@
               "default": null,
               "description": "Drawing geometry: BetterOption or UnfoundRun model dump",
               "title": "Replay"
+            },
+            "retracts": {
+              "description": "Correction cards only: moment ids this card rules out (their cards come down)",
+              "items": {
+                "type": "string"
+              },
+              "title": "Retracts",
+              "type": "array"
             },
             "rtl": {
               "default": false,
@@ -1472,6 +1921,37 @@
           "title": "PlayerStats",
           "type": "object"
         },
+        "Ribbon": {
+          "additionalProperties": false,
+          "properties": {
+            "momentum": {
+              "description": "+ = home on top (stats engine).",
+              "maximum": 100,
+              "minimum": -100,
+              "title": "Momentum",
+              "type": "number"
+            },
+            "pressure_away": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Pressure Away",
+              "type": "number"
+            },
+            "pressure_home": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Pressure Home",
+              "type": "number"
+            }
+          },
+          "required": [
+            "momentum",
+            "pressure_home",
+            "pressure_away"
+          ],
+          "title": "Ribbon",
+          "type": "object"
+        },
         "RosterPlayer": {
           "properties": {
             "line": {
@@ -1510,6 +1990,103 @@
             "line"
           ],
           "title": "RosterPlayer",
+          "type": "object"
+        },
+        "Scorebug": {
+          "additionalProperties": false,
+          "properties": {
+            "away_id": {
+              "title": "Away Id",
+              "type": "string"
+            },
+            "home_id": {
+              "title": "Home Id",
+              "type": "string"
+            },
+            "score_away": {
+              "minimum": 0,
+              "title": "Score Away",
+              "type": "integer"
+            },
+            "score_home": {
+              "minimum": 0,
+              "title": "Score Home",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "home_id",
+            "away_id",
+            "score_home",
+            "score_away"
+          ],
+          "title": "Scorebug",
+          "type": "object"
+        },
+        "Shape": {
+          "additionalProperties": false,
+          "properties": {
+            "dashed": {
+              "default": false,
+              "title": "Dashed",
+              "type": "boolean"
+            },
+            "kind": {
+              "enum": [
+                "arrow",
+                "line",
+                "polyline",
+                "circle",
+                "marker"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "points": {
+              "items": {
+                "$ref": "#/$defs/XYm"
+              },
+              "minItems": 1,
+              "title": "Points",
+              "type": "array"
+            },
+            "radius_m": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "circle only",
+              "title": "Radius M"
+            },
+            "role": {
+              "enum": [
+                "shooter",
+                "shot_taken",
+                "pass_on",
+                "open_player",
+                "defender",
+                "keeper",
+                "carrier",
+                "runner_path",
+                "through_ball",
+                "target"
+              ],
+              "title": "Role",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "role",
+            "points"
+          ],
+          "title": "Shape",
           "type": "object"
         },
         "TeamOut": {
@@ -1624,6 +2201,30 @@
             "away"
           ],
           "title": "TeamsOut",
+          "type": "object"
+        },
+        "Telestration": {
+          "additionalProperties": false,
+          "description": "Drawing for a replay, in pitch metres: 105 x 68, home attacks towards x = 105.",
+          "properties": {
+            "frame": {
+              "const": "pitch_105x68",
+              "default": "pitch_105x68",
+              "title": "Frame",
+              "type": "string"
+            },
+            "shapes": {
+              "items": {
+                "$ref": "#/$defs/Shape"
+              },
+              "title": "Shapes",
+              "type": "array"
+            }
+          },
+          "required": [
+            "shapes"
+          ],
+          "title": "Telestration",
           "type": "object"
         },
         "TranslatorStatus": {
@@ -1752,6 +2353,29 @@
           },
           "title": "ViewerProfile",
           "type": "object"
+        },
+        "XYm": {
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "maximum": 105.0,
+              "minimum": 0,
+              "title": "X",
+              "type": "number"
+            },
+            "y": {
+              "maximum": 68.0,
+              "minimum": 0,
+              "title": "Y",
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y"
+          ],
+          "title": "XYm",
+          "type": "object"
         }
       },
       "description": "INITIAL_SNAPSHOT.data for the default viewer profile.",
@@ -1786,6 +2410,18 @@
         },
         "crew": {
           "$ref": "#/$defs/CrewStatus"
+        },
+        "cue_sheet": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CueSheetStateOut"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "This viewer's cue sheet: what is on air now (null on the REST snapshot)"
         },
         "home_score": {
           "title": "Home Score",
@@ -1892,7 +2528,8 @@
                 "unfound_run",
                 "momentum_swing",
                 "pressure_spell",
-                "milestone"
+                "milestone",
+                "correction"
               ],
               "type": "string"
             },
@@ -1978,6 +2615,12 @@
             "period": {
               "title": "Period",
               "type": "integer"
+            },
+            "ruled_out": {
+              "default": false,
+              "description": "A goal VAR later ruled out",
+              "title": "Ruled Out",
+              "type": "boolean"
             },
             "title": {
               "title": "Title",
@@ -2220,6 +2863,14 @@
               "title": "Priority",
               "type": "integer"
             },
+            "retracts": {
+              "description": "Moment ids this moment rules out (a correction): they no longer count anywhere.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Retracts",
+              "type": "array"
+            },
             "source_event_ids": {
               "items": {
                 "type": "string"
@@ -2265,7 +2916,8 @@
             "rocket_shot",
             "distance_milestone",
             "hard_pass",
-            "milestone"
+            "milestone",
+            "correction"
           ],
           "title": "MomentKind",
           "type": "string"
@@ -2627,7 +3279,8 @@
             "rocket_shot",
             "distance_milestone",
             "hard_pass",
-            "milestone"
+            "milestone",
+            "correction"
           ],
           "title": "MomentKind",
           "type": "string"
@@ -2761,6 +3414,14 @@
           "default": null,
           "description": "Drawing geometry: BetterOption or UnfoundRun model dump",
           "title": "Replay"
+        },
+        "retracts": {
+          "description": "Correction cards only: moment ids this card rules out (their cards come down)",
+          "items": {
+            "type": "string"
+          },
+          "title": "Retracts",
+          "type": "array"
         },
         "rtl": {
           "default": false,
@@ -3114,7 +3775,8 @@
             "rocket_shot",
             "distance_milestone",
             "hard_pass",
-            "milestone"
+            "milestone",
+            "correction"
           ],
           "title": "MomentKind",
           "type": "string"
@@ -3345,6 +4007,1016 @@
       "type": "object"
     },
     "title": "Get recap"
+  },
+  {
+    "annotations": {
+      "destructiveHint": false,
+      "idempotentHint": true,
+      "openWorldHint": false,
+      "readOnlyHint": true
+    },
+    "description": "The broadcast cue sheet so far for a persona and language: numbered show, update, retract, supersede and clear cues per graphics layer, including VAR corrections. Page with since_seq. Same payload as GET /api/match/cue-sheet.",
+    "inputSchema": {
+      "properties": {
+        "favourite_team": {
+          "anyOf": [
+            {
+              "pattern": "^[A-Z]{2,5}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Viewer's club id (its moments rank higher).",
+          "title": "Favourite Team"
+        },
+        "language": {
+          "default": "en",
+          "description": "Language of the cue text.",
+          "enum": [
+            "en",
+            "es",
+            "fr",
+            "ar",
+            "ja",
+            "pt",
+            "de",
+            "hi",
+            "zh-Hans",
+            "sw",
+            "id",
+            "tr",
+            "ko"
+          ],
+          "title": "Language",
+          "type": "string"
+        },
+        "limit": {
+          "default": 100,
+          "description": "Most cues to return in one page.",
+          "maximum": 500,
+          "minimum": 1,
+          "title": "Limit",
+          "type": "integer"
+        },
+        "persona": {
+          "default": "casual",
+          "description": "Audience the cue text is voiced for.",
+          "enum": [
+            "casual",
+            "tactical",
+            "fantasy",
+            "player_spotlight"
+          ],
+          "title": "Persona",
+          "type": "string"
+        },
+        "since_seq": {
+          "default": 0,
+          "description": "Only cues numbered after this.",
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Since Seq",
+          "type": "integer"
+        }
+      },
+      "title": "get_cue_sheetArguments",
+      "type": "object"
+    },
+    "name": "get_cue_sheet",
+    "outputSchema": {
+      "$defs": {
+        "Claim": {
+          "description": "One sentence a viewer sees, with what was machine-checked about it.\n\n`verified_numeric`: every number in it matches a fact (bound in `bindings`).\n`verified_name`: no numbers; its squad names match the facts.\n`unverified_text`: nothing to check (tone, wording), or a check failed (`reason`).\nWording, tone and causal claims are never machine-verified, whatever `check` says.",
+          "properties": {
+            "bindings": {
+              "items": {
+                "$ref": "#/$defs/ClaimBinding"
+              },
+              "title": "Bindings",
+              "type": "array"
+            },
+            "check": {
+              "enum": [
+                "verified_numeric",
+                "verified_name",
+                "unverified_text"
+              ],
+              "title": "Check",
+              "type": "string"
+            },
+            "fact_keys": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Fact Keys",
+              "type": "array"
+            },
+            "field": {
+              "enum": [
+                "headline",
+                "body",
+                "why",
+                "title",
+                "paragraph",
+                "key_moment"
+              ],
+              "title": "Field",
+              "type": "string"
+            },
+            "numbers": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Numbers",
+              "type": "array"
+            },
+            "origin": {
+              "default": "matched",
+              "description": "template: keys from the template's placeholders; matched: found by value (model or translated text)",
+              "enum": [
+                "template",
+                "matched"
+              ],
+              "title": "Origin",
+              "type": "string"
+            },
+            "reason": {
+              "title": "Reason",
+              "type": "string"
+            },
+            "sentence": {
+              "title": "Sentence",
+              "type": "string"
+            },
+            "source_event_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Source Event Ids",
+              "type": "array"
+            }
+          },
+          "required": [
+            "sentence",
+            "field",
+            "check",
+            "reason"
+          ],
+          "title": "Claim",
+          "type": "object"
+        },
+        "ClaimBinding": {
+          "description": "One number or name in a sentence and the fact it was matched to.",
+          "properties": {
+            "entity_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Squad player or club id for names",
+              "title": "Entity Id"
+            },
+            "fact_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "None: matches no fact (never on a shown card)",
+              "title": "Fact Key"
+            },
+            "kind": {
+              "enum": [
+                "number",
+                "name",
+                "text"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "text": {
+              "description": "As printed",
+              "title": "Text",
+              "type": "string"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Unit"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Value"
+            }
+          },
+          "required": [
+            "text",
+            "kind"
+          ],
+          "title": "ClaimBinding",
+          "type": "object"
+        },
+        "Cue": {
+          "additionalProperties": false,
+          "description": "One line of the cue sheet.",
+          "properties": {
+            "clears": {
+              "description": "op clear: layers emptied.",
+              "items": {
+                "enum": [
+                  "lower_third",
+                  "side_panel",
+                  "pitch_tag",
+                  "metric_alert",
+                  "full_screen",
+                  "scorebug",
+                  "momentum_ribbon",
+                  "telestration"
+                ],
+                "type": "string"
+              },
+              "title": "Clears",
+              "type": "array"
+            },
+            "collision": {
+              "enum": [
+                "replace",
+                "queue",
+                "stack",
+                "latest"
+              ],
+              "title": "Collision",
+              "type": "string"
+            },
+            "cue_id": {
+              "description": "Stable id: the same cue has the same id on every compile.",
+              "title": "Cue Id",
+              "type": "string"
+            },
+            "duration_s": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "None: stays until updated, retracted or cleared.",
+              "title": "Duration S"
+            },
+            "end": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/CueTime"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "evidence": {
+              "items": {
+                "$ref": "#/$defs/Evidence"
+              },
+              "title": "Evidence",
+              "type": "array"
+            },
+            "kind": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/MomentKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "language": {
+              "enum": [
+                "en",
+                "es",
+                "fr",
+                "ar",
+                "ja",
+                "pt",
+                "de",
+                "hi",
+                "zh-Hans",
+                "sw",
+                "id",
+                "tr",
+                "ko"
+              ],
+              "title": "Language",
+              "type": "string"
+            },
+            "layer": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "lower_third",
+                    "side_panel",
+                    "pitch_tag",
+                    "metric_alert",
+                    "full_screen",
+                    "scorebug",
+                    "momentum_ribbon",
+                    "telestration"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "const": "all",
+                  "type": "string"
+                }
+              ],
+              "description": "'all' only for op clear (see `clears`).",
+              "title": "Layer"
+            },
+            "moment_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Moment Id"
+            },
+            "op": {
+              "enum": [
+                "show",
+                "update",
+                "retract",
+                "supersede",
+                "clear"
+              ],
+              "title": "Op",
+              "type": "string"
+            },
+            "persona": {
+              "enum": [
+                "casual",
+                "tactical",
+                "fantasy",
+                "player_spotlight"
+              ],
+              "title": "Persona",
+              "type": "string"
+            },
+            "player_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Player Ids",
+              "type": "array"
+            },
+            "priority": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Priority",
+              "type": "integer"
+            },
+            "produced_by": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "ai",
+                    "template"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Produced By"
+            },
+            "reason": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "var_offside",
+                    "var_handball",
+                    "var_foul",
+                    "period_end",
+                    "full_time"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "Why cues are retracted or cleared.",
+              "title": "Reason"
+            },
+            "retracts": {
+              "description": "op retract: cue ids taken down.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Retracts",
+              "type": "array"
+            },
+            "ribbon": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Ribbon"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "rtl": {
+              "default": false,
+              "title": "Rtl",
+              "type": "boolean"
+            },
+            "schema_version": {
+              "const": "1.0",
+              "default": "1.0",
+              "title": "Schema Version",
+              "type": "string"
+            },
+            "scorebug": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Scorebug"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "seq": {
+              "description": "Position in this sheet; strictly increasing.",
+              "minimum": 1,
+              "title": "Seq",
+              "type": "integer"
+            },
+            "source_event_ids": {
+              "items": {
+                "type": "string"
+              },
+              "title": "Source Event Ids",
+              "type": "array"
+            },
+            "start": {
+              "$ref": "#/$defs/CueTime"
+            },
+            "supersedes": {
+              "description": "op supersede: cue ids this cue replaces.",
+              "items": {
+                "type": "string"
+              },
+              "title": "Supersedes",
+              "type": "array"
+            },
+            "team": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Team"
+            },
+            "telestration": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/Telestration"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            },
+            "text": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/CueText"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null
+            }
+          },
+          "required": [
+            "cue_id",
+            "seq",
+            "op",
+            "layer",
+            "start",
+            "priority",
+            "collision",
+            "persona",
+            "language"
+          ],
+          "title": "Cue",
+          "type": "object"
+        },
+        "CueText": {
+          "additionalProperties": false,
+          "properties": {
+            "body": {
+              "default": "",
+              "title": "Body",
+              "type": "string"
+            },
+            "claims": {
+              "description": "Each sentence tied to its facts and source events, as on the card (docs/TRUST.md).",
+              "items": {
+                "$ref": "#/$defs/Claim"
+              },
+              "title": "Claims",
+              "type": "array"
+            },
+            "headline": {
+              "title": "Headline",
+              "type": "string"
+            },
+            "text_language": {
+              "description": "Language the text is really in.",
+              "enum": [
+                "en",
+                "es",
+                "fr",
+                "ar",
+                "ja",
+                "pt",
+                "de",
+                "hi",
+                "zh-Hans",
+                "sw",
+                "id",
+                "tr",
+                "ko"
+              ],
+              "title": "Text Language",
+              "type": "string"
+            },
+            "why": {
+              "default": "",
+              "title": "Why",
+              "type": "string"
+            }
+          },
+          "required": [
+            "headline",
+            "text_language"
+          ],
+          "title": "CueText",
+          "type": "object"
+        },
+        "CueTime": {
+          "additionalProperties": false,
+          "description": "One instant, in the engine's period-aware match clock.",
+          "properties": {
+            "clock_s": {
+              "description": "Engine match clock in seconds. Period 2 starts at 2700; first-half stoppage time runs past 2700 while period is still 1, so read it with `period`.",
+              "minimum": 0,
+              "title": "Clock S",
+              "type": "number"
+            },
+            "match_clock": {
+              "description": "Broadcast clock, e.g. '67:30' or '45+1:30'.",
+              "title": "Match Clock",
+              "type": "string"
+            },
+            "period": {
+              "maximum": 2,
+              "minimum": 1,
+              "title": "Period",
+              "type": "integer"
+            },
+            "t_s": {
+              "description": "Seconds of play since kick-off with the halves joined end to end (no half-time break). Always increases, so renderers can sort and time cues by it.",
+              "minimum": 0,
+              "title": "T S",
+              "type": "number"
+            }
+          },
+          "required": [
+            "period",
+            "clock_s",
+            "match_clock",
+            "t_s"
+          ],
+          "title": "CueTime",
+          "type": "object"
+        },
+        "Evidence": {
+          "properties": {
+            "label": {
+              "title": "Label",
+              "type": "string"
+            },
+            "label_key": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Label Key"
+            },
+            "source_event_id": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Source Event Id"
+            },
+            "unit": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Unit"
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "boolean"
+                }
+              ],
+              "title": "Value"
+            }
+          },
+          "required": [
+            "label",
+            "value"
+          ],
+          "title": "Evidence",
+          "type": "object"
+        },
+        "MomentKind": {
+          "enum": [
+            "goal",
+            "card",
+            "big_chance",
+            "better_option",
+            "unfound_run",
+            "momentum_swing",
+            "pressure_spell",
+            "speed_burst",
+            "rocket_shot",
+            "distance_milestone",
+            "hard_pass",
+            "milestone",
+            "correction"
+          ],
+          "title": "MomentKind",
+          "type": "string"
+        },
+        "Ribbon": {
+          "additionalProperties": false,
+          "properties": {
+            "momentum": {
+              "description": "+ = home on top (stats engine).",
+              "maximum": 100,
+              "minimum": -100,
+              "title": "Momentum",
+              "type": "number"
+            },
+            "pressure_away": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Pressure Away",
+              "type": "number"
+            },
+            "pressure_home": {
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Pressure Home",
+              "type": "number"
+            }
+          },
+          "required": [
+            "momentum",
+            "pressure_home",
+            "pressure_away"
+          ],
+          "title": "Ribbon",
+          "type": "object"
+        },
+        "Scorebug": {
+          "additionalProperties": false,
+          "properties": {
+            "away_id": {
+              "title": "Away Id",
+              "type": "string"
+            },
+            "home_id": {
+              "title": "Home Id",
+              "type": "string"
+            },
+            "score_away": {
+              "minimum": 0,
+              "title": "Score Away",
+              "type": "integer"
+            },
+            "score_home": {
+              "minimum": 0,
+              "title": "Score Home",
+              "type": "integer"
+            }
+          },
+          "required": [
+            "home_id",
+            "away_id",
+            "score_home",
+            "score_away"
+          ],
+          "title": "Scorebug",
+          "type": "object"
+        },
+        "Shape": {
+          "additionalProperties": false,
+          "properties": {
+            "dashed": {
+              "default": false,
+              "title": "Dashed",
+              "type": "boolean"
+            },
+            "kind": {
+              "enum": [
+                "arrow",
+                "line",
+                "polyline",
+                "circle",
+                "marker"
+              ],
+              "title": "Kind",
+              "type": "string"
+            },
+            "points": {
+              "items": {
+                "$ref": "#/$defs/XYm"
+              },
+              "minItems": 1,
+              "title": "Points",
+              "type": "array"
+            },
+            "radius_m": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "description": "circle only",
+              "title": "Radius M"
+            },
+            "role": {
+              "enum": [
+                "shooter",
+                "shot_taken",
+                "pass_on",
+                "open_player",
+                "defender",
+                "keeper",
+                "carrier",
+                "runner_path",
+                "through_ball",
+                "target"
+              ],
+              "title": "Role",
+              "type": "string"
+            }
+          },
+          "required": [
+            "kind",
+            "role",
+            "points"
+          ],
+          "title": "Shape",
+          "type": "object"
+        },
+        "Telestration": {
+          "additionalProperties": false,
+          "description": "Drawing for a replay, in pitch metres: 105 x 68, home attacks towards x = 105.",
+          "properties": {
+            "frame": {
+              "const": "pitch_105x68",
+              "default": "pitch_105x68",
+              "title": "Frame",
+              "type": "string"
+            },
+            "shapes": {
+              "items": {
+                "$ref": "#/$defs/Shape"
+              },
+              "title": "Shapes",
+              "type": "array"
+            }
+          },
+          "required": [
+            "shapes"
+          ],
+          "title": "Telestration",
+          "type": "object"
+        },
+        "XYm": {
+          "additionalProperties": false,
+          "properties": {
+            "x": {
+              "maximum": 105.0,
+              "minimum": 0,
+              "title": "X",
+              "type": "number"
+            },
+            "y": {
+              "maximum": 68.0,
+              "minimum": 0,
+              "title": "Y",
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y"
+          ],
+          "title": "XYm",
+          "type": "object"
+        }
+      },
+      "description": "One page of a compiled cue sheet (docs/CUE-SHEET.md, backend/schema/cue.schema.json).",
+      "properties": {
+        "cues": {
+          "items": {
+            "$ref": "#/$defs/Cue"
+          },
+          "title": "Cues",
+          "type": "array"
+        },
+        "has_more": {
+          "title": "Has More",
+          "type": "boolean"
+        },
+        "language": {
+          "enum": [
+            "en",
+            "es",
+            "fr",
+            "ar",
+            "ja",
+            "pt",
+            "de",
+            "hi",
+            "zh-Hans",
+            "sw",
+            "id",
+            "tr",
+            "ko"
+          ],
+          "title": "Language",
+          "type": "string"
+        },
+        "last_seq": {
+          "title": "Last Seq",
+          "type": "integer"
+        },
+        "match_id": {
+          "title": "Match Id",
+          "type": "string"
+        },
+        "next_since_seq": {
+          "title": "Next Since Seq",
+          "type": "integer"
+        },
+        "persona": {
+          "enum": [
+            "casual",
+            "tactical",
+            "fantasy",
+            "player_spotlight"
+          ],
+          "title": "Persona",
+          "type": "string"
+        },
+        "position": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CueTime"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "schema_version": {
+          "const": "1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "sheet_id": {
+          "title": "Sheet Id",
+          "type": "string"
+        },
+        "since_seq": {
+          "title": "Since Seq",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema_version",
+        "match_id",
+        "sheet_id",
+        "persona",
+        "language",
+        "position",
+        "last_seq",
+        "since_seq",
+        "has_more",
+        "next_since_seq",
+        "cues"
+      ],
+      "title": "CueSheetOut",
+      "type": "object"
+    },
+    "title": "Cue sheet"
   },
   {
     "annotations": {

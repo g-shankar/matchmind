@@ -174,8 +174,8 @@ shots.
 | Touches | Passes, carries, dribbles, shots, interceptions, tackles, clearances and recoveries by the player. |
 | Passes, completed, accuracy | Every pass attempt; accuracy = completed / attempted x 100. |
 | Key passes, xA | A completed pass whose receiver shoots in the same possession before anyone else receives a pass. xA adds that shot's xG. |
-| Assists | Key passes whose shot was a goal. |
-| Goals, shots, xG | From the player's shots. |
+| Assists | Key passes whose shot was a goal (a goal VAR ruled out does not count). |
+| Goals, shots, xG | From the player's shots. A goal VAR ruled out comes off goals; the shot and its xG stay. |
 | Tackles won, interceptions | Count of those events. |
 | Top speed | Highest recorded speed on the player's carries, dribbles and runs. |
 | Sprints | Actions faster than 8 m/s. |
@@ -205,6 +205,26 @@ Constants in `metrics.py`, used by the Spotter for on-screen tags:
 | `SPEED_BURST_KMH` | 30.0 | Player speed worth a pitch tag |
 | `ROCKET_SHOT_KMH` | 100.0 | Shot speed worth a pitch tag (also sets "rocket shot" on the event) |
 | `DISTANCE_MILESTONES_KM` | 5, 8, 10 | Distance milestones. With today's estimate (above) these are not reached in the synthetic matches. |
+
+## Corrections (VAR)
+
+A `var_review` event names the goal it decided on (`reviewed_event_id`) and
+why (`review_reason`: offside, handball or foul). When the outcome is
+`overturned`:
+
+| Stat | Effect |
+|---|---|
+| Score (`score_home` / `score_away`) | The goal comes off, from the review event on. |
+| Scorer's goals, assister's assists | The goal and its assist come off. |
+| Shots and xG (team and player) | **Unchanged.** The shot was taken; only the goal is ruled out. |
+| Key passes, xA | **Unchanged**, for the same reason. |
+| Recap goals and key moments | The ruled-out goal is left out. |
+
+An `overturned` review of a shot that is not a counted goal, or a second
+review of the same goal, changes nothing. A `stands` review changes no stat and
+makes no moment. Nothing is recomputed backwards: the snapshot before the
+review still shows the goal, because that was true at the time; seeking back
+before the review shows it again, and seeking past it never does.
 
 ## Delivery safety
 

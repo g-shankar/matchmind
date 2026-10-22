@@ -29,6 +29,7 @@ from matchmind.crew.contracts import (
     Recap,  # noqa: F401 - a tool output as-is
     ViewerProfile,
 )
+from matchmind.crew.cues import Cue, CueTime
 from matchmind.simulator.teams import TEAMS
 from matchmind.stats.models import MatchStateSnapshot, PlayerStats
 
@@ -83,6 +84,16 @@ class CardIn(_In):
 class RecapIn(_In):
     persona: Persona = Field(default="casual", description="Audience the recap is written for.")
     language: Language = Field(default="en", description="Language of the recap text.")
+
+
+class CueSheetIn(_In):
+    persona: Persona = Field(default="casual", description="Audience the cue text is voiced for.")
+    language: Language = Field(default="en", description="Language of the cue text.")
+    favourite_team: str | None = Field(
+        default=None, pattern=TEAM_ID, description="Viewer's club id (its moments rank higher)."
+    )
+    since_seq: int = Field(default=0, ge=0, le=1_000_000, description="Only cues numbered after this.")
+    limit: int = Field(default=100, ge=1, le=500, description="Most cues to return in one page.")
 
 
 class PlayerStatsIn(_In):
@@ -157,6 +168,29 @@ class BookmarkOut(BaseModel):
     clock_s: float
     period: int
     title: str
+    ruled_out: bool = Field(default=False, description="A goal VAR later ruled out")
+
+
+class CueSheetStateOut(BaseModel):
+    sheet_id: str
+    last_seq: int
+    active: list[Cue]
+
+
+class CueSheetOut(BaseModel):
+    """One page of a compiled cue sheet (docs/CUE-SHEET.md, backend/schema/cue.schema.json)."""
+
+    schema_version: Literal["1.0"]
+    match_id: str
+    sheet_id: str
+    persona: Persona
+    language: Language
+    position: CueTime | None
+    last_seq: int
+    since_seq: int
+    has_more: bool
+    next_since_seq: int
+    cues: list[Cue]
 
 
 class SnapshotOut(BaseModel):
@@ -178,6 +212,9 @@ class SnapshotOut(BaseModel):
     crew: CrewStatus
     languages: list[LanguageInfo]
     auto_eventing: AutoEventingStatus | None
+    cue_sheet: CueSheetStateOut | None = Field(
+        default=None, description="This viewer's cue sheet: what is on air now (null on the REST snapshot)"
+    )
 
 
 class MomentsOut(BaseModel):

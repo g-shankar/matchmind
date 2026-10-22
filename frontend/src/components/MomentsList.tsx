@@ -50,6 +50,12 @@ export const MomentsList: React.FC<ViewProps> = ({ match, actions }) => {
             const Icon = hidden ? Clock : KIND_ICON[b.kind] ?? Award;
             const kindLabel = t(`kind.${b.kind}`);
             const title = hidden ? t('studio.moments.upcoming') : b.title;
+            // A goal later ruled out by VAR is flagged only once the decision is in the past (no spoilers).
+            const ruled =
+              !!b.ruled_out &&
+              past &&
+              (match.cue.ruledOut.includes(b.moment_id) ||
+                bookmarks.some((c) => c.kind === 'correction' && compareMoments(c, now) <= 0 && compareMoments(c, b) > 0));
             return (
               <li key={b.moment_id} className="shrink-0">
                 <button
@@ -72,7 +78,12 @@ export const MomentsList: React.FC<ViewProps> = ({ match, actions }) => {
                   {!hidden && (
                   <span className="min-w-0">
                     {special && kindLabel !== b.title && <span className="block text-[10px] font-bold uppercase tracking-wider">{kindLabel}</span>}
-                    <span className="line-clamp-1 block">{title}</span>
+                    <span className={cx('line-clamp-1 block', ruled && 'line-through decoration-pp-pulse')}>{title}</span>
+                    {ruled && (
+                      <span data-testid="moment-ruled-out" className="block text-[10px] font-bold uppercase tracking-wider text-pp-pulse">
+                        {t('cue.ruledOut')}
+                      </span>
+                    )}
                   </span>
                   )}
                 </button>
