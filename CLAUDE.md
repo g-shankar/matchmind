@@ -216,3 +216,4 @@ Every linked acceptance criterion has evidence; format/lint, typecheck, unit, in
 - A jump must land somewhere visible: the snapshot carries the last events (pitch never empty), the page keeps the pitch in view and shows the picked moment's own card; never leave a viewer paused on a blank pitch.
 - Server refusals reach viewers through a stable error code and a translated toast, never raw English; the app spaces its own requests to fit the server's rate limits instead of loosening them.
 - A per-connection limit is not a limit on shared state: anything every viewer shares (the playback clock, process memory across send queues) needs a cap for the whole process, sized against the container.
+- Text the server renders once (jump-list titles) must follow the viewer's language too; check every label after a language switch, not only the cards.

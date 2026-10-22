@@ -355,6 +355,7 @@ def test_ws_set_view_changes_only_that_connection(client, clock):
         profile = recv(a, "PROFILE_CHANGED")
         assert profile["persona"] == "tactical" and profile["language"] == "ar"
         assert recv(a, "PERSONA_CHANGED") == {"persona": "tactical"}
+        assert recv(a, "INITIAL_SNAPSHOT")["profile"]["language"] == "ar"  # new language: fresh snapshot
         pump(client, clock, 0.6)
         last_a = [recv(a, "MATCH_TICK") for _ in range(4)][-1]
         last_b = [recv(b, "MATCH_TICK") for _ in range(4)][-1]  # b got ticks, no PROFILE_CHANGED
@@ -449,6 +450,7 @@ def test_ws_match_end_sends_recap_for_the_viewer(client, clock):
         ws.send_json({"action": "set_view", "persona": "tactical", "language": "es"})
         recv(ws, "PROFILE_CHANGED")
         recv(ws, "PERSONA_CHANGED")
+        recv(ws, "INITIAL_SNAPSHOT")  # a language change brings a fresh snapshot
         pump(client, clock, 100)
         ticks = [recv(ws, "MATCH_TICK") for _ in range(9)]
         assert ticks[-1]["event"]["type"] == "match_end"
@@ -647,6 +649,7 @@ def test_world_language_is_accepted_in_rest_and_set_view(client):
         ws.send_json({"action": "set_view", "language": "pt"})
         assert recv(ws, "PROFILE_CHANGED")["language"] == "pt"
         recv(ws, "PERSONA_CHANGED")
+        recv(ws, "INITIAL_SNAPSHOT")
         ws.send_json({"action": "set_view", "language": "klingon"})
         message = recv(ws, "ERROR")["message"]
         assert "zh-Hans" in message and "ko" in message

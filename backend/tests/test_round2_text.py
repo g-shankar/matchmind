@@ -75,7 +75,10 @@ def test_a_language_change_resends_the_jump_list_in_that_language(demo, tmp_path
     from matchmind.api.app import create_app
 
     app = create_app(
-        session=demo, tick_interval=None, allowed_origins=["http://localhost:3000"], static_dir=tmp_path / "none"
+        session=demo,
+        tick_interval=None,
+        allowed_origins=["http://localhost:3000"],
+        static_dir=tmp_path / "none",
     )
 
     def snapshot(ws) -> dict:
