@@ -320,6 +320,10 @@ export interface CrewStatus {
   fallbacks: number;
   rejections: number;
   translator?: TranslatorStatus;
+  /** Who runs the model steps: "templates", Azure OpenAI, or Foundry Agent Service agents. */
+  provider?: "templates" | "azure_openai" | "foundry_agents";
+  /** Who chains the agents: in process, or Microsoft Agent Framework workflows. */
+  orchestrator?: "in_process" | "agent_framework";
 }
 
 export interface CrewTrace {
@@ -339,6 +343,53 @@ export interface AutoEventingStatus {
   passes_detected_pct: number;
   speed_mae_kmh: number;
   events_checked: number;
+  // Added by the synthetic tracking-to-event benchmark. All optional, so older servers still type-check.
+  name?: string;
+  match_id?: string | null;
+  speed_mae_ci_kmh?: [number, number] | null;
+  classes?: BenchmarkClassRow[] | null;
+  pressure?: BenchmarkClassRow | null;
+  confusion?: BenchmarkConfusion | null;
+  baseline?: { name: string; classes: BenchmarkClassRow[] } | null;
+  pixel_path?: PixelPathRow | null;
+  caveat?: string | null;
+}
+
+export type BenchmarkKind = 'pass' | 'shot' | 'clearance' | 'tackle' | 'interception' | 'recovery' | 'pressure';
+
+export interface BenchmarkClassRow {
+  kind: BenchmarkKind;
+  support: number; // true events of this kind
+  detected: number;
+  matched: number;
+  precision: number; // 0-1
+  recall: number; // 0-1
+  f1: number;
+  precision_ci: [number, number] | null; // 95% Wilson interval
+  recall_ci: [number, number] | null;
+}
+
+// Rows: true kinds then 'spurious'; columns: detected kinds then 'missed'.
+export interface BenchmarkConfusion {
+  rows: string[];
+  columns: string[];
+  counts: number[][];
+}
+
+// Rendered synthetic top-down video, not broadcast footage; no real-video model.
+export interface PixelPathRow {
+  label: string;
+  window_s: number;
+  frames: number;
+  width_px: number;
+  height_px: number;
+  player_error_m: number | null;
+  ball_error_m: number | null;
+  ball_found_pct: number;
+  coordinate: BenchmarkClassRow[];
+  pixels: BenchmarkClassRow[];
+  speed_mae_kmh_coordinate: number | null;
+  speed_mae_kmh_pixels: number | null;
 }
 
 // --- Cue sheet (docs/CUE-SHEET.md, backend/schema/cue.schema.json) ---------------------------

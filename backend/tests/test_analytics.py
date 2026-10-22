@@ -302,7 +302,14 @@ def test_decision_labels(bundled):
     assert {r["event_id"] for r in shots if r["label_better_option"]} == flagged
     assert all(r["label_xg_gain"] >= 0 for r in shots)
     assert all(r["label_xg_gain"] > 0 for r in shots if r["label_better_option"])
-    goals = {r["event_id"] for r in events if r["type"] == "shot" and r["outcome"] == "goal"}
+    overturned = {
+        e["reviewed_event_id"]
+        for path in sorted((Path(__file__).parents[1] / "data" / "matches").glob("*.jsonl"))
+        for e in map(json.loads, path.read_text(encoding="utf-8").splitlines())
+        if e["type"] == "var_review" and e["outcome"] == "overturned"
+    }
+    assert overturned  # the demo match has one
+    goals = {r["event_id"] for r in events if r["type"] == "shot" and r["outcome"] == "goal"} - overturned
     assert {r["event_id"] for r in shots if r["label_goal"]} == goals
     passes = [r for r in rows if r["decision"] == "pass"]
     assert all(r["label_completed"] is not None for r in passes)

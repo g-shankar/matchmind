@@ -56,6 +56,12 @@ def decision_rows(
                 (e.period, e.clock_s, m.chance_quality or 0.0)
             )
 
+    # Goals a VAR review ruled out: the shot is still a shot, but not a goal (docs/METRICS.md).
+    overturned = {
+        e.reviewed_event_id
+        for e in events
+        if e.type == EventType.VAR_REVIEW and e.outcome == Outcome.OVERTURNED and e.reviewed_event_id
+    }
     rows: list[Row] = []
     for e, m, before in zip(events, metrics, snaps_before, strict=True):
         if e.type not in (EventType.SHOT, EventType.PASS) or not e.team or not e.start:
@@ -80,6 +86,7 @@ def decision_rows(
         }
         if e.type == EventType.SHOT:
             row.update(_shot_features(e, m, home, att))
+            row["label_goal"] = row["label_goal"] and e.event_id not in overturned
         else:
             row.update(_pass_features(e, m, shots_by_possession))
         rows.append(row)

@@ -1,5 +1,6 @@
 """Shared wording helpers: which template a moment uses and the variables a
-template may print (the moment's facts plus localised words derived from them)."""
+template may print (the moment's facts plus localised words derived from them,
+and the language's football glossary as `{g_<term>}`)."""
 
 from __future__ import annotations
 
@@ -28,9 +29,15 @@ def localise_teams(variables: dict[str, Any], language: str, favourite_name: str
     return variables
 
 
+def glossary_variables(language: str) -> dict[str, str]:
+    """The pack's curated football words (docs/LANGUAGES.md), as `g_<term>`."""
+    return {f"g_{key}": term for key, term in pack(language).get("glossary", {}).items()}
+
+
 def variables(moment: Moment, language: str, favourite_name: str | None = None) -> dict[str, Any]:
     p = pack(language)
     v: dict[str, Any] = dict(moment.facts)
+    v.update(glossary_variables(language))
     zone = moment.facts.get("pitch_zone", "")
     v["zone"] = p["zones"].get(zone, p["zones"][""])
     outcome = str(moment.facts.get("outcome", ""))

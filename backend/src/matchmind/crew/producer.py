@@ -4,7 +4,10 @@ Deterministic rules:
 - slot by kind (speed and distance tags go on the pitch, replays to the side
   panel, goals full screen, the rest as lower thirds);
 - persona filter (each audience sees the kinds it cares about);
-- the favourite club's moments get +15 priority and `favourite_side`;
+- club heart (crew/club_heart.py): with a favourite club, its moments get
+  +15 priority and `favourite_side`, rival minor moments are dropped and
+  rival build-up ranks a little lower (one policy table, documented in
+  docs/PERSONALISATION.md);
 - moments about the focus player are always kept and boosted;
 - de-duplicated by moment id per viewer;
 - at most one lower third per 8 s of match clock (extra ones move to the
@@ -20,9 +23,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from matchmind.crew import club_heart
 from matchmind.crew.contracts import (
     RTL_LANGUAGES,
     Evidence,
+    Moment,
     MomentBundle,
     MomentKind,
     Narrative,
@@ -36,7 +41,7 @@ if TYPE_CHECKING:
     from matchmind.crew.cues import Cue, CueCompiler
 
 LOWER_THIRD_GAP_S = 8.0
-FAVOURITE_BOOST = 15
+FAVOURITE_BOOST = club_heart.OWN_BOOST
 FOCUS_BOOST = 20
 MINOR_PRIORITY = 50
 SEEN_LIMIT = 5000
@@ -124,6 +129,14 @@ def favourite_side(team: str | None, profile: ViewerProfile) -> bool | None:
     return team == profile.favourite_team
 
 
+def card_priority(moment: Moment, profile: ViewerProfile) -> int:
+    """The moment's priority for this viewer: club heart, then the focus player."""
+    priority = moment.priority + club_heart.boost(moment.kind, moment.team, profile.favourite_team)
+    if profile.focus_player_id and profile.focus_player_id in moment.player_ids:
+        priority += FOCUS_BOOST
+    return max(0, min(100, priority))
+
+
 def localise_evidence(items: list[Evidence], language: str) -> list[Evidence]:
     """Copies of the evidence with labels in the card's language (English, then
     the existing label, when a pack has no entry)."""
@@ -149,12 +162,8 @@ def build_card(
 ) -> OverlayCard:
     m = bundle.moment
     chosen: Slot = slot or SLOT_BY_KIND.get(m.kind, "lower_third")
-    priority = m.priority
+    priority = card_priority(m, profile)
     fav = favourite_side(m.team, profile)
-    if fav:
-        priority += FAVOURITE_BOOST
-    if profile.focus_player_id and profile.focus_player_id in m.player_ids:
-        priority += FOCUS_BOOST
     produced_by = (
         "ai" if narrative.produced_by == "ai" and bundle.explanation.produced_by == "ai" else "template"
     )
@@ -164,7 +173,7 @@ def build_card(
         moment_id=m.moment_id,
         kind=m.kind,
         slot=chosen,
-        priority=min(100, priority),
+        priority=priority,
         show_at_s=m.clock_s,
         duration_s=DURATION_S[chosen],
         persona=profile.persona,
@@ -192,6 +201,8 @@ def wanted(card: OverlayCard, profile: ViewerProfile) -> bool:
         return True
     if card.slot == "metric_alert":
         return True
+    if not club_heart.keeps(card.kind, card.team, profile.favourite_team):
+        return False
     persona = profile.persona
     if persona == "player_spotlight" and not profile.focus_player_id:
         persona = "casual"

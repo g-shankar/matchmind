@@ -255,7 +255,9 @@ def test_rest_playback_controls(client, clock):
 
 
 def test_crew_routes(client):
-    assert client.get("/api/crew/status").json()["mode"] == "template"
+    status = client.get("/api/crew/status").json()
+    assert status["mode"] == "template"
+    assert status["provider"] == "templates" and status["orchestrator"] == "in_process"
     traces = client.get("/api/crew/trace?limit=5").json()
     assert traces[0]["steps"][0]["agent"] == "spotter"
     assert client.get("/api/crew/trace?limit=0").status_code == 400
