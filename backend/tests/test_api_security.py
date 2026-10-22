@@ -70,7 +70,7 @@ def test_ws_seek_burst_runs_once_and_playback_goes_on(client, clock):
 def test_rest_seek_burst_gets_429_and_shares_the_throttle_with_ws(client, clock):
     codes = [client.post("/api/match/seek", json={"clock_s": 30}).status_code for _ in range(50)]
     assert codes.count(200) == 1 and codes.count(429) == 49
-    assert client.post("/api/match/reset").status_code == 429  # same window, other route
+    assert client.post("/api/match/reset", json={}).status_code == 429  # same window, other route
     with client.websocket_connect("/ws/match") as ws:
         ws.receive_json()
         ws.send_json({"action": "reset"})
@@ -79,7 +79,7 @@ def test_rest_seek_burst_gets_429_and_shares_the_throttle_with_ws(client, clock)
             "data": {"message": app_mod.TOO_FAST, "code": "jump_too_fast"},
         }
     clock.t += app_mod.JUMP_INTERVAL_S
-    assert client.post("/api/match/reset").status_code == 200
+    assert client.post("/api/match/reset", json={}).status_code == 200
 
 
 def test_post_routes_are_limited_per_ip(client, clock):
@@ -276,3 +276,28 @@ def test_slow_crew_work_does_not_block_playback_controls(clock):
         assert playback["speed_multiplier"] == 1 and players
 
     asyncio.run(main())
+
+
+@pytest.mark.parametrize("route", ["/api/match/reset", "/api/match/seek", "/api/match/speed"])
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {"Content-Type": "application/x-www-form-urlencoded"},  # a plain cross-site form
+        {"Content-Type": "text/plain"},
+        {"Content-Type": "multipart/form-data; boundary=x"},
+        {},
+    ],
+)
+def test_state_changing_posts_need_json(client, clock, route, headers):
+    """A cross-site form can post without a CORS preflight; only JSON needs one."""
+    before = client.get("/api/match/snapshot").json()["playback"]
+    r = client.post(route, content=b'{"clock_s": 30, "speed_multiplier": 10}', headers=headers)
+    assert r.status_code == 415 and r.json() == {"detail": app_mod.JSON_ONLY}
+    assert client.get("/api/match/snapshot").json()["playback"] == before
+
+
+def test_reset_with_json_still_works(client, clock):
+    assert client.post("/api/match/reset", json={}).status_code == 200
+    clock.t += app_mod.JUMP_INTERVAL_S
+    r = client.post("/api/match/reset", headers={"Content-Type": "application/json; charset=utf-8"})
+    assert r.status_code == 200

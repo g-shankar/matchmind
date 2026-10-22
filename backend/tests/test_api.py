@@ -266,7 +266,7 @@ def test_rest_playback_controls(client, clock):
     r = client.post("/api/match/seek", json={"clock_s": 9000, "period": 2})
     assert r.status_code == 400 and r.json() == {"detail": "That time is after full time."}
     clock.t += 1
-    r = client.post("/api/match/reset")
+    r = client.post("/api/match/reset", json={})
     assert r.json()["is_running"] is True and r.json()["clock_s"] == 0
 
 

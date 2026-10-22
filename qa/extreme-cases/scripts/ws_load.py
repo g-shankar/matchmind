@@ -137,7 +137,7 @@ async def main() -> None:
     out: dict = {"n": args.n, "seconds": args.seconds, "same_ip": args.same_ip}
     async with httpx.AsyncClient(base_url=args.base, timeout=30) as http:
         if not args.no_reset:
-            await http.post("/api/match/reset", headers={"X-Forwarded-For": "10.255.0.1"})
+            await http.post("/api/match/reset", json={}, headers={"X-Forwarded-For": "10.255.0.1"})
             await asyncio.sleep(0.6)
         out["rss_before_mb"] = rss_mb(args.pid)
         viewers = [

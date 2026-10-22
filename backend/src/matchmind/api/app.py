@@ -748,6 +748,19 @@ def client_ip(conn: Request | WebSocket) -> str:
     return conn.client.host if conn.client else "unknown"
 
 
+JSON_ONLY = "Send this request as JSON (Content-Type: application/json)."
+
+
+def _is_json(request: Request) -> bool:
+    return request.headers.get("content-type", "").split(";")[0].strip().lower() == "application/json"
+
+
+async def json_only(request: Request) -> None:
+    """415 for a state-changing POST that is not JSON (see `limited` in create_app)."""
+    if not _is_json(request):
+        raise HTTPException(status_code=415, detail=JSON_ONLY)
+
+
 def create_app(
     session: MatchSession | None = None,
     session_factory: Callable[[], MatchSession] = build_session,
@@ -865,7 +878,9 @@ def create_app(
 
         return check
 
-    limited = [Depends(ip_limit(POST_BURST, POST_PER_SECOND))]
+    # State-changing POSTs take JSON only: a plain cross-site form (urlencoded, multipart,
+    # text/plain) needs no CORS preflight, so without this any page could reset the match.
+    limited = [Depends(json_only), Depends(ip_limit(POST_BURST, POST_PER_SECOND))]
     # One bucket per client IP for every GET that may reach a paid path (moment cards,
     # recaps) and for MCP, so the REST routes and the MCP tools cannot double the burst.
     get_limit = ip_limit(GET_BURST, GET_PER_SECOND)
@@ -930,8 +945,7 @@ def create_app(
         clock. Shares the per-IP bucket of the paid-path GET routes and MCP."""
         # JSON only: a form or text/plain POST is a "simple" cross-site request a browser
         # sends from any page without a CORS preflight.
-        media = request.headers.get("content-type", "").split(";")[0].strip().lower()
-        if media != "application/json":
+        if not _is_json(request):
             raise HTTPException(status_code=415, detail="Send the question as JSON.")
         declared = request.headers.get("content-length")
         if declared is not None and declared.isdigit() and int(declared) > ASK_BODY_MAX:
