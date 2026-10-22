@@ -39,11 +39,10 @@ from matchmind.crew.contracts import (
     Language,
     Persona,
     ViewerProfile,
-    is_world_language,
 )
 from matchmind.crew.producer import ViewerState
 
-from . import view
+from . import reads, view
 from .session import MatchSession, SessionError, Tick, build_session
 
 logger = logging.getLogger("pitchpulse.api")
@@ -419,6 +418,11 @@ class Hub:
 # --- App -------------------------------------------------------------------------------------
 
 
+def _mcp_enabled_from_env() -> bool:
+    raw = os.environ.get("MATCHMIND_MCP_ENABLED", "true").strip().lower()
+    return raw not in ("false", "0", "no", "off")
+
+
 def client_ip(conn: Request | WebSocket) -> str:
     """The address limits and connection caps are keyed by. Never the leftmost
     X-Forwarded-For entry: a caller can put anything there."""
@@ -437,6 +441,7 @@ def create_app(
     static_dir: str | Path | None = None,
     clock: Callable[[], float] = time.monotonic,
     public_origin: str | None = None,
+    mcp_enabled: bool | None = None,
 ) -> FastAPI:
     hub = Hub(session, clock=clock)
     origins = allowed_origins if allowed_origins is not None else allowed_origins_from_env()
@@ -456,7 +461,9 @@ def create_app(
             hub.attach(await asyncio.to_thread(session_factory))
         task = asyncio.create_task(hub.loop(tick_interval)) if tick_interval else None
         try:
-            yield
+            # The MCP endpoint's session manager lives exactly as long as the app.
+            async with mcp_http.run() if mcp_http is not None else contextlib.nullcontext():
+                yield
         finally:
             if task:
                 task.cancel()
@@ -499,11 +506,6 @@ def create_app(
         logger.exception("request failed: %s", request.url.path)
         return JSONResponse({"detail": OOPS}, status_code=500)
 
-    def _profile(persona: Persona, lang: Language, favourite_team: str | None) -> ViewerProfile:
-        if favourite_team is not None and not hub.session.is_known_team(favourite_team):
-            raise HTTPException(status_code=400, detail="That club is not in this match.")
-        return ViewerProfile(persona=persona, language=lang, favourite_team=favourite_team)
-
     # --- REST --------------------------------------------------------------------------------
 
     @app.get("/api/health")
@@ -512,7 +514,7 @@ def create_app(
 
     @app.get("/api/teams")
     async def teams() -> dict[str, Any]:
-        return view.teams_payload(hub.session)
+        return await reads.teams(hub)
 
     def ip_limit(burst: int, per_second: float) -> Callable[[Request], None]:
         """A simple per-client-IP token bucket (its own table per route group)."""
@@ -536,15 +538,15 @@ def create_app(
 
     @app.get("/api/match/snapshot")
     async def snapshot() -> dict[str, Any]:
-        return await hub.run_crew(view.snapshot_payload, hub.session, ViewerProfile())
+        return await reads.snapshot(hub)
 
     @app.get("/api/match/players")
     async def players() -> list[dict[str, Any]]:
-        return await hub.run(lambda: [view.player_payload(p) for p in hub.session.players()])
+        return await reads.players(hub)
 
     @app.get("/api/match/bookmarks")
     async def bookmarks() -> list[dict[str, Any]]:
-        return [view.bookmark_payload(b) for b in hub.session.bookmarks]
+        return reads.bookmarks(hub)
 
     @app.get("/api/match/moment/{moment_id}", dependencies=limited_get)
     async def moment(
@@ -553,27 +555,11 @@ def create_app(
         lang: Language = "en",
         favourite_team: str | None = Query(default=None, max_length=32),
     ) -> dict[str, Any]:
-        if len(moment_id) > 80:
-            raise HTTPException(status_code=404, detail="We could not find that moment.")
-        profile = _profile(persona, lang, favourite_team)
-        # Moments are fixed at load and the crew is thread-safe: no lock, so a slow
-        # model answer here holds up nobody else.
-        card = await asyncio.to_thread(hub.session.card_for_moment, moment_id, profile)
-        if card is None:
-            raise HTTPException(status_code=404, detail="We could not find that moment.")
-        return view.card_payload(card)
+        return await reads.moment_card(hub, moment_id, persona, lang, favourite_team)
 
     @app.get("/api/match/recap", dependencies=limited_get)
     async def recap(persona: Persona = "casual", lang: Language = "en") -> dict[str, Any]:
-        profile = ViewerProfile(persona=persona, language=lang)
-        if not is_world_language(lang):
-            result = await hub.run_crew(hub.session.recap, profile)
-            return result.model_dump(mode="json")
-        # World language: the English recap under the crew lock (quick), then the
-        # Translator call with no lock held, so a slow translator never stalls playback.
-        english, moments, snap = await hub.run_crew(hub.session.recap_source, profile)
-        result = await asyncio.to_thread(hub.session.translate_recap, english, moments, snap, profile)
-        return result.model_dump(mode="json")
+        return await reads.recap(hub, persona, lang)
 
     @app.post("/api/match/seek", dependencies=limited)
     async def seek(body: SeekBody) -> dict[str, Any]:
@@ -591,23 +577,19 @@ def create_app(
 
     @app.get("/api/crew/status")
     async def crew_status() -> dict[str, Any]:
-        return (await hub.run(hub.session.crew_status)).model_dump()
+        return await reads.crew_status(hub)
 
     @app.get("/api/languages")
     async def languages() -> dict[str, Any]:
-        status = await hub.run(hub.session.crew_status)
-        return {"languages": view.languages_payload(status), "translator": status.translator.model_dump()}
+        return await reads.languages(hub)
 
     @app.get("/api/crew/trace")
     async def crew_trace(limit: int = Query(default=20, ge=1, le=100)) -> list[dict[str, Any]]:
-        traces = await hub.run(hub.session.crew_traces, limit)
-        return [t.model_dump() for t in traces]
+        return await reads.crew_traces(hub, limit)
 
     @app.get("/api/auto-eventing")
     async def auto_eventing() -> dict[str, Any]:
-        if hub.session.auto_eventing is None:
-            raise HTTPException(status_code=404, detail="Auto-eventing is coming soon.")
-        return hub.session.auto_eventing
+        return reads.auto_eventing(hub)
 
     # --- WebSocket ---------------------------------------------------------------------------
 
@@ -726,6 +708,26 @@ def create_app(
         conn.view_state = ViewerState()
         conn.send(view.message("PROFILE_CHANGED", conn.profile.model_dump()))
         conn.send(view.message("PERSONA_CHANGED", {"persona": conn.profile.persona}))
+
+    # --- MCP (Streamable HTTP at /mcp; docs/MCP.md) -----------------------------------------
+    # Read-only tools on this same live session, through the same accessors as the REST
+    # routes (api/reads.py). Its own per-IP bucket, Origin and Host checks from the
+    # allow-list above, 16 KB bodies, one request per POST. MATCHMIND_MCP_ENABLED=false
+    # turns it off.
+    mcp_http = None
+    if mcp_enabled if mcp_enabled is not None else _mcp_enabled_from_env():
+        from matchmind.mcp import MCPHttpEndpoint, build_server
+        from matchmind.mcp.server import allowed_hosts
+
+        mcp_origins = sorted(ws_origins | ({own} if own and own != "*" else set()))
+        mcp_http = MCPHttpEndpoint(
+            build_server(hub),
+            allowed_origins=sorted(ws_origins),
+            hosts=allowed_hosts(mcp_origins),
+            rate_check=ip_limit(GET_BURST, GET_PER_SECOND),
+        )
+        app.add_route("/mcp", mcp_http, methods=["POST"], include_in_schema=False)
+    # --- end MCP ------------------------------------------------------------------------------
 
     # --- Built frontend ----------------------------------------------------------------------
 
