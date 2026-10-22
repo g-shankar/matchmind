@@ -24,7 +24,7 @@ import threading
 from collections.abc import Callable
 from typing import Any, Protocol
 
-from .live import LiveFeed
+from .live import CONNECT_FAILED, STREAM_STOPPED, LiveFeed
 
 logger = logging.getLogger("pitchpulse.ingest")
 
@@ -91,16 +91,27 @@ class EventHubsSource:
         try:
             self._client.receive(
                 on_event=self._on_event,
+                on_error=self._on_error,
                 starting_position=self.starting_position,
                 max_wait_time=5,
             )
-        except Exception:  # noqa: BLE001 - surfaced through the feed status
+        except Exception:  # noqa: BLE001 - surfaced through the feed status as a fixed code
             if not self._stopping:
                 logger.exception("Event Hubs consumer stopped")
+                self.feed.mark_unavailable(STREAM_STOPPED)
                 error = "The live stream stopped; the match ends at the last event received."
         self.feed.close(error)
 
+    def _on_error(self, partition_context: Any, error: Exception) -> None:
+        """Connection and load-balancing errors: the client retries by itself. Status shows
+        only a fixed code; the provider's text stays in the server log."""
+        if self._stopping:
+            return
+        logger.warning("Event Hubs consumer error (%s); retrying", type(error).__name__)
+        self.feed.mark_unavailable(CONNECT_FAILED)
+
     def _on_event(self, partition_context: Any, event: Any) -> None:
+        self.feed.mark_connected()  # any callback, a max_wait_time tick included, means a link
         body = _body(event)
         if body is None:
             return  # max_wait_time tick with no message

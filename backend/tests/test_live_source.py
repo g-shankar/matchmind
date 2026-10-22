@@ -545,3 +545,91 @@ def test_a_dropped_live_event_leaves_no_trace_in_the_cue_sheet(demo):
     _play_to_end(f, f._clock)
     profile = ViewerProfile()
     assert s.cue_sheet(profile, limit=500)["cues"] == f.cue_sheet(profile, limit=500)["cues"]
+
+
+# --- launch checks LC-11: a stream that cannot connect says so, in fixed words ------------------
+
+PROVIDER_TEXT = (
+    "Failed to initiate the connection due to exception: [Errno -2] Name or service not known "
+    "evh-secret-namespace.servicebus.windows.net"
+)
+
+
+class UnreachableConsumer(FakeConsumer):
+    """Like the SDK on a bad host: on_error during load balancing, retries, never raises."""
+
+    def __init__(self, messages: list[str], recover: threading.Event) -> None:
+        super().__init__(messages)
+        self.recover = recover
+
+    def receive(self, on_event, **kwargs) -> None:
+        on_error = kwargs["on_error"]
+        while not self.recover.is_set() and not self.closed:
+            on_error(None, ConnectionError(PROVIDER_TEXT))
+            time.sleep(0.01)
+        super().receive(on_event, **kwargs)
+
+
+def _wait_for(predicate, timeout: float = 5.0) -> None:
+    deadline = time.monotonic() + timeout
+    while not predicate():
+        assert time.monotonic() < deadline, "condition never held"
+        time.sleep(0.01)
+
+
+def test_an_unreachable_stream_shows_unavailable_with_a_fixed_reason(monkeypatch):
+    import json
+
+    from fastapi.testclient import TestClient
+
+    from matchmind.api.app import create_app
+
+    monkeypatch.setattr(session_mod, "_auto_eventing", lambda events: None)
+    monkeypatch.setenv("MATCHMIND_SOURCE", "eventhubs")
+    recover = threading.Event()
+    consumer = UnreachableConsumer(_raw(read_jsonl(OTHER)), recover)
+    real_start = session_mod.start_live_source
+    monkeypatch.setattr(session_mod, "start_live_source", lambda: real_start(lambda: consumer))
+    s = session_mod.build_session(engines=FAKE_ENGINES)
+    with TestClient(create_app(session=s, tick_interval=None)) as c:
+        _wait_for(lambda: c.get("/api/source").json()["stream"]["state"] == "unavailable")
+        r = c.get("/api/source")
+        body = r.json()
+        assert r.status_code == 200
+        assert body["stream"]["reason"] == "connect_failed" and body["stream"]["error"] is None
+        # The file match keeps playing and nothing of the provider's text reaches the client.
+        assert body["source"] == "file" and body["requested"] == "eventhubs"
+        text = json.dumps(body)
+        for leak in ("Errno", "servicebus", "Name or service", "ConnectionError"):
+            assert leak not in text
+
+        # The link comes back: the stream state follows, and the reason clears.
+        recover.set()
+        _wait_for(lambda: c.get("/api/source").json().get("stream", {}).get("state") != "unavailable")
+        assert c.get("/api/source").json()["stream"].get("reason") is None
+    consumer.close()
+
+
+def test_a_stream_that_raises_reports_a_fixed_reason_not_the_exception(demo):
+    class RaisingConsumer(FakeConsumer):
+        def receive(self, on_event, **kwargs) -> None:
+            for body in self.messages[:200]:
+                on_event(None, FakeEventData(body))
+            raise ConnectionError(PROVIDER_TEXT)
+
+    consumer = RaisingConsumer(_raw(demo))
+    s = build_live_session(FAKE_ENGINES, consumer_factory=lambda: consumer, wait_s=10)
+    assert s is not None
+    _wait_for(lambda: s.source_status()["stream"]["state"] == "stopped")
+    stream = s.source_status()["stream"]
+    assert stream["reason"] == "stream_stopped"
+    assert stream["error"] == "The live stream stopped; the match ends at the last event received."
+    assert "Errno" not in str(s.source_status())
+
+
+def test_a_feed_keeps_only_known_reason_codes():
+    feed = LiveFeed(StreamValidator())
+    feed.mark_unavailable("Name or service not known")
+    assert feed.status()["reason"] == "connect_failed" and feed.status()["state"] == "unavailable"
+    feed.mark_connected()
+    assert feed.status()["reason"] is None and feed.status()["state"] == "waiting_for_match_start"

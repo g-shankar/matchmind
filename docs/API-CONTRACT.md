@@ -541,7 +541,10 @@ interface MatchSource {
   events_dropped: number;                   // live events the stats pass could not process (taken back out)
   complete: boolean;                        // false while a live match is still arriving
   stream?: {                                // eventhubs source only: counts, never event content
-    state: 'waiting_for_match_start' | 'live' | 'ended' | 'stopped';
+    state: 'waiting_for_match_start' | 'live' | 'ended' | 'stopped' | 'unavailable';
+    // unavailable: the consumer cannot reach the stream and keeps retrying (the file plays meanwhile).
+    // Only a fixed code is sent, never the provider's error text (that stays in the server log).
+    reason: 'connect_failed' | 'stream_stopped' | null;
     match_id: string | null; queued: number; backpressure_waits: number; error: string | null;
     received: number; accepted: number; duplicates: number; conflicts: number; rejected: number;
     too_big: number; before_start: number; other_match: number; after_end: number;

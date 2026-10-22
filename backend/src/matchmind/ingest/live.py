@@ -26,6 +26,11 @@ logger = logging.getLogger("pitchpulse.ingest")
 MAX_READY = 2_000
 DRAIN_LIMIT = 500
 
+# Fixed reason codes for GET /api/source. Provider error text never leaves the server log.
+CONNECT_FAILED = "connect_failed"  # the consumer cannot reach the stream; it keeps retrying
+STREAM_STOPPED = "stream_stopped"  # the consumer gave up; the match ends at the last event
+REASONS = (CONNECT_FAILED, STREAM_STOPPED)
+
 
 class LiveFeed:
     def __init__(
@@ -42,6 +47,7 @@ class LiveFeed:
         self._closed = False
         self.error: str | None = None
         self.blocked_puts = 0  # how often backpressure held the consumer
+        self.reason: str | None = None  # one of REASONS while the stream is unavailable
 
     # --- consumer side ----------------------------------------------------------------------
 
@@ -66,6 +72,16 @@ class LiveFeed:
                 self.validator.stats.rejected += 1
             self._cond.notify_all()
             return True
+
+    def mark_unavailable(self, reason: str) -> None:
+        """The transport reports trouble. Only a fixed code is kept, never its text."""
+        with self._cond:
+            self.reason = reason if reason in REASONS else CONNECT_FAILED
+
+    def mark_connected(self) -> None:
+        with self._cond:
+            if self.reason == CONNECT_FAILED:
+                self.reason = None
 
     def close(self, error: str | None = None) -> None:
         with self._cond:
@@ -113,8 +129,15 @@ class LiveFeed:
 
     def status(self) -> dict[str, Any]:
         with self._cond:
+            if self._closed and not self.validator.ended:
+                state = "stopped"
+            elif self.reason == CONNECT_FAILED:
+                state = "unavailable"
+            else:
+                state = self.validator.state
             return {
-                "state": "stopped" if self._closed and not self.validator.ended else self.validator.state,
+                "state": state,
+                "reason": self.reason if state in ("stopped", "unavailable") else None,
                 "match_id": self.validator.ctx.match_id if self.validator.ctx else None,
                 "queued": len(self._ready),
                 "backpressure_waits": self.blocked_puts,
