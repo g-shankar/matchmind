@@ -2,7 +2,7 @@ import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 
 import { ChevronRight, FileText, Info, Pause, Play, RotateCcw, X } from 'lucide-react';
 import type { Bookmark, Language, OverlayCard, PersonaType, SpeedMultiplier } from './api/contract';
 import { I18nProvider, useI18n } from './i18n';
-import { toastText } from './i18n/toasts';
+import { connectionLostText, toastText } from './i18n/toasts';
 import { useMatch } from './state/useMatch';
 import { activeCards } from './state/matchStore';
 import type { ViewProps } from './views/types';
@@ -291,6 +291,7 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
       </section>
 
       <main className="w-full flex-1">
+        {match.connectionLost && <ConnectionLost language={profile.language} onRetry={actions.retryNow} />}
         <CatchUpBanner match={match} actions={actions} onStory={openRecap} />
         <ReadAloudCards match={match} />
 
@@ -397,6 +398,27 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
           </button>
         </div>
       )}
+    </div>
+  );
+};
+
+/** A long outage (LC-15): one plain sentence in the viewer's language and a button that
+ * skips the back-off wait. Reconnecting carries on by itself either way. */
+const ConnectionLost: React.FC<{ language: string; onRetry: () => void }> = ({ language, onRetry }) => {
+  const text = connectionLostText(language);
+  return (
+    <div role="alert" data-testid="connection-lost" lang={text.lang} className="border-b border-pp-pulse/50 bg-pp-panel">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2 text-sm text-pp-chalk">
+        <span className="h-2 w-2 shrink-0 animate-heartbeat rounded-full bg-pp-pulse" aria-hidden />
+        <span className="min-w-0 flex-1">{text.message}</span>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="inline-flex min-h-[44px] items-center border border-pp-line bg-pp-raised px-3 font-display text-sm font-bold uppercase tracking-broadcast text-pp-chalk hover:border-pp-signal"
+        >
+          {text.retry}
+        </button>
+      </div>
     </div>
   );
 };

@@ -68,6 +68,8 @@ export interface MatchViewState {
   error: string | null;
   /** Stable code of the last server error (src/i18n/toasts.ts), when it sent one. */
   errorCode: string | null;
+  /** True once reconnecting has failed for a while (LOST_AFTER_MS); cleared when back live. */
+  connectionLost: boolean;
 }
 
 export const MAX_EVENTS = 60;
@@ -103,11 +105,13 @@ export const initialMatchState = (profile: ViewerProfile = DEFAULT_PROFILE): Mat
   cue: initialCueState(),
   error: null,
   errorCode: null,
+  connectionLost: false,
 });
 
 export type MatchAction =
   | { type: 'message'; message: ServerMessage }
   | { type: 'status'; status: ConnectionStatus }
+  | { type: 'connectionLost'; lost: boolean }
   | { type: 'profile'; changes: Partial<ViewerProfile> }
   | { type: 'recap'; recap: Recap | null }
   | { type: 'replaceCards'; cards: OverlayCard[] }
@@ -148,7 +152,9 @@ function mergePlayers(base: Record<string, PlayerStats>, changed: PlayerStats[])
 export function matchReducer(state: MatchViewState, action: MatchAction): MatchViewState {
   switch (action.type) {
     case 'status':
-      return { ...state, status: action.status };
+      return { ...state, status: action.status, connectionLost: action.status === 'reconnecting' ? state.connectionLost : false };
+    case 'connectionLost':
+      return { ...state, connectionLost: action.lost && state.status === 'reconnecting' };
     case 'profile':
       return { ...state, profile: { ...state.profile, ...action.changes } };
     case 'recap':

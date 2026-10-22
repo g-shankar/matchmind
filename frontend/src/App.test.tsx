@@ -42,6 +42,7 @@ const actionsMock = (over: Partial<MatchActions> = {}): MatchActions => ({
   seek: vi.fn(),
   setView: vi.fn(),
   clearError: vi.fn(),
+  retryNow: vi.fn(),
   getMoment: vi.fn().mockResolvedValue(null),
   loadRecap: vi.fn().mockResolvedValue(null),
   setSpoilers: vi.fn(),
@@ -202,6 +203,23 @@ describe('landmarks (LC-6)', () => {
     for (const child of Array.from(root.children)) {
       expect(['HEADER', 'SECTION', 'MAIN', 'FOOTER']).toContain(child.tagName);
     }
+  });
+});
+
+describe('a long outage (LC-15)', () => {
+  it('shows one plain sentence in the viewer language with a button that retries now', () => {
+    const retryNow = vi.fn();
+    shell(matchWith({ status: 'reconnecting', connectionLost: true, profile: { ...DEFAULT_PROFILE, language: 'fr' } }), actionsMock({ retryNow }));
+    const notice = screen.getByTestId('connection-lost');
+    expect(notice.getAttribute('role')).toBe('alert');
+    expect(notice.textContent).toContain('Connexion au serveur du match perdue. Nouvelle tentative…');
+    fireEvent.click(screen.getByRole('button', { name: 'Réessayer maintenant' }));
+    expect(retryNow).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows nothing while the connection is fine or only briefly down', () => {
+    shell(matchWith({ status: 'reconnecting', connectionLost: false }), actionsMock());
+    expect(screen.queryByTestId('connection-lost')).toBeNull();
   });
 });
 

@@ -80,4 +80,57 @@ describe('reconnecting after the live server restarts (LC-2)', () => {
     });
     expect(loadDemoFixture).toHaveBeenCalled();
   });
+
+  it('says the connection is lost after about 15 s of failed attempts, and "Try now" retries at once (LC-15)', async () => {
+    const { useMatch, LOST_AFTER_MS } = await import('./useMatch');
+    const { result } = renderHook(() => useMatch());
+    act(() => FakeSocket.all[0].open());
+    act(() => FakeSocket.all[0].close());
+    const failPending = () => {
+      const last = FakeSocket.all[FakeSocket.all.length - 1];
+      if (last.readyState === 0) act(() => last.close());
+    };
+    // Still within the grace period: only the "Connecting…" badge, no sentence.
+    for (let ms = 0; ms < LOST_AFTER_MS - 1000; ms += 500) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(500);
+      });
+      failPending();
+    }
+    expect(result.current.state.status).toBe('reconnecting');
+    expect(result.current.state.connectionLost).toBe(false);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    failPending();
+    expect(result.current.state.connectionLost).toBe(true);
+
+    // "Try now" opens a new attempt straight away instead of waiting out the back-off.
+    const before = FakeSocket.all.length;
+    act(() => result.current.actions.retryNow());
+    expect(FakeSocket.all.length).toBe(before + 1);
+    // A second press while that attempt is in flight does not open another socket.
+    act(() => result.current.actions.retryNow());
+    expect(FakeSocket.all.length).toBe(before + 1);
+
+    // Back live: the notice goes away by itself.
+    act(() => FakeSocket.all[FakeSocket.all.length - 1].open());
+    expect(result.current.state.status).toBe('live');
+    expect(result.current.state.connectionLost).toBe(false);
+  });
+
+  it('a short drop never shows the notice', async () => {
+    const { useMatch, LOST_AFTER_MS } = await import('./useMatch');
+    const { result } = renderHook(() => useMatch());
+    act(() => FakeSocket.all[0].open());
+    act(() => FakeSocket.all[0].close());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2500);
+    });
+    act(() => FakeSocket.all[FakeSocket.all.length - 1].open());
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(LOST_AFTER_MS * 2);
+    });
+    expect(result.current.state.connectionLost).toBe(false);
+  });
 });

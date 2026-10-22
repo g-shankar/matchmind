@@ -20,6 +20,7 @@ const mockActions = () =>
     seek: vi.fn(),
     setView: vi.fn(),
     clearError: vi.fn(),
+    retryNow: vi.fn(),
     getMoment: vi.fn(),
     loadRecap: vi.fn(),
     setSpoilers: vi.fn(),

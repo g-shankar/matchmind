@@ -24,6 +24,7 @@ const actionsMock = (over: Partial<MatchActions> = {}): MatchActions => ({
   seek: vi.fn(),
   setView: vi.fn(),
   clearError: vi.fn(),
+  retryNow: vi.fn(),
   getMoment: vi.fn().mockResolvedValue(null),
   loadRecap: vi.fn().mockResolvedValue(null),
   setSpoilers: vi.fn(),

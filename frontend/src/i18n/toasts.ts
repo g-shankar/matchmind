@@ -140,3 +140,18 @@ export function toastText(message: string, code: string | null | undefined, lang
   if (known) return TOASTS[lang][known];
   return lang === 'en' ? message : TOASTS[lang].other;
 }
+
+/** The notice after a long outage (launch checks LC-15): one sentence and a retry button,
+ * in every content language, because it speaks to the viewer about their match. */
+export const CONNECTION_LOST: Record<ToastLanguage, { message: string; retry: string }> = {
+  en: { message: 'Lost the connection to the match server. Trying again…', retry: 'Try now' },
+  es: { message: 'Se ha perdido la conexión con el servidor del partido. Volviendo a intentarlo…', retry: 'Reintentar ahora' },
+  fr: { message: 'Connexion au serveur du match perdue. Nouvelle tentative…', retry: 'Réessayer maintenant' },
+  ar: { message: 'انقطع الاتصال بخادم المباراة. جارٍ إعادة المحاولة…', retry: 'أعد المحاولة الآن' },
+  ja: { message: '試合サーバーとの接続が切れました。再接続しています…', retry: '今すぐ再試行' },
+};
+
+export function connectionLostText(language: string): { lang: ToastLanguage; message: string; retry: string } {
+  const lang: ToastLanguage = isToastLanguage(language) ? language : 'en';
+  return { lang, ...CONNECTION_LOST[lang] };
+}

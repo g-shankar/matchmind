@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { TOAST_CODES, TOAST_LANGUAGES, TOASTS, toastText } from './toasts';
+import { CONNECTION_LOST, TOAST_CODES, TOAST_LANGUAGES, TOASTS, connectionLostText, toastText } from './toasts';
 
 describe('error toasts', () => {
   it('every toast code has a non-empty text in every one of the five languages', () => {
@@ -29,5 +29,24 @@ describe('error toasts', () => {
     expect(toastText('Some new refusal.', 'other', 'en')).toBe('Some new refusal.');
     expect(toastText('Some new refusal.', 'other', 'ar')).toBe(TOASTS.ar.other);
     expect(toastText('Some new refusal.', null, 'de')).toBe('Some new refusal.');
+  });
+});
+
+describe('the lost-connection notice (LC-15)', () => {
+  it('has one sentence and a retry label in all five languages, translated', () => {
+    expect(CONNECTION_LOST.en.message).toBe('Lost the connection to the match server. Trying again…');
+    for (const lang of TOAST_LANGUAGES) {
+      expect(CONNECTION_LOST[lang].message.trim(), lang).not.toBe('');
+      expect(CONNECTION_LOST[lang].retry.trim(), lang).not.toBe('');
+      if (lang !== 'en') {
+        expect(CONNECTION_LOST[lang].message, lang).not.toBe(CONNECTION_LOST.en.message);
+        expect(CONNECTION_LOST[lang].retry, lang).not.toBe(CONNECTION_LOST.en.retry);
+      }
+    }
+  });
+
+  it('falls back to English for a language without a table', () => {
+    expect(connectionLostText('de')).toEqual({ lang: 'en', ...CONNECTION_LOST.en });
+    expect(connectionLostText('ja').lang).toBe('ja');
   });
 });

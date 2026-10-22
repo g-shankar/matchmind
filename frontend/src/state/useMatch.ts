@@ -17,6 +17,8 @@ const LIVE_TIMEOUT_MS = 2500;
 const RETRY_MS = 2000;
 const MAX_RETRY_MS = 10000;
 const MAX_RETRIES = 3;
+/** After this long without the live server, say so in one sentence with a retry button (LC-15). */
+export const LOST_AFTER_MS = 15000;
 
 const PERSONAS = ['casual', 'tactical', 'fantasy', 'player_spotlight'];
 const LANGUAGES: string[] = ALL_LANGUAGES;
@@ -101,6 +103,8 @@ export function useMatch() {
   jumpPacer.current ??= new JumpPacer<ClientAction>((action) => transportRef.current?.send(action));
   const controlPacer = useRef<ControlPacer<ControlAction> | null>(null);
   controlPacer.current ??= new ControlPacer<ControlAction>((action) => transportRef.current?.send(action));
+  // Skips the back-off wait and tries the live server now (the "Try now" button).
+  const retryNowRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     let disposed = false;
@@ -110,6 +114,13 @@ export function useMatch() {
     // offline demo, whose files come from the same server (launch checks LC-2).
     let everLive = false;
     let timers: ReturnType<typeof setTimeout>[] = [];
+    // The scheduled next attempt (null while an attempt is in flight) and the "lost" timer.
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let lostTimer: ReturnType<typeof setTimeout> | null = null;
+    const clearLost = () => {
+      if (lostTimer) clearTimeout(lostTimer);
+      lostTimer = null;
+    };
     // Deep links: `?t=2050&p=1` starts at a match moment, `&pause=1` holds it there.
     // Playback is shared by everyone on the match, so the seek and pause apply to all viewers.
     const q = new URLSearchParams(window.location.search);
@@ -128,6 +139,7 @@ export function useMatch() {
 
     const startDemo = async () => {
       if (disposed) return;
+      clearLost();
       transportRef.current?.close();
       transportRef.current = null;
       try {
@@ -147,6 +159,7 @@ export function useMatch() {
 
     const startLive = () => {
       if (disposed) return;
+      retryTimer = null;
       let opened = false;
       const live = new LiveTransport({
         onMessage,
@@ -154,6 +167,7 @@ export function useMatch() {
           opened = true;
           everLive = true;
           retries = 0;
+          clearLost();
           dispatch({ type: 'status', status: 'live' });
           // Viewer choices are per connection, so restate them after every (re)connect.
           live.send({ action: 'set_view', ...profileRef.current });
@@ -166,7 +180,11 @@ export function useMatch() {
           dispatch({ type: 'status', status: 'reconnecting' });
           retries += 1;
           if (toDemo && retries > MAX_RETRIES) return void startDemo();
-          timers.push(setTimeout(startLive, Math.min(RETRY_MS * 2 ** (retries - 1), MAX_RETRY_MS)));
+          lostTimer ??= setTimeout(() => {
+            if (!disposed) dispatch({ type: 'connectionLost', lost: true });
+          }, LOST_AFTER_MS);
+          retryTimer = setTimeout(startLive, Math.min(RETRY_MS * 2 ** (retries - 1), MAX_RETRY_MS));
+          timers.push(retryTimer);
         },
       }, apiBase(), viewOf(profileRef.current));
       transportRef.current = live;
@@ -177,6 +195,14 @@ export function useMatch() {
           }, LIVE_TIMEOUT_MS),
         );
       }
+    };
+
+    retryNowRef.current = () => {
+      // Only while waiting between attempts: never open a second socket next to one in flight.
+      if (disposed || !retryTimer) return;
+      clearTimeout(retryTimer);
+      retries = 0;
+      startLive();
     };
 
     const mode = connectionMode();
@@ -190,6 +216,8 @@ export function useMatch() {
       controlPacer.current?.dispose();
       timers.forEach(clearTimeout);
       timers = [];
+      clearLost();
+      retryNowRef.current = () => {};
       transportRef.current?.close();
       transportRef.current = null;
     };
@@ -226,6 +254,7 @@ export function useMatch() {
     seek: (clock_s: number, period?: number) => jumpPacer.current?.push({ action: 'seek', clock_s, ...(period ? { period } : {}) }),
     setView,
     clearError: () => dispatch({ type: 'clearError' }),
+    retryNow: () => retryNowRef.current(),
     // `favouriteTeam` overrides the viewer's club for this one request (the club-heart comparison).
     getMoment: (momentId: string, persona: ViewerProfile['persona'], language: ViewerProfile['language'], favouriteTeam?: string | null) =>
       transportRef.current?.getMoment(momentId, persona, language, favouriteTeam === undefined ? profileRef.current.favourite_team : favouriteTeam) ??
