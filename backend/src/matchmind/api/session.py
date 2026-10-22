@@ -65,7 +65,8 @@ DEFAULT_BASE_RATE = 10.0
 RECENT_BUNDLES = 8
 _RECAP_CACHE_SIZE = 32
 CHECKPOINT_EVERY = 200
-_CUE_CACHE_SIZE = 16
+_CUE_CACHE_SIZE = 32  # audiences (profiles) whose compiled sheets are kept
+_CUE_POINTS_PER_PROFILE = 4  # compiled positions kept per audience (for seeks back)
 CUE_PAGE_MAX = 500
 # Pitch tags and pass ratings are shown on ticks but would flood "jump to moment".
 NO_BOOKMARK_KINDS = frozenset({"speed_burst", "rocket_shot", "distance_milestone", "hard_pass"})
@@ -258,6 +259,7 @@ class _CueCompile:
 
     sheet: list[Cue]
     state: ViewerState  # producer memory plus the cue compiler, ready to continue live
+    upto: int = 0  # events[:upto] are compiled
 
 
 @dataclass
@@ -368,7 +370,11 @@ class MatchSession:
         self.bookmarks: list[Bookmark] = []
         self._samples: list[RibbonSample] = []  # momentum and pressure after each event
         self._retractions: list[tuple[int, list[str]]] = []  # (event index, moment ids ruled out)
-        self._cue_cache: OrderedDict[tuple[str, int], _CueCompile] = OrderedDict()
+        # profile (JSON) -> its compiled positions (upto -> compile). The sheet depends only on
+        # the load-time pass, never on the live position, so it survives seeks and is grown
+        # incrementally from the nearest compiled position instead of from kick-off.
+        self._cue_cache: OrderedDict[str, dict[int, _CueCompile]] = OrderedDict()
+        self.cue_events_fed = 0  # events fed to cue compilers (cost counter, for tests)
         self._cue_lock = threading.Lock()
         self._precompute()
 
@@ -616,31 +622,59 @@ class MatchSession:
             period=e.period, clock_s=e.clock_s, match_clock=e.match_clock, t_s=round(self._tl[index], 2)
         )
 
+    def _nearest_compile(self, key: str, upto: int) -> _CueCompile | None:
+        points = self._cue_cache.get(key)
+        if not points:
+            return None
+        best = max((u for u in points if u <= upto), default=None)
+        return points[best] if best is not None else None
+
+    def compile_cost(self, profile: ViewerProfile, upto: int | None = None) -> int:
+        """Events a compile of this audience's sheet up to `upto` (default: now) would
+        still have to feed: 0 when it is cached, small when a nearby position is."""
+        upto = self._live.next_index if upto is None else max(0, min(upto, len(self.events)))
+        with self._cue_lock:
+            base = self._nearest_compile(profile.model_dump_json(), upto)
+        return upto - (base.upto if base is not None else 0)
+
     def _compile(self, profile: ViewerProfile, upto: int) -> _CueCompile:
         """The audience's cue sheet for events[:upto], from the load-time moments and the
-        template crew (no paid calls; same input, same sheet). Cached per position."""
-        key = (profile.model_dump_json(), upto)
+        template crew (no paid calls; same input, same sheet). Continues from the nearest
+        compiled position at or before `upto`, so a viewer joining as play advances costs
+        only the events since, not the whole match."""
+        key = profile.model_dump_json()
         with self._cue_lock:
-            hit = self._cue_cache.get(key)
-            if hit is not None:
+            base = self._nearest_compile(key, upto)
+            if base is not None and base.upto == upto:
                 self._cue_cache.move_to_end(key)
-                return hit
-            state = ViewerState()
-            state.cues = CueCompiler.for_profile(self.match_id, self.home_id, self.away_id, profile)
+                return base
+            if base is None:
+                state = ViewerState()
+                state.cues = CueCompiler.for_profile(self.match_id, self.home_id, self.away_id, profile)
+                sheet: list[Cue] = []
+                start = 0
+            else:
+                state, sheet, start = base.state.fork(), list(base.sheet), base.upto
             by_index: dict[int, list[MomentBundle]] = {}
             for idx, bundle in self._bundle_index:
                 if idx >= upto:
                     break
-                by_index.setdefault(idx, []).append(bundle)
-            sheet: list[Cue] = []
-            for i in range(upto):
+                if idx >= start:
+                    by_index.setdefault(idx, []).append(bundle)
+            for i in range(start, upto):
                 bundles = by_index.get(i, [])
                 cards = self._bookmark_crew.cards_for(bundles, profile, state) if bundles else []
+                assert state.cues is not None
                 sheet += state.cues.feed(
                     i, self.cue_time(i), str(self.events[i].type), bundles, cards, self._samples[i]
                 )
-            compiled = _CueCompile(sheet=sheet, state=state)
-            self._cue_cache[key] = compiled
+            self.cue_events_fed += upto - start
+            compiled = _CueCompile(sheet=sheet, state=state, upto=upto)
+            points = self._cue_cache.setdefault(key, {})
+            points[upto] = compiled
+            while len(points) > _CUE_POINTS_PER_PROFILE:
+                points.pop(min(points))  # keep the latest positions
+            self._cue_cache.move_to_end(key)
             while len(self._cue_cache) > _CUE_CACHE_SIZE:
                 self._cue_cache.popitem(last=False)
             return compiled
@@ -721,7 +755,10 @@ class MatchSession:
 
     def _append_one(self, event: Event) -> None:
         i = len(self.events)
-        marks = (len(self._bundle_index), len(self.bookmarks), len(self._checkpoints))
+        marks = (len(self._bundle_index), len(self.bookmarks), len(self._checkpoints), len(self._retractions))
+        flags = [b.ruled_out for b in self.bookmarks]
+        spotter = getattr(self._bookmark_crew, "spotter", None)
+        spotter_before = copy.deepcopy(spotter.state) if spotter is not None else None
         _extend_timeline(self._tl, self.events, [event])
         self.events.append(event)
         new_period = event.period not in self._period_starts
@@ -736,6 +773,13 @@ class MatchSession:
             del self._bundle_index[marks[0] :]
             del self.bookmarks[marks[1] :]
             del self._checkpoints[marks[2] :]
+            del self._retractions[marks[3] :]
+            self._spotter_checkpoints.pop(i, None)
+            if spotter is not None:
+                spotter.state = spotter_before  # the bookmark crew's rolling memory, as before
+            # Bookmark flags as before (a correction from the dropped event rules nothing out).
+            self.bookmarks = [replace(b, ruled_out=f) for b, f in zip(self.bookmarks, flags, strict=False)]
+            del self._samples[i:]
             del self._event_metrics[i:]
             del self.events[i:]
             del self._tl[i:]
@@ -920,8 +964,6 @@ class MatchSession:
         self.crew.reset()
         self.crew.restore(before)
         self._recaps.clear()
-        with self._cue_lock:
-            self._cue_cache.clear()
         self._live = _Live(stats=copy.deepcopy(stats), next_index=start)
         # The spotter's rolling memory (momentum history, pressure spells, gaps between
         # tags) is brought back too, so moments after the jump are the ones a straight run

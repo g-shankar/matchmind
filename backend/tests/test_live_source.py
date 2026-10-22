@@ -495,3 +495,53 @@ def test_a_feed_supplied_score_never_becomes_a_fact():
     for f in facts:
         assert (f["score_home"], f["score_away"]) != (7, 9)
     assert (facts[-1]["score_home"], facts[-1]["score_away"]) == (2, 0)  # the demo's half-time score
+
+
+def _template_crew(teams):
+    from matchmind.crew.crew import Crew
+    from matchmind.crew.llm import TemplateLLM
+    from matchmind.crew.translator import OffTranslator
+
+    return Crew(teams, llm=TemplateLLM(), translator=OffTranslator())
+
+
+def test_a_dropped_live_event_leaves_no_trace_in_the_cue_sheet(demo):
+    """The load-time pass fails late on the VAR review (after the ribbon sample, the
+    spotter and the retraction are recorded): all of it is taken back out, so the match
+    plays on exactly like a file without that event."""
+    from matchmind.crew.contracts import MomentKind, ViewerProfile
+    from matchmind.stats.state import StatsEngine
+
+    bad_seq = next(e.seq for e in demo if e.type == EventType.VAR_REVIEW)
+
+    def exploding_bookmarks(teams):
+        crew = _template_crew(teams)
+        render = crew.render
+
+        def boom(bundle, profile):
+            if bundle.moment.kind == MomentKind.CORRECTION:
+                raise ValueError("cannot title this moment")
+            return render(bundle, profile)
+
+        crew.render = boom
+        return crew
+
+    feed = LiveFeed(StreamValidator(), max_ready=len(demo))
+    for raw in _raw(demo):
+        feed.put(raw)
+    start = feed.wait_for_start(1)
+    engines = session_mod.Engines(stats=StatsEngine, crew=_template_crew, bookmark_crew=exploding_bookmarks)
+    clock = FakeClock()
+    s = MatchSession([start], engines=engines, clock=clock, live_feed=feed)
+    _play_to_end(s, clock)
+    assert s.ended and s.live_dropped == 1
+    assert len(s._samples) == len(s.events) == len(demo) - 1
+    assert all(idx < len(s.events) for idx, _ in s._retractions) and not s._retractions
+    assert not any(b.ruled_out for b in s.bookmarks)
+
+    rest = [e for e in demo if e.seq != bad_seq]
+    plain = session_mod.Engines(stats=StatsEngine, crew=_template_crew, bookmark_crew=_template_crew)
+    f = MatchSession(rest, engines=plain, clock=FakeClock())
+    _play_to_end(f, f._clock)
+    profile = ViewerProfile()
+    assert s.cue_sheet(profile, limit=500)["cues"] == f.cue_sheet(profile, limit=500)["cues"]
