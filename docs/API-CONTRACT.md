@@ -353,7 +353,7 @@ Server -> client. Every message is `{ "type": ..., "data": ... }`.
 
 | type | data | when |
 |---|---|---|
-| `INITIAL_SNAPSHOT` | `{ match_id, clock, period, home_score, away_score (null in catch-up mode), teams: { home: TeamInfo, away: TeamInfo }, state: MatchState, control_chaos: ControlChaosState, profile: ViewerProfile, playback: Playback, recent_cards: OverlayCard[], bookmarks: Bookmark[], players: PlayerStats[], crew: CrewStatus, languages: LanguageInfo[], auto_eventing: AutoEventingStatus \| null, cue_sheet: CueSheetState, recent_events: MatchEvent[] (WebSocket only: the last 30 played, oldest first; scrubbed in catch-up mode) }` | on connect, after `MATCH_RESET`, after a seek, after `set_view` changes `spoilers` |
+| `INITIAL_SNAPSHOT` | `{ match_id, clock, period, home_score, away_score (null in catch-up mode), teams: { home: TeamInfo, away: TeamInfo }, state: MatchState, control_chaos: ControlChaosState, profile: ViewerProfile, playback: Playback, recent_cards: OverlayCard[], bookmarks: Bookmark[], players: PlayerStats[], crew: CrewStatus, languages: LanguageInfo[], auto_eventing: AutoEventingStatus \| null, cue_sheet: CueSheetState, recent_events: MatchEvent[] (WebSocket only: the last 30 played, oldest first; in catch-up mode scrubbed like ticks, with VAR reviews left out) }` | on connect, after `MATCH_RESET`, after a seek, after `set_view` changes `spoilers` |
 | `MATCH_TICK` | `{ event: MatchEvent, clock, period, score: { home, away } \| null, state: MatchState, control_chaos: ControlChaosState, cards: OverlayCard[], players_changed: PlayerStats[] }` | every event as it is played |
 | `CUES` | `{ sheet_id, cues: Cue[], active?: Cue[] }` | never in catch-up mode; otherwise after a `MATCH_TICK` that produced cues for this viewer; `active` (what is on air now) is present when a new sheet starts, e.g. after `set_view` |
 | `PLAYBACK_CONTROL` | `Playback` | play, pause, speed change |
@@ -361,7 +361,7 @@ Server -> client. Every message is `{ "type": ..., "data": ... }`.
 | `PROFILE_CHANGED` | `ViewerProfile` | after this connection's `set_view` |
 | `PERSONA_CHANGED` | `{ persona }` | kept for the old frontend; sent with `PROFILE_CHANGED` |
 | `MATCH_END` | `{ recap: Recap }` | full time, for this connection's persona and language |
-| `ERROR` | `{ message, code }` | invalid action (plain words, no stack traces). `code` is stable for translation: `jump_too_fast`, `view_too_fast`, `control_too_fast`, `too_many_actions`, `match_finished`, `bad_speed`, `bad_time`, `no_such_half`, `not_played_yet`, `after_full_time`, `unknown_club`, `unknown_player`, `loading`, `oops`, else `other` |
+| `ERROR` | `{ message, code }` | invalid action (plain words, no stack traces). `code` is stable for translation: `jump_too_fast`, `view_too_fast`, `control_too_fast`, `too_many_actions`, `match_finished`, `bad_speed`, `bad_time`, `no_such_half`, `not_played_yet`, `after_full_time`, `unknown_club`, `unknown_player`, `loading`, `oops`, else `other`. REST validation errors (400) carry the same style: `{ detail, code }` with `code` `unknown_field` (a field the route does not take; never named back) or `bad_request` |
 
 ```ts
 interface Playback {
@@ -431,8 +431,10 @@ A viewer who joins late can keep the result hidden: `set_view { spoilers: false 
 connection gets, on every message: `home_score`, `away_score`, `state.score_*`,
 `MATCH_TICK.score` and players' `goals`/`assists` as `null`; no goal or VAR
 correction cards and no bookmarks for them (`ruled_out` is always false); shot
-and VAR-review events without `outcome`, `reviewed_event_id` or score details;
-`cue_sheet: null` and no `CUES` (the scorebug is the score); and at full time a
+events without `outcome`, `end` (the end point would show which went in),
+`blocked_by` or score details; kick-off passes without their `pass_type` and
+`start`; no `var_review` events at all (that tick is skipped and its other cards
+come with the next one); `cue_sheet: null` and no `CUES` (the scorebug is the score); and at full time a
 spoiler-free story instead of the recap. `set_view { spoilers: true }` reveals:
 the server answers with one fresh `INITIAL_SNAPSHOT` carrying everything. A
 `spoilers` value that is not a boolean gets `ERROR`. Rules and tests:
@@ -489,7 +491,7 @@ collision rules are in [CUE-SHEET.md](CUE-SHEET.md) and
 | `GET /api/crew/trace?limit=20` | `CrewTrace[]` (newest first) |
 | `GET /api/auto-eventing` | `AutoEventingStatus` (computed once per match when the session loads, then served from memory) or 404 if it could not run |
 | `GET /api/metrics` | `MetricRegistry`: every metric's formula, units, source events, window, range, quality flag, limitations and edge cases, plus the metrics we do not compute |
-| `GET /api/match/stats/basic` | `BasicStats`: possession, pass accuracy (with its denominator), shots and on target, tackles, interceptions, PPDA, distance and top speed, per team and per player, match so far |
+| `GET /api/match/stats/basic` | `BasicStats`: possession, pass accuracy (with its denominator), shots and on target, tackles, interceptions, PPDA, distance and top speed, per team and per player, match so far. `?spoilers=false` (catch-up mode) returns `goals` as null for every team and player |
 | `GET /api/source` | `MatchSource`: where the match comes from (file or the live Event Hubs stream) and the stream counters |
 | `GET /api/dataset` | `DatasetIndex`: every downloadable synthetic match with its scenario and seed (docs/DATASET.md) |
 | `GET /api/dataset/export?match_id=&format=jsonl\|csv\|zip[&tracking_period=&tracking_from=&tracking_to=]` | a file download (streamed, `Content-Disposition: attachment`): events as JSON lines (byte for byte as bundled), events as CSV, or a zip with metadata, rosters, schema, data dictionary and, with the three tracking parameters, a 25 Hz synthetic tracking sample of at most 60 s (zip only) |

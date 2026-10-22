@@ -124,6 +124,9 @@ surface: WebSocket, REST, the recap, and Ask the studio.
 | The score everywhere: scorebug, snapshot, ticks, match state, player goals and assists | xG, shots, possession, pressure, momentum, control vs chaos |
 | Goal and VAR-correction cards and bookmarks, and any moment whose facts hold a score or a scored shot | Big chances, "should he have passed", unfound runs, cards, pressure spells, momentum swings |
 | Shot and VAR-review outcomes on events, and the score copied into event details | Everything else about the event |
+| Outcome geometry: where a shot ended (every goal ends in the goal mouth; the pitch draws each shot towards the goal centre instead), who blocked it, and a kick-off's label and centre-spot start (a restart follows a goal) | Where the shot was taken from, its xG and speed |
+| VAR review events themselves: here a review always looks at a goal, so the tick is withheld and its other cards ride the next tick | Every other event |
+| Goals in the Lab's basic stats (`GET /api/match/stats/basic?spoilers=false`, MCP `get_basic_stats`): null, and the row is hidden | Shots, on target, passes, tackles and the rest |
 | The cue sheet (its scorebug layer is the score) | Cards in their usual slots |
 | The recap: replaced by the **story so far** | The story: xG and shots for both sides, how many chances, pressure spells and momentum swings, who is on top now, and spoiler-free key moments |
 | Ask the studio's `score`, `scorers` and `var` answers (`hidden`) | Every other question |
@@ -157,7 +160,10 @@ The offline demo applies the same scrub in the browser
 Tests:
 
 - `backend/tests/test_spoilers.py`: a full real match over the WebSocket with
-  no leaks, the story in every studio language, and REST flags.
+  no leaks (no shot end point, no VAR review, no kick-off spot), the story in
+  every studio language, and REST flags, basic stats included.
+- `frontend/src/api/corrections.test.ts`: the recorded demo in catch-up mode.
+- `frontend/src/views/LabStats.test.tsx`: no goals row in catch-up mode.
 - `frontend/src/api/catchup.test.ts`
 - `frontend/src/components/askCatchUp.test.tsx`
 

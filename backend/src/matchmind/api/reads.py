@@ -210,9 +210,10 @@ def metric_registry() -> dict[str, Any]:
     return registry_payload()
 
 
-async def basic_stats(hub: HubLike) -> dict[str, Any]:
-    """GET /api/match/stats/basic: counting stats per team and per player, match so far."""
-    return await hub.run(view.basic_stats_payload, hub.session)
+async def basic_stats(hub: HubLike, spoilers: bool = True) -> dict[str, Any]:
+    """GET /api/match/stats/basic: counting stats per team and per player, match so far.
+    In catch-up mode (`spoilers` false) goals are null: team goals are the score."""
+    return await hub.run(view.basic_stats_payload, hub.session, spoilers)
 
 
 def auto_eventing(hub: HubLike) -> dict[str, Any]:
@@ -265,8 +266,10 @@ async def ask(
     chip: str | None,
     lang: Language = "en",
     spoilers: bool = True,
+    client: str = "local",
 ) -> dict[str, Any]:
-    """POST /api/ask and the `ask_studio` MCP tool: one answer as of the playback clock."""
+    """POST /api/ask and the `ask_studio` MCP tool: one answer as of the playback clock.
+    `client` keys the optional model path's per-client quota (docs/ASK.md)."""
     from matchmind.ask import ask as ask_studio
     from matchmind.crew.llm import ai_enabled
 
@@ -282,6 +285,7 @@ async def ask(
             spoilers=spoilers,
             llm=llm,
             metric_info=_metric_info(),
+            client=client,
         )
     )
     return answer.model_dump(mode="json")

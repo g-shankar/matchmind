@@ -105,7 +105,7 @@ export const Lab: React.FC<ViewProps> = ({ match }) => {
       </Panel>
 
       <MetricsSection />
-      <StatsSection clock={match.clock} />
+      <StatsSection clock={match.clock} spoilers={match.profile.spoilers} />
       <BenchmarkSection />
       <DatasetSection />
       <McpSection />
@@ -273,7 +273,7 @@ const TEAM_ROWS: { key: string; get: (s: BasicStats['teams'][string], num: (v: n
   { key: 'passes', get: (s) => `${s.passes_completed}/${s.passes_attempted}` },
   { key: 'passAccuracy', get: (s, num) => (s.pass_accuracy_pct == null ? '–' : `${num(s.pass_accuracy_pct, 1)}%`) },
   { key: 'shots', get: (s) => `${s.shots} (${s.shots_on_target})` },
-  { key: 'goals', get: (s) => String(s.goals) },
+  { key: 'goals', get: (s) => String(s.goals ?? '–') },
   { key: 'tackles', get: (s) => `${s.tackles_won}/${s.tackles_attempted}` },
   { key: 'interceptions', get: (s) => String(s.interceptions) },
   { key: 'fouls', get: (s) => String(s.fouls) },
@@ -282,10 +282,10 @@ const TEAM_ROWS: { key: string; get: (s: BasicStats['teams'][string], num: (v: n
   { key: 'topSpeed', get: (s, num) => `${num(s.top_speed_kmh, 1)} km/h` },
 ];
 
-const StatsSection: React.FC<{ clock: string }> = ({ clock }) => {
+const StatsSection: React.FC<{ clock: string; spoilers: boolean }> = ({ clock, spoilers }) => {
   const { t } = useI18n();
   const mode = useInsightMode();
-  const { state, reload, refreshing } = useInsight(() => insights.basicStats(mode), mode, { pollMs: STATS_POLL_MS });
+  const { state, reload, refreshing } = useInsight(() => insights.basicStats(mode, spoilers), `${mode}:${spoilers}`, { pollMs: STATS_POLL_MS });
   return (
     <Section
       id="lab-stats"
@@ -308,15 +308,17 @@ const StatsSection: React.FC<{ clock: string }> = ({ clock }) => {
       {state.status !== 'ready' ? (
         <InsightGate state={state} onRetry={reload} lines={6} needsServerKey="lab.stats.needsServer" />
       ) : (
-        <StatsTables stats={state.data} />
+        <StatsTables stats={state.data} hideResult={!spoilers} />
       )}
     </Section>
   );
 };
 
-export const StatsTables: React.FC<{ stats: BasicStats }> = ({ stats }) => {
+/** `hideResult`: catch-up mode, so no goals row (a team's goals are the score). */
+export const StatsTables: React.FC<{ stats: BasicStats; hideResult?: boolean }> = ({ stats, hideResult = false }) => {
   const { t, num } = useI18n();
   const teams = Object.values(stats.teams);
+  const rows = TEAM_ROWS.filter((r) => r.key !== 'goals' || (!hideResult && teams.every((tm) => tm.goals !== null)));
   const [sort, setSort] = useState<'distance_km' | 'passes_completed' | 'top_speed_kmh'>('passes_completed');
   const players = useMemo(() => [...stats.players].sort((a, b) => b[sort] - a[sort]), [stats.players, sort]);
   return (
@@ -350,7 +352,7 @@ export const StatsTables: React.FC<{ stats: BasicStats }> = ({ stats }) => {
             </tr>
           </thead>
           <tbody>
-            {TEAM_ROWS.map((r) => (
+            {rows.map((r) => (
               <tr key={r.key} className="border-t border-pp-line/60">
                 <th scope="row" className="py-1.5 text-start font-normal text-pp-mute">
                   {t(`lab.stats.${r.key}`)}

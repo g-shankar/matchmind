@@ -55,6 +55,7 @@ from matchmind.schema import PITCH_LENGTH_M, PITCH_WIDTH_M, SCHEMA_VERSION, Even
 from . import reads, view
 from . import session as session_mod
 from .session import CUE_PAGE_MAX, MatchSession, SessionError, Tick, build_session
+from .validation import validation_body
 
 logger = logging.getLogger("pitchpulse.api")
 
@@ -583,6 +584,7 @@ class Hub:
             states[i] = session.viewer_state(profiles[i], ticks[0].index)
             if conns[i].profile == profiles[i] and conns[i].view_state.cues is None:
                 conns[i].view_state = states[i]
+        held: list[list[dict]] = [[] for _ in conns]  # catch-up cards from a withheld tick
         for tick in ticks:
             tick = session.crew_tick(tick)
             shared = view.tick_shared(tick)
@@ -592,7 +594,14 @@ class Hub:
                 data = dict(shared, cards=[view.card_payload(c) for c in cards])
                 cues = view.cues_message(state, session.tick_cues(tick, cards, state))
                 if not profile.spoilers:  # catch-up mode: no result, no cue sheet (docs/PERSONALISATION.md)
-                    out[i].append(view.message("MATCH_TICK", view.spoiler_free_tick(session, data)))
+                    if held[i]:
+                        data["cards"] = held[i] + data["cards"]
+                        held[i] = []
+                    free = view.spoiler_free_tick(session, data)
+                    if free is None:  # a withheld event (VAR review): its other cards ride the next tick
+                        held[i] = view.spoiler_free_cards(session, data["cards"])
+                        continue
+                    out[i].append(view.message("MATCH_TICK", free))
                     continue
                 out[i].append(view.message("MATCH_TICK", data))
                 if cues is not None:
@@ -818,11 +827,7 @@ def create_app(
 
     @app.exception_handler(RequestValidationError)
     async def _bad_request(request: Request, exc: RequestValidationError) -> JSONResponse:
-        fields = sorted({str(e["loc"][-1]) for e in exc.errors() if e.get("loc")})
-        detail = (
-            f"Check {', '.join(fields)}: the value is missing or not allowed." if fields else "Bad request."
-        )
-        return JSONResponse({"detail": detail}, status_code=400)
+        return JSONResponse(validation_body(exc.errors()), status_code=400)
 
     @app.exception_handler(SessionError)
     async def _session_error(request: Request, exc: SessionError) -> JSONResponse:
@@ -939,16 +944,10 @@ def create_app(
         try:
             body = AskBody.model_validate_json(bytes(raw))
         except ValidationError as exc:
-            fields = sorted({str(e["loc"][-1]) for e in exc.errors() if e.get("loc")})
-            detail = (
-                f"Check {', '.join(fields)}: the value is missing or not allowed."
-                if fields
-                else "Bad request."
-            )
-            raise HTTPException(status_code=400, detail=detail) from None
+            return JSONResponse(validation_body(exc.errors()), status_code=400)  # type: ignore[return-value]
         if (body.question is None) == (body.chip is None):
             raise HTTPException(status_code=400, detail="Send a question or a chip.")
-        return await reads.ask(hub, body.question, body.chip, body.lang, body.spoilers)
+        return await reads.ask(hub, body.question, body.chip, body.lang, body.spoilers, client_ip(request))
 
     # --- end ask the studio -------------------------------------------------------------------
 
@@ -985,8 +984,8 @@ def create_app(
         return reads.metric_registry()
 
     @app.get("/api/match/stats/basic")
-    async def basic_stats() -> dict[str, Any]:
-        return await reads.basic_stats(hub)
+    async def basic_stats(spoilers: bool = True) -> dict[str, Any]:
+        return await reads.basic_stats(hub, spoilers)
 
     # --- end metric registry and basic stats ----------------------------------------------------
 

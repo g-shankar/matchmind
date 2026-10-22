@@ -103,9 +103,10 @@ export const insights = {
     if (mode === 'demo') return fromDemo((b) => b.metrics);
     return getJson<MetricRegistry>('/api/metrics');
   },
-  basicStats(mode: InsightMode): Promise<InsightResult<BasicStats>> {
+  basicStats(mode: InsightMode, spoilers = true): Promise<InsightResult<BasicStats>> {
     if (mode === 'demo') return Promise.resolve({ status: 'needs_server' });
-    return getJson<BasicStats>('/api/match/stats/basic');
+    // Catch-up mode: the server leaves goals out (a team's goals are the score).
+    return getJson<BasicStats>(spoilers ? '/api/match/stats/basic' : '/api/match/stats/basic?spoilers=false');
   },
   autoEventing(mode: InsightMode): Promise<InsightResult<AutoEventingStatus>> {
     if (mode === 'demo') return fromDemo((b) => b.auto_eventing);

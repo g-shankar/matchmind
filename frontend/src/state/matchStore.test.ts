@@ -162,6 +162,19 @@ describe('catch-up guard (extreme cases EC-3)', () => {
     expect(s).toBe(before);
   });
 
+  it('a racing VAR review tick is dropped, and racing snapshot events lose shot end points', () => {
+    const shot = event(7, 2990, { type: 'shot', outcome: 'goal', end: { x: 105, y: 34 } });
+    const review = event(8, 2995, { type: 'var_review', outcome: 'overturned', reviewed_event_id: 'T-1-7', review_reason: 'offside' });
+    const base = snapshot();
+    let s = matchReducer(catchUp(), { type: 'message', message: { ...base, data: { ...base.data, recent_events: [shot, review] } } });
+    expect(s.events.map((e) => e.type)).toEqual(['shot']);
+    expect(s.events[0].end).toBeNull();
+    const before = s;
+    const data: TickData = { ...f.ticks[1], event: review, cards: [], score: { home: 2, away: 1 } };
+    s = matchReducer(s, { type: 'message', message: { type: 'MATCH_TICK', data } });
+    expect(s).toBe(before);
+  });
+
   it('a profile echo does not switch catch-up off; the viewer revealing does', () => {
     let s = matchReducer(catchUp(), { type: 'message', message: { type: 'PROFILE_CHANGED', data: DEFAULT_PROFILE } });
     expect(s.profile.spoilers).toBe(false);

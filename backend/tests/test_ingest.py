@@ -447,3 +447,74 @@ def test_line_up_positions_are_checked(demo, position, match):
     lineups = list(demo[0].lineups or [])
     lineups[0] = lineups[0].model_copy(update={"position": position})
     _reject([demo[0].model_copy(update={"lineups": lineups}), *demo[1:]], match)
+
+
+# --- Real names: a feed roster may never carry one (CLAUDE.md: synthetic data only) -------------
+# The names themselves are spelled out only in the ban list (crew/fact_checker.py); these tests
+# read them from there.
+
+
+def _script(name: str) -> str:
+    if any("؀" <= ch <= "ۿ" for ch in name):
+        return "arabic"
+    if any("぀" <= ch <= "鿿" for ch in name):
+        return "japanese"
+    if any("Ѐ" <= ch <= "ӿ" for ch in name):
+        return "cyrillic"
+    return "latin"
+
+
+def test_ban_list_is_broad_and_covers_other_scripts():
+    from collections import Counter
+
+    from matchmind.crew.fact_checker import BANNED_NAMES
+
+    scripts = Counter(_script(n) for n in BANNED_NAMES)
+    assert len(BANNED_NAMES) >= 300, len(BANNED_NAMES)
+    assert scripts["latin"] >= 220 and scripts["arabic"] >= 25 and scripts["japanese"] >= 25
+    assert scripts["cyrillic"] >= 15, scripts
+    assert len(set(BANNED_NAMES)) == len(BANNED_NAMES)
+
+
+def _variants(name: str) -> list[str]:
+    out = [name, name.upper(), name.lower(), f"Like {name}, really."]
+    if name.isascii():
+        out.append("".join(chr(ord(c) + 0xFEE0) if "!" <= c <= "~" else c for c in name))  # full-width
+        out.append(name.replace("e", "é", 1))  # an accent added
+    if _script(name) == "arabic":
+        out += [name.replace("ا", "أ", 1), "و" + name, name.replace("ه", "ة")]
+    if _script(name) == "japanese":
+        out.append(name.replace("・", ""))
+    return out
+
+
+def test_every_banned_name_is_caught_in_any_spelling():
+    from matchmind.crew.fact_checker import BANNED_NAMES, banned_names_in
+
+    missed = [(n, v) for n in BANNED_NAMES for v in _variants(n) if not banned_names_in(v)]
+    assert not missed, missed[:10]
+
+
+def test_ingest_rejects_every_banned_name_as_a_player_or_club():
+    from matchmind.crew.fact_checker import BANNED_NAMES
+
+    for name in BANNED_NAMES:
+        data = _roster_dict()
+        data["teams"][0]["players"][2]["name"] = name
+        with pytest.raises(IngestError):
+            roster_from_data(data)
+        data = _roster_dict()
+        data["teams"][0]["name"] = name
+        with pytest.raises(IngestError):
+            roster_from_data(data)
+
+
+def test_no_synthetic_name_is_on_the_ban_list():
+    from matchmind.crew.fact_checker import banned_names_in
+    from matchmind.simulator.teams import TEAMS
+
+    for team in TEAMS.values():
+        assert not banned_names_in(team.name), team.name
+        for p in team.players:
+            assert not banned_names_in(p.name), p.name
+    assert roster_from_data(_roster_dict())

@@ -180,8 +180,11 @@ export function catchUpGuard(state: MatchViewState, m: ServerMessage): ServerMes
     case 'INITIAL_SNAPSHOT':
       if (m.data.profile?.spoilers === false) return m;
       return { type: 'INITIAL_SNAPSHOT', data: { ...spoilerFreeSnapshot(m.data), profile: { ...m.data.profile, spoilers: false } } };
-    case 'MATCH_TICK':
-      return m.data.score == null ? m : { type: 'MATCH_TICK', data: spoilerFreeTick(m.data) };
+    case 'MATCH_TICK': {
+      if (m.data.score == null) return m;
+      const free = spoilerFreeTick(m.data);
+      return free ? { type: 'MATCH_TICK', data: free } : null; // a VAR review is withheld
+    }
     case 'CUES':
       return null; // the cue sheet carries the scorebug; a catch-up viewer gets none
     case 'PROFILE_CHANGED':

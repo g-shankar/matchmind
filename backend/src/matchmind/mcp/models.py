@@ -58,6 +58,13 @@ class NoInput(_In):
     pass
 
 
+class BasicStatsIn(_In):
+    spoilers: bool = Field(
+        default=True,
+        description="False: catch-up mode, goals per team and per player come back as null.",
+    )
+
+
 class ListMomentsIn(_In):
     kind: BookmarkKind | None = Field(default=None, description="Only moments of this kind.")
     period: Literal[1, 2] | None = Field(default=None, description="Only this half.")
@@ -131,7 +138,7 @@ class AskIn(_In):
     )
     chip: ChipId | None = Field(default=None, description="A suggested question by id, instead of text.")
     language: Language = Field(
-        default="en", description="Language of the answer (en, es, fr, ar; others get English)."
+        default="en", description="Language of the answer (en, es, fr, ar, ja; others get English)."
     )
     spoilers: bool = Field(
         default=True,
@@ -348,7 +355,7 @@ class BasicTeamOut(BaseModel):
     pass_accuracy_pct: float | None
     shots: int
     shots_on_target: int
-    goals: int
+    goals: int | None
     tackles_won: int
     tackles_attempted: int
     interceptions: int
@@ -371,7 +378,7 @@ class BasicPlayerOut(BaseModel):
     pass_accuracy_pct: float | None
     shots: int
     shots_on_target: int
-    goals: int
+    goals: int | None
     tackles_won: int
     tackles_attempted: int
     interceptions: int

@@ -311,6 +311,24 @@ def _fresh_model_budget(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _fresh_ask_model_limits(monkeypatch):
+    """Ask's own model budget, per-client quota and question cache start empty in every
+    test and are generous, so model-path tests never share spend or cached guesses.
+    Tests of those limits install their own."""
+    from matchmind.ask import model
+
+    monkeypatch.setattr(model, "ASK_BUDGET", llm_budget(10_000))
+    monkeypatch.setattr(model, "ASK_QUOTA", model.ClientQuota(per_window=10_000))
+    monkeypatch.setattr(model, "ASK_CACHE", model.GuessCache(size=0))
+
+
+def llm_budget(n: int):
+    from matchmind.crew import llm
+
+    return llm.ModelBudget(total=n, per_minute=n)
+
+
+@pytest.fixture(autouse=True)
 def _fresh_translator_state(monkeypatch):
     """Each test gets its own translation budget and cache, and the paid switches off."""
     from matchmind.crew import translator

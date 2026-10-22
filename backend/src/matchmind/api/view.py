@@ -108,9 +108,10 @@ def _pct(part: int, whole: int) -> float | None:
     return round(100 * part / whole, 1) if whole else None
 
 
-def basic_stats_payload(session: MatchSession) -> dict[str, Any]:
+def basic_stats_payload(session: MatchSession, spoilers: bool = True) -> dict[str, Any]:
     """GET /api/match/stats/basic: plain counting stats per team and per player,
-    with the denominators beside the percentages (docs/METRICS.md)."""
+    with the denominators beside the percentages (docs/METRICS.md). With `spoilers`
+    false (catch-up mode) goals are null: a team's goals are the score."""
     from matchmind.stats.physical import LABEL as TRACKING_LABEL
 
     totals = session.team_totals()
@@ -133,7 +134,7 @@ def basic_stats_payload(session: MatchSession) -> dict[str, Any]:
             "pass_accuracy_pct": _pct(t.passes_completed, t.passes),
             "shots": t.shots,
             "shots_on_target": t.shots_on_target,
-            "goals": t.goals,
+            "goals": t.goals if spoilers else None,
             "tackles_won": t.tackles_won,
             "tackles_attempted": t.tackles_won + t.tackles_lost,
             "interceptions": t.interceptions,
@@ -162,7 +163,7 @@ def basic_stats_payload(session: MatchSession) -> dict[str, Any]:
                 "pass_accuracy_pct": _pct(p.passes_completed, p.passes),
                 "shots": p.shots,
                 "shots_on_target": p.shots_on_target,
-                "goals": p.goals,
+                "goals": p.goals if spoilers else None,
                 "tackles_won": p.tackles_won,
                 "tackles_attempted": p.tackles_attempted,
                 "interceptions": p.interceptions,
@@ -295,8 +296,11 @@ def spoiler_free_snapshot(session: MatchSession, data: dict[str, Any]) -> dict[s
     return out
 
 
-def spoiler_free_tick(session: MatchSession, data: dict[str, Any]) -> dict[str, Any]:
-    """MATCH_TICK.data for a spoiler-safe viewer."""
+def spoiler_free_tick(session: MatchSession, data: dict[str, Any]) -> dict[str, Any] | None:
+    """MATCH_TICK.data for a spoiler-safe viewer, or None when the tick's event is withheld
+    (a VAR review): the caller holds back that tick and passes its cards on with the next."""
+    if spoilers.is_withheld_event(data["event"]):
+        return None
     return {
         **data,
         "event": spoilers.scrub_event(data["event"]),
@@ -338,7 +342,9 @@ def recent_events_payload(session: MatchSession, profile: ViewerProfile) -> list
     """INITIAL_SNAPSHOT.recent_events (WebSocket only): the last few events, so the pitch shows
     players and ball straight after a jump or while paused instead of waiting for a tick."""
     events = [event_payload(e, m) for e, m in session.recent_events(SNAPSHOT_EVENTS)]
-    return events if profile.spoilers else [spoilers.scrub_event(e) for e in events]
+    if profile.spoilers:
+        return events
+    return [spoilers.scrub_event(e) for e in events if not spoilers.is_withheld_event(e)]
 
 
 def tick_shared(tick: Tick) -> dict[str, Any]:

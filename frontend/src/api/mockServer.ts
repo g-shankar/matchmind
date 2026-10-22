@@ -38,7 +38,7 @@ import type { MatchTransport, MessageHandler } from './transport';
 import { metricAlertText } from './mockText';
 import { DemoCueSheet, type DemoCueMoment } from './mockCues';
 import { defaultLanguages, isWorldLanguage } from '../lib/languages';
-import { SPOILER_KINDS, isSpoilerCard, scrubEvent, spoilerFreeSnapshot, spoilerFreeTick } from './spoilers';
+import { SPOILER_KINDS, isSpoilerCard, spoilerFreeEvents, spoilerFreeSnapshot, spoilerFreeTick } from './spoilers';
 
 export interface FixtureTick {
   event: MatchEvent;
@@ -322,6 +322,7 @@ export class MockMatchServer implements MatchTransport {
   private readonly retractable: Set<string>;
   /** Moments a catch-up viewer must not see: goals, corrections, anything on a scoring event. */
   private readonly spoilerMoments: Set<string>;
+  private heldCards: OverlayCard[] = [];
   private askData: DemoAsk | null = null;
   private askLoad: Promise<DemoAsk | null> | null = null;
 
@@ -564,6 +565,7 @@ export class MockMatchServer implements MatchTransport {
     this.players.clear();
     for (let i = 0; i < index; i++) this.applyPlayers(this.fixture.ticks[i]);
     this.next = index;
+    this.heldCards = [];
     this.vclock = index > 0 ? this.vtimes[index - 1] : 0;
     this.ended = index >= this.fixture.ticks.length;
     if (this.ended) this.running = false;
@@ -652,10 +654,15 @@ export class MockMatchServer implements MatchTransport {
       players_changed: tick.players_changed,
     };
     const spoilerFree = !this.profile.spoilers;
-    this.emit({
-      type: 'MATCH_TICK',
-      data: spoilerFree ? spoilerFreeTick({ ...data, cards: cards.filter((c) => !this.spoilerMoments.has(c.moment_id)) }) : data,
-    });
+    if (spoilerFree) {
+      const free = spoilerFreeTick({ ...data, cards: [...this.heldCards, ...cards.filter((c) => !this.spoilerMoments.has(c.moment_id))] });
+      // A withheld tick (VAR review): its other cards ride the next tick.
+      this.heldCards = free ? [] : [...this.heldCards, ...cards.filter((c) => !this.spoilerMoments.has(c.moment_id))];
+      if (free) this.emit({ type: 'MATCH_TICK', data: free });
+    } else {
+      this.heldCards = [];
+      this.emit({ type: 'MATCH_TICK', data });
+    }
     const cues = this.feedSheet(i, cards);
     // The cue sheet carries the scorebug: a catch-up viewer gets none.
     if (!spoilerFree && (cues.length || this.newSheet)) {
@@ -685,7 +692,7 @@ export class MockMatchServer implements MatchTransport {
     return {
       ...free,
       recent_cards: free.recent_cards.filter((c) => !hidden(c.moment_id) && !isSpoilerCard(c)),
-      recent_events: (full.recent_events ?? []).map(scrubEvent),
+      recent_events: spoilerFreeEvents(full.recent_events ?? []),
       bookmarks: free.bookmarks.filter((b) => !hidden(b.moment_id)),
     };
   }

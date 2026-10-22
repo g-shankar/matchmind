@@ -239,7 +239,10 @@ def test_recap_route(client):
 def test_bad_query_gets_plain_400(client):
     r = client.get("/api/match/recap?persona=hacker")
     assert r.status_code == 400
-    assert r.json() == {"detail": "Check persona: the value is missing or not allowed."}
+    assert r.json() == {
+        "detail": "Check persona: the value is missing or not allowed.",
+        "code": "bad_request",
+    }
 
 
 def test_players_route(client, clock):
