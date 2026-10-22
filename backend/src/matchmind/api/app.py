@@ -415,6 +415,10 @@ class Hub:
                 await self.run(self._session.touch)
                 return
             profiles = [c.profile.model_copy() for c in conns]
+            if await self.run(self._session.poll_live):
+                # A live match has just started on the stream: everyone starts afresh.
+                self.broadcast(view.message("MATCH_RESET", {}))
+                await self._send_snapshots(conns)
             # Stats under the playback lock (quick); crew and model work after it is released.
             ticks = await self.run(self._session.advance, False)
             if not ticks:
@@ -597,7 +601,10 @@ def create_app(
         return check
 
     limited = [Depends(ip_limit(POST_BURST, POST_PER_SECOND))]
-    limited_get = [Depends(ip_limit(GET_BURST, GET_PER_SECOND))]
+    # One bucket per client IP for every GET that may reach a paid path (moment cards,
+    # recaps) and for MCP, so the REST routes and the MCP tools cannot double the burst.
+    get_limit = ip_limit(GET_BURST, GET_PER_SECOND)
+    limited_get = [Depends(get_limit)]
 
     @app.get("/api/match/snapshot")
     async def snapshot() -> dict[str, Any]:
@@ -859,7 +866,7 @@ def create_app(
 
     # --- MCP (Streamable HTTP at /mcp; docs/MCP.md) -----------------------------------------
     # Read-only tools on this same live session, through the same accessors as the REST
-    # routes (api/reads.py). Its own per-IP bucket, Origin and Host checks from the
+    # routes (api/reads.py). The REST GET routes' per-IP bucket, Origin and Host checks from the
     # allow-list above, 16 KB bodies, one request per POST. MATCHMIND_MCP_ENABLED=false
     # turns it off.
     mcp_http = None
@@ -872,7 +879,7 @@ def create_app(
             build_server(hub),
             allowed_origins=sorted(ws_origins),
             hosts=allowed_hosts(mcp_origins),
-            rate_check=ip_limit(GET_BURST, GET_PER_SECOND),
+            rate_check=get_limit,  # shared with the REST GET routes
         )
         app.add_route("/mcp", mcp_http, methods=["POST"], include_in_schema=False)
     # --- end MCP ------------------------------------------------------------------------------

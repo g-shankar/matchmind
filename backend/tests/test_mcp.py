@@ -492,8 +492,8 @@ def test_per_ip_rate_limit():
         ]
         assert codes[:GET_BURST] == [200] * GET_BURST
         assert codes[-1] == 429
-        # REST keeps its own bucket.
-        assert c.get("/api/match/recap").status_code == 200
+        # One bucket with the REST GET routes: the paid paths cannot be doubled through MCP.
+        assert c.get("/api/match/recap").status_code == 429
         clock.t += 5
         assert c.post("/mcp", json=call_body("get_team_rosters"), headers=JSON_HEADERS).status_code == 200
 
@@ -601,3 +601,22 @@ def test_stdio_entry_point_serves_the_tools():
     assert not snap.is_error
     assert 540 <= snap.structured_content["state"]["clock_s"] <= 600  # parked at the asked-for time
     assert crew.structured_content["status"]["mode"] == "template"
+
+
+def test_rest_and_mcp_share_one_burst_on_the_paid_paths():
+    """Alternating the REST moment route and MCP get_overlay_card from one IP: one shared
+    burst, not one per transport."""
+    clock = FakeClock()  # frozen: no refill
+    with _client(fake_app(clock=clock)) as c:
+        moment_id = "goal-MM-TEST-001-00003"
+        codes = []
+        for i in range(GET_BURST + 2):
+            if i % 2:
+                r = c.post(
+                    "/mcp", json=call_body("get_overlay_card", {"moment_id": moment_id}), headers=JSON_HEADERS
+                )
+            else:
+                r = c.get(f"/api/match/moment/{moment_id}")
+            codes.append(r.status_code)
+        assert codes[:GET_BURST] == [200] * GET_BURST
+        assert codes[GET_BURST:] == [429, 429]

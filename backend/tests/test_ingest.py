@@ -406,3 +406,31 @@ def test_ingested_session_plays_to_the_end(monkeypatch):
         clock.t += 100
         s.advance()
     assert s.score == (2, 1)
+
+
+@pytest.mark.parametrize(
+    "etype, details, match",
+    [
+        (EventType.PERIOD_END, {"score_home": "not-a-number", "score_away": 0}, "score_home must be a whole"),
+        (EventType.PERIOD_END, {"score_home": -1, "score_away": 0}, "score_home must be a whole"),
+        (EventType.PERIOD_END, {"score_home": True, "score_away": 0}, "score_home must be a whole"),
+        (EventType.PERIOD_END, {"score_home": 1.5, "score_away": 0}, "score_home must be a whole"),
+        (EventType.CARD, {"card": "green"}, "card must be one of"),
+        (EventType.PASS, {"pass_type": "rabona"}, "pass_type must be one of"),
+        (EventType.FOUL, {"fouled_id": 7}, "must be text"),
+        (EventType.SHOT, {"blocked_by": "ZZZ-1"}, "details.blocked_by"),
+    ],
+)
+def test_known_detail_keys_are_typed(demo, etype, details, match):
+    i = next(i for i, e in enumerate(demo) if e.type == etype)
+    bad = demo[i].model_copy(update={"details": details})
+    _reject([*demo[:i], bad, *demo[i + 1 :]], match)
+
+
+@pytest.mark.parametrize(
+    "position, match", [("BBC", "real name"), ("<b>", "capital letters"), ("STRIKER", "capital")]
+)
+def test_line_up_positions_are_checked(demo, position, match):
+    lineups = list(demo[0].lineups or [])
+    lineups[0] = lineups[0].model_copy(update={"position": position})
+    _reject([demo[0].model_copy(update={"lineups": lineups}), *demo[1:]], match)

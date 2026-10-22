@@ -328,6 +328,9 @@ class MatchSession:
         self.base_rate = float(base_rate or os.environ.get("MATCHMIND_BASE_RATE") or DEFAULT_BASE_RATE)
         self.auto_eventing = auto_eventing
         self._feed = live_feed
+        self.live_dropped = 0  # live events the load-time pass could not process
+        self._waiting_live: tuple[Any, Any] | None = None  # (feed, consumer) before a live match starts
+        self._switched = False
         self.consumer: Any = None  # the live consumer, when there is one (kept alive with the session)
         self._source = source or {"source": "eventhubs" if live_feed is not None else "file"}
         # A live match stays open (not ended at its last event) until match_end arrives.
@@ -558,24 +561,97 @@ class MatchSession:
 
     def append(self, events: list[Event]) -> None:
         """Add events a live feed has just delivered (already checked, in seq order).
-        Callers hold the same locks as for a seek: the load-time pass grows here."""
+        Callers hold the same locks as for a seek: the load-time pass grows here.
+
+        All or nothing per event: an event the load-time pass cannot process is taken back
+        out (events, timeline, metrics, moments, checkpoints and stats) and counted in
+        `live_dropped`, so every list stays the same length as the events."""
         if not events:
             return
         if not self._open:
             raise ValueError("This match is complete; nothing more can be added")
         if events[0].seq <= self.events[-1].seq or events[0].match_id != self.match_id:
             raise ValueError("Live events must follow the match so far")
-        start = len(self.events)
-        _extend_timeline(self._tl, self.events, events)
-        self.events.extend(events)
-        for e in events:
-            self._period_starts.setdefault(e.period, e.clock_s)
-        self._precompute_from(start)
-        if self.events[-1].type == EventType.MATCH_END:
-            self._open = False
+        for event in events:
+            self._append_one(event)
+            if event.type == EventType.MATCH_END and self.events[-1] is event:
+                self._open = False
+                break
+
+    def _append_one(self, event: Event) -> None:
+        i = len(self.events)
+        marks = (len(self._bundle_index), len(self.bookmarks), len(self._checkpoints))
+        _extend_timeline(self._tl, self.events, [event])
+        self.events.append(event)
+        new_period = event.period not in self._period_starts
+        self._period_starts.setdefault(event.period, event.clock_s)
+        try:
+            self._precompute_from(i)
+        except Exception:  # noqa: BLE001 - one bad live event must not corrupt the match
+            logger.exception("live event %s could not be processed; dropped", event.seq)
+            for _, bundle in self._bundle_index[marks[0] :]:
+                self._bundles.pop(bundle.moment.moment_id, None)
+                self._moment_at.pop(bundle.moment.moment_id, None)
+            del self._bundle_index[marks[0] :]
+            del self.bookmarks[marks[1] :]
+            del self._checkpoints[marks[2] :]
+            del self._event_metrics[i:]
+            del self.events[i:]
+            del self._tl[i:]
+            if new_period:
+                self._period_starts.pop(event.period, None)
+            # Stats back to "after events[:i]": the nearest checkpoint, replayed (stats only).
+            start, stats = max(self._checkpoints, key=lambda cp: cp[0])
+            stats = copy.deepcopy(stats)
+            for e in self.events[start:i]:
+                stats.process(e)
+            self._pre_stats = stats
+            self.live_dropped += 1
+
+    def await_live(self, feed: Any, consumer: Any) -> None:
+        """Keep playing this (file) match until the live feed's match_start arrives, then
+        switch to the live match. Start-up never waits on the stream."""
+        self._waiting_live = (feed, consumer)
+        self._source["stream_wait"] = True
+
+    def poll_live(self) -> bool:
+        """Switch to a live match that has just started. True once per switch, so the
+        transport can tell viewers to reset and send fresh snapshots."""
+        if self._waiting_live is not None:
+            self._maybe_go_live()
+        switched, self._switched = self._switched, False
+        return switched
+
+    def _maybe_go_live(self) -> None:
+        assert self._waiting_live is not None
+        feed, consumer = self._waiting_live
+        start = feed.wait_for_start(0)
+        if start is None:
+            if feed.closed:
+                self._waiting_live = None
+                self._source.pop("stream_wait", None)
+                self._source["note"] = (
+                    "The live stream stopped before a match started; replaying the match file."
+                )
+            return
+        engines, clock, base_rate = self._engines, self._clock, self.base_rate
+        # Same object, new match: the hub keeps its reference and only resets viewers.
+        self.__init__(  # type: ignore[misc]
+            [start],
+            teams=feed.teams,
+            engines=engines,
+            clock=clock,
+            base_rate=base_rate,
+            live_feed=feed,
+            source={"source": "eventhubs", "starting_position": consumer.starting_position},
+        )
+        self.consumer = consumer
+        self._switched = True
 
     def _pull(self) -> None:
         """Take what the live feed has ready. A feed that stops for good closes the match."""
+        if self._waiting_live is not None:
+            self._maybe_go_live()
         if self._feed is None or not self._open:
             return
         self.append(self._feed.drain())
@@ -588,9 +664,18 @@ class MatchSession:
     def source_status(self) -> dict[str, Any]:
         """Where the match comes from, for GET /api/source (counts only, no event content)."""
         out = dict(self._source)
-        out.update({"match_id": self.match_id, "events_loaded": len(self.events), "complete": not self._open})
+        out.update(
+            {
+                "match_id": self.match_id,
+                "events_loaded": len(self.events),
+                "complete": not self._open,
+                "events_dropped": self.live_dropped,
+            }
+        )
         if self._feed is not None:
             out["stream"] = self._feed.status()
+        elif self._waiting_live is not None:
+            out["stream"] = self._waiting_live[0].status()
         return out
 
     # --- playback ----------------------------------------------------------------------------
@@ -731,7 +816,7 @@ class MatchSession:
 
 
 SOURCES = ("file", "eventhubs")
-DEFAULT_LIVE_WAIT_S = 90.0
+DEFAULT_LIVE_WAIT_S = 30.0  # build_live_session only; the app itself never waits
 
 
 def build_session(match_file: str | Path | None = None, engines: Engines | None = None) -> MatchSession:
@@ -743,11 +828,14 @@ def build_session(match_file: str | Path | None = None, engines: Engines | None 
         raise RuntimeError("MATCHMIND_SOURCE must be 'file' or 'eventhubs'")
     engines = engines or real_engines()
     if source == "eventhubs" and match_file is None:
-        live = build_live_session(engines)
-        if live is not None:
-            return live
-        note = "No live match started within the wait; replaying the match file instead."
-        return _file_session(match_file, engines, {"source": "file", "requested": "eventhubs", "note": note})
+        # Start-up never waits on the stream: the file match plays at once and the session
+        # switches to the live match when its match_start arrives.
+        note = "Waiting for a live match on Event Hubs; replaying the match file until one starts."
+        session = _file_session(
+            match_file, engines, {"source": "file", "requested": "eventhubs", "note": note}
+        )
+        session.await_live(*start_live_source())
+        return session
     return _file_session(match_file, engines, None)
 
 
@@ -764,12 +852,8 @@ def _file_session(
     )
 
 
-def build_live_session(
-    engines: Engines,
-    consumer_factory: Callable[[], Any] | None = None,
-    wait_s: float | None = None,
-) -> MatchSession | None:
-    """A session on the live stream, once its match_start arrives; None if none does in time."""
+def start_live_source(consumer_factory: Callable[[], Any] | None = None) -> tuple[Any, Any]:
+    """The live feed and its running Event Hubs consumer (keyless)."""
     from matchmind.ingest.eventhubs import EventHubsSource, default_consumer
     from matchmind.ingest.live import LiveFeed
     from matchmind.ingest.roster import load_roster
@@ -783,6 +867,17 @@ def build_live_session(
     feed = LiveFeed(validator)
     consumer = EventHubsSource(feed, consumer_factory or default_consumer)
     consumer.start()
+    return feed, consumer
+
+
+def build_live_session(
+    engines: Engines,
+    consumer_factory: Callable[[], Any] | None = None,
+    wait_s: float | None = None,
+) -> MatchSession | None:
+    """A session on the live stream once its match_start arrives (blocking; tests and tools).
+    None if none does in time. The app uses build_session, which never waits."""
+    feed, consumer = start_live_source(consumer_factory)
     wait = (
         wait_s
         if wait_s is not None

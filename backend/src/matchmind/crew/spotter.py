@@ -240,8 +240,9 @@ class Spotter:
             facts["phase"] = phase
             if phase != "kick_off":
                 facts.update(
-                    score_home=int(event.details.get("score_home", snapshot.score_home)),
-                    score_away=int(event.details.get("score_away", snapshot.score_away)),
+                    # The score is the engine's, never a number copied from the feed.
+                    score_home=snapshot.score_home,
+                    score_away=snapshot.score_away,
                     xg_home=r2(snapshot.xg_home),
                     xg_away=r2(snapshot.xg_away),
                     shots_home=snapshot.shots_home,
@@ -297,8 +298,8 @@ class Spotter:
         out: list[Moment] = []
         if event.outcome == Outcome.GOAL:
             g = dict(facts)
-            g["score_home"] = int(event.details.get("score_home", snapshot.score_home))
-            g["score_away"] = int(event.details.get("score_away", snapshot.score_away))
+            g["score_home"] = snapshot.score_home  # the engine's score, never the feed's
+            g["score_away"] = snapshot.score_away
             assist_id = event.details.get("assist_id")
             ids = [event.player_id]
             if isinstance(assist_id, str):
