@@ -92,10 +92,10 @@ lints in CI; it has not been deployed.
 | Club heart, personas, catch-up | `crew/club_heart.py`, `producer.py`, `spoilers.py` | Live | [PERSONALISATION.md](PERSONALISATION.md) |
 | Cue sheet | `crew/cues.py`, `backend/schema/cue.schema.json` | Live | [CUE-SHEET.md](CUE-SHEET.md) |
 | Ask the studio | `ask/` | Live (rules + templates) | Model intent Built-off; [ASK.md](ASK.md) |
-| MCP server | `mcp/` | Live | Future enterprise extension; 15 read-only tools; [MCP.md](MCP.md) |
+| MCP server | `mcp/` | Live (future enterprise extension, not in the demo) | 15 read-only tools; [MCP.md](MCP.md) |
 | Auto-eventing benchmark | `autoevent/` | Live | Tracking-feed detector on synthetic tracking, not video; [AUTO-EVENTING.md](AUTO-EVENTING.md) |
 | Dataset export | `dataset/`, `GET /api/dataset*` | Live | [DATASET.md](DATASET.md) |
-| Lakehouse export | `analytics/` | Live | Future enterprise extension; Fabric load Built-off, [ANALYTICS.md](ANALYTICS.md) |
+| Lakehouse export | `analytics/` | Live (future enterprise extension, not in the demo) | Fabric load Built-off, [ANALYTICS.md](ANALYTICS.md) |
 | Foundry agent cards, evaluation | `foundry/`, `foundry/agents/*.yaml` | Live | Agent Service registration Built-off; [FOUNDRY.md](FOUNDRY.md) |
 | Web app | `frontend/` | Live | Offline demo plays `frontend/public/demo/*.json` |
 | Read-aloud | `frontend/src/lib/speech.ts` | Live, off by default | Browser voices only; Azure AI Speech Planned |

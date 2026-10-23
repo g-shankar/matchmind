@@ -14,7 +14,8 @@
 #   LOCATION                     default swedencentral (has gpt-4o-mini quota)
 #   MATCHMIND_AI_ENABLED=true    the one switch for the live AI crew (paid, owner
 #                                approval first). It also deploys the model unless
-#                                DEPLOY_OPENAI=false is set.
+#                                DEPLOY_OPENAI=false is set. --apply then asks you
+#                                to type yes (or set CONFIRM_PAID_AI=yes).
 #   DEPLOY_TRANSLATOR, DEPLOY_OBSERVABILITY, MATCHMIND_LLM_PROVIDER,
 #   MATCHMIND_ORCHESTRATOR, MATCHMIND_EVENTHUBS_SOURCE   as in deployment/README.md
 #
@@ -71,6 +72,15 @@ if [ "$MODE" = what-if ]; then
   echo
   echo "Preview only; nothing was created. Run again with --apply to deploy."
   exit 0
+fi
+
+if [ "$DEPLOY_OPENAI" = true ] || [ "$AI_ENABLED" = true ]; then
+  # Paid AI needs the owner's approval: never deploy it from a leftover setting.
+  echo "This deploy turns on paid Azure AI (billed per token)."
+  if [ "${CONFIRM_PAID_AI:-}" != yes ]; then
+    read -r -p "Type yes to continue: " answer || answer=""
+    [ "$answer" = yes ] || { echo "Stopped; nothing was created." >&2; exit 1; }
+  fi
 fi
 
 stamp="$(date -u +%Y%m%d%H%M%S)"

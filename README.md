@@ -190,7 +190,7 @@ One matrix for everything. Labels:
 | | Analyst, Commentator and recap as Foundry agents, registered idempotently (`matchmind-foundry register`) | Microsoft Foundry Agent Service | Built, off until deployed |
 | | The crew's chains as typed workflows, identical cards to the in-process crew | Microsoft Agent Framework | Future enterprise extension, off by default |
 | | Match intelligence as read-only MCP tools | Model Context Protocol (any MCP client) | Future enterprise extension (runs locally) |
-| Engineering | CI with tests, secret scanning, licence check, Bicep lint, container smoke test; CodeQL; Dependabot; code review on every PR | GitHub Actions, GitHub code scanning, GitHub Copilot code review | Running |
+| Engineering | CI with tests, secret scanning, licence check, Bicep lint, container smoke test; CodeQL; Dependabot; code review on every PR | GitHub Actions, GitHub code scanning | Running |
 | | One-click deploy with what-if, OIDC sign-in, no stored secrets | GitHub Actions, Azure Bicep, Microsoft Entra ID | Built, needs the owner's subscription |
 
 No service key exists anywhere: every Azure call signs in with Microsoft Entra
@@ -214,7 +214,7 @@ synthetic matches unless stated.
 | Same key facts across 4 personas x 5 studio languages | 334 of 334 moments | [TRUST.md](docs/TRUST.md) |
 | Auto-eventing, held-out (10 matches, 1.46 M frames): pass F1, shot F1, tackle F1 | 0.996, 0.935, 0.922; kick-speed error 1.08 km/h | [AUTO-EVENTING-BENCHMARK.md](docs/AUTO-EVENTING-BENCHMARK.md) (circular by construction: synthetic tracking) |
 | Ask the studio | 50 of 50 table questions in en, es, fr, ar answered with the right intent; 37 of 37 adversarial inputs refused | `tests/test_ask.py` |
-| Tests | Backend 915 passed; frontend 176 passed | `pytest -q`, `npm test` |
+| Tests | Backend 1,193 passed (12 skipped, optional extras); frontend 317 passed | `pytest -q`, `npm test` |
 
 The model path (paid AI on) has not been evaluated on live output; that needs
 the owner's approval to spend.
@@ -329,7 +329,7 @@ The GitHub Actions **deploy** workflow does the same with OIDC sign-in. See
 
 One feature per pull request. Every pull request runs the full test suite,
 secret scanning, CodeQL, the licence check and a container smoke test, gets
-a GitHub Copilot code review, and gets an independent security review before
+an automated code review, and gets an independent security review before
 merge. Every dependency allows
 commercial use.
 
