@@ -39,10 +39,13 @@ Things only the owners can do. Everything else the team handles.
    secret): `AZURE_CLIENT_ID` (appId), `AZURE_TENANT_ID`,
    `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, `AZURE_LOCATION`.
 4. **Approve the first deploy**: run Actions -> deploy -> `what-if`, review,
-   then `deploy` (see `deployment/README.md`).
-5. **Approve Azure AI spend**, then set repo variables `DEPLOY_OPENAI=true`
-   and `MATCHMIND_AI_ENABLED=true` (and `DEPLOY_TRANSLATOR=true` for
-   Translator) and redeploy. Unset means off. Optional, small cost: set
+   then `deploy` (see `deployment/README.md`). Without the GitHub setup in
+   steps 2 and 3: open Azure Cloud Shell, clone the repo and run
+   `deployment/deploy.sh` (preview), then `deployment/deploy.sh --apply`.
+5. **Approve Azure AI spend**, then set the one repo variable
+   `MATCHMIND_AI_ENABLED=true` (it also deploys the model; add
+   `DEPLOY_TRANSLATOR=true` for Translator) and redeploy. With
+   `deployment/deploy.sh`, set the same name as an environment variable. Unset means off. Optional, small cost: set
    `DEPLOY_OBSERVABILITY=true` for crew traces in Application Insights and the
    Foundry Tracing page (needs the sixth role above). Optional, paid: run
    Foundry's Groundedness and Relevance evaluators on a sample of the

@@ -1,5 +1,10 @@
 # Synthetic tracking-to-event benchmark
 
+**What this is:** a tracking-feed detector. It turns player and ball positions
+at 25 frames a second (the feed an optical tracking system produces from
+stadium cameras) into passes, shots, tackles and kick speeds without hand
+tagging. Here the feed is synthetic.
+
 > **Detected from synthetic tracking, not video.** The pixel path below is
 > **rendered synthetic top-down video, not broadcast footage; there is no
 > real-video model** anywhere in PitchPulse.

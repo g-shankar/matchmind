@@ -17,7 +17,8 @@ for every number on screen.
   analyst, in their own language.
 
 Built by the PitchPulse team for the Microsoft x Premier League "Inside the
-Game" hackathon. All clubs, players and matches are invented; no real teams,
+Game" hackathon. **Judges: [the brief, line by line](docs/HACKATHON-BRIEF.md)**
+shows each requirement, where to see it, and where we fall short. All clubs, players and matches are invented; no real teams,
 people, competitions or broadcaster branding appear anywhere.
 
 ![Should he have passed? The open teammate, the passing lane and the chance he gave up](docs/images/should-he-have-passed.png)
@@ -125,6 +126,8 @@ One matrix for everything. Labels:
 - **Built, off until deployed**: code, tests and infrastructure are done,
   tested against fakes; switches on with the owner's Azure subscription.
 - **Planned**: not built.
+- **Future enterprise extension**: built and tested, not needed for the
+  hackathon brief and not in the demo; the core pipeline runs without it.
 
 | Feature | Status | Evidence / doc |
 |---|---|---|
@@ -144,23 +147,23 @@ One matrix for everything. Labels:
 | Ask model intent (fixed-schema intent only) | Built, off until deployed | `tests/test_ask.py` |
 | Read-aloud (on-device browser voices only, nothing sent to a server) | Running, off by default | `frontend/src/lib/speech.ts` |
 | Neural voices (Azure AI Speech) | Planned | |
-| Auto-eventing from 25 Hz tracking, benchmark on held-out seeds | Simulated (synthetic): detected from synthetic tracking, not video | [AUTO-EVENTING.md](docs/AUTO-EVENTING.md) |
+| Auto-eventing: a tracking-feed detector (25 Hz positions to passes, shots, tackles, kick speed), benchmark on held-out seeds | Simulated (synthetic): detected from synthetic tracking, not video | [AUTO-EVENTING.md](docs/AUTO-EVENTING.md) |
 | Pixel path (rendered top-down frames, classical vision) | Simulated (synthetic): rendered synthetic video, not broadcast footage | [AUTO-EVENTING-BENCHMARK.md](docs/AUTO-EVENTING-BENCHMARK.md) |
 | Real video input | Planned | |
 | Dataset export (API, CLI: JSONL, CSV, tracking window) | Running | `GET /api/dataset`; [DATA-DICTIONARY.md](docs/DATA-DICTIONARY.md) |
 | Feed ingest (JSONL or CSV + mapping + roster) | Running | `matchmind-ingest`, `tests/test_ingest.py` |
 | Event Hubs publisher (simulator job) | Built, off until deployed | `simulator/publisher.py` |
 | Event Hubs consumer (live source) | Built, off until deployed; tested against a fake consumer | `tests/test_live_source.py` |
-| Lakehouse export (Parquet star schema, decision labels) | Running | [ANALYTICS.md](docs/ANALYTICS.md) |
-| Fabric notebook and Eventhouse KQL | Built, off until deployed: not run in Fabric yet | `analytics/fabric/` |
+| Lakehouse export (Parquet star schema, decision labels) | Future enterprise extension (runs locally) | [ANALYTICS.md](docs/ANALYTICS.md) |
+| Fabric notebook and Eventhouse KQL | Future enterprise extension: not run in Fabric yet | `analytics/fabric/` |
 | Live enriched stream to a second event hub | Planned | |
-| MCP server, 15 read-only tools, byte parity with REST | Running | [MCP.md](docs/MCP.md), `tests/test_mcp.py` |
+| MCP server, 15 read-only tools, byte parity with REST | Future enterprise extension (runs locally) | [MCP.md](docs/MCP.md), `tests/test_mcp.py` |
 | MCP `export_dataset` and `audit_claims` tools | Planned (the data is on REST today) | |
 | Azure OpenAI `gpt-4o-mini` for Analyst, Commentator and recap | Built, off until deployed | `tests/test_crew.py` (fake model) |
 | Microsoft Foundry Agent Service (3 agents from the cards) | Built, off until deployed; not run against a live project | `tests/test_foundry_agent_service.py` |
-| Microsoft Agent Framework orchestration | Built, off by default (free and local with the `agent-framework` extra) | `tests/test_agent_framework.py` (identical cards) |
+| Microsoft Agent Framework orchestration | Future enterprise extension, off by default (free and local with the `agent-framework` extra) | `tests/test_agent_framework.py` (identical cards) |
 | Agent cards for all five agents, generated from code | Running | `foundry/agents/*.yaml` |
-| Local evaluation (6,780 records, five evaluators) | Running | [EVALUATION.md](docs/EVALUATION.md) |
+| Local evaluation (6,780 records, five evaluators) | Future enterprise extension (runs locally) | [EVALUATION.md](docs/EVALUATION.md) |
 | Foundry cloud evaluators (Groundedness, Relevance) | Built, off until deployed: documented, not run | [EVALUATION.md](docs/EVALUATION.md) |
 | Crew tracing (OpenTelemetry, GenAI conventions, no text or viewer data) | Running as a no-op locally; Application Insights export built, off until deployed | `tests/test_telemetry.py` |
 | Crew health panel, Under the hood lab | Running | `#studio`, `#lab` |
@@ -174,19 +177,19 @@ One matrix for everything. Labels:
 |---|---|---|---|
 | Analyze match events in real time | Simulator streams each event, partitioned by match; the app can follow the live stream | Azure Event Hubs (keyless, local auth off) | Built, off until deployed |
 | | Stats engine and crew react to each event over a WebSocket | Azure Container Apps | Running locally; Container Apps built, off until deployed |
-| | Live xG race, pressure by five-minute window, sprint leaders | Microsoft Fabric Real-Time Intelligence (Eventhouse, KQL) | Built, off until deployed (not run in Fabric yet) |
+| | Live xG race, pressure by five-minute window, sprint leaders | Microsoft Fabric Real-Time Intelligence (Eventhouse, KQL) | Future enterprise extension (not run in Fabric yet) |
 | Generate stories, highlights and recaps | Commentator voices each moment; a full-time recap per audience and language | Azure OpenAI `gpt-4o-mini` on a Microsoft Foundry resource | Built, off until deployed (templates run today) |
 | Explain key moments and tactical patterns | Analyst explains why a moment matters with evidence rows; "Should he have passed?" is detected, measured and drawn | Stats engine; Microsoft Foundry for the model path | Running (templates); model path built, off |
-| Expand datasets for AI and analytics | New seeded matches; star schema and labelled decision set | Microsoft Fabric Lakehouse (Parquet to Delta) | Export running; Fabric load built, off |
-| | 6,780-record evaluation set in Azure AI Evaluation format, scored locally | Microsoft Foundry evaluations | Running locally; cloud evaluators built, off |
+| Expand datasets for AI and analytics | New seeded matches; star schema and labelled decision set | Microsoft Fabric Lakehouse (Parquet to Delta) | Future enterprise extension: export runs locally; Fabric load not run |
+| | 6,780-record evaluation set in Azure AI Evaluation format, scored locally | Microsoft Foundry evaluations | Future enterprise extension: runs locally; cloud evaluators not run |
 | Insights for fans around the world | Five studio languages | | Running |
 | | Eight world languages, numbers and names protected, fact-checked after translation | Azure AI Translator (keyless) | Built, off until deployed |
 | Personalised experiences | Overlay, studio board, Fan vs Analyst, club heart, player focus, My match, catch-up, Ask the studio | Azure Container Apps | Running locally |
 | Trustworthy AI | Agent traces with GenAI semantic conventions, no text or viewer data | Application Insights, Foundry tracing | Built, off until deployed |
 | | Agent cards for all five agents, generated from the code | Microsoft Foundry | Running (`foundry/agents/`) |
 | | Analyst, Commentator and recap as Foundry agents, registered idempotently (`matchmind-foundry register`) | Microsoft Foundry Agent Service | Built, off until deployed |
-| | The crew's chains as typed workflows, identical cards to the in-process crew | Microsoft Agent Framework | Built, off by default |
-| | Match intelligence as read-only MCP tools | Model Context Protocol (any MCP client) | Running |
+| | The crew's chains as typed workflows, identical cards to the in-process crew | Microsoft Agent Framework | Future enterprise extension, off by default |
+| | Match intelligence as read-only MCP tools | Model Context Protocol (any MCP client) | Future enterprise extension (runs locally) |
 | Engineering | CI with tests, secret scanning, licence check, Bicep lint, container smoke test; CodeQL; Dependabot; code review on every PR | GitHub Actions, GitHub code scanning, GitHub Copilot code review | Running |
 | | One-click deploy with what-if, OIDC sign-in, no stored secrets | GitHub Actions, Azure Bicep, Microsoft Entra ID | Built, needs the owner's subscription |
 
@@ -220,15 +223,19 @@ the owner's approval to spend.
 
 - **Synthetic data only.** Two invented clubs, invented players, simulated
   matches. Nothing here is real football data.
-- **Tracking, not video.** Auto-eventing reads a synthetic 25 Hz tracking feed;
-  the pixel path is rendered synthetic top-down video. There is no real-video
-  model, and the benchmark is circular by construction.
+- **Tracking, not video.** Auto-eventing is a tracking-feed detector: it reads
+  player and ball positions at 25 Hz, the feed an optical tracking system
+  produces from stadium cameras, here synthetic. The pixel path runs first on
+  rendered synthetic top-down video. There is no real-video model, and the
+  benchmark is circular by construction.
 - **Templates, not reviewed by native broadcasters.** The five studio packs were
   written by the team; native-speaker review is planned before any launch.
   World languages are machine translation and are off by default.
-- **AI off by default.** Every card you see today is a fact-checked template.
-  The model path is built and tested against fakes; it switches on only after
-  the owner approves the spend.
+- **AI off by default, on purpose.** Template mode is the hallucination guard:
+  every card you see today is a fact-checked template, and when the model is
+  on, any card it gets wrong falls back to the template. The model path is
+  built and tested against fakes; one setting, `MATCHMIND_AI_ENABLED=true`,
+  turns it on once the owner approves the spend.
 - **The checker is narrow.** It verifies numbers and squad names, units,
   per-club attribution and simple comparisons. It does not verify tone, causal
   wording or negation ([TRUST.md](docs/TRUST.md#what-is-not-checked)).
@@ -255,7 +262,15 @@ Checks: `make check` runs what CI runs.
 (app and simulator job), Event Hubs, a Microsoft Foundry resource and project,
 Azure AI Translator, Application Insights, Container Registry and Log
 Analytics, with two managed identities holding only the roles they need. Paid
-AI is off by default; each paid service has its own switch. See
+AI is off by default; `MATCHMIND_AI_ENABLED=true` is the one switch for the
+live crew. One command from Azure Cloud Shell, preview first:
+
+```bash
+deployment/deploy.sh            # what-if: shows what would be created, creates nothing
+deployment/deploy.sh --apply    # deploy and print the preview URL
+```
+
+The GitHub Actions **deploy** workflow does the same with OIDC sign-in. See
 [deployment/README.md](deployment/README.md) and
 [setup/owner-todo.md](setup/owner-todo.md).
 
@@ -285,6 +300,7 @@ AI is off by default; each paid service has its own switch. See
 
 | Doc | What |
 |---|---|
+| [HACKATHON-BRIEF.md](docs/HACKATHON-BRIEF.md) | The hackathon brief line by line, gaps, future enterprise extensions |
 | [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System map with Live / Built-off / Planned labels, trust boundaries, data flows |
 | [adr/](docs/adr/README.md) | Architecture decision records |
 | [THREAT-MODEL.md](docs/THREAT-MODEL.md) | Assets, threats and mitigations per surface, with the tests that enforce them |

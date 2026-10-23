@@ -26,7 +26,7 @@ turns its switch on. Nothing below is deployed yet.
 | Crew model steps as **Foundry Agent Service** agents (`MATCHMIND_LLM_PROVIDER=foundry_agents`) | **Built, off**: tested against a fake Agent Service; the SDK calls are checked against the installed `azure-ai-projects` 2.9 source. Not yet run against a live project |
 | `matchmind-foundry register` (create or update the agents from the cards; `--dry-run`) | **Built**: dry run works offline; the live run is an owner step (`setup/owner-todo.md`) |
 | `matchmind-foundry trace-demo` (a few demo moments through the agents, for portal traces) | **Built**: owner step, paid, needs `--yes` |
-| Crew chained by **Microsoft Agent Framework** workflows (`MATCHMIND_ORCHESTRATOR=agent_framework`) | **Built, off by default**: free and local; parity tests replay the demo match through both orchestrators and get identical cards |
+| Crew chained by **Microsoft Agent Framework** workflows (`MATCHMIND_ORCHESTRATOR=agent_framework`) | **Future enterprise extension, off by default**: free and local; parity tests replay the demo match through both orchestrators and get identical cards |
 | OpenTelemetry spans per agent step (GenAI conventions) | **Built**, tested with an in-memory exporter; a no-op until Application Insights is configured |
 | Application Insights (workspace-based, local auth off) + Foundry project connection for the Tracing view | **Built, off**: in the Bicep template (`deployObservability=false`); not deployed |
 | Agent cards `foundry/agents/*.yaml` | **Running**: generated from the code by `matchmind-foundry export`; a test fails when they are stale |

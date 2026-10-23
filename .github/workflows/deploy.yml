@@ -27,8 +27,10 @@ env:
   IMAGE_REPO: pitchpulse
   # Paid AI switches (and the live Event Hubs source switch) live in repo
   # variables so every deploy keeps the owner's choice. Unset means off.
+  # MATCHMIND_AI_ENABLED=true is the one switch for the live crew: it also
+  # deploys the model unless DEPLOY_OPENAI is set to false.
   AI_PARAMS: >-
-    deployOpenAi=${{ vars.DEPLOY_OPENAI || 'false' }}
+    deployOpenAi=${{ vars.DEPLOY_OPENAI || vars.MATCHMIND_AI_ENABLED || 'false' }}
     deployTranslator=${{ vars.DEPLOY_TRANSLATOR || 'false' }}
     aiEnabled=${{ vars.MATCHMIND_AI_ENABLED || 'false' }}
     deployObservability=${{ vars.DEPLOY_OBSERVABILITY || 'false' }}

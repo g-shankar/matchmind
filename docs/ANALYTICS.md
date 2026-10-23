@@ -1,5 +1,9 @@
 # Analytics: Lakehouse export, decision dataset and real-time queries
 
+> **Future enterprise extension.** Built and tested, not needed for the
+> hackathon brief and not in the demo; the core pipeline runs without it
+> ([HACKATHON-BRIEF.md](HACKATHON-BRIEF.md#beyond-the-brief)).
+
 PitchPulse turns its synthetic matches into a Microsoft Fabric friendly dataset: a star schema
 (Parquet, with a CSV fallback), a labelled decision dataset for machine learning, and Eventhouse
 (KQL) tables for real-time queries over the Event Hubs stream. All data is synthetic (two
