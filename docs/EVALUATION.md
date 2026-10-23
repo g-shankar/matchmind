@@ -1,5 +1,9 @@
 # Evaluating the studio crew
 
+> **Future enterprise extension.** Built and tested, not needed for the
+> hackathon brief and not in the demo; the core pipeline runs without it
+> ([HACKATHON-BRIEF.md](HACKATHON-BRIEF.md#beyond-the-brief)).
+
 How we check the studio crew (five agents: Spotter, Analyst, Commentator,
 Fact-checker, Producer; plus the recap step) before and after any change, and
 the numbers we got. Measured on 22 Oct 2026, template mode.

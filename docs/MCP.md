@@ -1,5 +1,9 @@
 # PitchPulse over MCP
 
+> **Future enterprise extension.** Built and tested, not needed for the
+> hackathon brief and not in the demo; the core pipeline runs without it
+> ([HACKATHON-BRIEF.md](HACKATHON-BRIEF.md#beyond-the-brief)).
+
 PitchPulse serves its match intelligence as typed, read-only
 [Model Context Protocol](https://modelcontextprotocol.io) tools, so any MCP
 client (an assistant, an agent framework, a broadcaster's own tooling) can ask

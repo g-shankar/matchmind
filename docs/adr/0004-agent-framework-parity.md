@@ -1,6 +1,8 @@
 # ADR 0004: Agent Framework orchestration must match the in-process crew exactly
 
-Status: Accepted (Oct 2026)
+Status: Accepted (Oct 2026). The Agent Framework orchestrator is a future
+enterprise extension, off by default; the in-process crew is the one that runs
+([HACKATHON-BRIEF.md](../HACKATHON-BRIEF.md#beyond-the-brief)).
 
 ## Decision
 

@@ -29,7 +29,21 @@ Older deploys: the Foundry resource is named `aif-...` (it replaces the
 earlier `oai-...` Azure OpenAI account, which was never deployed). If an
 `oai-...` account exists in your resource group, delete it after the switch.
 
-## Deploy
+## Deploy in one command (Azure Cloud Shell)
+
+No GitHub setup and no Docker needed; the image is built in the registry.
+
+```bash
+git clone https://github.com/g-shankar/matchmind && cd matchmind
+deployment/deploy.sh            # what-if: what would be created; creates nothing
+deployment/deploy.sh --apply    # base infrastructure, image, app; prints the preview URL
+```
+
+`RESOURCE_GROUP` (default `rg-pitchpulse`) and `LOCATION` (default
+`swedencentral`) pick where; the AI switches below are read from environment
+variables of the same names. Tests: `backend/tests/test_deploy_switches.py`.
+
+## Deploy from GitHub Actions
 
 Runs only from `main`.
 
@@ -46,9 +60,13 @@ Start the live feed: `az containerapp job start -g <rg> -n caj-pitchpulse-sim`.
 
 ## Switching the AI crew on (owner approval needed)
 
-Paid AI stays off by default. Once approved, set the repo variables
-`DEPLOY_OPENAI=true` and `MATCHMIND_AI_ENABLED=true` (plus `DEPLOY_TRANSLATOR=true`
-for Translator) and run the deploy again. No key is ever needed: the app's
+Paid AI stays off by default. Once approved, set **one** repo variable,
+`MATCHMIND_AI_ENABLED=true`, and run the deploy again (the value must be exactly `true` here; `deploy.sh`
+also takes `1` or `yes` and asks you to type yes before it deploys paid AI): it also deploys the
+`gpt-4o-mini` model (set `DEPLOY_OPENAI=false` to hold the model back). Add
+`DEPLOY_TRANSLATOR=true` for Translator. For `deploy.sh`, set the same names as
+environment variables. If the model client cannot start, the crew stays on
+fact-checked templates. No key is ever needed: the app's
 managed identity gets the roles.
 
 ## Switching crew tracing on
