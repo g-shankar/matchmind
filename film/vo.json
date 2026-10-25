@@ -169,7 +169,7 @@
   {
    "id": "s8a",
    "scene": 8,
-   "text": "Built for Azure: Container Apps, Event Hubs and Azure OpenAI. Every number checked.",
+   "text": "Built on Azure: Container Apps, Event Hubs and Azure OpenAI. Every number checked.",
    "cues": [
     "Azure",
     "Container Apps",

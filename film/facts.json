@@ -567,23 +567,23 @@
      "latency": [
       {
        "agent": "commentator",
-       "samples": 8,
+       "samples": 6,
        "p50_ms": 0.06,
-       "p95_ms": 0.1,
-       "max_ms": 0.1
+       "p95_ms": 0.09,
+       "max_ms": 0.09
       },
       {
        "agent": "producer",
-       "samples": 8,
-       "p50_ms": 0.77,
-       "p95_ms": 1.18,
-       "max_ms": 1.18
+       "samples": 6,
+       "p50_ms": 0.85,
+       "p95_ms": 1.35,
+       "max_ms": 1.35
       }
      ],
-     "model_steps": 8,
+     "model_steps": 6,
      "fallback_steps": 0,
      "fallback_rate": 0.0,
-     "checks": 16,
+     "checks": 12,
      "rejected_checks": 0,
      "rejection_rate": 0.0,
      "moments_per_min": 0
@@ -610,11 +610,11 @@
   },
   {
    "id": "azure.stack",
-   "text": "Container Apps deploys the engine and crew API; the match streams into Event Hubs; the crew is built for Azure OpenAI with managed identity, no keys.",
+   "text": "Container Apps deploys the engine and crew API; the match streams into Event Hubs; the crew runs on Azure OpenAI with managed identity, no keys.",
    "value": [
     "Deploys the engine and crew API",
     "The match streams into Event Hubs",
-    "Built for managed identity, no keys"
+    "Managed identity, no keys"
    ],
    "source": "https://github.com/g-shankar/matchmind/pull/2 (deployment/azure_bicep/main.bicep)"
   },
@@ -706,7 +706,13 @@
   },
   {
    "id": "copy.azure",
-   "text": "Built for Azure",
+   "text": "Built on Azure",
+   "value": null,
+   "source": "film copy (storyboard.md)"
+  },
+  {
+   "id": "copy.live",
+   "text": "Live on Azure Container Apps",
    "value": null,
    "source": "film copy (storyboard.md)"
   },

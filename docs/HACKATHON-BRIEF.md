@@ -8,7 +8,7 @@ it, how to see it, and where we fall short. Status labels match the
 
 | Brief asks for | PitchPulse | See it | Status |
 |---|---|---|---|
-| **Ingest** synthetic match events as they happen | Seeded match engine (passes, carries, tackles, recoveries, shots, VAR reviews, metadata) streams each event over a WebSocket; JSONL/CSV feed ingest; Event Hubs publisher and consumer | `?demo=1#studio`; `matchmind-ingest validate ...` | Running; Event Hubs built, off until deployed |
+| **Ingest** synthetic match events as they happen | Seeded match engine (passes, carries, tackles, recoveries, shots, VAR reviews, metadata) streams each event over a WebSocket; JSONL/CSV feed ingest; Event Hubs publisher and consumer | `?demo=1#studio`; `matchmind-ingest validate ...` | Running; Event Hubs deployed (simulator publishes; the app replays the bundled match) |
 | **Interpret** into statistics, patterns and context | Deterministic stats engine, 24 registered metrics with formulas: xG, xT, pass difficulty 0-100, momentum, control vs chaos, pressure spells, physical stats | `GET /api/metrics`; [METRICS.md](METRICS.md) | Running |
 | **Explain** why a moment matters | Analyst evidence rows; "Should he have passed?" compares the open teammate's chance with the shot taken and draws the lane | `?t=2060&p=1&pause=1#studio` | Running |
 | **Render** insights next to the match | Studio board, broadcast overlay, OBS/vMix capture, pitch replays, versioned cue sheet | `#studio`, `#overlay`, `?capture=1#overlay` | Running |
@@ -20,8 +20,8 @@ it, how to see it, and where we fall short. Status labels match the
 | Narratives, milestones, recaps | Commentator voices each moment per persona and language; half-time and full-time recaps | `GET /api/match/recap` | Running |
 | Explainability: control vs chaos, pressure, rhythm | Control vs chaos score, five-minute pressure windows, momentum swings | `#studio` | Running |
 | Data innovation: new synthetic datasets | Five bundled matches, seeded generator, dataset export (JSONL, CSV, tracking window) | `matchmind-sim dataset`, `GET /api/dataset` | Running |
-| Multiple languages | Five studio languages including right-to-left Arabic; eight more through Azure AI Translator | Language menu | Running; Translator built, off until deployed |
-| Runs on Azure | Bicep for Container Apps, Event Hubs, Microsoft Foundry, Translator, Application Insights; keyless; CI and one-command deploy | [deployment/README.md](../deployment/README.md) | Built, off until deployed, see gap 3 |
+| Multiple languages | Five studio languages including right-to-left Arabic; eight more through Azure AI Translator | Language menu | Running; Translator live on Azure |
+| Runs on Azure | Bicep for Container Apps, Event Hubs, Microsoft Foundry, Translator, Application Insights; keyless; CI and one-command deploy | [deployment/README.md](../deployment/README.md) | Live on Azure Container Apps, see gap 3 |
 
 ## Where we fall short, and what we did about it
 
@@ -41,30 +41,25 @@ is no real-video model anywhere in PitchPulse, and the benchmark is circular by
 construction because the feed and the truth come from the same simulator
 ([AUTO-EVENTING.md](AUTO-EVENTING.md)).
 
-### Gap 2: the AI crew runs in template mode by default
+### Gap 2: model calls are capped, so the crew falls back to templates
 
-Every card on screen today is a fact-checked template. That is a choice, not a
-missing piece: **template mode is the hallucination guard**. A broadcaster
-cannot air a wrong number, so the numbers always come from the stats engine,
-the fact-checker rejects any number the engine did not produce, and if the
-model is off, slow or wrong the crew falls back to the template for that card
-and says so in the Crew health panel ([ADR 0002](adr/0002-templates-first-ai-off-by-default.md),
-[TRUST.md](TRUST.md)).
+The deployed crew runs on Azure OpenAI (`gpt-5-mini`, keyless). Every card is
+still checked by the fact-checker, and **template mode is the hallucination
+guard**: if the model is off, slow, wrong or over its spending cap, the crew
+uses the fact-checked template for that card and says so on the card and in the
+Crew health panel ([ADR 0002](adr/0002-templates-first-ai-off-by-default.md),
+[TRUST.md](TRUST.md)). The cap (`MATCHMIND_AI_BUDGET`, default 300 calls per
+process) is deliberate cost control, so a long-running replica shows more
+template cards than a fresh one. Local runs use templates by default
+(`MATCHMIND_AI_ENABLED=false`).
 
-The live model path (Azure OpenAI `gpt-4o-mini` on a Microsoft Foundry
-resource, keyless) is built and tested against fakes. **One setting turns it
-on**: `MATCHMIND_AI_ENABLED=true`. On Azure that repo variable (or the same
-environment variable for `deployment/deploy.sh`) also deploys the model and
-gives the app's managed identity its role; locally it needs
-the `ai` extra (`pip install -e ".[ai]"`), `AZURE_OPENAI_ENDPOINT` and an
-`az login`. If the model client cannot start,
-the crew stays on templates instead of stopping the match. It stays off until
-the owner approves the spend.
+### Gap 3: one replica, no consumer on Event Hubs
 
-### Gap 3: not deployed to Azure yet
-
-The infrastructure, the CI deploy workflow and a one-command deploy are ready;
-the owner's subscription is the only missing piece. From Azure Cloud Shell:
+PitchPulse is live on Azure Container Apps (Sweden Central) with Azure OpenAI,
+Azure AI Translator and Event Hubs, deployed from Bicep with managed identity
+and no keys. It runs a single replica with in-memory state, and the app replays
+the bundled demo match rather than consuming Event Hubs, which the simulator
+job publishes to. Redeploy or roll back from Azure Cloud Shell:
 
 ```bash
 git clone https://github.com/g-shankar/matchmind && cd matchmind
@@ -72,8 +67,7 @@ deployment/deploy.sh            # preview: what would be created, nothing is
 deployment/deploy.sh --apply    # create it and print the preview URL
 ```
 
-Paid AI stays off unless `MATCHMIND_AI_ENABLED=true` is set. Details and
-roll-back: [deployment/README.md](../deployment/README.md).
+Details and roll-back: [deployment/README.md](../deployment/README.md).
 
 ## Beyond the brief
 
