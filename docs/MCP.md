@@ -163,6 +163,29 @@ spend on paid AI. Logs go to stderr.
 }
 ```
 
+## Parity
+
+`backend/tests/test_mcp_parity.py` proves that the MCP path and direct engine reads
+agree. On the bundled seeded demo match, at five positions (12:00, 40:00, 52:00,
+78:00 and full time), every registered tool is called through a real MCP client
+session (Streamable HTTP over the ASGI app, in process) and compared with the same
+value read straight from the session, the stats engine and the view layer, with no
+REST route on the expected side (`api/reads.py` only supplies the Ask context and the
+simulator summary, each also checked against a fresh engine run). `get_moment` and
+`get_overlay_card` are checked for four played moments spread across each position.
+
+- **Exact numbers.** Every number must match in value and in type (an int never
+  equals a float); only the crew's rolling `health` latencies are left out.
+- **A fresh engine agrees.** Score, team state, team totals, player stats (with the
+  synthetic tracking timeline) and per-event metrics are also recomputed by a new
+  `StatsEngine` replayed from kick-off; `simulate_match` is checked against its own
+  fresh simulation and engine run.
+- **Every tool covered.** The test fails if a registered tool has no direct-read case.
+- **Fact-checker.** The checker is not an MCP tool and cannot be routed through
+  one: the crew calls it in process. What is proven is that it gives the same
+  verdict, reason for reason, on facts fetched over `get_moment` as on the engine's
+  own facts, for the shown text and for tampered text (which both paths reject).
+
 ## Security
 
 - **No sign-in, on purpose.** Every tool is read-only and everything it returns
