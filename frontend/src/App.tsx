@@ -416,6 +416,7 @@ export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ mat
       <MatchPicker
         open={pickerOpen}
         sessionMatchId={match.matchId}
+        spoilerSafe={profile.spoilers === false}
         onClose={() => setPickerOpen(false)}
         onWatch={() => {
           setPickerOpen(false);

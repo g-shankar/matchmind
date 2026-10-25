@@ -64,14 +64,19 @@ export function minuteLabel(minute: number, period: number): string {
   return `${minute}'`;
 }
 
+const COLOUR = /^#[0-9a-f]{6}$/i;
+const MAX_PREVIEWS = 20;
+const isClub = (c: PreviewClub | undefined) =>
+  !!c && typeof c.name === 'string' && typeof c.short_name === 'string' && COLOUR.test(String(c.primary_color)) && COLOUR.test(String(c.secondary_color));
+
 const isPreview = (d: unknown): d is MatchPreview => {
   const p = d as MatchPreview;
   return (
     !!p &&
     typeof p.match_id === 'string' &&
     /^MM-[A-Z]+-\d{3}$/.test(p.match_id) &&
-    typeof p.home?.name === 'string' &&
-    typeof p.away?.name === 'string' &&
+    isClub(p.home) &&
+    isClub(p.away) &&
     Number.isInteger(p.score?.home) &&
     Number.isInteger(p.score?.away) &&
     Array.isArray(p.tags) &&
@@ -84,7 +89,7 @@ export async function loadPreviews(base = previewsBase(), fetcher: typeof fetch 
   const r = await fetcher(`${base}index.json`);
   if (!r.ok) throw new Error('index');
   const idx = (await r.json()) as { matches?: unknown };
-  const ids = Array.isArray(idx.matches) ? idx.matches.filter((m): m is string => typeof m === 'string' && /^MM-[A-Z]+-\d{3}$/.test(m)) : [];
+  const ids = Array.isArray(idx.matches) ? idx.matches.filter((m): m is string => typeof m === 'string' && /^MM-[A-Z]+-\d{3}$/.test(m)).slice(0, MAX_PREVIEWS) : [];
   const out = await Promise.all(
     ids.map(async (id) => {
       try {

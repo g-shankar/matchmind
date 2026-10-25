@@ -50,15 +50,18 @@ export interface MatchPickerProps {
   sessionMatchId: string | null;
   onClose: () => void;
   onWatch: (matchId: string) => void;
+  /** Catch-up mode: results stay hidden whatever the toggle says. */
+  spoilerSafe?: boolean;
   /** Tests pass previews directly instead of fetching them. */
   previews?: MatchPreview[];
 }
 
-export const MatchPicker: React.FC<MatchPickerProps> = ({ open, sessionMatchId, onClose, onWatch, previews }) => {
+export const MatchPicker: React.FC<MatchPickerProps> = ({ open, sessionMatchId, onClose, onWatch, previews, spoilerSafe = false }) => {
   const { t, dir } = useI18n();
   const [list, setList] = useState<MatchPreview[] | null>(previews ?? null);
   const [failed, setFailed] = useState(false);
-  const [hide, setHide] = useState(readHide);
+  const [hideChoice, setHide] = useState(readHide);
+  const hide = spoilerSafe || hideChoice;
   const [leaving, setLeaving] = useState<string | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const reduced = useMemo(() => media('(prefers-reduced-motion: reduce)'), []);
@@ -140,6 +143,7 @@ export const MatchPicker: React.FC<MatchPickerProps> = ({ open, sessionMatchId, 
           <input
             type="checkbox"
             checked={hide}
+            disabled={spoilerSafe}
             onChange={(e) => {
               setHide(e.target.checked);
               writeHide(e.target.checked);
@@ -281,9 +285,9 @@ const MatchCard: React.FC<CardProps> = ({ preview: p, index, playable, hide, aut
               </span>
               {km.chance_quality !== null && <span className="ltr-nums">{t('picker.chance', { value: num(km.chance_quality, 2) })}</span>}
             </>
-          ) : (
+          ) : !hide ? (
             <span>{t('picker.events', { count: num(p.events) })}</span>
-          )}
+          ) : null}
         </div>
 
         {!hide && <GoalStrip preview={p} />}

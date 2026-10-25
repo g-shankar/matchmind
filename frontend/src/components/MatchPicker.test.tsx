@@ -213,6 +213,53 @@ describe('MatchPicker', () => {
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
+  it('catch-up mode leaks no result in any card text or attribute', () => {
+    media((q) => q.includes('hover: none'));
+    picker({ spoilerSafe: true, sessionMatchId: 'MM-DEMO-001' });
+    const box = screen.getByTestId('picker-hide') as HTMLInputElement;
+    expect(box.checked).toBe(true);
+    expect(box.disabled).toBe(true);
+    const order = screen.getAllByRole('listitem').map((li) => li.getAttribute('data-testid'));
+    expect(order).toEqual(previews.map((p) => `pick-${p.match_id}`));
+    const banned = [/\d/, /'/, /chance/i, /events/i, /key moment/i, ...['Comeback', 'Late winner', 'VAR drama', 'Goal fest', 'One-goal game', 'Goalless'].map((w) => new RegExp(w, 'i'))];
+    for (const p of previews) {
+      const card = screen.getByTestId(`pick-${p.match_id}`);
+      fireEvent.mouseEnter(card);
+      const strip = (s: string) => s.split(p.match_id).join('');
+      const values = [strip(card.textContent ?? '')];
+      for (const el of [card, ...card.querySelectorAll('*')]) {
+        if (el.closest('svg') && el.tagName.toLowerCase() !== 'svg') continue;
+        for (const a of Array.from(el.attributes)) {
+          if (a.name === 'style' || a.name === 'class' || a.name === 'viewBox' || a.name === 'xmlns' || a.name === 'tabindex' || (el.tagName.toLowerCase() === 'svg' && ['width', 'height', 'stroke-width'].includes(a.name))) continue;
+          values.push(strip(a.value));
+        }
+      }
+      for (const v of values) for (const re of banned) expect(v, `${p.match_id}: ${v}`).not.toMatch(re);
+      const svg = within(card).getByTestId('mini-pitch').querySelector('svg')!;
+      expect(svg.querySelector('style')).toBeNull();
+      expect(svg.querySelectorAll('circle[r="2.6"], line[stroke="#ff3e32"], line[stroke="#ffd400"]').length).toBe(0);
+      expect(svg.querySelectorAll('circle[r="1.1"], circle[r="1.4"], circle[r="1.9"]').length).toBe(0);
+      expect(card.innerHTML).not.toContain(p.key_moment!.event_id);
+      expect(within(card).getByTestId('mini-pitch').getAttribute('data-animating')).toBe('false');
+    }
+  });
+
+  it('rejects preview files with bad colours and caps the list at 20', async () => {
+    const good = byId('MM-DEMO-001');
+    const ids = Array.from({ length: 30 }, (_, i) => `MM-SYN-${String(i).padStart(3, '0')}`);
+    const fetcher = vi.fn(async (url: string) => {
+      const name = url.split('/').pop()!;
+      if (name === 'index.json') return { ok: true, json: async () => ({ matches: ids }) } as Response;
+      const id = name.replace('.json', '');
+      const bad = id === 'MM-SYN-001';
+      return { ok: true, json: async () => ({ ...good, match_id: id, home: { ...good.home, primary_color: bad ? 'red;x' : good.home.primary_color } }) } as Response;
+    }) as unknown as typeof fetch;
+    const out = await loadPreviews('/p/', fetcher);
+    expect(fetcher).toHaveBeenCalledTimes(21);
+    expect(out).toHaveLength(19);
+    expect(out.find((p) => p.match_id === 'MM-SYN-001')).toBeUndefined();
+  });
+
   it('speaks Arabic right to left', () => {
     media(() => false);
     picker({}, 'ar');
