@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronRight, FileText, Info, Pause, Play, RotateCcw, X } from 'lucide-react';
+import { ChevronRight, FileText, Info, LayoutGrid, Pause, Play, RotateCcw, X } from 'lucide-react';
 import type { Bookmark, Language, OverlayCard, PersonaType, SpeedMultiplier } from './api/contract';
 import { I18nProvider, useI18n } from './i18n';
 import { connectionLostText, toastText } from './i18n/toasts';
@@ -24,6 +24,8 @@ import { AskStudio } from './components/AskStudio';
 import { CatchUpBanner, CatchUpButton, ScoreValue } from './components/CatchUp';
 import { ReadAloudCards, ReadAloudToggle } from './components/ReadAloud';
 import { inkOn } from './lib/contrast';
+import { MatchPicker } from './components/MatchPicker';
+import { pickerOnLoad } from './lib/previews';
 
 // The heavier views load on first use, so the first screen arrives sooner on slow networks.
 const SplitView = lazy(() => import('./views/SplitView').then((m) => ({ default: m.SplitView })));
@@ -61,10 +63,12 @@ const reducedMotion = () => {
 
 export const App: React.FC = () => {
   const { state, actions } = useMatch();
+  // First load opens the match picker; deep links (?demo=1, #view, captures) go straight in.
+  const [startPicker] = useState(() => pickerOnLoad(window.location.search, window.location.hash));
   return (
     <I18nProvider lang={state.profile.language}>
       <InsightModeProvider mode={state.status === 'demo' ? 'demo' : 'live'}>
-        <Shell match={state} actions={actions} />
+        <Shell match={state} actions={actions} startWithPicker={startPicker} />
       </InsightModeProvider>
     </I18nProvider>
   );
@@ -98,8 +102,9 @@ interface Focus {
   replayShown: boolean;
 }
 
-export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
+export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ match, actions, startWithPicker = false }) => {
   const { t, dir } = useI18n();
+  const [pickerOpen, setPickerOpen] = useState(startWithPicker);
   const [view, setView] = useState<ViewMode>(viewFromHash);
   const [replay, setReplay] = useState<OverlayCard | null>(null);
   const [recapOpen, setRecapOpen] = useState(false);
@@ -241,6 +246,18 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
             <div className="hidden items-center gap-2 lg:flex">
               <SpeedAndRestart match={match} actions={actions} />
             </div>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              aria-haspopup="dialog"
+              aria-label={t('picker.openLabel')}
+              title={t('picker.openLabel')}
+              data-testid="picker-open"
+              className="flex h-11 w-11 shrink-0 items-center justify-center border border-pp-line bg-pp-panel text-pp-chalk hover:border-pp-signal lg:w-auto lg:gap-1.5 lg:px-3"
+            >
+              <LayoutGrid className="h-4 w-4" aria-hidden />
+              <span className="hidden font-display text-sm font-bold uppercase tracking-broadcast lg:inline">{t('picker.open')}</span>
+            </button>
             <button
               type="button"
               onClick={() => setAboutOpen(true)}
@@ -395,6 +412,17 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
           }}
         />
       </Modal>
+
+      <MatchPicker
+        open={pickerOpen}
+        sessionMatchId={match.matchId}
+        onClose={() => setPickerOpen(false)}
+        onWatch={() => {
+          setPickerOpen(false);
+          if (view !== 'studio') goTo('studio');
+          window.scrollTo({ top: 0 });
+        }}
+      />
 
       <RecapModal open={recapOpen} onClose={() => setRecapOpen(false)} recap={match.recap} loading={recapLoading} teams={teams} />
 
