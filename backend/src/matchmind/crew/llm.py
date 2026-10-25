@@ -31,6 +31,15 @@ DEFAULT_DEPLOYMENT = "gpt-4o-mini"
 TOKEN_SCOPE = "https://cognitiveservices.azure.com/.default"
 TEMPERATURE = 0.3
 MAX_TOKENS = 400
+# Reasoning models (gpt-5 family, o-series) reject `temperature` and `max_tokens`;
+# they take `max_completion_tokens`, which also covers their hidden reasoning
+# tokens, and `reasoning_effort` (API version 2025-04-01-preview or later).
+REASONING_PREFIXES = ("gpt-5", "o1", "o3", "o4")
+REASONING_MAX_COMPLETION_TOKENS = 2000
+REASONING_TIMEOUT_S = 8.0
+# "minimal" exists only for the first gpt-5 models; every reasoning model takes "low".
+MINIMAL_EFFORT_MODELS = ("gpt-5", "gpt-5-mini", "gpt-5-nano")
+REASONING_MIN_API_VERSION = "2025-04-01-preview"
 PROVIDERS = ("azure_openai", "foundry_agents")
 
 logger = logging.getLogger(__name__)
@@ -77,6 +86,50 @@ def parse_json(raw: str | None, schema: type[BaseModel]) -> BaseModel:
         raise LLMSchemaError(f"answer does not match {schema.__name__}") from exc
 
 
+def is_reasoning_model(deployment: str | None) -> bool:
+    """True for deployments named after a reasoning model (gpt-5*, o1/o3/o4*)."""
+    name = (deployment or "").strip().lower()
+    return name.startswith(REASONING_PREFIXES) and not name.startswith("gpt-5-chat")
+
+
+def reasoning_effort(deployment: str | None) -> str:
+    name = (deployment or "").strip().lower()
+    return "minimal" if name in MINIMAL_EFFORT_MODELS else "low"
+
+
+def completion_params(deployment: str | None) -> dict[str, Any]:
+    """The sampling and length parameters this deployment accepts."""
+    if is_reasoning_model(deployment):
+        return {
+            "max_completion_tokens": max_output_tokens(deployment),
+            "reasoning_effort": reasoning_effort(deployment),
+        }
+    return {"temperature": TEMPERATURE, "max_tokens": MAX_TOKENS}
+
+
+def max_output_tokens(deployment: str | None) -> int:
+    """The answer cap; for reasoning models it also covers their hidden reasoning."""
+    return REASONING_MAX_COMPLETION_TOKENS if is_reasoning_model(deployment) else MAX_TOKENS
+
+
+def step_timeout_s(deployment: str | None, default: float) -> float:
+    """MATCHMIND_AI_STEP_TIMEOUT_S if set, else REASONING_TIMEOUT_S for reasoning models."""
+    try:
+        value = float(os.environ.get("MATCHMIND_AI_STEP_TIMEOUT_S", ""))
+        if 0 < value <= 30:
+            return value
+    except ValueError:
+        pass
+    return max(default, REASONING_TIMEOUT_S) if is_reasoning_model(deployment) else default
+
+
+def api_version_for(deployment: str | None, requested: str) -> str:
+    """Raise an older API version to the first one that takes `reasoning_effort`."""
+    if is_reasoning_model(deployment) and requested[:10] < REASONING_MIN_API_VERSION[:10]:
+        return REASONING_MIN_API_VERSION
+    return requested
+
+
 class AzureOpenAILLM:
     enabled = True
     provider = "azure_openai"
@@ -90,7 +143,9 @@ class AzureOpenAILLM:
     ) -> None:
         self.endpoint = endpoint or os.environ.get("AZURE_OPENAI_ENDPOINT", "")
         self.model = deployment or os.environ.get("AZURE_OPENAI_DEPLOYMENT", DEFAULT_DEPLOYMENT)
-        self.api_version = api_version or os.environ.get("AZURE_OPENAI_API_VERSION", DEFAULT_API_VERSION)
+        self.api_version = api_version_for(
+            self.model, api_version or os.environ.get("AZURE_OPENAI_API_VERSION", DEFAULT_API_VERSION)
+        )
         self._client = client
 
     def _get_client(self) -> Any:
@@ -120,8 +175,7 @@ class AzureOpenAILLM:
                     {"role": "user", "content": json.dumps(user, ensure_ascii=False)},
                 ],
                 response_format={"type": "json_object"},
-                temperature=TEMPERATURE,
-                max_tokens=MAX_TOKENS,
+                **completion_params(self.model),
                 timeout=timeout_s,
             )
             raw = response.choices[0].message.content

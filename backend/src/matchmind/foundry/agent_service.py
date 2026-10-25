@@ -82,11 +82,10 @@ class AgentSpec:
 
     def definition(self) -> dict[str, Any]:
         """The prompt agent definition, exactly as sent to Agent Service."""
-        return {
+        definition: dict[str, Any] = {
             "kind": "prompt",
             "model": self.model,
             "instructions": self.instructions,
-            "temperature": self.temperature,
             "text": {
                 "format": {
                     "type": "json_schema",
@@ -98,6 +97,12 @@ class AgentSpec:
                 }
             },
         }
+        # Reasoning models (gpt-5 family, o-series) reject a temperature.
+        if llm_mod.is_reasoning_model(self.model):
+            definition["reasoning"] = {"effort": llm_mod.reasoning_effort(self.model)}
+        else:
+            definition["temperature"] = self.temperature
+        return definition
 
     def digest(self) -> str:
         payload = {"definition": self.definition(), "description": self.description}
@@ -335,7 +340,11 @@ class FoundryAgentsLLM:
         try:
             version = self._version(spec)
             raw = self._client.respond(
-                spec.name, version, json.dumps(user, ensure_ascii=False), timeout_s, llm_mod.MAX_TOKENS
+                spec.name,
+                version,
+                json.dumps(user, ensure_ascii=False),
+                timeout_s,
+                llm_mod.max_output_tokens(spec.model),
             )
         except Exception as exc:  # network, auth, throttling, a deleted agent: never leak provider text
             self._versions.pop(spec.name, None)  # look the agent up again next time
