@@ -8,11 +8,13 @@ import type { ViewerProfile } from '../api/contract';
 import { useI18n } from '../i18n';
 
 /** Same origin and path; keeps ?demo=1; sets lang and persona; opens the fan view. */
-export function phoneLink(loc: Pick<Location, 'origin' | 'pathname' | 'search'>, profile: Pick<ViewerProfile, 'language' | 'persona'>): string {
+export function phoneLink(loc: Pick<Location, 'origin' | 'pathname' | 'search'>, profile: Pick<ViewerProfile, 'language' | 'persona'> & { spoilers?: boolean }): string {
   const q = new URLSearchParams();
   if (new URLSearchParams(loc.search).get('demo') === '1') q.set('demo', '1');
   q.set('lang', profile.language);
   q.set('persona', profile.persona);
+  // Catch-up mode travels with the link, so the phone never shows the result (useMatch urlProfile).
+  if (profile.spoilers === false) q.set('spoilers', '0');
   return `${loc.origin}${loc.pathname}?${q.toString()}#fan`;
 }
 
@@ -26,7 +28,7 @@ export function qrPath(text: string): { size: number; d: string } {
   return { size: n, d };
 }
 
-export const PhoneQr: React.FC<{ profile: Pick<ViewerProfile, 'language' | 'persona'> }> = ({ profile }) => {
+export const PhoneQr: React.FC<{ profile: Pick<ViewerProfile, 'language' | 'persona' | 'spoilers'> }> = ({ profile }) => {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const id = useId();

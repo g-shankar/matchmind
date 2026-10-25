@@ -23,7 +23,7 @@ from fastapi import HTTPException
 
 from matchmind.crew import spoilers as spoiler_rules
 from matchmind.crew import stress
-from matchmind.crew.contracts import Language, Persona, ViewerProfile, is_world_language
+from matchmind.crew.contracts import Language, MomentBundle, Persona, ViewerProfile, is_world_language
 
 from . import view
 from .session import CUE_PAGE_MAX, MatchSession
@@ -207,12 +207,21 @@ async def stress_test(
     real, catchup = resolve_moment(hub.session, moment_id)
     if catchup:
         raise HTTPException(status_code=404, detail=NO_MOMENT)
-    bundle = hub.session.bundle(real)
-    # Only moments already played: a future moment's draft would give the match away.
-    if bundle is None or not await hub.run(hub.session.is_played, real):
+    session = hub.session
+
+    def played_copy() -> MomentBundle | None:
+        # Read and copy under the hub's lock: the sandbox thread only ever sees its own copy.
+        # Only moments already played: a future moment's draft would give the match away.
+        bundle = session.bundle(real)
+        if bundle is None or not session.is_played(real):
+            return None
+        return bundle.model_copy(deep=True)
+
+    bundle = await hub.run(played_copy)
+    if bundle is None:
         raise HTTPException(status_code=404, detail=NO_MOMENT)
     profile = ViewerProfile(persona=persona, language=lang)
-    return await asyncio.to_thread(stress.run, hub.session.teams, bundle, fault, profile)  # type: ignore[arg-type]
+    return await asyncio.to_thread(stress.run, session.teams, bundle, fault, profile)  # type: ignore[arg-type]
 
 
 async def recap(

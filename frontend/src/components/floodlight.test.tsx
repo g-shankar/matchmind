@@ -150,11 +150,21 @@ describe('studio tour', () => {
 });
 
 import { phoneLink, qrPath } from './PhoneQr';
+import { urlProfile } from '../state/useMatch';
+import type { ViewerProfile } from '../api/contract';
 
 describe('phone QR', () => {
   it('links to the same page, fan view, language and audience, keeping the demo flag', () => {
     const url = phoneLink({ origin: 'https://pp.example', pathname: '/', search: '?demo=1&x=<y>' }, { language: 'ar', persona: 'tactical' });
     expect(url).toBe('https://pp.example/?demo=1&lang=ar&persona=tactical#fan');
+  });
+
+  it('keeps catch-up mode in the link, and the app opens spoiler-safe from it', () => {
+    const url = phoneLink({ origin: 'https://pp.example', pathname: '/', search: '' }, { language: 'en', persona: 'casual', spoilers: false });
+    expect(url).toBe('https://pp.example/?lang=en&persona=casual&spoilers=0#fan');
+    const base = { persona: 'casual', language: 'en', favourite_team: null, spoilers: true } as unknown as ViewerProfile;
+    expect(urlProfile(base, new URL(url).search).spoilers).toBe(false);
+    expect(phoneLink({ origin: 'https://pp.example', pathname: '/', search: '' }, { language: 'en', persona: 'casual', spoilers: true })).not.toContain('spoilers');
   });
 
   it('draws a local QR matrix', () => {
