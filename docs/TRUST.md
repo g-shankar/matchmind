@@ -143,6 +143,34 @@ crew's trace steps for that moment, and the list of things not checked.
 - Rate limited like the moment route; the response is bounded (about 65 KB
   for a 20-rendering moment) and never cached (`no-store`).
 
+## Stress test the crew
+
+`POST /api/match/stress-test` lets a viewer break one thing on purpose and
+watch the crew recover. The body is a played moment id and fixed enums only
+(`fault`: `wrong_number`, `analyst_down`, `model_down`, `bad_handoff`;
+`persona`; a studio `lang`); no free text is accepted (`extra` fields are 400).
+
+- **Isolated.** Each request builds a new sandbox crew (`crew/stress.py`) with
+  its own caches, traces, breakers, budget and health counters, on a deep copy
+  of the moment's bundle. The live crew, the cards other viewers see and the
+  cue sheet are never written (tested by comparing them before and after).
+  Sandbox steps record no spans or service-level counters.
+- **No paid AI.** The sandbox's "model" is a local stand-in (`FaultLLM`) that
+  never calls the network; once a fault has fired the crew carries on with
+  `TemplateLLM()`.
+- **The checks are the real ones.** A wrong number is a value no fact could
+  stand for, swapped into the Commentator's draft; the same `check_all` the
+  live crew uses rejects it (tested in every studio language), the template
+  takes over, and the final card is checked again before it is called safe.
+- **Bounded.** Body at most 512 bytes, JSON only, its own per-IP bucket keyed
+  on the last `X-Forwarded-For` hop, at most two sandboxes at once for the
+  whole process, a small card view and at most three short reasons per step
+  (a few KB), `Cache-Control: no-store`. Unplayed moments and catch-up ids
+  are 404, so the drafts cannot give the match away.
+- **Offline demo.** `?demo=1` plays results recorded from the same sandbox
+  (`frontend/public/demo/demo-stress.json`, built by
+  `frontend/scripts/demo_stress.py`) for a few moments, and says so.
+
 ## Service levels in `/api/crew/status`
 
 `CrewStatus.health` (rolling window of the last 256 steps per agent, the last
