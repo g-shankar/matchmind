@@ -16,6 +16,7 @@ import { useI18n, type I18n } from '../i18n';
 import { playerById, shortName } from '../lib/teams';
 import { cx } from './ui';
 import { inkOn } from '../lib/contrast';
+import type { CameraPreset } from '../lib/camera';
 
 export interface Pitch2DProps {
   teams: Teams | null;
@@ -39,6 +40,8 @@ export interface Pitch2DProps {
   replayStep?: 0 | 1 | 2 | 3;
   /** False draws a picture only: no focusable or tappable player markers (e.g. a backdrop). */
   interactive?: boolean;
+  /** Broadcast camera: wide (whole pitch), tactical (tilted) or follow (zoomed on the ball). */
+  camera?: CameraPreset;
   className?: string;
 }
 
@@ -50,7 +53,9 @@ const H = 68;
 const POSITION_MAX_AGE_S = 90;
 const TRAIL_POINTS = 24;
 const ZOOM_W = 45;
-const ZOOM_H = (ZOOM_W * H) / W;
+const FOLLOW_W = 50;
+/** Tactical camera: the flat SVG pitch tilted away from the viewer (CSS 3D). */
+export const TACTICAL_TRANSFORM = 'perspective(1100px) rotateX(32deg) scale(0.9)';
 
 const C = {
   turf: '#0f2a1d',
@@ -620,6 +625,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
   zoomOnFocus = false,
   replayStep = 0,
   interactive = true,
+  camera = 'wide',
   className,
 }) => {
   const i18n = useI18n();
@@ -638,16 +644,34 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
     return tr && tr.length ? tr[tr.length - 1] : null;
   }, [focusPlayerId, positions, trails]);
 
+  // Ball location for the follow camera: where the latest event ended (or started).
+  const ballX = useMemo(() => {
+    const evs = event ? [...recentEvents, event] : recentEvents;
+    for (let i = evs.length - 1; i >= 0; i--) {
+      const at = eventEnd(evs[i]) ?? evs[i].start;
+      if (at) return `${Math.round(at.x * 10) / 10},${Math.round(at.y * 10) / 10}`;
+    }
+    return null;
+  }, [event, recentEvents]);
+  const ballPos: XY | null = useMemo(() => {
+    if (!ballX) return null;
+    const [x, y] = ballX.split(',').map(Number);
+    return { x, y };
+  }, [ballX]);
+
   const target: VB = useMemo(() => {
     if (replay) return replayBox(replay);
-    if (!zoomOnFocus || !focusPos) return FULL;
+    const centre = zoomOnFocus && focusPos ? focusPos : camera === 'follow' ? ballPos : null;
+    if (!centre) return FULL;
+    const zw = zoomOnFocus && focusPos ? ZOOM_W : FOLLOW_W;
+    const zh = (zw * H) / W;
     return {
-      x: Math.round(clamp(focusPos.x - ZOOM_W / 2, 0, W - ZOOM_W) * 10) / 10,
-      y: Math.round(clamp(focusPos.y - ZOOM_H / 2, 0, H - ZOOM_H) * 10) / 10,
-      w: ZOOM_W,
-      h: ZOOM_H,
+      x: Math.round(clamp(centre.x - zw / 2, 0, W - zw) * 10) / 10,
+      y: Math.round(clamp(centre.y - zh / 2, 0, H - zh) * 10) / 10,
+      w: zw,
+      h: zh,
     };
-  }, [zoomOnFocus, focusPos, replay]);
+  }, [zoomOnFocus, focusPos, replay, camera, ballPos]);
   const vb = useViewBox(target);
   const touchPx = useTouchWidth(wrapRef);
   const hitR = touchPx ? (TOUCH_TARGET_PX / 2) * (vb.w / touchPx) : undefined;
@@ -816,8 +840,10 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
       dir="ltr"
       ref={wrapRef}
       data-testid="pitch-wrapper"
+      data-camera={camera}
+      style={{ transform: camera === 'tactical' ? TACTICAL_TRANSFORM : 'none', transformOrigin: '50% 60%' }}
       className={cx(
-        'relative aspect-[105/68] w-full select-none overflow-hidden rounded-xl border border-pp-turfLine/40 bg-pp-turf shadow-2xl shadow-black/40',
+        'relative aspect-[105/68] w-full select-none overflow-hidden rounded-xl border border-pp-turfLine/40 bg-pp-turf shadow-2xl shadow-black/40 transition-transform duration-700 ease-out motion-reduce:transition-none',
         className,
       )}
     >

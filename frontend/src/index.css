@@ -96,3 +96,11 @@ html.pp-capture body {
   background-image: none !important;
   overflow: hidden;
 }
+
+/* Camera control: square broadcast cut on the trailing corner. */
+.pp-cam-cut {
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%);
+}
+[dir='rtl'] .pp-cam-cut {
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+}

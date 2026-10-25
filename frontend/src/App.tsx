@@ -8,6 +8,7 @@ import { activeCards } from './state/matchStore';
 import type { ViewProps } from './views/types';
 import { Badge, Logo, Segmented, cx } from './components/ui';
 import { Pitch2D } from './components/Pitch2D';
+import { CameraControl, useCameraPreset } from './components/CameraControl';
 import { ReplayCard } from './components/ReplayCard';
 import { ControlChaosGauge } from './components/ControlChaosGauge';
 import { NarrativeFeed, StoryCard } from './components/NarrativeFeed';
@@ -190,6 +191,7 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
     },
     [actions, profile.persona, profile.language],
   );
+  const [camera, setCamera] = useCameraPreset();
 
   const liveReplay = activeCards(match.cards, clockS, 'full_screen', match.cue.ruledOut).find((c) => c.replay);
 
@@ -330,14 +332,20 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
                       {liveReplay ? (
                         <ReplayCard card={liveReplay} teams={teams} />
                       ) : (
-                        <Pitch2D
-                          teams={teams}
-                          event={match.lastEvent}
-                          recentEvents={match.events.slice(-6)}
-                          positions={match.positions}
-                          showTags
-                          pitchTags={activeCards(match.cards, clockS, 'pitch_tag', match.cue.ruledOut)}
-                        />
+                        <div className="space-y-2">
+                          <Pitch2D
+                            teams={teams}
+                            event={match.lastEvent}
+                            recentEvents={match.events.slice(-6)}
+                            positions={match.positions}
+                            showTags
+                            camera={camera}
+                            pitchTags={activeCards(match.cards, clockS, 'pitch_tag', match.cue.ruledOut)}
+                          />
+                          <div className="flex justify-end">
+                            <CameraControl value={camera} onChange={setCamera} />
+                          </div>
+                        </div>
                       )}
                     </div>
                     <div className="order-4">
