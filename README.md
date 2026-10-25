@@ -25,6 +25,8 @@ for every number on screen.
   vMix, with VAR retractions; the same facts reach the casual fan and the
   analyst, in their own language.
 
+**Live app:** <https://ca-pitchpulse.wonderfulbush-438b1d1e.swedencentral.azurecontainerapps.io/> (Azure Container Apps, Sweden Central; the crew runs on Azure OpenAI, with templates as the visible fallback).
+
 Built by the PitchPulse team for the Microsoft x Premier League "Inside the
 Game" hackathon. **Judges: [the brief, line by line](docs/HACKATHON-BRIEF.md)**
 shows each requirement, where to see it, and where we fall short. All clubs,
