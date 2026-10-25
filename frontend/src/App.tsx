@@ -18,6 +18,7 @@ import { LanguagePicker } from './components/LanguagePicker';
 import { Modal } from './components/Modal';
 import { InsightModeProvider } from './state/useInsight';
 import { demoRequested } from './api/insights';
+import { StressTestButton } from './components/StressTest';
 import { apiBase } from './api/transport';
 // Ask the studio, catch-up mode and read-aloud.
 import { AskStudio } from './components/AskStudio';
@@ -453,8 +454,11 @@ export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ mat
                     <div className="order-5">
                       <ControlChaosGauge match={match} actions={actions} />
                     </div>
-                    <div className="order-6">
+                    <div className="order-6 space-y-2">
                       <CrewHealthDisclosure match={match} />
+                      <div className="flex justify-end">
+                        <StressTestButton bookmarks={match.bookmarks} spoilers={match.profile.spoilers !== false} />
+                      </div>
                     </div>
                   </div>
                   <div className="contents lg:col-span-5 lg:block lg:space-y-4">

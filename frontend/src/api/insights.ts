@@ -11,7 +11,10 @@ import type {
   DatasetIndex,
   MetricRegistry,
   MomentAudit,
+  StressFault,
+  StressResult,
 } from './contract';
+import { STRESS_FAULTS } from './contract';
 import { apiBase } from './transport';
 import { rawMomentId, withPageCatchUpIds } from './spoilers';
 
@@ -126,6 +129,79 @@ export const insights = {
     return getJson<DatasetIndex>('/api/dataset');
   },
 };
+
+// --- Stress test the crew -------------------------------------------------------------------------
+export const STRESS_LANGS = ['en', 'es', 'fr', 'ar', 'ja'] as const;
+export interface DemoStress {
+  stress_version: number;
+  match_id: string;
+  note: string;
+  /** moment id -> studio language -> fault -> recorded result */
+  results: Record<string, Record<string, Partial<Record<StressFault, StressResult>>>>;
+}
+
+let demoStress: Promise<DemoStress> | null = null;
+
+export function loadDemoStress(url = `${import.meta.env.BASE_URL}demo/demo-stress.json`): Promise<DemoStress> {
+  if (!demoStress) {
+    demoStress = fetch(url)
+      .then((res) => {
+        if (!res.ok) throw new Error(`demo stress ${res.status}`);
+        return res.json() as Promise<DemoStress>;
+      })
+      .catch((err: unknown) => {
+        demoStress = null;
+        throw err;
+      });
+  }
+  return demoStress;
+}
+
+/** Tests only. */
+export function resetDemoStress() {
+  demoStress = null;
+}
+
+const own = (o: object, k: string) => Object.prototype.hasOwnProperty.call(o, k);
+
+/** One moment through a sandbox crew with one fault. Demo mode reads the recording; a moment
+ * the recording does not hold answers `needs_server`. Only fixed enums go to the server. */
+export async function stressTest(
+  mode: InsightMode,
+  momentId: string,
+  fault: StressFault,
+  lang: string,
+  base = apiBase(),
+): Promise<InsightResult<StressResult>> {
+  if (!MOMENT_ID.test(momentId) || !(STRESS_FAULTS as readonly string[]).includes(fault)) return { status: 'missing' };
+  const language = (STRESS_LANGS as readonly string[]).includes(lang) ? lang : 'en';
+  if (mode === 'demo') {
+    try {
+      const b = await loadDemoStress();
+      const forMoment = own(b.results, momentId) ? b.results[momentId] : null;
+      const forLang = forMoment && own(forMoment, language) ? forMoment[language] : null;
+      const hit = forLang && own(forLang, fault) ? forLang[fault] : null;
+      return hit ? { status: 'ready', data: hit, source: 'demo' } : { status: 'needs_server' };
+    } catch {
+      return { status: 'error' };
+    }
+  }
+  try {
+    const res = await fetch(`${base}/api/match/stress-test`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ moment_id: momentId, fault, lang: language }),
+    });
+    if (res.status === 404) return { status: 'missing' };
+    if (res.status === 429) return { status: 'busy' };
+    if (!res.ok) return { status: 'error' };
+    const data = (await res.json()) as StressResult;
+    if (!data || !Array.isArray(data.steps)) return { status: 'error' };
+    return { status: 'ready', data, source: 'live' };
+  } catch {
+    return { status: 'error' };
+  }
+}
 
 /** A download link for one dataset match (a plain GET the browser saves). */
 export function datasetExportUrl(matchId: string, format: DatasetFormat, base = apiBase()): string | null {

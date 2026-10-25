@@ -856,3 +856,40 @@ export interface AskAnswer {
 /** Why an answer could not be fetched at all (shown as one plain sentence). */
 export type AskFailure = 'needs_live' | 'busy' | 'unavailable';
 export type AskResult = { ok: true; answer: AskAnswer } | { ok: false; failure: AskFailure };
+
+// --- Stress test the crew (POST /api/match/stress-test, docs/TRUST.md) ---------------------------
+export const STRESS_FAULTS = ['wrong_number', 'analyst_down', 'model_down', 'bad_handoff'] as const;
+export type StressFault = (typeof STRESS_FAULTS)[number];
+export type StressAgent = 'analyst' | 'commentator' | 'fact_checker' | 'fallback' | 'producer';
+export type StressStatus = 'ok' | 'down' | 'injected' | 'malformed' | 'rejected' | 'skipped' | 'fallback' | 'took_over';
+
+export interface StressStep {
+  agent: StressAgent;
+  status: StressStatus;
+  /** Stable code the app translates (never shown raw). */
+  code: string;
+  /** The injected number, or a short fallback reason code. */
+  detail?: string | null;
+  /** The fact-checker's own reasons (English, at most 3), shown as evidence. */
+  reasons?: string[];
+}
+
+export interface StressCard {
+  moment_id: string;
+  kind: string;
+  language: string;
+  rtl: boolean;
+  headline: string;
+  body: string;
+  why: string;
+  produced_by: string;
+  fallback_reason: string | null;
+}
+
+export interface StressResult {
+  moment_id: string;
+  fault: StressFault;
+  steps: StressStep[];
+  card: StressCard | null;
+  safe: boolean;
+}

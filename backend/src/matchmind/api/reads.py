@@ -22,6 +22,7 @@ from typing import Any, Protocol, TypeVar
 from fastapi import HTTPException
 
 from matchmind.crew import spoilers as spoiler_rules
+from matchmind.crew import stress
 from matchmind.crew.contracts import Language, Persona, ViewerProfile, is_world_language
 
 from . import view
@@ -196,6 +197,22 @@ async def moment_audit(hub: HubLike, moment_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=404, detail=NO_MOMENT)
     data = audit.model_dump(mode="json")
     return spoiler_rules.with_catchup_ids(data) if catchup else data
+
+
+async def stress_test(
+    hub: HubLike, moment_id: str, fault: str, persona: Persona, lang: Language
+) -> dict[str, Any]:
+    """POST /api/match/stress-test (docs/TRUST.md): one moment, one fault, in a sandbox crew.
+    Catch-up ids are refused like unknown ones: the drafts would show the moment's text."""
+    real, catchup = resolve_moment(hub.session, moment_id)
+    if catchup:
+        raise HTTPException(status_code=404, detail=NO_MOMENT)
+    bundle = hub.session.bundle(real)
+    # Only moments already played: a future moment's draft would give the match away.
+    if bundle is None or not await hub.run(hub.session.is_played, real):
+        raise HTTPException(status_code=404, detail=NO_MOMENT)
+    profile = ViewerProfile(persona=persona, language=lang)
+    return await asyncio.to_thread(stress.run, hub.session.teams, bundle, fault, profile)  # type: ignore[arg-type]
 
 
 async def recap(

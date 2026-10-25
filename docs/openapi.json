@@ -955,6 +955,27 @@
         "summary": "Basic Stats"
       }
     },
+    "/api/match/stress-test": {
+      "post": {
+        "description": "Replay one moment through a throwaway sandbox crew with one fault (a wrong\nnumber, an agent knocked out, a malformed hand-off). Never touches the live crew,\nthe cards other viewers see or the cue sheet; never calls a paid model.",
+        "operationId": "stress_test_api_match_stress_test_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Stress Test Api Match Stress Test Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stress Test"
+      }
+    },
     "/api/metrics": {
       "get": {
         "operationId": "metric_registry_api_metrics_get",
