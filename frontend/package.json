@@ -14,7 +14,7 @@
     "@fontsource/barlow": "^5.1.1",
     "@fontsource/barlow-condensed": "^5.1.1",
     "@fontsource/cairo": "^5.1.1",
-    "@fontsource/ibm-plex-sans-arabic": "^5.1.1",
+    "@fontsource/ibm-plex-sans-arabic": "^5.3.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.363.0",
     "qrcode-generator": "1.4.4",
