@@ -6,6 +6,7 @@ import { playerById, shortName } from '../lib/teams';
 import { Pitch2D, decimalsOf, evidenceLabel, fmtFact, fmtUnit, pct, withClock } from './Pitch2D';
 import { Badge, cx } from './ui';
 import { ShowWorkingButton } from './ShowWorking';
+import { CrewRelayToggle } from './CrewRelay';
 import { TranslationTag } from './LanguagePicker';
 import { isTranslationReason, textLanguage } from '../lib/languages';
 
@@ -267,7 +268,8 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
         )}
       </div>
       {!card.moment_id.startsWith('metric:') && (
-        <div className="mt-3 flex justify-end">
+        <div className="mt-3 flex flex-wrap justify-end gap-2">
+          <CrewRelayToggle momentId={card.moment_id} slot={card.slot} />
           <ShowWorkingButton momentId={card.moment_id} persona={card.persona} language={card.language} />
         </div>
       )}

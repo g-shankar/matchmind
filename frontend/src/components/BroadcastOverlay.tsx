@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PhoneQr } from './PhoneQr';
 import { Activity, Eye, EyeOff, Gavel, Radio } from 'lucide-react';
 import type { Cue, Evidence, OverlayCard, Slot, Teams } from '../api/contract';
 import { factLabel, factValue } from '../lib/facts';
@@ -350,6 +351,12 @@ export const BroadcastOverlay: React.FC<ViewProps & { capture?: boolean }> = ({ 
         {!capture && (
           <div className="absolute end-[2%] top-[12%] z-[5] hidden lg:block">
             <CameraControl value={camera} onChange={setCamera} />
+          </div>
+        )}
+
+        {!capture && (
+          <div className="absolute bottom-[24%] end-[2%] z-[5]">
+            <PhoneQr profile={match.profile} />
           </div>
         )}
 
