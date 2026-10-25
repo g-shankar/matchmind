@@ -94,7 +94,7 @@ describe('interface languages', () => {
         'fan.stat.sprints', 'fan.stat.band.sprint', 'fan.mx.sprint', 'fan.my.possession', 'health.agent', 'lab.jump',
         'lab.stats.possession', 'lab.stats.passes', 'lab.stats.interceptions', 'lab.stats.distance', 'lab.bench.kind',
         'lab.bench.f1Pixels', 'lab.kind.interception', 'lab.data.match', 'tag.discipline', 'tag.pressing',
-        'pitch.minute',
+        'pitch.minute', 'pitch.options.score',
       ]),
       // "AI", "GK" and "vs" are what Japanese broadcasts print.
       ja: new Set([...both, 'common.vs', 'produced.ai', 'pitch.keeper']),

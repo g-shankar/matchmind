@@ -324,6 +324,24 @@ export interface MetricRegistry {
   not_computed: { id: string; name: string; reason: string }[];
 }
 
+/** One option at a shot's decision moment, scored by the engine's pass value model. */
+export interface DecisionOption {
+  rank: number;
+  kind: 'shot' | 'pass';
+  player_id: string;
+  /** True for the action the player actually chose. */
+  taken: boolean;
+  score: number;
+  chance_quality: number;
+  pass_success: number | null;
+  pass_distance_m: number | null;
+  nearest_marker_m: number | null;
+  onside: boolean;
+  open: boolean;
+  eligible: boolean;
+  pos: XY;
+}
+
 export interface BetterOptionReplay {
   shot_event_id: string;
   shooter_id: string;
@@ -339,6 +357,10 @@ export interface BetterOptionReplay {
   teammate_pos: XY;
   defenders: XY[];
   keeper: XY | null;
+  /** Every option, ranked by the engine (older payloads may omit it). */
+  options?: DecisionOption[];
+  method?: string;
+  method_version?: number;
 }
 
 export interface UnfoundRunReplay {

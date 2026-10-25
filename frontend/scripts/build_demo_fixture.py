@@ -34,6 +34,7 @@ from matchmind.schema import Event
 from matchmind.simulator import pitch
 from matchmind.simulator.teams import get_team
 from matchmind.stats import metrics as M
+from matchmind.stats.better_option import OPTION_METHOD, OPTION_METHOD_VERSION, rank_options
 from matchmind.stats.physical import LABEL as TRACKING_LABEL
 from matchmind.stats.physical import SOURCE as TRACKING_SOURCE
 from matchmind.stats.physical import PhysicalTimeline, timeline_for
@@ -302,6 +303,32 @@ def analyse_shot(ev: dict, ctx: Ctx, shot: dict) -> dict[str, Any] | None:
     shot_value = shot["cq"]
     if not (best["value"] >= shot_value + BETTER_MARGIN and best["value"] >= BETTER_RATIO * shot_value):
         return None
+    mates = [
+        (p["player_id"], ctx.att(p, team)) for p in ff if p["teammate"] and not p["actor"] and not p["keeper"]
+    ]
+    ranked = rank_options(
+        ev["player_id"], s, shot_value, mates, opponents, outfield, keeper, max(s[0], second_last)
+    )
+    options = [
+        {
+            "rank": i + 1,
+            "kind": o.kind,
+            "player_id": o.player_id,
+            "taken": o.kind == "shot",
+            "score": rnd(o.score, 3),
+            "chance_quality": rnd(o.chance_quality, 3),
+            "pass_success": None if o.pass_success is None else rnd(o.pass_success),
+            "pass_distance_m": o.pass_distance_m,
+            "nearest_marker_m": o.nearest_marker_m,
+            "onside": o.onside,
+            "open": o.open,
+            "eligible": o.onside and o.open,
+            "pos": xy(ctx.absolute(o.pos, team)),
+        }
+        for i, o in enumerate(ranked)
+    ]
+    first_pass = next(o for o in options if o["kind"] == "pass")
+    assert first_pass["player_id"] == best["pid"], "option ranking disagrees with the trigger"
     return {
         "shot_event_id": ev["event_id"],
         "shooter_id": ev["player_id"],
@@ -318,6 +345,9 @@ def analyse_shot(ev: dict, ctx: Ctx, shot: dict) -> dict[str, Any] | None:
         "teammate_pos": xy(ctx.absolute(best["pos"], team)),
         "defenders": [xy(ctx.absolute(o, team)) for o in outfield],
         "keeper": xy(ctx.absolute(keeper, team)) if keeper else None,
+        "options": options,
+        "method": OPTION_METHOD,
+        "method_version": OPTION_METHOD_VERSION,
     }
 
 

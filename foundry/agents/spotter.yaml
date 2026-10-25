@@ -68,6 +68,20 @@ contract:
             - $ref: '#/$defs/XY'
             - type: 'null'
             default: null
+          options:
+            description: Every option, ranked by the engine
+            items:
+              $ref: '#/$defs/DecisionOption'
+            title: Options
+            type: array
+          method:
+            default: pass_value
+            title: Method
+            type: string
+          method_version:
+            default: 1
+            title: Method Version
+            type: integer
         required:
         - shot_event_id
         - shooter_id
@@ -91,6 +105,80 @@ contract:
         - head
         title: BodyPart
         type: string
+      DecisionOption:
+        description: |-
+          One option at a shot's decision moment: the shot that was taken, or a pass
+          to one teammate, scored by the pass value model (stats.better_option).
+        properties:
+          rank:
+            description: 1 = highest score among eligible options
+            minimum: 1
+            title: Rank
+            type: integer
+          kind:
+            enum:
+            - shot
+            - pass
+            title: Kind
+            type: string
+          player_id:
+            title: Player Id
+            type: string
+          taken:
+            description: True for the action the player actually chose
+            title: Taken
+            type: boolean
+          score:
+            description: 'Shot: chance quality. Pass: pass success x chance quality'
+            title: Score
+            type: number
+          chance_quality:
+            title: Chance Quality
+            type: number
+          pass_success:
+            anyOf:
+            - type: number
+            - type: 'null'
+            default: null
+            title: Pass Success
+          pass_distance_m:
+            anyOf:
+            - type: number
+            - type: 'null'
+            default: null
+            title: Pass Distance M
+          nearest_marker_m:
+            anyOf:
+            - type: number
+            - type: 'null'
+            default: null
+            title: Nearest Marker M
+          onside:
+            default: true
+            title: Onside
+            type: boolean
+          open:
+            default: true
+            description: No opponent within the unmarked radius
+            title: Open
+            type: boolean
+          eligible:
+            default: true
+            description: 'Onside and open: the options the trigger compares'
+            title: Eligible
+            type: boolean
+          pos:
+            $ref: '#/$defs/XY'
+        required:
+        - rank
+        - kind
+        - player_id
+        - taken
+        - score
+        - chance_quality
+        - pos
+        title: DecisionOption
+        type: object
       Event:
         additionalProperties: false
         description: A single match event. One JSON object per line in the JSONL stream.

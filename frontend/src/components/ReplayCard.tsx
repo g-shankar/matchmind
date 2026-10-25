@@ -6,6 +6,7 @@ import { playerById, shortName } from '../lib/teams';
 import { Pitch2D, decimalsOf, evidenceLabel, fmtFact, fmtUnit, pct, withClock } from './Pitch2D';
 import { Badge, cx } from './ui';
 import { ShowWorkingButton } from './ShowWorking';
+import { DecisionOptions } from './DecisionOptions';
 import { TranslationTag } from './LanguagePicker';
 import { isTranslationReason, textLanguage } from '../lib/languages';
 
@@ -55,8 +56,16 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
     return () => clearTimeout(id);
   }, [step, cycle]);
 
+  const firstPass = (() => {
+    const opts = isBetterOption(card.replay) ? card.replay.options ?? [] : [];
+    const i = opts.findIndex((o) => o.kind === 'pass' && o.player_id === (card.replay as { teammate_id?: string }).teammate_id);
+    return i >= 0 ? i : 0;
+  })();
+  const [option, setOption] = useState<number | null>(null);
+
   useEffect(() => {
     setStep(1);
+    setOption(null);
   }, [card.card_id]);
 
   const pick = (s: Step) => {
@@ -147,7 +156,7 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
     </header>
   );
 
-  const pitch = <Pitch2D teams={teams} event={null} replay={r} replayStep={step} />;
+  const pitch = <Pitch2D teams={teams} event={null} replay={r} replayStep={step} replayOption={compact ? null : option ?? firstPass} />;
 
   if (compact) {
     const verdict = steps[2];
@@ -223,6 +232,10 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
           </ol>
         </div>
       </div>
+
+      {better && (better.options?.length ?? 0) > 0 && (
+        <DecisionOptions replay={better} teams={teams} selected={option ?? firstPass} onSelect={setOption} />
+      )}
 
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="space-y-3">
