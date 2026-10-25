@@ -44,7 +44,7 @@ broadcaster branding appear anywhere.
 | Five studio languages | Live; not reviewed by native broadcasters | [LANGUAGES.md](docs/LANGUAGES.md) |
 | Eight world languages (Translator) | Template fallback: shown in English and labelled; tested against fakes | `backend/tests/test_translator.py` |
 | REST API contract | Live, drift-tested | [openapi.json](docs/openapi.json), `backend/tests/test_openapi_contract.py` |
-| Azure deployment | Tested against Bicep build only; not deployed | [deployment/README.md](deployment/README.md) |
+| Azure deployment | Live on Azure Container Apps (Sweden Central), Azure OpenAI and Translator on; Bicep built in CI | [deployment/README.md](deployment/README.md) |
 | Foundry agents wired to the API spec as a tool | Not built | [FOUNDRY.md](docs/FOUNDRY.md) |
 | Real video input, neural voices | Not built | [Feature status](#feature-status) |
 
