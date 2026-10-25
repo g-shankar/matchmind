@@ -17,22 +17,22 @@ const S={
   await p.goto(B+'?t=2052&p=1&lang=en#studio',{waitUntil:'domcontentloaded'});
   await p.waitForTimeout(7000); await mark('start');
   await p.waitForTimeout(6000); await mark('shot');
-  await tryc(p.getByRole('button',{name:'Show the replay'}),8000); await p.waitForTimeout(1500); await mark('replay');
+  await tryc(p.getByRole('button',{name:'Show the replay'}),20000); await p.waitForTimeout(1500); await mark('replay');
   await p.waitForTimeout(12000); await mark('replay_end');
   await tryc(p.locator('[data-testid=option-next]')); await p.waitForTimeout(3500); await mark('opt2');
   await tryc(p.locator('[data-testid=option-next]')); await p.waitForTimeout(3500); await mark('opt3');
  },
  camera: async(p,mark,tryc)=>{
   await p.goto(B+'?lang=en#studio',{waitUntil:'domcontentloaded'}); await p.waitForTimeout(7000); await mark('start');
-  await tryc(p.locator('[data-testid=camera-control] [role=radio]').nth(1)); await p.waitForTimeout(4000); await mark('tactical');
-  await tryc(p.locator('[data-testid=camera-control] [role=radio]').nth(2)); await p.waitForTimeout(5000); await mark('follow');
-  await tryc(p.locator('[data-testid=camera-control] [role=radio]').nth(0));
+  await tryc(p.locator('[data-testid=camera-control] [role=radio]').nth(1),12000); await p.waitForTimeout(4000); await mark('tactical');
+  await tryc(p.locator('[data-testid=camera-control] [role=radio]').nth(2),12000); await p.waitForTimeout(5000); await mark('follow');
+  await tryc(p.locator('[data-testid=camera-control] [role=radio]').nth(0),12000);
  },
  split: async(p,mark,tryc)=>{
   for (const l of ['en','es','ar']){
-   await p.goto(B+`?t=2062&p=1&pause=1&lang=${l}#split`,{waitUntil:'domcontentloaded'}); await p.waitForTimeout(6000);
+   await p.goto(B+`?t=2062&p=1&pause=1&lang=${l}#split`,{waitUntil:'domcontentloaded'}); await p.locator('select').nth(1).waitFor({timeout:30000}).catch(()=>{}); await p.waitForTimeout(3000);
    const sel=p.locator('main select, select').nth(1); try{const o=await sel.locator('option').allTextContents(); console.log(o); const i=o.findIndex(x=>x.includes('34:16')); if(i>=0) await sel.selectOption({index:i});}catch(e){console.log('sel',e.message)}
-   await p.waitForTimeout(1500); await p.mouse.move(960,600); await p.mouse.wheel(0,750); await p.waitForTimeout(1200); await mark(l); await p.waitForTimeout(4000); await mark(l+'_end');
+   await p.getByText(/Kerrigan/).nth(2).waitFor({timeout:40000}).catch(()=>console.log('nocards')); await p.waitForTimeout(1500); await p.mouse.move(960,600); await p.mouse.wheel(0,750); await p.waitForTimeout(1200); await mark(l); await p.waitForTimeout(4000); await mark(l+'_end');
   }
  },
  stress: async(p,mark,tryc)=>{
