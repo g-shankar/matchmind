@@ -35,6 +35,9 @@ class AnalystIn(BaseModel):
     match_clock: str
     facts: dict[str, FactValue] = Field(description="The only numbers and names the answer may use.")
     allowed_tactical_tags: list[TacticalTag]
+    verdict: str | None = Field(
+        default=None, description="Better-option moments: the decision the text must state."
+    )
     repair: str | None = Field(default=None, description=REPAIR)
 
 
@@ -48,6 +51,9 @@ class CommentatorIn(BaseModel):
     language: str = Field(description="Language name, e.g. 'Spanish'.")
     why_it_matters: str = Field(description="The fact-checked Analyst explanation.")
     facts: dict[str, FactValue]
+    verdict: str | None = Field(
+        default=None, description="Better-option moments: the decision the text must state."
+    )
     favourite_team: str | None = None
     your_team_wording: str | None = None
     focus_player_id: str | None = None

@@ -975,6 +975,29 @@ def _word_re(words: dict[str, int], arabic: bool) -> re.Pattern[str]:
 _WORD_RE = {lang: _word_re(words, lang == "ar") for lang, words in _NUMBER_WORDS.items()}
 _KANJI_DIGITS = {"〇": 0, "一": 1, "二": 2, "三": 3, "四": 4, "五": 5, "六": 6, "七": 7, "八": 8, "九": 9}
 _KANJI_RE = re.compile("[〇一二三四五六七八九十百]+")
+# Ordinals for one and two ("first touch", "second ball") are everyday football words, not counts;
+# model text may use them freely.
+_FREE_ORDINALS = {
+    "first",
+    "second",
+    "primer",
+    "primero",
+    "primera",
+    "segundo",
+    "segunda",
+    "premier",
+    "première",
+    "deuxième",
+    "seconde",
+    "أول",
+    "الأول",
+    "الأولى",
+    "ثاني",
+    "الثاني",
+    "الثانية",
+}
+# A raw fact key such as `p_key_passes` leaking into on-screen text.
+_FIELD_NAME_RE = re.compile(r"\b[a-z][a-z0-9]*_[a-z0-9_]+\b")
 # Stock phrases where a number word is not a count.
 _PHRASES = {
     "en": re.compile(r"\b(?:first|second) half\b|\bone-on-one\b|\bone-two\b|\bno one\b", re.IGNORECASE),
@@ -1040,8 +1063,11 @@ def check(
             reasons.append(f"number {token} is not in the facts")
     if strict_words:
         for word, value in number_words_in(scrubbed, language):
+            if word.lower() in _FREE_ORDINALS:
+                continue
             if not _matches(str(value), values):
                 reasons.append(f"number word {word} is not in the facts")
+    reasons += [f"field name {name} in text" for name in dict.fromkeys(_FIELD_NAME_RE.findall(scrubbed))]
     reasons += sanity_problems(text, facts, language)
     if roster:
         reasons += [f"name {name} is not in the facts" for name in unknown_names(text, facts, roster)]
