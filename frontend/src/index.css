@@ -104,3 +104,100 @@ html.pp-capture body {
 [dir='rtl'] .pp-cam-cut {
   clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%, 0 calc(100% - 8px));
 }
+
+/* "Choose a match" picker: floodlights, a staggered card wipe-in and a select wipe-out. */
+.pp-floodlights {
+  background:
+    radial-gradient(60% 45% at 12% -8%, rgba(255, 212, 0, 0.12), transparent 70%),
+    radial-gradient(55% 40% at 92% -6%, rgba(255, 62, 50, 0.14), transparent 70%),
+    repeating-linear-gradient(115deg, rgba(242, 239, 232, 0.025) 0 2px, transparent 2px 22px);
+  animation: ppFloodOn 1.1s ease-out both;
+}
+.pp-pick-title {
+  animation: ppWipe 0.6s cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+[dir='rtl'] .pp-pick-title {
+  animation-name: ppWipeRtl;
+}
+.pp-pick-bar {
+  transform-origin: left center;
+  animation: ppBar 0.7s 0.15s cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+[dir='rtl'] .pp-pick-bar {
+  transform-origin: right center;
+}
+.pp-pick-rise {
+  animation: ppRise 0.5s 0.1s ease-out both;
+}
+.pp-pick-card {
+  animation: ppCardIn 0.55s cubic-bezier(0.2, 0.9, 0.2, 1) backwards;
+  transition: transform 0.25s ease-out;
+}
+.pp-pick-card[data-active='true'] {
+  transform: translateY(-4px);
+}
+.pp-pick-card[data-active='true'] .pp-pick-cut {
+  border-color: rgba(255, 212, 0, 0.9);
+}
+.pp-pick-cut {
+  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+}
+[dir='rtl'] .pp-pick-cut {
+  clip-path: polygon(0 18px, 18px 0, 100% 0, 100% 100%, 0 100%);
+}
+.pp-bar-home {
+  clip-path: polygon(0 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+.pp-bar-away {
+  margin-inline-start: -4px;
+  clip-path: polygon(6px 0, 100% 0, 100% 100%, 0 100%);
+}
+.pp-dot-in {
+  animation: ppFade 0.35s ease-out both;
+}
+.pp-pick-chosen {
+  z-index: 2;
+  animation: ppChosen 0.52s cubic-bezier(0.5, 0, 0.2, 1) both;
+}
+.pp-picker-leave {
+  animation: ppLeave 0.52s 0.12s cubic-bezier(0.6, 0, 0.3, 1) both;
+}
+@keyframes ppFloodOn {
+  0% { opacity: 0; }
+  40% { opacity: 1; }
+  55% { opacity: 0.6; }
+  100% { opacity: 1; }
+}
+@keyframes ppWipe {
+  from { clip-path: inset(0 100% 0 0); transform: skewX(-8deg); }
+  to { clip-path: inset(0 0 0 0); transform: none; }
+}
+@keyframes ppWipeRtl {
+  from { clip-path: inset(0 0 0 100%); transform: skewX(8deg); }
+  to { clip-path: inset(0 0 0 0); transform: none; }
+}
+@keyframes ppBar {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes ppRise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes ppCardIn {
+  from { opacity: 0; transform: translateY(28px) skewY(2deg); clip-path: inset(0 0 100% 0); }
+  to { opacity: 1; transform: none; clip-path: inset(0 0 0 0); }
+}
+@keyframes ppFade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes ppChosen {
+  0% { transform: translateY(-4px) scale(1); }
+  45% { transform: scale(1.04); filter: brightness(1.25); }
+  100% { transform: scale(1.08); opacity: 0; }
+}
+@keyframes ppLeave {
+  from { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+  to { clip-path: polygon(100% 0, 100% 0, 100% 100%, 100% 100%); }
+}
