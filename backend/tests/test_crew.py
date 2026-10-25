@@ -930,6 +930,48 @@ def test_make_llm_is_template_unless_switched_on(monkeypatch):
         TemplateLLM().complete_json("s", {}, AnalystOut, 1.0)
 
 
+class _RecordingClient:
+    """Stands in for the Azure OpenAI SDK: records the request, answers with JSON."""
+
+    def __init__(self, content: str) -> None:
+        self.kwargs: dict = {}
+        self.chat = self
+        self.completions = self
+        self.content = content
+
+    def create(self, **kwargs):
+        self.kwargs = kwargs
+        message = type("M", (), {"content": self.content})()
+        choice = type("C", (), {"message": message})()
+        return type("R", (), {"choices": [choice]})()
+
+
+ANALYST_JSON = '{"why": "w", "tactical_tag": "chance_creation"}'
+
+
+@pytest.mark.parametrize("deployment", ["gpt-5-mini", "GPT-5", "o4-mini", "o3"])
+def test_reasoning_deployments_get_the_parameters_they_accept(deployment):
+    # gpt-5 and o-series deployments answer HTTP 400 to temperature/max_tokens,
+    # which sent every live model step to the template fallback.
+    client = _RecordingClient(ANALYST_JSON)
+    llm = AzureOpenAILLM(endpoint="https://x", deployment=deployment, api_version="2024-10-21", client=client)
+    assert llm.complete_json("s", {}, AnalystOut, 1.0).why == "w"
+    assert "temperature" not in client.kwargs and "max_tokens" not in client.kwargs
+    assert client.kwargs["max_completion_tokens"] >= 1000  # room for hidden reasoning tokens
+    assert client.kwargs["reasoning_effort"] == "minimal"
+    assert llm.api_version == "2025-04-01-preview"
+
+
+def test_chat_deployments_keep_temperature_and_max_tokens():
+    client = _RecordingClient(ANALYST_JSON)
+    llm = AzureOpenAILLM(
+        endpoint="https://x", deployment="gpt-4o-mini", api_version="2024-10-21", client=client
+    )
+    assert llm.complete_json("s", {}, AnalystOut, 1.0).why == "w"
+    assert client.kwargs["temperature"] == 0.3 and client.kwargs["max_tokens"] == 400
+    assert "reasoning_effort" not in client.kwargs and llm.api_version == "2024-10-21"
+
+
 # --------------------------------------------------------------- producer
 
 

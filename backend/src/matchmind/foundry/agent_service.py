@@ -82,11 +82,10 @@ class AgentSpec:
 
     def definition(self) -> dict[str, Any]:
         """The prompt agent definition, exactly as sent to Agent Service."""
-        return {
+        definition: dict[str, Any] = {
             "kind": "prompt",
             "model": self.model,
             "instructions": self.instructions,
-            "temperature": self.temperature,
             "text": {
                 "format": {
                     "type": "json_schema",
@@ -98,6 +97,10 @@ class AgentSpec:
                 }
             },
         }
+        # Reasoning models (gpt-5 family, o-series) reject a temperature.
+        if not llm_mod.is_reasoning_model(self.model):
+            definition["temperature"] = self.temperature
+        return definition
 
     def digest(self) -> str:
         payload = {"definition": self.definition(), "description": self.description}

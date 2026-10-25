@@ -129,6 +129,12 @@ def test_three_model_steps_become_three_agents_built_from_the_cards():
         assert step["agent_service"]["text"]["format"]["name"] == schema.__name__
 
 
+def test_reasoning_model_agents_carry_no_temperature():
+    # gpt-5 and o-series models refuse a temperature; chat models keep theirs.
+    assert all("temperature" not in s.definition() for s in agent_specs("gpt-5-mini"))
+    assert all("temperature" in s.definition() for s in agent_specs("gpt-4o-mini"))
+
+
 def test_model_deployment_follows_the_environment(monkeypatch):
     monkeypatch.setenv("AZURE_OPENAI_DEPLOYMENT", "crew-model")
     assert {s.model for s in agent_specs()} == {"crew-model"}

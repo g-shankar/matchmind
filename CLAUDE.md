@@ -218,3 +218,4 @@ Every linked acceptance criterion has evidence; format/lint, typecheck, unit, in
 - A per-connection limit is not a limit on shared state: anything every viewer shares (the playback clock, process memory across send queues) needs a cap for the whole process, sized against the container.
 - Text the server renders once (jump-list titles) must follow the viewer's language too; check every label after a language switch, not only the cards.
 - Hiding a value is not enough when its absence, a gap in numbering or a special shape marks it: withhold or neutralise the marker too, test with a classifier over the whole stream, and say plainly what timing still reveals.
+- Reasoning deployments (gpt-5, o-series) refuse `temperature` and `max_tokens`; a status page that says "ai" proves nothing, so check `fallback_rate` and the trace after every model change.

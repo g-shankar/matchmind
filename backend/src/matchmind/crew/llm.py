@@ -31,6 +31,13 @@ DEFAULT_DEPLOYMENT = "gpt-4o-mini"
 TOKEN_SCOPE = "https://cognitiveservices.azure.com/.default"
 TEMPERATURE = 0.3
 MAX_TOKENS = 400
+# Reasoning models (gpt-5 family, o-series) reject `temperature` and `max_tokens`;
+# they take `max_completion_tokens`, which also covers their hidden reasoning
+# tokens, and `reasoning_effort` (API version 2025-04-01-preview or later).
+REASONING_PREFIXES = ("gpt-5", "o1", "o3", "o4")
+REASONING_MAX_COMPLETION_TOKENS = 2000
+REASONING_EFFORT = "minimal"
+REASONING_MIN_API_VERSION = "2025-04-01-preview"
 PROVIDERS = ("azure_openai", "foundry_agents")
 
 logger = logging.getLogger(__name__)
@@ -77,6 +84,29 @@ def parse_json(raw: str | None, schema: type[BaseModel]) -> BaseModel:
         raise LLMSchemaError(f"answer does not match {schema.__name__}") from exc
 
 
+def is_reasoning_model(deployment: str | None) -> bool:
+    """True for deployments named after a reasoning model (gpt-5*, o1/o3/o4*)."""
+    name = (deployment or "").strip().lower()
+    return name.startswith(REASONING_PREFIXES)
+
+
+def completion_params(deployment: str | None) -> dict[str, Any]:
+    """The sampling and length parameters this deployment accepts."""
+    if is_reasoning_model(deployment):
+        return {
+            "max_completion_tokens": REASONING_MAX_COMPLETION_TOKENS,
+            "reasoning_effort": REASONING_EFFORT,
+        }
+    return {"temperature": TEMPERATURE, "max_tokens": MAX_TOKENS}
+
+
+def api_version_for(deployment: str | None, requested: str) -> str:
+    """Raise an older API version to the first one that takes `reasoning_effort`."""
+    if is_reasoning_model(deployment) and requested[:10] < REASONING_MIN_API_VERSION[:10]:
+        return REASONING_MIN_API_VERSION
+    return requested
+
+
 class AzureOpenAILLM:
     enabled = True
     provider = "azure_openai"
@@ -90,7 +120,9 @@ class AzureOpenAILLM:
     ) -> None:
         self.endpoint = endpoint or os.environ.get("AZURE_OPENAI_ENDPOINT", "")
         self.model = deployment or os.environ.get("AZURE_OPENAI_DEPLOYMENT", DEFAULT_DEPLOYMENT)
-        self.api_version = api_version or os.environ.get("AZURE_OPENAI_API_VERSION", DEFAULT_API_VERSION)
+        self.api_version = api_version_for(
+            self.model, api_version or os.environ.get("AZURE_OPENAI_API_VERSION", DEFAULT_API_VERSION)
+        )
         self._client = client
 
     def _get_client(self) -> Any:
@@ -120,8 +152,7 @@ class AzureOpenAILLM:
                     {"role": "user", "content": json.dumps(user, ensure_ascii=False)},
                 ],
                 response_format={"type": "json_object"},
-                temperature=TEMPERATURE,
-                max_tokens=MAX_TOKENS,
+                **completion_params(self.model),
                 timeout=timeout_s,
             )
             raw = response.choices[0].message.content
