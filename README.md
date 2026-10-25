@@ -1,7 +1,16 @@
-# PitchPulse
+<h1 align="center">PitchPulse</h1>
 
-**The trust layer for match intelligence, on the deepest football brain we
-could build.** PitchPulse turns a stream of synthetic football events into
+<p align="center"><strong>The trust layer for match intelligence: explained, personalised, multilingual broadcast graphics where every number is checked against the stats engine.</strong></p>
+
+<p align="center">
+<a href="https://github.com/g-shankar/matchmind/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/g-shankar/matchmind/actions/workflows/ci.yml/badge.svg"></a>
+<a href="https://github.com/g-shankar/matchmind/actions/workflows/codeql.yml"><img alt="CodeQL" src="https://github.com/g-shankar/matchmind/actions/workflows/codeql.yml/badge.svg"></a>
+<a href="LICENSE"><img alt="Licence: MIT" src="https://img.shields.io/badge/licence-MIT-blue.svg"></a>
+<img alt="Data: synthetic only" src="https://img.shields.io/badge/data-synthetic%20only-informational.svg">
+<img alt="Paid AI: off by default" src="https://img.shields.io/badge/paid%20AI-off%20by%20default-lightgrey.svg">
+</p>
+
+PitchPulse turns a stream of synthetic football events into
 explained, personalised, multilingual broadcast graphics, and shows its working
 for every number on screen.
 
@@ -18,8 +27,9 @@ for every number on screen.
 
 Built by the PitchPulse team for the Microsoft x Premier League "Inside the
 Game" hackathon. **Judges: [the brief, line by line](docs/HACKATHON-BRIEF.md)**
-shows each requirement, where to see it, and where we fall short. All clubs, players and matches are invented; no real teams,
-people, competitions or broadcaster branding appear anywhere.
+shows each requirement, where to see it, and where we fall short. All clubs,
+players and matches are invented; no real teams, people, competitions or
+broadcaster branding appear anywhere.
 
 ![Should he have passed? The open teammate, the passing lane and the chance he gave up](docs/images/should-he-have-passed.png)
 
@@ -78,6 +88,18 @@ with the club-heart comparison), `#follow` (Player focus), `#fan` (My match),
 
 ## The five-stage pipeline
 
+```mermaid
+flowchart LR
+    A["Ingest<br/>synthetic match engine<br/>or a checked feed"] --> B["Stats engine<br/>24 metrics, deterministic"]
+    B --> C["Five-agent crew<br/>Spotter, Analyst,<br/>Commentator, Producer"]
+    C --> D{"Fact-checker<br/>every number and name"}
+    D -- pass --> E["Overlays and cue sheet<br/>OBS, vMix, studio board"]
+    D -- fail --> F["Localised template<br/>fallback_reason shown"]
+    F --> E
+    E --> G["Personal views<br/>persona, club heart,<br/>language, catch-up"]
+    B -. facts .-> D
+```
+
 | Stage | What happens | Where |
 |---|---|---|
 | 1. Ingest | A synthetic match engine plays 90 minutes on a 105 x 68 m pitch and streams typed events; or a feed you supply (JSONL, or CSV with a mapping) is checked strictly and played | `backend/src/matchmind/simulator`, `ingest/`; Azure Event Hubs (built, off) |
@@ -115,6 +137,16 @@ circuit breaker and a process-wide budget; any failure falls back to the
 localised template and says so on the card (`fallback_reason`). The crew can be
 chained in-process (default) or by Microsoft Agent Framework with identical
 output (tested). Details: [docs/FOUNDRY.md](docs/FOUNDRY.md).
+
+## What PitchPulse is not
+
+- **Not betting advice.** Nothing here predicts results or suggests a stake.
+- **Not a replacement for officials.** VAR reviews in the demo are simulated
+  events; PitchPulse explains moments, it does not rule on them.
+- **A score is not proof of the right decision.** "Should he have passed?" compares
+  two modelled chances at one instant; see [DECISION-SCORING.md](docs/DECISION-SCORING.md)
+  (method v1) for the formula and its limits.
+- **Not real football.** Synthetic data only: invented clubs, players and matches.
 
 ## Feature status
 
@@ -170,6 +202,27 @@ One matrix for everything. Labels:
 | OBS / vMix capture (`?capture=1#overlay`) | Running | [OBS.md](docs/OBS.md) |
 | Security: origin allow-lists, rate limits, size caps, CSP, HSTS, `no-store` | Running | [THREAT-MODEL.md](docs/THREAT-MODEL.md) |
 | Azure deployment (Container Apps, Bicep, OIDC, managed identities, no keys) | Built, off until deployed | [deployment/README.md](deployment/README.md) |
+
+## Microsoft technologies
+
+Checked against `deployment/azure_bicep/main.bicep` and the code. None is
+deployed yet; the default build runs offline with no cloud account.
+
+| Technology | Used for | Status |
+|---|---|---|
+| Azure Container Apps | The app and the simulator job | Built, off until deployed |
+| Azure Event Hubs | Match event stream (keyless) | Built, off until deployed |
+| Microsoft Foundry (resource, project, `gpt-4o-mini` deployment) | Analyst, Commentator, recap | Built, off until deployed |
+| Foundry Agent Service | The three model steps as registered agents | Built, off; not run against a live project |
+| Azure AI Translator | Eight world languages | Built, off until deployed |
+| Application Insights and OpenTelemetry | Crew traces (no text or viewer data) | Tracing code runs as a no-op; export built, off |
+| Microsoft Entra ID, managed identities | Keyless sign-in to every Azure call | Built in Bicep, off until deployed |
+| Azure Container Registry, Log Analytics, Bicep | Image, logs, infrastructure as code | Built; `bicep build` runs in CI |
+| Microsoft Agent Framework | Optional crew orchestration, identical cards (tested) | Off by default (local extra) |
+| Microsoft Fabric (Lakehouse, Eventhouse) | Export files and KQL | Files and queries only; not run in Fabric |
+| GitHub Actions, CodeQL | CI, scanning, OIDC deploy workflow | Running (deploy needs the owner's subscription) |
+
+Feature-by-feature mapping: [Microsoft services, feature by feature](#microsoft-services-feature-by-feature).
 
 ## Microsoft services, feature by feature
 
@@ -294,7 +347,10 @@ The GitHub Actions **deploy** workflow does the same with OIDC sign-in. See
 | `analytics/fabric/` | Lakehouse notebook and Eventhouse KQL |
 | `foundry/agents/` | Generated agent cards |
 | `deployment/` | Bicep, Dockerfile, deploy notes |
-| `docs/` | Everything below |
+| `docs/` | Everything below, including the committed API contract `docs/openapi.json` |
+| `backend/tests/` | Backend test suite |
+| `.github/workflows/` | CI, CodeQL, deploy |
+| `setup/` | Owner to-do list |
 
 ## Docs
 
@@ -307,6 +363,11 @@ The GitHub Actions **deploy** workflow does the same with OIDC sign-in. See
 | [BUILD-STATUS.md](docs/BUILD-STATUS.md) | Current status, evidence commands, known issues |
 | [NEXT-STEPS.md](docs/NEXT-STEPS.md) | The remaining roadmap: what is left and who does it |
 | [API-CONTRACT.md](docs/API-CONTRACT.md) | REST, WebSocket and MCP payloads, server settings |
+| [openapi.json](docs/openapi.json) | Generated OpenAPI 3 spec (`make openapi`; a test fails on drift) |
+| [DECISION-SCORING.md](docs/DECISION-SCORING.md) | "Should he have passed?": inputs, formula (v1), thresholds, limits |
+| [REALISM.md](docs/REALISM.md) | Realism checks on the synthetic matches |
+| [benchmark/](docs/benchmark) | Benchmark outputs |
+| [images/](docs/images) | Screenshots used in the docs |
 | [METRICS.md](docs/METRICS.md) | Every metric's formula, generated from the registry |
 | [TRUST.md](docs/TRUST.md) | What the trust layer checks and does not check; claims, parity, audit |
 | [EVALUATION.md](docs/EVALUATION.md) | Evaluation dataset and scorecard |

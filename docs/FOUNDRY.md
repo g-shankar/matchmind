@@ -142,6 +142,15 @@ How they map to Foundry Agent Service: each `model_steps[]` entry has an `agent_
 the prompt-agent definition (name, `kind: prompt`, model deployment, instructions, temperature,
 `text.format` JSON schema, no tools). Deterministic agents have no model step and stay in our code.
 
+## API contract as a tool contract (proposed)
+
+`docs/openapi.json` is the committed OpenAPI 3 description of the REST API
+(regenerate with `make openapi`; `backend/tests/test_openapi_contract.py` fails
+when it drifts from the live app). A Foundry agent could import it as an OpenAPI
+tool so a model step calls read-only endpoints against a typed contract.
+**Not wired:** every agent card has `tools: []` and no registration code attaches
+this spec, so today it is documentation and a drift-checked contract only.
+
 ## Foundry Agent Service runtime (backend/src/matchmind/foundry/agent_service.py)
 
 `FoundryAgentsLLM` implements the crew's `LLM` interface, so it slots in where the Azure OpenAI
