@@ -11,6 +11,7 @@ import { loadDemoStress, stressTest, type InsightResult } from '../api/insights'
 import { useI18n } from '../i18n';
 import { useInsightMode } from '../state/useInsight';
 import { Modal } from './Modal';
+import { compareMoments } from './MomentsList';
 import { cx } from './ui';
 
 export const STEP_MS = 450;
@@ -115,8 +116,13 @@ export const StressSteps: React.FC<{ result: StressResult }> = ({ result }) => {
 
 type RunState = InsightResult<StressResult> | { status: 'idle' } | { status: 'loading' };
 
-/** The entry point: one small button, and the panel it opens. Hidden in catch-up mode. */
-export const StressTestButton: React.FC<{ bookmarks: Bookmark[]; spoilers: boolean }> = ({ bookmarks, spoilers }) => {
+/** The entry point: one small button, and the panel it opens. Hidden in catch-up mode.
+ * `now` is the match clock: live, the server only tests moments already played, so later ones are left out. */
+export const StressTestButton: React.FC<{
+  bookmarks: Bookmark[];
+  spoilers: boolean;
+  now?: { clock_s: number; period?: number };
+}> = ({ bookmarks, spoilers, now }) => {
   const { t, lang } = useI18n();
   const mode = useInsightMode();
   const titleId = useId();
@@ -137,9 +143,13 @@ export const StressTestButton: React.FC<{ bookmarks: Bookmark[]; spoilers: boole
   }, [open, mode, recorded]);
 
   const options = useMemo(() => {
-    const list = bookmarks.filter((b) => !b.moment_id.startsWith('metric:') && (mode !== 'demo' || recorded?.has(b.moment_id)));
+    const list = bookmarks.filter(
+      (b) =>
+        !b.moment_id.startsWith('metric:') &&
+        (mode === 'demo' ? recorded?.has(b.moment_id) : !now || compareMoments(b, now) <= 0),
+    );
     return list.slice(-40).reverse();
-  }, [bookmarks, mode, recorded]);
+  }, [bookmarks, mode, recorded, now?.clock_s, now?.period]);
   const picked = options.some((o) => o.moment_id === momentId) ? momentId : (options[0]?.moment_id ?? '');
 
   if (!spoilers) return null;

@@ -220,3 +220,4 @@ Every linked acceptance criterion has evidence; format/lint, typecheck, unit, in
 - Hiding a value is not enough when its absence, a gap in numbering or a special shape marks it: withhold or neutralise the marker too, test with a classifier over the whole stream, and say plainly what timing still reveals.
 - Reasoning deployments (gpt-5, o-series) refuse `temperature` and `max_tokens`; a status page that says "ai" proves nothing, so check `fallback_rate` and the trace after every model change.
 - Model text must never show raw fact keys (`p_key_passes`); the fact-checker rejects snake_case names, and decision moments pass the verdict to the model so it cannot be skipped.
+- A picker whose server only accepts played moments must filter by the match clock too; the bookmarks list includes moments still to come.

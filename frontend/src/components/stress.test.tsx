@@ -109,6 +109,15 @@ describe('stress test panel', () => {
     expect(await screen.findByTestId('stress-steps')).toBeTruthy();
   });
 
+  it('lists only moments already played on the live clock, newest first', async () => {
+    const later = { ...bm('later'), match_clock: '90+5:19', clock_s: 5719, period: 2 };
+    const second = { ...bm('second'), clock_s: 2900, period: 2 };
+    ui(<StressTestButton bookmarks={[bm('early'), bm('now'), second, later]} spoilers now={{ clock_s: 600, period: 1 }} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Stress test the crew' }));
+    const select = (await screen.findByRole('combobox')) as HTMLSelectElement;
+    expect([...select.options].map((o) => o.value)).toEqual(['now', 'early']);
+  });
+
   it('is hidden in catch-up mode', () => {
     ui(<StressTestButton bookmarks={[bm('a')]} spoilers={false} />);
     expect(screen.queryByRole('button')).toBeNull();

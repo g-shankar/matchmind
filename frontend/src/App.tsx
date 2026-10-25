@@ -434,7 +434,11 @@ export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ mat
                           <ControlChaosGauge match={match} actions={actions} />
                           <CrewHealthDisclosure match={match} />
                           <div className="flex justify-end">
-                            <StressTestButton bookmarks={match.bookmarks} spoilers={match.profile.spoilers !== false} />
+                            <StressTestButton
+                              bookmarks={match.bookmarks}
+                              spoilers={match.profile.spoilers !== false}
+                              now={match.playback}
+                            />
                           </div>
                         </div>
                       }
