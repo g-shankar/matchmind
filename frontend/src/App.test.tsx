@@ -86,6 +86,7 @@ describe('jumping to a moment', () => {
       playback: { is_running: false, speed_multiplier: 1, clock_s: 600, match_clock: '10:00', period: 1, ended: false },
     });
     const { update } = shell(paused, actions);
+    fireEvent.click(screen.getByTestId('panel-tab-moments'));
     fireEvent.click(screen.getByRole('button', { name: /34:16/ }));
     expect(actions.seek).toHaveBeenCalledWith(2057, 1);
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
@@ -108,6 +109,7 @@ describe('jumping to a moment', () => {
     const b = bookmark({ moment_id: 'M-1', kind: 'goal', match_clock: '00:20', clock_s: 20, title: 'Goal for AAA' });
     const playing = matchWith({ bookmarks: [b], playback: { is_running: true, speed_multiplier: 1, clock_s: 30, match_clock: '00:30', period: 1, ended: false } });
     const { update } = shell(playing, actions);
+    fireEvent.click(screen.getByTestId('panel-tab-moments'));
     fireEvent.click(screen.getByRole('button', { name: /Goal for AAA/ }));
     expect(actions.seek).toHaveBeenCalledWith(12, 1);
     update({ ...playing, playback: { ...playing.playback, clock_s: 12 } });
@@ -123,6 +125,7 @@ describe('replay modal', () => {
     const actions = actionsMock({ getMoment: vi.fn().mockResolvedValue(special) });
     const m = matchWith({ bookmarks: [bookmark()], playback: { is_running: false, speed_multiplier: 1, clock_s: 3000, match_clock: '50:00', period: 2, ended: false } });
     shell(m, actions);
+    fireEvent.click(screen.getByTestId('panel-tab-moments'));
     fireEvent.click(screen.getByRole('button', { name: /34:16/ }));
     const dialog = await screen.findByRole('dialog');
     // The modal moves focus in an effect after it opens; wait for it rather than racing it.

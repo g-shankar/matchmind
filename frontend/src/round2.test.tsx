@@ -142,6 +142,7 @@ describe('R2-02 key replays first', () => {
 describe('R2-03 About from the header', () => {
   it('opens About this demo as a dialog from the top bar', async () => {
     ui(<Shell match={matchWith()} actions={actionsMock()} />);
+    fireEvent.click(screen.getByTestId('more-open'));
     fireEvent.click(screen.getByTestId('about-open'));
     const dialog = await screen.findByRole('dialog', { name: 'About this demo' });
     expect(dialog.textContent).toContain('synthetic data');
@@ -200,6 +201,7 @@ describe('R2-06 audience change', () => {
 describe('R2-07 R2-09 R2-10 R2-13 small fixes', () => {
   it('every speed button is at least 44 by 44', () => {
     ui(<Shell match={matchWith()} actions={actionsMock()} />);
+    fireEvent.click(screen.getByTestId('more-open'));
     for (const group of screen.getAllByRole('radiogroup', { name: 'Playback speed' })) {
       for (const b of group.querySelectorAll('button')) expect(b.className).toMatch(/min-h-\[44px\] min-w-\[44px\]/);
     }
@@ -213,6 +215,7 @@ describe('R2-07 R2-09 R2-10 R2-13 small fixes', () => {
 
   it('keeps the crew pill on one line', () => {
     ui(<Shell match={matchWith({ crew: fixture.crew })} actions={actionsMock()} />, 'es');
+    fireEvent.click(screen.getByTestId('more-open'));
     expect(screen.getByText('Equipo IA: modo plantilla').className).toContain('whitespace-nowrap');
   });
 
@@ -251,5 +254,26 @@ describe('R2-14 replay rounding', () => {
     expect(evidenceText({ label: 'Pass expected value', label_key: 'alt_value', value: 0.2, unit: 'xG', source_event_id: null }, i18n)).toBe('0.20');
     expect(evidenceText({ label: 'Teammate chance xG', label_key: 'alt_xg', value: 0.24, unit: 'xG', source_event_id: null }, i18n)).toBe('0.24');
     expect(evidenceText({ label: 'Pass vs shot', label_key: 'times_better', value: 4, unit: 'x', source_event_id: null }, i18n)).toBe('4');
+  });
+});
+
+describe('studio panels', () => {
+  it('moves between tabs with the arrow keys, Home and End', () => {
+    ui(<Shell match={matchWith()} actions={actionsMock()} />);
+    const list = screen.getByRole('tablist', { name: 'Studio panels' });
+    expect(screen.getByTestId('panel-tab-story').getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(list, { key: 'ArrowRight' });
+    expect(screen.getByTestId('panel-tab-ask').getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(list, { key: 'End' });
+    expect(screen.getByTestId('panel-tab-stats').getAttribute('aria-selected')).toBe('true');
+    fireEvent.keyDown(list, { key: 'Home' });
+    expect(screen.getByTestId('panel-tab-story').getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('lists matches, tour, source and About in the More menu', () => {
+    ui(<Shell match={matchWith()} actions={actionsMock()} />);
+    fireEvent.click(screen.getByTestId('more-open'));
+    const menu = screen.getByTestId('more-menu');
+    for (const id of ['more-matches', 'more-tour', 'about-open']) expect(menu.querySelector(`[data-testid="${id}"]`)).toBeTruthy();
   });
 });
