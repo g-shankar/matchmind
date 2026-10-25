@@ -105,13 +105,13 @@ describe('moment rail', () => {
   ];
   const colors = { home: '#1155ee', away: '#ee8811' };
 
-  it('withholds every mark and shape in catch-up mode, keeping the ribbon up to the clock', () => {
+  it('withholds every mark, shape and the momentum ribbon in catch-up mode', () => {
     expect(railMarks(marks, false)).toBeNull();
     const { container } = ui(<MomentRail bookmarks={marks} spoilers={false} nowS={200} history={history} colors={colors} onJump={() => undefined} />);
     expect(screen.getByTestId('moment-rail-hidden')).toBeTruthy();
     expect(container.querySelectorAll('button, [data-mark]')).toHaveLength(0);
     expect(container.textContent).not.toMatch(/Goal at|Shot at|GoalShot/);
-    expect(container.querySelectorAll('[data-testid="momentum-ribbon"] rect')).toHaveLength(2);
+    expect(container.querySelector('[data-testid="momentum-ribbon"]')).toBeNull();
   });
 
   it('draws momentum in team colours, never past the playback clock', () => {

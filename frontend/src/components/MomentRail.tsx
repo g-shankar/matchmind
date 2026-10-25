@@ -1,8 +1,8 @@
 // The moment rail above the pitch: goals and shots so far as marks on the match's length.
 // A mark seeks playback through the studio's own jump (the same one the moments list uses).
 // In catch-up mode every mark is withheld (no marks, shapes or count), because a missing
-// mark, a gap or a goal's own shape would give the result away; the momentum ribbon stays,
-// cut off at the playback clock like everywhere else.
+// mark, a gap or a goal's own shape would give the result away; the momentum ribbon is
+// withheld as well, since a swing around a kick-off can hint at a goal.
 import React, { useMemo } from 'react';
 import type { Bookmark, MomentKind } from '../api/contract';
 import type { MetricSample } from '../state/matchStore';
@@ -65,7 +65,8 @@ export const MomentRail: React.FC<{
   const marks = useMemo(() => railMarks(bookmarks, spoilers, { clock_s: nowS, period: nowPeriod }), [bookmarks, spoilers, nowS, nowPeriod]);
   const shown = marks ?? [];
   const span = Math.max(FULL_MATCH_S, nowS + 60, ...shown.map((m) => m.b.clock_s + 60));
-  const bars = ribbonBars(history, nowS, span);
+  // Catch-up mode withholds the ribbon too: a momentum swing can hint at a goal.
+  const bars = marks === null ? [] : ribbonBars(history, nowS, span);
   const now = Math.min(100, (nowS / span) * 100);
   const half = (HALF_S / span) * 100;
   return (
