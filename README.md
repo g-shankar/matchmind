@@ -33,6 +33,23 @@ broadcaster branding appear anywhere.
 
 ![Should he have passed? The open teammate, the passing lane and the chance he gave up](docs/images/should-he-have-passed.png)
 
+## Status at a glance
+
+| Feature | State | Evidence |
+|---|---|---|
+| Stats engine, 24 metrics, 14 moment kinds | Live (offline, synthetic data) | [METRICS.md](docs/METRICS.md), `backend/tests/test_stats.py` |
+| Fact-checker and claim audit | Live, tested | [TRUST.md](docs/TRUST.md), `backend/tests/test_trust.py` |
+| Crew text (Analyst, Commentator, recap) | Template fallback: templates run today; model path built, off | [FOUNDRY.md](docs/FOUNDRY.md), `backend/tests/test_crew.py` |
+| Cue sheet, VAR retraction, overlays | Live, tested | [CUE-SHEET.md](docs/CUE-SHEET.md), `backend/tests/test_cues.py` |
+| Five studio languages | Live; not reviewed by native broadcasters | [LANGUAGES.md](docs/LANGUAGES.md) |
+| Eight world languages (Translator) | Template fallback: shown in English and labelled; tested against fakes | `backend/tests/test_translator.py` |
+| REST API contract | Live, drift-tested | [openapi.json](docs/openapi.json), `backend/tests/test_openapi_contract.py` |
+| Azure deployment | Tested against Bicep build only; not deployed | [deployment/README.md](deployment/README.md) |
+| Foundry agents wired to the API spec as a tool | Not built | [FOUNDRY.md](docs/FOUNDRY.md) |
+| Real video input, neural voices | Not built | [Feature status](#feature-status) |
+
+The full matrix is under [Feature status](#feature-status).
+
 ## Quick start
 
 No cloud account and no keys. Pick one.
