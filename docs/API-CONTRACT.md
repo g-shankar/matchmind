@@ -507,6 +507,7 @@ collision rules are in [CUE-SHEET.md](CUE-SHEET.md) and
 | `GET /api/match/recap?persona=&lang=&spoilers=` | `Recap` (so far, or full match after the end; the same after a seek as after watching straight through); `spoilers=false` gives the spoiler-free story so far (`spoiler_free: true`) |
 | `POST /api/ask` `{ question?, chip?, lang, spoilers }` | `AskAnswer` (below): Ask the studio, one question or one suggested chip, answered as of the match clock (docs/ASK.md) |
 | `GET /api/match/cue-sheet?persona=&lang=&favourite_team=&since_seq=0&limit=500` | `CueSheetPage`: the compiled cue sheet up to the current position, cues with `seq > since_seq`, at most `limit` (1-500); page with `next_since_seq` while `has_more` (see CUE-SHEET.md). Same rate limit as `/api/match/moment` |
+| `POST /api/match/stress-test` `{ moment_id, fault, persona?, lang? }` | `StressResult`: one played moment through a throwaway sandbox crew with one fault (`wrong_number`, `analyst_down`, `model_down`, `bad_handoff`); `lang` is a studio language. Enums only, body at most 512 bytes (413), JSON only (415), its own per-IP bucket (4 burst, 1 per 5 s) and at most 2 runs at once (429), `no-store`. Unplayed and catch-up ids get 404 (docs/TRUST.md) |
 | `POST /api/match/seek` `{ clock_s, period? }` | `Playback` |
 | `POST /api/match/speed` `{ speed_multiplier }` | `Playback` |
 | `POST /api/match/reset` `{}` | `Playback`. These three and `POST /api/ask` take `Content-Type: application/json` only (anything else gets 415), so a plain cross-site form cannot change the shared match |
@@ -519,6 +520,21 @@ collision rules are in [CUE-SHEET.md](CUE-SHEET.md) and
 | `GET /api/source` | `MatchSource`: where the match comes from (file or the live Event Hubs stream) and the stream counters |
 | `GET /api/dataset` | `DatasetIndex`: every downloadable synthetic match with its scenario and seed (docs/DATASET.md) |
 | `GET /api/dataset/export?match_id=&format=jsonl\|csv\|zip[&tracking_period=&tracking_from=&tracking_to=]` | a file download (streamed, `Content-Disposition: attachment`): events as JSON lines (byte for byte as bundled), events as CSV, or a zip with metadata, rosters, schema, data dictionary and, with the three tracking parameters, a 25 Hz synthetic tracking sample of at most 60 s (zip only) |
+
+```ts
+interface StressStep {
+  agent: 'analyst' | 'commentator' | 'fact_checker' | 'fallback' | 'producer';
+  status: 'ok' | 'down' | 'injected' | 'malformed' | 'rejected' | 'skipped' | 'fallback' | 'took_over';
+  code: string;               // stable, translated by the app
+  detail?: string;            // the injected number, or a short fallback reason code
+  reasons?: string[];         // the fact-checker's reasons, at most 3 x 160 chars
+}
+interface StressResult {
+  moment_id: string; fault: StressFault; steps: StressStep[];   // at most 8 steps
+  card: { moment_id; kind; language; rtl; headline; body; why; produced_by; fallback_reason } | null;
+  safe: boolean;              // the card passed the fact-checker and is template text
+}
+```
 
 ```ts
 interface DatasetMatch {

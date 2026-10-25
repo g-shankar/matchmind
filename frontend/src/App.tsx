@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronRight, FileText, Info, Pause, Play, RotateCcw, X } from 'lucide-react';
+import { ChevronRight, Compass, FileText, Info, LayoutGrid, Pause, Play, RotateCcw, X } from 'lucide-react';
 import type { Bookmark, Language, OverlayCard, PersonaType, SpeedMultiplier } from './api/contract';
 import { I18nProvider, useI18n } from './i18n';
 import { connectionLostText, toastText } from './i18n/toasts';
@@ -8,6 +8,7 @@ import { activeCards } from './state/matchStore';
 import type { ViewProps } from './views/types';
 import { Badge, Logo, Segmented, cx } from './components/ui';
 import { Pitch2D } from './components/Pitch2D';
+import { CameraControl, useCameraPreset } from './components/CameraControl';
 import { ReplayCard } from './components/ReplayCard';
 import { ControlChaosGauge } from './components/ControlChaosGauge';
 import { NarrativeFeed, StoryCard } from './components/NarrativeFeed';
@@ -17,12 +18,18 @@ import { LanguagePicker } from './components/LanguagePicker';
 import { Modal } from './components/Modal';
 import { InsightModeProvider } from './state/useInsight';
 import { demoRequested } from './api/insights';
+import { StressTestButton } from './components/StressTest';
 import { apiBase } from './api/transport';
 // Ask the studio, catch-up mode and read-aloud.
 import { AskStudio } from './components/AskStudio';
 import { CatchUpBanner, CatchUpButton, ScoreValue } from './components/CatchUp';
 import { ReadAloudCards, ReadAloudToggle } from './components/ReadAloud';
 import { inkOn } from './lib/contrast';
+import { MatchPicker } from './components/MatchPicker';
+import { pickerOnLoad } from './lib/previews';
+import { MomentRail } from './components/MomentRail';
+import { StudioTour, keyMoments } from './components/StudioTour';
+import { LazyAuditDrawer } from './components/ShowWorking';
 
 // The heavier views load on first use, so the first screen arrives sooner on slow networks.
 const SplitView = lazy(() => import('./views/SplitView').then((m) => ({ default: m.SplitView })));
@@ -60,10 +67,12 @@ const reducedMotion = () => {
 
 export const App: React.FC = () => {
   const { state, actions } = useMatch();
+  // First load opens the match picker; deep links (?demo=1, #view, captures) go straight in.
+  const [startPicker] = useState(() => pickerOnLoad(window.location.search, window.location.hash));
   return (
     <I18nProvider lang={state.profile.language}>
       <InsightModeProvider mode={state.status === 'demo' ? 'demo' : 'live'}>
-        <Shell match={state} actions={actions} />
+        <Shell match={state} actions={actions} startWithPicker={startPicker} />
       </InsightModeProvider>
     </I18nProvider>
   );
@@ -97,8 +106,9 @@ interface Focus {
   replayShown: boolean;
 }
 
-export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
+export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ match, actions, startWithPicker = false }) => {
   const { t, dir } = useI18n();
+  const [pickerOpen, setPickerOpen] = useState(startWithPicker);
   const [view, setView] = useState<ViewMode>(viewFromHash);
   const [replay, setReplay] = useState<OverlayCard | null>(null);
   const [recapOpen, setRecapOpen] = useState(false);
@@ -106,6 +116,9 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
   const [focus, setFocus] = useState<Focus | null>(null);
   const [ftDismissed, setFtDismissed] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  const [auditFor, setAuditFor] = useState<string | null>(null);
+  const [pendingJump, setPendingJump] = useState<Bookmark | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const source = useSourceKind(match.status);
 
@@ -182,6 +195,69 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
     }
   }, [focus]);
 
+  // A tour stop that jumps from another screen lands once the studio is showing.
+  useEffect(() => {
+    if (pendingJump && view === 'studio') {
+      jumpTo(pendingJump);
+      setPendingJump(null);
+    }
+  }, [pendingJump, view]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The tour's key-moment run: jump to each, play into it, pause on it; "Next" moves on.
+  const [keyRun, setKeyRun] = useState<{ list: Bookmark[]; index: number } | null>(null);
+  const startKey = (list: Bookmark[], index: number) => {
+    const b = list[index];
+    setKeyRun({ list, index });
+    if (view !== 'studio') {
+      setPendingJump(b);
+      goTo('studio');
+    } else jumpTo(b);
+    if (!playback.is_running && !playback.ended) actions.togglePause();
+  };
+  const keyNow = keyRun ? keyRun.list[keyRun.index] : null;
+  const keyReached = !!keyNow && keyNow.moment_id === focus?.b.moment_id && compareMoments(keyNow, { clock_s: clockS, period: playback.period }) <= 0;
+  useEffect(() => {
+    if (keyReached && playback.is_running) actions.togglePause();
+  }, [keyReached]); // eslint-disable-line react-hooks/exhaustive-deps
+  const playKeys = () => {
+    const list = keyMoments(match.bookmarks);
+    if (list.length) startKey(list, 0);
+  };
+  const nextKey = () => {
+    if (!keyRun) return;
+    if (keyRun.index + 1 < keyRun.list.length) startKey(keyRun.list, keyRun.index + 1);
+    else setKeyRun(null);
+  };
+
+  const tourGo = {
+    studio: () => {
+      goTo('studio');
+      scrollToStage();
+      return true;
+    },
+    decision: () => {
+      const b = [...match.bookmarks].sort(compareMoments).find((x) => x.kind === 'better_option');
+      if (!b) return false;
+      if (view === 'studio') jumpTo(b);
+      else {
+        setPendingJump(b);
+        goTo('studio');
+      }
+      return true;
+    },
+    fanArabic: () => {
+      if (profile.language !== 'ar') actions.setView({ language: 'ar' });
+      goTo('split');
+      return true;
+    },
+    audit: () => {
+      const card = [...match.cards].reverse().find((c) => !c.moment_id.startsWith('metric:') && c.slot !== 'pitch_tag');
+      if (!card) return false;
+      setAuditFor(card.moment_id);
+      return true;
+    },
+  };
+
   const openReplayFor = useCallback(
     (momentId: string) => {
       void actions.getMoment(momentId, profile.persona, profile.language).then((card) => {
@@ -190,6 +266,7 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
     },
     [actions, profile.persona, profile.language],
   );
+  const [camera, setCamera] = useCameraPreset();
 
   const liveReplay = activeCards(match.cards, clockS, 'full_screen', match.cue.ruledOut).find((c) => c.replay);
 
@@ -239,6 +316,30 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
             <div className="hidden items-center gap-2 lg:flex">
               <SpeedAndRestart match={match} actions={actions} />
             </div>
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              aria-haspopup="dialog"
+              aria-label={t('picker.openLabel')}
+              title={t('picker.openLabel')}
+              data-testid="picker-open"
+              className="flex h-11 w-11 shrink-0 items-center justify-center border border-pp-line bg-pp-panel text-pp-chalk hover:border-pp-signal lg:w-auto lg:gap-1.5 lg:px-3"
+            >
+              <LayoutGrid className="h-4 w-4" aria-hidden />
+              <span className="hidden font-display text-sm font-bold uppercase tracking-broadcast lg:inline">{t('picker.open')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTourOpen(true)}
+              aria-label={t('tour.label')}
+              title={t('tour.label')}
+              aria-expanded={tourOpen}
+              data-testid="tour-open"
+              className="flex h-11 w-11 shrink-0 items-center justify-center border border-pp-signal/70 bg-pp-panel text-pp-signal hover:border-pp-signal lg:w-auto lg:gap-1.5 lg:px-3"
+            >
+              <Compass className="h-4 w-4" aria-hidden />
+              <span className="hidden font-display text-sm font-bold uppercase tracking-broadcast lg:inline">{t('tour.open')}</span>
+            </button>
             <button
               type="button"
               onClick={() => setAboutOpen(true)}
@@ -327,17 +428,24 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
                       {focus && (
                         <MomentFocus focus={focus} match={match} onClose={() => setFocus(null)} onOpenReplay={setReplay} />
                       )}
+                      <MomentRail bookmarks={match.bookmarks} spoilers={profile.spoilers !== false} nowS={clockS} nowPeriod={playback.period} history={match.history} colors={{ home: teams.home.primary_color, away: teams.away.primary_color }} onJump={jumpTo} />
                       {liveReplay ? (
                         <ReplayCard card={liveReplay} teams={teams} />
                       ) : (
-                        <Pitch2D
-                          teams={teams}
-                          event={match.lastEvent}
-                          recentEvents={match.events.slice(-6)}
-                          positions={match.positions}
-                          showTags
-                          pitchTags={activeCards(match.cards, clockS, 'pitch_tag', match.cue.ruledOut)}
-                        />
+                        <div className="space-y-2">
+                          <Pitch2D
+                            teams={teams}
+                            event={match.lastEvent}
+                            recentEvents={match.events.slice(-6)}
+                            positions={match.positions}
+                            showTags
+                            camera={camera}
+                            pitchTags={activeCards(match.cards, clockS, 'pitch_tag', match.cue.ruledOut)}
+                          />
+                          <div className="flex justify-end">
+                            <CameraControl value={camera} onChange={setCamera} />
+                          </div>
+                        </div>
                       )}
                     </div>
                     <div className="order-4">
@@ -346,8 +454,11 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
                     <div className="order-5">
                       <ControlChaosGauge match={match} actions={actions} />
                     </div>
-                    <div className="order-6">
+                    <div className="order-6 space-y-2">
                       <CrewHealthDisclosure match={match} />
+                      <div className="flex justify-end">
+                        <StressTestButton bookmarks={match.bookmarks} spoilers={match.profile.spoilers !== false} />
+                      </div>
                     </div>
                   </div>
                   <div className="contents lg:col-span-5 lg:block lg:space-y-4">
@@ -387,6 +498,31 @@ export const Shell: React.FC<ViewProps> = ({ match, actions }) => {
           }}
         />
       </Modal>
+
+      <MatchPicker
+        open={pickerOpen}
+        sessionMatchId={match.matchId}
+        spoilerSafe={profile.spoilers === false}
+        onClose={() => setPickerOpen(false)}
+        onWatch={() => {
+          setPickerOpen(false);
+          if (view !== 'studio') goTo('studio');
+          window.scrollTo({ top: 0 });
+        }}
+      />
+
+      <StudioTour
+        open={tourOpen}
+        onClose={() => {
+          setTourOpen(false);
+          setKeyRun(null);
+        }}
+        go={tourGo}
+        run={keyRun && keyNow ? { index: keyRun.index, total: keyRun.list.length, current: keyNow, paused: keyReached && !playback.is_running } : null}
+        onPlayKeys={match.bookmarks.length ? playKeys : undefined}
+        onNextKey={nextKey}
+      />
+      {auditFor && <LazyAuditDrawer momentId={auditFor} onClose={() => setAuditFor(null)} />}
 
       <RecapModal open={recapOpen} onClose={() => setRecapOpen(false)} recap={match.recap} loading={recapLoading} teams={teams} />
 

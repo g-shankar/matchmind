@@ -11,12 +11,15 @@ import trust from './trust';
 import ask from './ask';
 import visit from './visit';
 import guide from './guide';
+import picker from './picker';
+import tour from './tour';
+import stress from './stress';
 
 export const UI_LANGUAGES = ['en', 'es', 'fr', 'ar', 'ja'] as const;
 export type UiLanguage = (typeof UI_LANGUAGES)[number];
 export type StringTable = Record<UiLanguage, Record<string, string>>;
 
-export const tables: Record<string, StringTable> = { core, pitch, broadcast, studio, fan, world, cues, trust, ask, visit, guide };
+export const tables: Record<string, StringTable> = { core, pitch, broadcast, studio, fan, world, cues, trust, ask, visit, guide, picker, tour, stress };
 
 export const mergedStrings: Record<UiLanguage, Record<string, string>> = {
   en: {},

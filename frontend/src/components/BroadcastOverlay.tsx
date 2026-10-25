@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { PhoneQr } from './PhoneQr';
 import { Activity, Eye, EyeOff, Gavel, Radio } from 'lucide-react';
 import type { Cue, Evidence, OverlayCard, Slot, Teams } from '../api/contract';
 import { factLabel, factValue } from '../lib/facts';
@@ -10,6 +11,7 @@ import { translationReasonText } from './LanguagePicker';
 import type { ViewProps } from '../views/types';
 import { Badge, cx } from './ui';
 import { Pitch2D } from './Pitch2D';
+import { CameraControl, useCameraPreset } from './CameraControl';
 import { ReplayCard } from './ReplayCard';
 import { ScoreValue } from './CatchUp';
 import { inkOn } from '../lib/contrast';
@@ -286,6 +288,7 @@ export const BroadcastOverlay: React.FC<ViewProps & { capture?: boolean }> = ({ 
     metric_alert: true,
     full_screen: true,
   });
+  const [camera, setCamera] = useCameraPreset();
   const { teams, cards, playback, profile, crew } = match;
   const clockS = playback.clock_s;
   const ruledOut = match.cue.ruledOut;
@@ -334,6 +337,7 @@ export const BroadcastOverlay: React.FC<ViewProps & { capture?: boolean }> = ({ 
               showTags={false}
               pitchTags={shown.pitch_tag ? tags : []}
               interactive={false}
+              camera={camera}
               className="h-full w-full"
             />
           </div>
@@ -341,6 +345,19 @@ export const BroadcastOverlay: React.FC<ViewProps & { capture?: boolean }> = ({ 
         )}
         {!capture && (
           <div aria-hidden className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/50 via-transparent to-black/70" />
+        )}
+
+        {/* Camera presets sit on the pitch on wide screens; below the stage on smaller ones. */}
+        {!capture && (
+          <div className="absolute end-[2%] top-[12%] z-[5] hidden lg:block">
+            <CameraControl value={camera} onChange={setCamera} />
+          </div>
+        )}
+
+        {!capture && (
+          <div className="absolute bottom-[24%] end-[2%] z-[5]">
+            <PhoneQr profile={match.profile} />
+          </div>
         )}
 
         {/* Corner badges */}
@@ -476,6 +493,9 @@ export const BroadcastOverlay: React.FC<ViewProps & { capture?: boolean }> = ({ 
       </div>
 
       {stage}
+      <div className="-mt-2 flex justify-end lg:hidden">
+        <CameraControl value={camera} onChange={setCamera} />
+      </div>
 
       <section className="rounded-2xl border border-pp-line/70 bg-pp-panel/80 p-4">
         <header className="mb-1 flex flex-wrap items-center justify-between gap-2">

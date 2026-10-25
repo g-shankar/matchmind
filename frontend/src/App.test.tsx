@@ -223,4 +223,24 @@ describe('a long outage (LC-15)', () => {
   });
 });
 
+describe('match picker', () => {
+  it('stays closed for deep links and opens from the header button', async () => {
+    shell(matchWith(), actionsMock());
+    expect(screen.queryByTestId('match-picker')).toBeNull();
+    fireEvent.click(screen.getByTestId('picker-open'));
+    expect(screen.getByRole('dialog', { name: 'Choose a match' })).toBeTruthy();
+    fireEvent.click(screen.getByTestId('picker-close'));
+    expect(screen.queryByTestId('match-picker')).toBeNull();
+  });
+
+  it('opens before the studio on first load', () => {
+    render(
+      <I18nProvider lang="en">
+        <Shell match={matchWith()} actions={actionsMock()} startWithPicker />
+      </I18nProvider>,
+    );
+    expect(screen.getByTestId('match-picker')).toBeTruthy();
+  });
+});
+
 export type { React };

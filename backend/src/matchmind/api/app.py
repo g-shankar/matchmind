@@ -43,9 +43,11 @@ from matchmind.crew.contracts import (
     FocusMetric,
     Language,
     Persona,
+    StudioLanguage,
     ViewerProfile,
 )
 from matchmind.crew.producer import ViewerState
+from matchmind.crew.stress import Fault
 from matchmind.dataset import catalog as dataset_catalog
 from matchmind.dataset.dictionary import cached_dictionary
 from matchmind.dataset.export import FORMATS as DATASET_FORMATS
@@ -143,6 +145,14 @@ EXPORTS_BUSY = "Downloads are busy right now. Try again in a few seconds."
 ASK_BODY_MAX = 2048
 ASK_QUESTION_MAX = 1000
 ASK_TOO_BIG = "That question is too long. Keep it under 200 characters."
+
+# Stress test the crew (docs/TRUST.md): fixed enums only, a tiny body, its own small
+# per-IP bucket and at most two sandboxes at once for the whole process.
+STRESS_BODY_MAX = 512
+STRESS_BURST, STRESS_PER_SECOND = 4, 0.2
+STRESS_CONCURRENCY = 2
+STRESS_TOO_BIG = "That request is too large."
+STRESS_BUSY = "The stress test is busy right now. Try again in a few seconds."
 
 T = TypeVar("T")
 
@@ -267,6 +277,16 @@ class AskBody(BaseModel):
     chip: ChipId | None = None
     lang: Language = "en"
     spoilers: bool = True
+
+
+class StressBody(BaseModel):
+    """POST /api/match/stress-test: a moment id and fixed enums, never free text."""
+
+    model_config = ConfigDict(extra="forbid")
+    moment_id: str = Field(min_length=1, max_length=80, pattern=r"^[A-Za-z0-9_.:-]+$")
+    fault: Fault
+    persona: Persona = "casual"
+    lang: StudioLanguage = "en"
 
 
 class SeekBody(BaseModel):
@@ -971,6 +991,36 @@ def create_app(
         return await reads.ask(hub, body.question, body.chip, body.lang, body.spoilers, client_ip(request))
 
     # --- end ask the studio -------------------------------------------------------------------
+
+    # --- Stress test the crew (docs/TRUST.md) ----------------------------------------------------
+    stress_limited = [Depends(json_only), Depends(ip_limit(STRESS_BURST, STRESS_PER_SECOND))]
+    stress_slots = threading.BoundedSemaphore(STRESS_CONCURRENCY)
+
+    @app.post("/api/match/stress-test", dependencies=stress_limited)
+    async def stress_test(request: Request) -> dict[str, Any]:
+        """Replay one moment through a throwaway sandbox crew with one fault (a wrong
+        number, an agent knocked out, a malformed hand-off). Never touches the live crew,
+        the cards other viewers see or the cue sheet; never calls a paid model."""
+        declared = request.headers.get("content-length")
+        if declared is not None and declared.isdigit() and int(declared) > STRESS_BODY_MAX:
+            raise HTTPException(status_code=413, detail=STRESS_TOO_BIG)
+        raw = bytearray()
+        async for chunk in request.stream():
+            raw.extend(chunk)
+            if len(raw) > STRESS_BODY_MAX:
+                raise HTTPException(status_code=413, detail=STRESS_TOO_BIG)
+        try:
+            body = StressBody.model_validate_json(bytes(raw))
+        except ValidationError as exc:
+            return JSONResponse(validation_body(exc.errors()), status_code=400)  # type: ignore[return-value]
+        if not stress_slots.acquire(blocking=False):
+            raise HTTPException(status_code=429, detail=STRESS_BUSY)
+        try:
+            return await reads.stress_test(hub, body.moment_id, body.fault, body.persona, body.lang)
+        finally:
+            stress_slots.release()
+
+    # --- end stress test ---------------------------------------------------------------------
 
     @app.post("/api/match/seek", dependencies=limited)
     async def seek(body: SeekBody) -> dict[str, Any]:

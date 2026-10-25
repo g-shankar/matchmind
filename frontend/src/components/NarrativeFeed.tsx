@@ -30,6 +30,7 @@ import type { ViewProps } from '../views/types';
 import { playerName, shortName, teamById } from '../lib/teams';
 import { Badge, Panel, TeamDot, cx } from './ui';
 import { ShowWorkingButton } from './ShowWorking';
+import { CrewRelayToggle } from './CrewRelay';
 import { tagLabel } from '../lib/labels';
 
 export interface NarrativeFeedProps extends ViewProps {
@@ -357,6 +358,7 @@ export const StoryCard: React.FC<{
           </button>
         )}
         <ShowWorkingButton momentId={card.moment_id} persona={card.persona} language={card.language} />
+        <CrewRelayToggle momentId={card.moment_id} slot={card.slot} />
         {card.replay && (
           <button
             type="button"

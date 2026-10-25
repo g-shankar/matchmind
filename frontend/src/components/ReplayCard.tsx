@@ -6,6 +6,8 @@ import { playerById, shortName } from '../lib/teams';
 import { Pitch2D, decimalsOf, evidenceLabel, fmtFact, fmtUnit, pct, withClock } from './Pitch2D';
 import { Badge, cx } from './ui';
 import { ShowWorkingButton } from './ShowWorking';
+import { CrewRelayToggle } from './CrewRelay';
+import { DecisionOptions } from './DecisionOptions';
 import { TranslationTag } from './LanguagePicker';
 import { isTranslationReason, textLanguage } from '../lib/languages';
 
@@ -55,8 +57,16 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
     return () => clearTimeout(id);
   }, [step, cycle]);
 
+  const firstPass = (() => {
+    const opts = isBetterOption(card.replay) ? card.replay.options ?? [] : [];
+    const i = opts.findIndex((o) => o.kind === 'pass' && o.player_id === (card.replay as { teammate_id?: string }).teammate_id);
+    return i >= 0 ? i : 0;
+  })();
+  const [option, setOption] = useState<number | null>(null);
+
   useEffect(() => {
     setStep(1);
+    setOption(null);
   }, [card.card_id]);
 
   const pick = (s: Step) => {
@@ -147,7 +157,7 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
     </header>
   );
 
-  const pitch = <Pitch2D teams={teams} event={null} replay={r} replayStep={step} />;
+  const pitch = <Pitch2D teams={teams} event={null} replay={r} replayStep={step} replayOption={compact ? null : option ?? firstPass} />;
 
   if (compact) {
     const verdict = steps[2];
@@ -224,6 +234,10 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
         </div>
       </div>
 
+      {better && (better.options?.length ?? 0) > 0 && (
+        <DecisionOptions replay={better} teams={teams} selected={option ?? firstPass} onSelect={setOption} />
+      )}
+
       <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
         <div className="space-y-3">
           {card.body && <p lang={lang} className="text-sm leading-relaxed text-slate-200">{card.body}</p>}
@@ -267,7 +281,8 @@ export const ReplayCard: React.FC<ReplayCardProps> = ({ card, teams, compact = f
         )}
       </div>
       {!card.moment_id.startsWith('metric:') && (
-        <div className="mt-3 flex justify-end">
+        <div className="mt-3 flex flex-wrap justify-end gap-2">
+          <CrewRelayToggle momentId={card.moment_id} slot={card.slot} />
           <ShowWorkingButton momentId={card.moment_id} persona={card.persona} language={card.language} />
         </div>
       )}

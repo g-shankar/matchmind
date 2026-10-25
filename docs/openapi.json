@@ -1,0 +1,1040 @@
+{
+  "components": {
+    "schemas": {
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "SeekBody": {
+        "additionalProperties": false,
+        "properties": {
+          "clock_s": {
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Clock S",
+            "type": "number"
+          },
+          "period": {
+            "anyOf": [
+              {
+                "enum": [
+                  1,
+                  2
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period"
+          }
+        },
+        "required": [
+          "clock_s"
+        ],
+        "title": "SeekBody",
+        "type": "object"
+      },
+      "SpeedBody": {
+        "additionalProperties": false,
+        "properties": {
+          "speed_multiplier": {
+            "enum": [
+              1,
+              10,
+              60
+            ],
+            "title": "Speed Multiplier",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "speed_multiplier"
+        ],
+        "title": "SpeedBody",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "PitchPulse match API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/ask": {
+      "post": {
+        "description": "One question about the match, answered from the stats engine as of the playback\nclock. Shares the per-IP bucket of the paid-path GET routes and MCP.",
+        "operationId": "ask_api_ask_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Ask Api Ask Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ask"
+      }
+    },
+    "/api/auto-eventing": {
+      "get": {
+        "operationId": "auto_eventing_api_auto_eventing_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Auto Eventing Api Auto Eventing Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Auto Eventing"
+      }
+    },
+    "/api/crew/status": {
+      "get": {
+        "operationId": "crew_status_api_crew_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Crew Status Api Crew Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Crew Status"
+      }
+    },
+    "/api/crew/trace": {
+      "get": {
+        "operationId": "crew_trace_api_crew_trace_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Crew Trace Api Crew Trace Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Crew Trace"
+      }
+    },
+    "/api/dataset": {
+      "get": {
+        "operationId": "dataset_api_dataset_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Dataset"
+      }
+    },
+    "/api/dataset/export": {
+      "get": {
+        "operationId": "dataset_export_api_dataset_export_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "match_id",
+            "required": true,
+            "schema": {
+              "maxLength": 32,
+              "minLength": 3,
+              "pattern": "^[A-Z0-9][A-Z0-9-]+$",
+              "title": "Match Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "format",
+            "required": false,
+            "schema": {
+              "default": "zip",
+              "enum": [
+                "jsonl",
+                "csv",
+                "zip"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tracking_period",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 2,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tracking Period"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tracking_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 7200,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tracking From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tracking_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 7200,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tracking To"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dataset Export"
+      }
+    },
+    "/api/health": {
+      "get": {
+        "operationId": "health_api_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Api Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/api/languages": {
+      "get": {
+        "operationId": "languages_api_languages_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Languages Api Languages Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Languages"
+      }
+    },
+    "/api/match/bookmarks": {
+      "get": {
+        "operationId": "bookmarks_api_match_bookmarks_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Bookmarks Api Match Bookmarks Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Bookmarks"
+      }
+    },
+    "/api/match/cue-sheet": {
+      "get": {
+        "operationId": "cue_sheet_api_match_cue_sheet_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "persona",
+            "required": false,
+            "schema": {
+              "default": "casual",
+              "enum": [
+                "casual",
+                "tactical",
+                "fantasy",
+                "player_spotlight"
+              ],
+              "title": "Persona",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "schema": {
+              "default": "en",
+              "enum": [
+                "en",
+                "es",
+                "fr",
+                "ar",
+                "ja",
+                "pt",
+                "de",
+                "hi",
+                "zh-Hans",
+                "sw",
+                "id",
+                "tr",
+                "ko"
+              ],
+              "title": "Lang",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "favourite_team",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Favourite Team"
+            }
+          },
+          {
+            "in": "query",
+            "name": "since_seq",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "maximum": 1000000,
+              "minimum": 0,
+              "title": "Since Seq",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 500,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Cue Sheet Api Match Cue Sheet Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cue Sheet"
+      }
+    },
+    "/api/match/moment/{moment_id}": {
+      "get": {
+        "operationId": "moment_api_match_moment__moment_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "moment_id",
+            "required": true,
+            "schema": {
+              "title": "Moment Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "persona",
+            "required": false,
+            "schema": {
+              "default": "casual",
+              "enum": [
+                "casual",
+                "tactical",
+                "fantasy",
+                "player_spotlight"
+              ],
+              "title": "Persona",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "schema": {
+              "default": "en",
+              "enum": [
+                "en",
+                "es",
+                "fr",
+                "ar",
+                "ja",
+                "pt",
+                "de",
+                "hi",
+                "zh-Hans",
+                "sw",
+                "id",
+                "tr",
+                "ko"
+              ],
+              "title": "Lang",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "favourite_team",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 32,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Favourite Team"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Moment Api Match Moment  Moment Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Moment"
+      }
+    },
+    "/api/match/moment/{moment_id}/audit": {
+      "get": {
+        "description": "Facts, source events, evidence, every rendering's claims and fact-check,\nparity and trace for one moment. Same rate limit as the moment route; never\ncalls a paid model (template sweep plus the live crew's cached cards).",
+        "operationId": "moment_audit_api_match_moment__moment_id__audit_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "moment_id",
+            "required": true,
+            "schema": {
+              "title": "Moment Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Moment Audit Api Match Moment  Moment Id  Audit Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Moment Audit"
+      }
+    },
+    "/api/match/players": {
+      "get": {
+        "operationId": "players_api_match_players_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "title": "Response Players Api Match Players Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Players"
+      }
+    },
+    "/api/match/recap": {
+      "get": {
+        "operationId": "recap_api_match_recap_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "persona",
+            "required": false,
+            "schema": {
+              "default": "casual",
+              "enum": [
+                "casual",
+                "tactical",
+                "fantasy",
+                "player_spotlight"
+              ],
+              "title": "Persona",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "schema": {
+              "default": "en",
+              "enum": [
+                "en",
+                "es",
+                "fr",
+                "ar",
+                "ja",
+                "pt",
+                "de",
+                "hi",
+                "zh-Hans",
+                "sw",
+                "id",
+                "tr",
+                "ko"
+              ],
+              "title": "Lang",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "spoilers",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Spoilers",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Recap Api Match Recap Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Recap"
+      }
+    },
+    "/api/match/reset": {
+      "post": {
+        "operationId": "reset_api_match_reset_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Reset Api Match Reset Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Reset"
+      }
+    },
+    "/api/match/seek": {
+      "post": {
+        "operationId": "seek_api_match_seek_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SeekBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Seek Api Match Seek Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Seek"
+      }
+    },
+    "/api/match/snapshot": {
+      "get": {
+        "operationId": "snapshot_api_match_snapshot_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "spoilers",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Spoilers",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Snapshot Api Match Snapshot Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Snapshot"
+      }
+    },
+    "/api/match/speed": {
+      "post": {
+        "operationId": "speed_api_match_speed_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpeedBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Speed Api Match Speed Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Speed"
+      }
+    },
+    "/api/match/stats/basic": {
+      "get": {
+        "operationId": "basic_stats_api_match_stats_basic_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "spoilers",
+            "required": false,
+            "schema": {
+              "default": true,
+              "title": "Spoilers",
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Basic Stats Api Match Stats Basic Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Basic Stats"
+      }
+    },
+    "/api/match/stress-test": {
+      "post": {
+        "description": "Replay one moment through a throwaway sandbox crew with one fault (a wrong\nnumber, an agent knocked out, a malformed hand-off). Never touches the live crew,\nthe cards other viewers see or the cue sheet; never calls a paid model.",
+        "operationId": "stress_test_api_match_stress_test_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Stress Test Api Match Stress Test Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stress Test"
+      }
+    },
+    "/api/metrics": {
+      "get": {
+        "operationId": "metric_registry_api_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Metric Registry Api Metrics Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Metric Registry"
+      }
+    },
+    "/api/source": {
+      "get": {
+        "operationId": "source_api_source_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Source Api Source Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Source"
+      }
+    },
+    "/api/teams": {
+      "get": {
+        "operationId": "teams_api_teams_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Teams Api Teams Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Teams"
+      }
+    }
+  }
+}

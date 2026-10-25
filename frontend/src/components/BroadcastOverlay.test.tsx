@@ -191,6 +191,17 @@ describe('BroadcastOverlay', () => {
       expect(screen.queryByRole('button', { name: /Show or hide/ })).toBeNull();
       expect(screen.queryByTestId('cue-log')).toBeNull();
       expect(screen.queryByText('Synthetic match feed')).toBeNull();
+      expect(screen.queryByTestId('phone-qr')).toBeNull();
+      cleanup();
+      render(
+        <I18nProvider lang="en">
+          <BroadcastOverlay match={overturned()} actions={actions} />
+        </I18nProvider>,
+      );
+      expect(screen.getByTestId('phone-qr').className).toBe('relative hidden lg:block');
+      expect(screen.queryByRole('img', { name: /Scan to open your fan view/ })).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Take it to your phone' }));
+      expect(screen.getByRole('img', { name: /Scan to open your fan view/ })).toBeTruthy();
       cleanup();
       expect(document.documentElement.classList.contains('pp-capture')).toBe(false);
     });

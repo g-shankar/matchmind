@@ -51,6 +51,25 @@ class SprintTag(BaseModel):
     distance_m: float
 
 
+class DecisionOption(BaseModel):
+    """One option at a shot's decision moment: the shot that was taken, or a pass
+    to one teammate, scored by the pass value model (stats.better_option)."""
+
+    rank: int = Field(ge=1, description="1 = highest score among eligible options")
+    kind: Literal["shot", "pass"]
+    player_id: str
+    taken: bool = Field(description="True for the action the player actually chose")
+    score: float = Field(description="Shot: chance quality. Pass: pass success x chance quality")
+    chance_quality: float
+    pass_success: float | None = None
+    pass_distance_m: float | None = None
+    nearest_marker_m: float | None = None
+    onside: bool = True
+    open: bool = Field(default=True, description="No opponent within the unmarked radius")
+    eligible: bool = Field(default=True, description="Onside and open: the options the trigger compares")
+    pos: XY
+
+
 class BetterOption(BaseModel):
     """Trigger 1: the shot taken versus the pass that was on."""
 
@@ -68,6 +87,11 @@ class BetterOption(BaseModel):
     teammate_pos: XY
     defenders: list[XY]
     keeper: XY | None = None
+    options: list[DecisionOption] = Field(
+        default_factory=list, description="Every option, ranked by the engine"
+    )
+    method: str = "pass_value"
+    method_version: int = 1
 
 
 class UnfoundRun(BaseModel):
