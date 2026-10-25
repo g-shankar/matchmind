@@ -98,7 +98,9 @@ class AgentSpec:
             },
         }
         # Reasoning models (gpt-5 family, o-series) reject a temperature.
-        if not llm_mod.is_reasoning_model(self.model):
+        if llm_mod.is_reasoning_model(self.model):
+            definition["reasoning"] = {"effort": llm_mod.reasoning_effort(self.model)}
+        else:
             definition["temperature"] = self.temperature
         return definition
 
@@ -338,7 +340,11 @@ class FoundryAgentsLLM:
         try:
             version = self._version(spec)
             raw = self._client.respond(
-                spec.name, version, json.dumps(user, ensure_ascii=False), timeout_s, llm_mod.MAX_TOKENS
+                spec.name,
+                version,
+                json.dumps(user, ensure_ascii=False),
+                timeout_s,
+                llm_mod.max_output_tokens(spec.model),
             )
         except Exception as exc:  # network, auth, throttling, a deleted agent: never leak provider text
             self._versions.pop(spec.name, None)  # look the agent up again next time

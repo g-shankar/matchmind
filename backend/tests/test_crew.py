@@ -949,8 +949,11 @@ class _RecordingClient:
 ANALYST_JSON = '{"why": "w", "tactical_tag": "chance_creation"}'
 
 
-@pytest.mark.parametrize("deployment", ["gpt-5-mini", "GPT-5", "o4-mini", "o3"])
-def test_reasoning_deployments_get_the_parameters_they_accept(deployment):
+@pytest.mark.parametrize(
+    ("deployment", "effort"),
+    [("gpt-5-mini", "minimal"), ("GPT-5", "minimal"), ("gpt-5.1", "low"), ("o4-mini", "low"), ("o3", "low")],
+)
+def test_reasoning_deployments_get_the_parameters_they_accept(deployment, effort):
     # gpt-5 and o-series deployments answer HTTP 400 to temperature/max_tokens,
     # which sent every live model step to the template fallback.
     client = _RecordingClient(ANALYST_JSON)
@@ -958,18 +961,30 @@ def test_reasoning_deployments_get_the_parameters_they_accept(deployment):
     assert llm.complete_json("s", {}, AnalystOut, 1.0).why == "w"
     assert "temperature" not in client.kwargs and "max_tokens" not in client.kwargs
     assert client.kwargs["max_completion_tokens"] >= 1000  # room for hidden reasoning tokens
-    assert client.kwargs["reasoning_effort"] == "minimal"
+    assert client.kwargs["reasoning_effort"] == effort
     assert llm.api_version == "2025-04-01-preview"
 
 
-def test_chat_deployments_keep_temperature_and_max_tokens():
+@pytest.mark.parametrize("deployment", ["gpt-4o-mini", "gpt-5-chat"])
+def test_chat_deployments_keep_temperature_and_max_tokens(deployment):
     client = _RecordingClient(ANALYST_JSON)
-    llm = AzureOpenAILLM(
-        endpoint="https://x", deployment="gpt-4o-mini", api_version="2024-10-21", client=client
-    )
+    llm = AzureOpenAILLM(endpoint="https://x", deployment=deployment, api_version="2024-10-21", client=client)
     assert llm.complete_json("s", {}, AnalystOut, 1.0).why == "w"
     assert client.kwargs["temperature"] == 0.3 and client.kwargs["max_tokens"] == 400
     assert "reasoning_effort" not in client.kwargs and llm.api_version == "2024-10-21"
+
+
+def test_reasoning_models_get_a_longer_step_timeout(monkeypatch):
+    monkeypatch.delenv("MATCHMIND_AI_STEP_TIMEOUT_S", raising=False)
+    chat = AzureOpenAILLM(endpoint="https://x", deployment="gpt-4o-mini", client=object())
+    reasoning = AzureOpenAILLM(endpoint="https://x", deployment="gpt-5-mini", client=object())
+    assert Crew(TEAMS, llm=chat).timeout_s == 3.0
+    assert Crew(TEAMS, llm=reasoning).timeout_s == 8.0
+    assert Crew(TEAMS, llm=reasoning, timeout_s=1.5).timeout_s == 1.5
+    monkeypatch.setenv("MATCHMIND_AI_STEP_TIMEOUT_S", "5")
+    assert Crew(TEAMS, llm=chat).timeout_s == 5.0
+    monkeypatch.setenv("MATCHMIND_AI_STEP_TIMEOUT_S", "nonsense")
+    assert Crew(TEAMS, llm=chat).timeout_s == 3.0
 
 
 # --------------------------------------------------------------- producer

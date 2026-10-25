@@ -92,7 +92,13 @@ class FakeAgentService:
     def respond(self, name, version, text, timeout_s, max_output_tokens):
         with self._lock:
             self.runs.append(
-                {"name": name, "version": version, "input": json.loads(text), "timeout_s": timeout_s}
+                {
+                    "name": name,
+                    "version": version,
+                    "input": json.loads(text),
+                    "timeout_s": timeout_s,
+                    "max_output_tokens": max_output_tokens,
+                }
             )
         if self.delay:
             time.sleep(self.delay)
@@ -131,8 +137,19 @@ def test_three_model_steps_become_three_agents_built_from_the_cards():
 
 def test_reasoning_model_agents_carry_no_temperature():
     # gpt-5 and o-series models refuse a temperature; chat models keep theirs.
-    assert all("temperature" not in s.definition() for s in agent_specs("gpt-5-mini"))
+    for spec in agent_specs("gpt-5-mini"):
+        d = spec.definition()
+        assert "temperature" not in d and d["reasoning"] == {"effort": "minimal"}
     assert all("temperature" in s.definition() for s in agent_specs("gpt-4o-mini"))
+    assert all("reasoning" not in s.definition() for s in agent_specs("gpt-4o-mini"))
+
+
+def test_reasoning_model_answers_have_room_for_reasoning_tokens():
+    payload = {"facts": {"times_better": 2}}
+    for model, cap in (("gpt-5-mini", 2000), ("gpt-4o-mini", 400)):
+        service = FakeAgentService()
+        FoundryAgentsLLM(service, model=model).complete_json(analyst.ANALYST_SYSTEM, payload, AnalystOut, 1.0)
+        assert service.runs[-1]["max_output_tokens"] == cap
 
 
 def test_model_deployment_follows_the_environment(monkeypatch):

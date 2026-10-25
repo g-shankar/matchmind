@@ -56,7 +56,15 @@ from matchmind.crew.contracts import (
 )
 from matchmind.crew.fact_checker import banned_names_in, check, check_all
 from matchmind.crew.i18n import MissingFact, fill_first_with_template, pack
-from matchmind.crew.llm import LLM, LLMSchemaError, ModelBudget, default_budget, make_llm, provider_of
+from matchmind.crew.llm import (
+    LLM,
+    LLMSchemaError,
+    ModelBudget,
+    default_budget,
+    make_llm,
+    provider_of,
+    step_timeout_s,
+)
 from matchmind.crew.orchestration import make_workflows
 from matchmind.crew.producer import ViewerState, build_card, select
 from matchmind.crew.spoilers import catchup_event_ids
@@ -119,7 +127,7 @@ class Crew:
         teams: dict[str, Team],
         llm: LLM | None = None,
         *,
-        timeout_s: float = STEP_TIMEOUT_S,
+        timeout_s: float | None = None,
         clock: Callable[[], float] = time.monotonic,
         budget: ModelBudget | None = None,
         translator: Translator | TranslationService | None = None,
@@ -132,7 +140,12 @@ class Crew:
             translator if isinstance(translator, TranslationService) else TranslationService(translator)
         )
         self.budget = budget if budget is not None else default_budget()
-        self.timeout_s = timeout_s
+        # None: 3 s, 8 s for reasoning models, or MATCHMIND_AI_STEP_TIMEOUT_S.
+        self.timeout_s = (
+            timeout_s
+            if timeout_s is not None
+            else step_timeout_s(getattr(self.llm, "model", None), STEP_TIMEOUT_S)
+        )
         self.clock = clock
         self.spotter = Spotter(teams)
         self.alerts = AlertWatcher(teams)
