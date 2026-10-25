@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronRight, Compass, FileText, Info, LayoutGrid, Pause, Play, RotateCcw, X } from 'lucide-react';
+import { ChevronRight, Compass, MoreHorizontal, FileText, Info, LayoutGrid, Pause, Play, RotateCcw, X } from 'lucide-react';
 import type { Bookmark, Language, OverlayCard, PersonaType, SpeedMultiplier } from './api/contract';
 import { I18nProvider, useI18n } from './i18n';
 import { connectionLostText, toastText } from './i18n/toasts';
@@ -298,9 +298,6 @@ export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ mat
             </div>
             <h1 className="sr-only lg:hidden">PitchPulse</h1>
           </div>
-          <div className="hidden items-center gap-2 xl:flex">
-            <SourceBadge status={match.status} source={source} />
-          </div>
           <div className="ms-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
             <Scoreline match={match} source={source} />
             <button
@@ -313,9 +310,6 @@ export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ mat
             >
               {playback.is_running ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
             </button>
-            <div className="hidden items-center gap-2 lg:flex">
-              <SpeedAndRestart match={match} actions={actions} />
-            </div>
             <button
               type="button"
               onClick={() => setPickerOpen(true)}
@@ -323,7 +317,7 @@ export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ mat
               aria-label={t('picker.openLabel')}
               title={t('picker.openLabel')}
               data-testid="picker-open"
-              className="flex h-11 w-11 shrink-0 items-center justify-center border border-pp-line bg-pp-panel text-pp-chalk hover:border-pp-signal lg:w-auto lg:gap-1.5 lg:px-3"
+              className="hidden h-11 w-11 sm:flex shrink-0 items-center justify-center border border-pp-line bg-pp-panel text-pp-chalk hover:border-pp-signal lg:w-auto lg:gap-1.5 lg:px-3"
             >
               <LayoutGrid className="h-4 w-4" aria-hidden />
               <span className="hidden font-display text-sm font-bold uppercase tracking-broadcast lg:inline">{t('picker.open')}</span>
@@ -335,22 +329,10 @@ export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ mat
               title={t('tour.label')}
               aria-expanded={tourOpen}
               data-testid="tour-open"
-              className="flex h-11 w-11 shrink-0 items-center justify-center border border-pp-signal/70 bg-pp-panel text-pp-signal hover:border-pp-signal lg:w-auto lg:gap-1.5 lg:px-3"
+              className="hidden h-11 w-11 sm:flex shrink-0 items-center justify-center border border-pp-signal/70 bg-pp-panel text-pp-signal hover:border-pp-signal lg:w-auto lg:gap-1.5 lg:px-3"
             >
               <Compass className="h-4 w-4" aria-hidden />
               <span className="hidden font-display text-sm font-bold uppercase tracking-broadcast lg:inline">{t('tour.open')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setAboutOpen(true)}
-              aria-haspopup="dialog"
-              aria-label={t('guide.about.label')}
-              title={t('guide.about.label')}
-              data-testid="about-open"
-              className="flex h-11 w-11 shrink-0 items-center justify-center border border-pp-line bg-pp-panel text-pp-chalk hover:border-pp-signal lg:w-auto lg:gap-1.5 lg:px-3"
-            >
-              <Info className="h-4 w-4" aria-hidden />
-              <span className="hidden font-display text-sm font-bold uppercase tracking-broadcast lg:inline">{t('guide.about.open')}</span>
             </button>
             <button
               type="button"
@@ -361,33 +343,26 @@ export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ mat
               <FileText className="h-4 w-4" aria-hidden />
               <span className="hidden sm:inline">{t('play.recap')}</span>
             </button>
+            <MoreMenu match={match} actions={actions} source={source} onAbout={() => setAboutOpen(true)} onMatches={() => setPickerOpen(true)} onTour={() => setTourOpen(true)} />
           </div>
         </div>
       </header>
 
-      {/* Views and viewer choices: scroll away on phones, stay put under the bar on wide screens. */}
+      {/* Views and the two choices most viewers make (who it's for, which language). Everything
+          else lives in the header's More menu, so this strip stays one calm row on wide screens. */}
       <section aria-label={t('visit.choices')} className="z-30 border-b border-pp-line/60 bg-pp-night/95 backdrop-blur lg:sticky lg:top-16">
-        <div className="mx-auto max-w-7xl px-3 pt-2 sm:px-4">
-          <ViewTabs view={view} onPick={goTo} />
-        </div>
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2 px-3 py-2 sm:px-4">
-          <AudiencePicker value={profile.persona === 'player_spotlight' ? 'casual' : profile.persona} onChange={(persona) => actions.setView({ persona })} />
-          <div className="flex items-center gap-2 lg:hidden">
-            <SpeedAndRestart match={match} actions={actions} />
+        <div className="mx-auto flex max-w-7xl flex-col gap-2 px-3 py-2 sm:px-4 lg:flex-row lg:items-center lg:gap-4">
+          <div className="min-w-0 lg:flex-1">
+            <ViewTabs view={view} onPick={goTo} />
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-pp-mute sm:ms-auto">
+          <div className="flex flex-wrap items-center gap-2">
+            <AudiencePicker value={profile.persona === 'player_spotlight' ? 'casual' : profile.persona} onChange={(persona) => actions.setView({ persona })} />
             <CatchUpButton match={match} actions={actions} />
-            <ReadAloudToggle match={match} />
             <LanguagePicker value={profile.language} languages={match.languages} onChange={(language: Language) => actions.setView({ language })} />
+            <span className="hidden sm:contents">
+              <SourceBadge status={match.status} source={source} />
+            </span>
           </div>
-          <div className="flex flex-wrap items-center gap-2 xl:hidden">
-            <SourceBadge status={match.status} source={source} />
-          </div>
-          {match.crew && (
-            <Badge tone={match.crew.mode === 'ai' ? 'signal' : 'mute'} className="hidden whitespace-nowrap md:inline-flex" title={match.crew.mode === 'template' ? t('crew.templateHint') : undefined}>
-              {t(match.crew.mode === 'ai' ? 'crew.ai' : 'crew.template')}
-            </Badge>
-          )}
         </div>
       </section>
 
@@ -408,10 +383,10 @@ export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ mat
           ) : (
             <Suspense fallback={<StudioSkeleton />}>
               {view === 'studio' && (
-                // Phones: pitch, the crew's story, then the rest. Wide screens: two columns.
-                <div className="flex flex-col gap-4 lg:grid lg:grid-cols-12 lg:items-start">
-                  <div className="contents lg:col-span-7 lg:block lg:space-y-4">
-                    <div ref={stageRef} className="order-1 scroll-mt-20 space-y-3 lg:scroll-mt-48">
+                // The pitch is the stage; story, ask, moments and stats share one tabbed panel beside it.
+                <div className="flex flex-col gap-6 lg:grid lg:grid-cols-12 lg:items-start">
+                  <div className="order-1 lg:col-span-7">
+                    <div ref={stageRef} className="scroll-mt-20 space-y-3 lg:scroll-mt-36">
                       {showFullTime && (
                         <FullTimeBanner
                           onRestart={() => {
@@ -448,26 +423,22 @@ export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ mat
                         </div>
                       )}
                     </div>
-                    <div className="order-4">
-                      <MomentsList match={match} actions={actions} onJump={jumpTo} />
-                    </div>
-                    <div className="order-5">
-                      <ControlChaosGauge match={match} actions={actions} />
-                    </div>
-                    <div className="order-6 space-y-2">
-                      <CrewHealthDisclosure match={match} />
-                      <div className="flex justify-end">
-                        <StressTestButton bookmarks={match.bookmarks} spoilers={match.profile.spoilers !== false} />
-                      </div>
-                    </div>
                   </div>
-                  <div className="contents lg:col-span-5 lg:block lg:space-y-4">
-                    <div className="order-3 lg:order-none">
-                      <AskStudio match={match} actions={actions} onOpenReplay={openReplayFor} onJump={jumpTo} />
-                    </div>
-                    <div className="order-2 lg:order-none">
-                      <NarrativeFeed match={match} actions={actions} onOpenReplay={setReplay} />
-                    </div>
+                  <div className="order-2 lg:col-span-5">
+                    <StudioPanels
+                      story={<NarrativeFeed match={match} actions={actions} onOpenReplay={setReplay} />}
+                      ask={<AskStudio match={match} actions={actions} onOpenReplay={openReplayFor} onJump={jumpTo} />}
+                      moments={<MomentsList match={match} actions={actions} onJump={jumpTo} />}
+                      stats={
+                        <div className="space-y-4">
+                          <ControlChaosGauge match={match} actions={actions} />
+                          <CrewHealthDisclosure match={match} />
+                          <div className="flex justify-end">
+                            <StressTestButton bookmarks={match.bookmarks} spoilers={match.profile.spoilers !== false} />
+                          </div>
+                        </div>
+                      }
+                    />
                   </div>
                 </div>
               )}
@@ -872,6 +843,174 @@ const Scoreline: React.FC<{ match: ViewProps['match']; source: 'file' | 'eventhu
         )}
         <span>{playback.ended ? t('play.ended') : clock}</span>
       </span>
+    </div>
+  );
+};
+
+type PanelKey = 'story' | 'ask' | 'moments' | 'stats';
+const PANELS: PanelKey[] = ['story', 'ask', 'moments', 'stats'];
+
+/** The studio's second screen: one panel at a time beside the pitch (below it on a phone), so the
+ * story feed, the ask box, the moment list and the numbers never stack into one long scroll.
+ * Every panel stays mounted, so a typed question or an open card survives a tab switch. */
+const StudioPanels: React.FC<Record<PanelKey, React.ReactNode>> = (panels) => {
+  const { t } = useI18n();
+  const [tab, setTab] = useState<PanelKey>('story');
+  const refs = useRef<Partial<Record<PanelKey, HTMLButtonElement | null>>>({});
+  const onKey = (e: React.KeyboardEvent) => {
+    const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
+    const edge = { Home: PANELS[0], End: PANELS[PANELS.length - 1] }[e.key];
+    if (!step && !edge) return;
+    e.preventDefault();
+    const rtl = getComputedStyle(e.currentTarget).direction === 'rtl';
+    const next = edge ?? PANELS[(PANELS.indexOf(tab) + (rtl ? -step! : step!) + PANELS.length) % PANELS.length];
+    setTab(next);
+    refs.current[next]?.focus();
+  };
+  return (
+    <div data-testid="studio-panels">
+      <div role="tablist" aria-label={t('layout.panels')} onKeyDown={onKey} className="grid grid-cols-4 border border-pp-line bg-pp-deep">
+        {PANELS.map((k) => (
+          <button
+            key={k}
+            ref={(el) => (refs.current[k] = el)}
+            type="button"
+            role="tab"
+            id={`panel-tab-${k}`}
+            aria-selected={tab === k}
+            aria-controls={`panel-${k}`}
+            tabIndex={tab === k ? 0 : -1}
+            onClick={() => setTab(k)}
+            data-testid={`panel-tab-${k}`}
+            className={cx(
+              'min-h-[44px] border-b-2 px-2 font-display text-sm font-bold uppercase tracking-broadcast transition',
+              tab === k ? 'border-pp-signal bg-pp-panel text-pp-chalk' : 'border-transparent text-pp-mute hover:text-pp-chalk',
+            )}
+          >
+            {t(`layout.tab.${k}`)}
+          </button>
+        ))}
+      </div>
+      {PANELS.map((k) => (
+        <div key={k} id={`panel-${k}`} role="tabpanel" aria-labelledby={`panel-tab-${k}`} hidden={tab !== k} className="pt-4">
+          {panels[k]}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/** Everything a viewer sets once or rarely, folded behind one header button: the shared clock's
+ * speed and restart, read-aloud, where the match comes from, the crew's mode and the About page. */
+const MoreMenu: React.FC<ViewProps & { source: 'file' | 'eventhubs' | null; onAbout: () => void; onMatches: () => void; onTour: () => void }> = ({ match, actions, source, onAbout, onMatches, onTour }) => {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const btn = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (box.current && !box.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setOpen(false);
+        btn.current?.focus();
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+  const heading = 'mb-2 text-[11px] font-bold uppercase tracking-broadcast text-pp-mute';
+  return (
+    <div ref={box} className="relative">
+      <button
+        ref={btn}
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        aria-controls="more-menu"
+        aria-label={t('layout.moreLabel')}
+        title={t('layout.moreLabel')}
+        data-testid="more-open"
+        className={cx(
+          'flex h-11 w-11 shrink-0 items-center justify-center border bg-pp-panel text-pp-chalk hover:border-pp-signal',
+          open ? 'border-pp-signal' : 'border-pp-line',
+        )}
+      >
+        <MoreHorizontal className="h-5 w-5" aria-hidden />
+      </button>
+      {open && (
+        <div
+          id="more-menu"
+          data-testid="more-menu"
+          className="absolute end-0 top-full z-50 mt-2 w-[min(20rem,calc(100vw-1.5rem))] space-y-4 border border-pp-line border-t-pp-pulse border-t-2 bg-pp-panel p-4 shadow-2xl"
+        >
+          {/* Phones have no room in the bar for these two, so they lead the menu there. */}
+          <div className="grid grid-cols-2 gap-2 sm:hidden">
+            {[
+              { key: 'matches', label: t('picker.open'), icon: <LayoutGrid className="h-4 w-4" aria-hidden />, go: onMatches },
+              { key: 'tour', label: t('tour.open'), icon: <Compass className="h-4 w-4" aria-hidden />, go: onTour },
+            ].map((b) => (
+              <button
+                key={b.key}
+                type="button"
+                data-testid={`more-${b.key}`}
+                onClick={() => {
+                  setOpen(false);
+                  b.go();
+                }}
+                className="flex min-h-[44px] items-center justify-center gap-1.5 border border-pp-line px-2 font-display text-sm font-bold uppercase tracking-broadcast text-pp-chalk hover:border-pp-signal"
+              >
+                {b.icon}
+                {b.label}
+              </button>
+            ))}
+          </div>
+          <section>
+            <h2 className={heading}>{t('layout.playback')}</h2>
+            <div className="flex items-center gap-2">
+              <SpeedAndRestart match={match} actions={actions} />
+            </div>
+            <p className="mt-2 text-[11px] text-pp-mute">{t('visit.sharedClock')}</p>
+          </section>
+          <section>
+            <h2 className={heading}>{t('layout.viewing')}</h2>
+            <ReadAloudToggle match={match} />
+          </section>
+          <section>
+            <h2 className={heading}>{t('layout.status')}</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* The strip shows the source on wider screens; phones read it here. */}
+              <span className="contents sm:hidden">
+                <SourceBadge status={match.status} source={source} />
+              </span>
+              {match.crew && (
+                <Badge tone={match.crew.mode === 'ai' ? 'signal' : 'mute'} className="whitespace-nowrap" title={match.crew.mode === 'template' ? t('crew.templateHint') : undefined}>
+                  {t(match.crew.mode === 'ai' ? 'crew.ai' : 'crew.template')}
+                </Badge>
+              )}
+            </div>
+          </section>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onAbout();
+            }}
+            aria-haspopup="dialog"
+            data-testid="about-open"
+            className="flex min-h-[44px] w-full items-center gap-2 border border-pp-line px-3 font-display text-sm font-bold uppercase tracking-broadcast text-pp-chalk hover:border-pp-signal"
+          >
+            <Info className="h-4 w-4" aria-hidden />
+            {t('guide.about.open')}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

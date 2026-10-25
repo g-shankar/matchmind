@@ -73,6 +73,17 @@ describe('NarrativeFeed', () => {
     expect(screen.getAllByText('00:20').length).toBeGreaterThan(0);
   });
 
+  it('folds older cards to their headline on phones and opens them on tap', () => {
+    const match = matchWith({ cards: [goal, replayCard] });
+    ui(<NarrativeFeed match={match} actions={actionsMock()} onOpenReplay={vi.fn()} />);
+    // The newest card is in full; the older goal card carries a phone-only "Read more".
+    const more = screen.getAllByTestId('card-expand');
+    expect(more).toHaveLength(1);
+    expect(more[0].parentElement?.className).toContain('sm:hidden');
+    fireEvent.click(more[0]);
+    expect(screen.queryByTestId('card-expand')).toBeNull();
+  });
+
   it('lists live events newest first on the second tab', () => {
     const shot = event(2, 20, { match_clock: '00:20', type: 'shot', metrics: { ...event(0, 0).metrics, progressive: false, chance_quality: 0.31 } });
     const match = matchWith({ events: [event(1, 10, { match_clock: '00:10' }), shot] });

@@ -80,7 +80,7 @@ export const StudioTour: React.FC<{
       aria-label={t('tour.label')}
       data-testid="studio-tour"
       onKeyDown={(e) => e.key === 'Escape' && onClose()}
-      className="fixed inset-x-4 bottom-4 z-[55] mx-auto max-w-md border-t-4 border-pp-signal bg-pp-panel shadow-2xl"
+      className="fixed inset-x-4 bottom-4 z-[55] mx-auto max-w-md border-t-4 lg:end-auto lg:mx-0 lg:w-[24rem] border-pp-signal bg-pp-panel shadow-2xl"
     >
       <div className="flex items-center gap-2 border-b border-pp-line bg-pp-deep ps-3">
         <Compass className="h-4 w-4 shrink-0 text-pp-signal" aria-hidden />

@@ -275,6 +275,12 @@ export const StoryCard: React.FC<{
 }> = ({ card, match, isTop, favouriteColor, onOpenReplay, highlight }) => {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
+  // On phones only the newest (or picked) card shows in full; older ones fold to their headline
+  // and open on tap, so the feed reads as a list instead of one very long scroll.
+  const [expanded, setExpanded] = useState(false);
+  const articleRef = useRef<HTMLElement>(null);
+  const compact = !isTop && !highlight && !expanded;
+  const fold = compact ? 'max-sm:hidden' : undefined;
   const special = isSpecialKind(card.kind);
   const names = card.player_ids.map((id) => playerName(match.teams, id)).filter(Boolean);
   const team = teamById(match.teams, card.team);
@@ -282,11 +288,13 @@ export const StoryCard: React.FC<{
 
   return (
     <article
+      ref={articleRef}
+      tabIndex={-1}
       data-ruled-out={ruledOut || undefined}
       dir={card.rtl ? 'rtl' : undefined}
       lang={textLanguage(card)}
       className={cx(
-        'animate-slide-up rounded-xl border bg-pp-raised/60 p-3.5',
+        'animate-slide-up rounded-xl border bg-pp-raised/60 p-3.5 focus:outline-none',
         special ? 'border-pp-signal bg-pp-raised border-s-4' : 'border-pp-line/80',
         isTop && 'ring-1 ring-pp-pulse/40',
         highlight && 'ring-2 ring-pp-signal',
@@ -325,6 +333,35 @@ export const StoryCard: React.FC<{
           {names.join(' · ')}
         </p>
       )}
+      {compact && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 sm:hidden">
+          <button
+            type="button"
+            onClick={() => {
+              setExpanded(true);
+              // The button goes away once the card opens; keep the reader on the card.
+              requestAnimationFrame(() => articleRef.current?.focus({ preventScroll: true }));
+            }}
+            aria-expanded={false}
+            data-testid="card-expand"
+            className="inline-flex min-h-[44px] items-center gap-1 rounded-lg px-2 text-xs font-semibold text-pp-signal hover:bg-pp-deep"
+          >
+            <ChevronDown className="h-3.5 w-3.5" aria-hidden />
+            {t('layout.cardMore')}
+          </button>
+          {card.replay && (
+            <button
+              type="button"
+              onClick={() => onOpenReplay(card)}
+              className="ms-auto inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-pp-pulseFill px-3 text-xs font-bold text-white shadow hover:bg-pp-pulseFill/85"
+            >
+              <Play className="h-3.5 w-3.5" aria-hidden />
+              {t('studio.feed.replay')}
+            </button>
+          )}
+        </div>
+      )}
+      <div className={fold}>
       {card.body && <p className="mt-2 text-sm leading-relaxed text-slate-200">{card.body}</p>}
       <p data-testid="card-voice" className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-pp-mute">
         {t('guide.voice', { who: t(`persona.${card.persona}`) })}
@@ -371,6 +408,7 @@ export const StoryCard: React.FC<{
         )}
       </div>
       {open && <EvidenceTable evidence={card.evidence} className="mt-2" />}
+      </div>
     </article>
   );
 };
