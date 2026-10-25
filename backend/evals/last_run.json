@@ -1,0 +1,110 @@
+{
+ "baseline": {
+  "1 should-he-have-passed, analyst, en": [
+   5,
+   5,
+   []
+  ],
+  "2 should-he-have-passed, fan, en": [
+   4,
+   4,
+   []
+  ],
+  "3 goal, fan, es": [
+   3,
+   3,
+   []
+  ],
+  "4 goal, analyst, ar (rtl)": [
+   3,
+   3,
+   []
+  ],
+  "5 commentator invents a number": [
+   4,
+   4,
+   []
+  ],
+  "6 analyst invents a number": [
+   3,
+   3,
+   []
+  ],
+  "7 commentator model down": [
+   4,
+   4,
+   []
+  ],
+  "8 analyst model returns bad JSON": [
+   3,
+   3,
+   []
+  ],
+  "9 player focus card": [
+   3,
+   3,
+   []
+  ],
+  "10 model cost per moment": [
+   2,
+   2,
+   []
+  ]
+ },
+ "fold_analyst_into_commentator": {
+  "1 should-he-have-passed, analyst, en": [
+   5,
+   5,
+   []
+  ],
+  "2 should-he-have-passed, fan, en": [
+   4,
+   4,
+   []
+  ],
+  "3 goal, fan, es": [
+   3,
+   3,
+   []
+  ],
+  "4 goal, analyst, ar (rtl)": [
+   3,
+   3,
+   []
+  ],
+  "5 commentator invents a number": [
+   3,
+   4,
+   [
+    "why still model text"
+   ]
+  ],
+  "6 analyst invents a number": [
+   3,
+   3,
+   []
+  ],
+  "7 commentator model down": [
+   3,
+   4,
+   [
+    "why still model text"
+   ]
+  ],
+  "8 analyst model returns bad JSON": [
+   3,
+   3,
+   []
+  ],
+  "9 player focus card": [
+   3,
+   3,
+   []
+  ],
+  "10 model cost per moment": [
+   2,
+   2,
+   []
+  ]
+ }
+}
