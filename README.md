@@ -41,10 +41,10 @@ broadcaster branding appear anywhere.
 |---|---|---|
 | Stats engine, 24 metrics, 14 moment kinds | Live (offline, synthetic data) | [METRICS.md](docs/METRICS.md), `backend/tests/test_stats.py` |
 | Fact-checker and claim audit | Live, tested | [TRUST.md](docs/TRUST.md), `backend/tests/test_trust.py` |
-| Crew text (Analyst, Commentator, recap) | Template fallback: templates run today; model path built, off | [FOUNDRY.md](docs/FOUNDRY.md), `backend/tests/test_crew.py` |
+| Crew text (Analyst, Commentator, recap) | Live on the deployed app (Azure OpenAI, managed identity), with templates as the checked fallback; local runs use templates by default (`MATCHMIND_AI_ENABLED=false`) | [FOUNDRY.md](docs/FOUNDRY.md), `backend/tests/test_crew.py` |
 | Cue sheet, VAR retraction, overlays | Live, tested | [CUE-SHEET.md](docs/CUE-SHEET.md), `backend/tests/test_cues.py` |
 | Five studio languages | Live; not reviewed by native broadcasters | [LANGUAGES.md](docs/LANGUAGES.md) |
-| Eight world languages (Translator) | Template fallback: shown in English and labelled; tested against fakes | `backend/tests/test_translator.py` |
+| Eight world languages (Translator) | Live on the deployed app (Azure AI Translator); off locally, where text is shown in English and labelled | `backend/tests/test_translator.py` |
 | REST API contract | Live, drift-tested | [openapi.json](docs/openapi.json), `backend/tests/test_openapi_contract.py` |
 | Azure deployment | Live on Azure Container Apps (Sweden Central), Azure OpenAI and Translator on; Bicep built in CI | [deployment/README.md](deployment/README.md) |
 | Foundry agents wired to the API spec as a tool | Not built | [FOUNDRY.md](docs/FOUNDRY.md) |
@@ -251,7 +251,7 @@ Feature-by-feature mapping: [Microsoft services, feature by feature](#microsoft-
 | | Stats engine and crew react to each event over a WebSocket | Azure Container Apps | Running locally; Container Apps built, off until deployed |
 | | Live xG race, pressure by five-minute window, sprint leaders | Microsoft Fabric Real-Time Intelligence (Eventhouse, KQL) | Future enterprise extension (not run in Fabric yet) |
 | Generate stories, highlights and recaps | Commentator voices each moment; a full-time recap per audience and language | Azure OpenAI `gpt-4o-mini` on a Microsoft Foundry resource | Built, off until deployed (templates run today) |
-| Explain key moments and tactical patterns | Analyst explains why a moment matters with evidence rows; "Should he have passed?" is detected, measured and drawn | Stats engine; Microsoft Foundry for the model path | Running (templates); model path built, off |
+| Explain key moments and tactical patterns | Analyst explains why a moment matters with evidence rows; "Should he have passed?" is detected, measured and drawn | Stats engine; Microsoft Foundry for the model path | Running: Azure OpenAI on the deployed app, templates locally |
 | Expand datasets for AI and analytics | New seeded matches; star schema and labelled decision set | Microsoft Fabric Lakehouse (Parquet to Delta) | Future enterprise extension: export runs locally; Fabric load not run |
 | | 6,780-record evaluation set in Azure AI Evaluation format, scored locally | Microsoft Foundry evaluations | Future enterprise extension: runs locally; cloud evaluators not run |
 | Insights for fans around the world | Five studio languages | | Running |
