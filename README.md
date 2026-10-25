@@ -28,7 +28,7 @@ for every number on screen.
 **Live app:** <https://ca-pitchpulse.wonderfulbush-438b1d1e.swedencentral.azurecontainerapps.io/> (Azure Container Apps, Sweden Central; the crew runs on Azure OpenAI, with templates as the visible fallback).
 Jump straight to "Should he have passed?" at 34:16: [`?t=2060&p=1&pause=1#studio`](https://ca-pitchpulse.wonderfulbush-438b1d1e.swedencentral.azurecontainerapps.io/?t=2060&p=1&pause=1#studio), or Fan vs Analyst in [English](https://ca-pitchpulse.wonderfulbush-438b1d1e.swedencentral.azurecontainerapps.io/?t=2060&p=1&pause=1&lang=en#split), [Spanish](https://ca-pitchpulse.wonderfulbush-438b1d1e.swedencentral.azurecontainerapps.io/?t=2060&p=1&pause=1&lang=es#split) and [Arabic](https://ca-pitchpulse.wonderfulbush-438b1d1e.swedencentral.azurecontainerapps.io/?t=2060&p=1&pause=1&lang=ar#split).
 
-**Demo video (under 2 minutes):** [docs/media/pitchpulse-demo.mp4](docs/media/pitchpulse-demo.mp4). It is built in code from the engine's own data ([film/](film/README.md)); every name and number on screen traces to [film/facts.json](film/facts.json).
+**Demo video (112 s):** [docs/media/pitchpulse-demo.mp4](docs/media/pitchpulse-demo.mp4). The film is built in code from the engine's own data ([film/](film/README.md)), with recordings of the live Azure app spliced in ([film/live/](film/live/README.md)).
 
 Built by the PitchPulse team for the Microsoft x Premier League "Inside the
 Game" hackathon. **Judges: [the brief, line by line](docs/HACKATHON-BRIEF.md)**
