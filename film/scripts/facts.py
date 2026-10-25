@@ -3,7 +3,7 @@ and its open dataset, into film/facts.json. Each fact keeps the sentence it
 backs and a link to its source line, so every on-screen line can be traced.
 
 Run from the repo root with the engine installed (`pip install -e backend`):
-    python film/scripts/facts.py [--branch feat/matchmind-engine]
+    python film/scripts/facts.py [--branch main]
 """
 
 from __future__ import annotations
@@ -187,7 +187,7 @@ def crew_lines(add, bo: dict) -> bool:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--branch", default="feat/matchmind-engine")
+    ap.add_argument("--branch", default="main")
     args = ap.parse_args()
     b = args.branch
     rows = load()
@@ -262,10 +262,10 @@ def main() -> None:
     before = [g for g in timeline if g["clock"] < bo["clock"] and "+" not in g["clock"]]
     add("score.at.spha", f"Score at {bo['clock']}: {before[-1]['score'] if before else '0-0'}.",
         before[-1]["score"] if before else "0-0", line=before[-1]["line"] if before else None)
-    # Infrastructure as code (PR #2); wording stays true before the first deploy.
+    # Infrastructure as code (PR #2), deployed to Azure Container Apps (Sweden Central).
     add("azure.stack", "Container Apps deploys the engine and crew API; the match streams into Event Hubs; "
-        "the crew is built for Azure OpenAI with managed identity, no keys.",
-        ["Deploys the engine and crew API", "The match streams into Event Hubs", "Built for managed identity, no keys"],
+        "the crew runs on Azure OpenAI with managed identity, no keys.",
+        ["Deploys the engine and crew API", "The match streams into Event Hubs", "Managed identity, no keys"],
         path=None, src=f"{REPO}/pull/2 (deployment/azure_bicep/main.bicep)")
     add("repo.quality", "Tests, CI and secret scanning on every push.", None, path=".github/workflows/ci.yml")
     facts.append({"id": "crew.roles", "source": link(b, "backend/src/matchmind/crew/__init__.py"),
@@ -285,7 +285,8 @@ def main() -> None:
                       ("copy.spha", "Should he have passed?"),
                       ("copy.split", "Same moment, two audiences. The analyst gets the evidence trail. The fan gets the story."),
                       ("copy.overlay", "Broadcast overlay · corrections go on air too"),
-                      ("copy.azure", "Built for Azure")]:
+                      ("copy.azure", "Built on Azure"),
+                      ("copy.live", "Live on Azure Container Apps")]:
         facts.append({"id": cid, "text": text, "value": None, "source": "film copy (storyboard.md)"})
     # On-screen labels built from engine values, and every voiceover caption.
     mt, x = bo["teammate"].split()[-1], f"{bo['times_better']:.1f}"

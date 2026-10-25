@@ -504,10 +504,10 @@
    "start": 106.6,
    "end": 112.445,
    "speech": [
-    106.644,
+    106.636,
     112.349
    ],
-   "text": "Built for Azure: Container Apps, Event Hubs and Azure OpenAI. Every number checked.",
+   "text": "Built on Azure: Container Apps, Event Hubs and Azure OpenAI. Every number checked.",
    "caption": null
   },
   {
@@ -556,11 +556,11 @@
   "s7a.broadcast": 98.153,
   "s7b.var": 100.845,
   "s7b.takes-it-back": 102.789,
-  "s8a.azure": 107.331,
-  "s8a.container-apps": 107.812,
-  "s8a.event-hubs": 108.912,
-  "s8a.azure-openai": 109.943,
-  "s8a.every-number": 110.905,
+  "s8a.azure": 107.263,
+  "s8a.container-apps": 107.75,
+  "s8a.event-hubs": 108.865,
+  "s8a.azure-openai": 109.911,
+  "s8a.every-number": 110.886,
   "s8b.pitchpulse": 113.286
  },
  "cues": {
