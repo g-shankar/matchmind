@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronRight, FileText, Info, LayoutGrid, Pause, Play, RotateCcw, X } from 'lucide-react';
+import { ChevronRight, Compass, FileText, Info, LayoutGrid, Pause, Play, RotateCcw, X } from 'lucide-react';
 import type { Bookmark, Language, OverlayCard, PersonaType, SpeedMultiplier } from './api/contract';
 import { I18nProvider, useI18n } from './i18n';
 import { connectionLostText, toastText } from './i18n/toasts';
@@ -26,6 +26,9 @@ import { ReadAloudCards, ReadAloudToggle } from './components/ReadAloud';
 import { inkOn } from './lib/contrast';
 import { MatchPicker } from './components/MatchPicker';
 import { pickerOnLoad } from './lib/previews';
+import { MomentRail } from './components/MomentRail';
+import { StudioTour, keyMoments } from './components/StudioTour';
+import { LazyAuditDrawer } from './components/ShowWorking';
 
 // The heavier views load on first use, so the first screen arrives sooner on slow networks.
 const SplitView = lazy(() => import('./views/SplitView').then((m) => ({ default: m.SplitView })));
@@ -112,6 +115,9 @@ export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ mat
   const [focus, setFocus] = useState<Focus | null>(null);
   const [ftDismissed, setFtDismissed] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [tourOpen, setTourOpen] = useState(false);
+  const [auditFor, setAuditFor] = useState<string | null>(null);
+  const [pendingJump, setPendingJump] = useState<Bookmark | null>(null);
   const stageRef = useRef<HTMLDivElement>(null);
   const source = useSourceKind(match.status);
 
@@ -188,6 +194,69 @@ export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ mat
     }
   }, [focus]);
 
+  // A tour stop that jumps from another screen lands once the studio is showing.
+  useEffect(() => {
+    if (pendingJump && view === 'studio') {
+      jumpTo(pendingJump);
+      setPendingJump(null);
+    }
+  }, [pendingJump, view]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The tour's key-moment run: jump to each, play into it, pause on it; "Next" moves on.
+  const [keyRun, setKeyRun] = useState<{ list: Bookmark[]; index: number } | null>(null);
+  const startKey = (list: Bookmark[], index: number) => {
+    const b = list[index];
+    setKeyRun({ list, index });
+    if (view !== 'studio') {
+      setPendingJump(b);
+      goTo('studio');
+    } else jumpTo(b);
+    if (!playback.is_running && !playback.ended) actions.togglePause();
+  };
+  const keyNow = keyRun ? keyRun.list[keyRun.index] : null;
+  const keyReached = !!keyNow && keyNow.moment_id === focus?.b.moment_id && compareMoments(keyNow, { clock_s: clockS, period: playback.period }) <= 0;
+  useEffect(() => {
+    if (keyReached && playback.is_running) actions.togglePause();
+  }, [keyReached]); // eslint-disable-line react-hooks/exhaustive-deps
+  const playKeys = () => {
+    const list = keyMoments(match.bookmarks);
+    if (list.length) startKey(list, 0);
+  };
+  const nextKey = () => {
+    if (!keyRun) return;
+    if (keyRun.index + 1 < keyRun.list.length) startKey(keyRun.list, keyRun.index + 1);
+    else setKeyRun(null);
+  };
+
+  const tourGo = {
+    studio: () => {
+      goTo('studio');
+      scrollToStage();
+      return true;
+    },
+    decision: () => {
+      const b = [...match.bookmarks].sort(compareMoments).find((x) => x.kind === 'better_option');
+      if (!b) return false;
+      if (view === 'studio') jumpTo(b);
+      else {
+        setPendingJump(b);
+        goTo('studio');
+      }
+      return true;
+    },
+    fanArabic: () => {
+      if (profile.language !== 'ar') actions.setView({ language: 'ar' });
+      goTo('split');
+      return true;
+    },
+    audit: () => {
+      const card = [...match.cards].reverse().find((c) => !c.moment_id.startsWith('metric:') && c.slot !== 'pitch_tag');
+      if (!card) return false;
+      setAuditFor(card.moment_id);
+      return true;
+    },
+  };
+
   const openReplayFor = useCallback(
     (momentId: string) => {
       void actions.getMoment(momentId, profile.persona, profile.language).then((card) => {
@@ -257,6 +326,18 @@ export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ mat
             >
               <LayoutGrid className="h-4 w-4" aria-hidden />
               <span className="hidden font-display text-sm font-bold uppercase tracking-broadcast lg:inline">{t('picker.open')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setTourOpen(true)}
+              aria-label={t('tour.label')}
+              title={t('tour.label')}
+              aria-expanded={tourOpen}
+              data-testid="tour-open"
+              className="flex h-11 w-11 shrink-0 items-center justify-center border border-pp-signal/70 bg-pp-panel text-pp-signal hover:border-pp-signal lg:w-auto lg:gap-1.5 lg:px-3"
+            >
+              <Compass className="h-4 w-4" aria-hidden />
+              <span className="hidden font-display text-sm font-bold uppercase tracking-broadcast lg:inline">{t('tour.open')}</span>
             </button>
             <button
               type="button"
@@ -346,6 +427,7 @@ export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ mat
                       {focus && (
                         <MomentFocus focus={focus} match={match} onClose={() => setFocus(null)} onOpenReplay={setReplay} />
                       )}
+                      <MomentRail bookmarks={match.bookmarks} spoilers={profile.spoilers !== false} nowS={clockS} nowPeriod={playback.period} history={match.history} colors={{ home: teams.home.primary_color, away: teams.away.primary_color }} onJump={jumpTo} />
                       {liveReplay ? (
                         <ReplayCard card={liveReplay} teams={teams} />
                       ) : (
@@ -424,6 +506,19 @@ export const Shell: React.FC<ViewProps & { startWithPicker?: boolean }> = ({ mat
           window.scrollTo({ top: 0 });
         }}
       />
+
+      <StudioTour
+        open={tourOpen}
+        onClose={() => {
+          setTourOpen(false);
+          setKeyRun(null);
+        }}
+        go={tourGo}
+        run={keyRun && keyNow ? { index: keyRun.index, total: keyRun.list.length, current: keyNow, paused: keyReached && !playback.is_running } : null}
+        onPlayKeys={match.bookmarks.length ? playKeys : undefined}
+        onNextKey={nextKey}
+      />
+      {auditFor && <LazyAuditDrawer momentId={auditFor} onClose={() => setAuditFor(null)} />}
 
       <RecapModal open={recapOpen} onClose={() => setRecapOpen(false)} recap={match.recap} loading={recapLoading} teams={teams} />
 
