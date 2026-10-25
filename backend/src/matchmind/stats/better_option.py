@@ -16,13 +16,17 @@ from matchmind.simulator.pitch import Pos
 from matchmind.simulator.script import format_clock
 
 from . import metrics
-from .models import XY, BetterOption, UnfoundRun
+from .models import XY, BetterOption, DecisionOption, UnfoundRun
 
 # Trigger 1: the best pass must beat the shot by an absolute margin AND a ratio,
 # so a 0.02 shot versus a 0.05 pass (2.5x, but tiny) is not flagged.
 MIN_GAIN = 0.10
 MIN_RATIO = 1.8
 MIN_MARKER_M = 7.0  # "unmarked": no opponent within 7 m (see docs/METRICS.md for why not 3 m)
+
+# The scoring method behind every option list (shown on the replay with its version).
+OPTION_METHOD = "pass_value"
+OPTION_METHOD_VERSION = 1
 
 # Trigger 2: a run in behind where the through ball was on.
 ONSIDE_TOLERANCE_M = 0.3
@@ -112,6 +116,102 @@ def _best_pass(shot: Event, scene: _ShotScene, shot_cq: float) -> ShotAlternativ
     return best
 
 
+class RankedOption(NamedTuple):
+    """One option in the attacking frame, before conversion to absolute coordinates."""
+
+    kind: str
+    player_id: str
+    pos: Pos
+    score: float
+    chance_quality: float
+    pass_success: float | None
+    pass_distance_m: float | None
+    nearest_marker_m: float | None
+    onside: bool
+    open: bool
+
+
+def rank_options(
+    shooter_id: str,
+    shooter: Pos,
+    shot_cq: float,
+    mates: list[tuple[str, Pos]],
+    all_opps: list[Pos],
+    outfield_opps: list[Pos],
+    keeper: Pos | None,
+    line_u: float,
+) -> list[RankedOption]:
+    """Every option at the decision moment, ranked by the pass value model.
+
+    The shot scores its chance quality; each outfield teammate scores pass
+    success x chance quality from his spot. Eligible options (the shot, and
+    passes to onside, unmarked teammates: the ones the trigger compares) come
+    first by score; offside or marked teammates follow by score. Ties break on
+    player id, so the order is deterministic."""
+    out = [RankedOption("shot", shooter_id, shooter, shot_cq, shot_cq, None, None, None, True, True)]
+    for pid, mate in sorted(mates):
+        marker = min((pitch.dist(mate, o) for o in all_opps), default=99.0)
+        success, _lane = metrics.pass_success_probability(shooter, mate, all_opps)
+        cq = metrics.chance_quality(
+            mate,
+            blockers=metrics.blockers_in_cone(mate, outfield_opps),
+            keeper_on_line=metrics.keeper_on_line(mate, keeper),
+        )
+        out.append(
+            RankedOption(
+                "pass",
+                pid,
+                mate,
+                round(success * cq, 3),
+                cq,
+                success,
+                round(pitch.dist(shooter, mate), 1),
+                round(marker, 1),
+                mate[0] <= line_u,
+                marker >= MIN_MARKER_M,
+            )
+        )
+    return sorted(out, key=lambda o: (not (o.onside and o.open), -o.score, o.kind != "shot", o.player_id))
+
+
+def _options(shot: Event, scene: _ShotScene, shot_cq: float, to_abs) -> list[DecisionOption]:  # noqa: ANN001
+    shooter = scene.shooter
+    line_u = max(shooter[0], _second_last_u([o[0] for o in scene.all_opps], metrics.FINAL_THIRD_U))
+    mates = [
+        (p.player_id, scene.frame[p.player_id])
+        for p in shot.freeze_frame or []
+        if p.teammate and not p.actor and not p.keeper and p.player_id != shot.player_id
+    ]
+    ranked = rank_options(
+        shot.player_id or "",
+        shooter,
+        shot_cq,
+        mates,
+        scene.all_opps,
+        scene.outfield_opps,
+        scene.keeper,
+        line_u,
+    )
+    return [
+        DecisionOption(
+            rank=i + 1,
+            kind=o.kind,  # type: ignore[arg-type]
+            player_id=o.player_id,
+            taken=o.kind == "shot",
+            score=o.score,
+            chance_quality=o.chance_quality,
+            pass_success=o.pass_success,
+            pass_distance_m=o.pass_distance_m,
+            nearest_marker_m=o.nearest_marker_m,
+            onside=o.onside,
+            open=o.open,
+            eligible=o.onside and o.open,
+            pos=_xy(to_abs(o.pos)),
+        )
+        for i, o in enumerate(ranked)
+    ]
+
+
 def shot_alternative(shot: Event, home_id: str) -> ShotAlternative | None:
     """The best pass that was on when a shot was taken, whether or not it clears
     the "should have passed" thresholds. Used for analytics and training labels;
@@ -162,6 +262,9 @@ def analyse_shot(shot: Event, home_id: str) -> BetterOption | None:
         teammate_pos=_xy(to_abs(frame[mate_id])),
         defenders=[_xy(to_abs(o)) for o in scene.outfield_opps],
         keeper=_xy(to_abs(keeper)) if keeper else None,
+        options=_options(shot, scene, shot_cq, to_abs),
+        method=OPTION_METHOD,
+        method_version=OPTION_METHOD_VERSION,
     )
 
 

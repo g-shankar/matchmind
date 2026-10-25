@@ -38,6 +38,8 @@ export interface Pitch2DProps {
   zoomOnFocus?: boolean;
   /** Replay story step: 0 draws every layer, 1-3 draws layers up to that step and highlights it. */
   replayStep?: 0 | 1 | 2 | 3;
+  /** Better-option replay: the ranked option to draw (index into replay.options). */
+  replayOption?: number | null;
   /** False draws a picture only: no focusable or tappable player markers (e.g. a backdrop). */
   interactive?: boolean;
   /** Broadcast camera: wide (whole pitch), tactical (tilted) or follow (zoomed on the ball). */
@@ -466,7 +468,7 @@ function betterLabels(r: BetterOptionReplay, vb: VB, step: number, { t, num }: I
   return labels;
 }
 
-const BetterOptionLayer: React.FC<{ r: BetterOptionReplay; ctx: Ctx; step: number }> = ({ r, ctx, step }) => {
+const BetterOptionLayer: React.FC<{ r: BetterOptionReplay; ctx: Ctx; step: number; option?: number | null }> = ({ r, ctx, step, option = null }) => {
   const { t } = useI18n();
   const { own, opp, number } = sideColors(ctx.teams, r.shooter_id);
   const mate = playerById(ctx.teams, r.teammate_id);
@@ -474,6 +476,7 @@ const BetterOptionLayer: React.FC<{ r: BetterOptionReplay; ctx: Ctx; step: numbe
   const rr = 1.7 * ctx.k;
   const show = (layer: number) => shown(step, layer);
   const op = (layer: number) => layerOpacity(step, layer);
+  const chosen = option != null ? r.options?.[option] ?? null : null;
 
   return (
     <g>
@@ -502,6 +505,19 @@ const BetterOptionLayer: React.FC<{ r: BetterOptionReplay; ctx: Ctx; step: numbe
         </g>
       )}
 
+      {chosen && (
+        <g data-testid="replay-option-line" data-option={chosen.player_id}>
+          {chosen.kind === 'pass' && (
+            <line x1={r.shooter_pos.x} y1={r.shooter_pos.y} x2={chosen.pos.x} y2={chosen.pos.y} stroke={C.white} strokeWidth={0.7 * ctx.k} markerEnd={`url(#${ctx.ids.arrow('white')})`} />
+          )}
+          <line x1={chosen.pos.x} y1={chosen.pos.y} x2={goal.x} y2={goal.y} stroke={C.white} strokeOpacity={0.6} strokeWidth={0.45 * ctx.k} strokeDasharray={`${1 * ctx.k} ${0.8 * ctx.k}`} />
+        </g>
+      )}
+      {(r.options ?? [])
+        .filter((o) => o.kind === 'pass' && o.player_id !== r.teammate_id)
+        .map((o) => (
+          <PlayerDot key={o.player_id} at={o.pos} color={own} number={playerById(ctx.teams, o.player_id)?.number} r={rr * 0.9} opacity={chosen?.player_id === o.player_id ? 1 : 0.55} />
+        ))}
       <PlayerDot at={r.teammate_pos} color={own} number={mate?.number} r={rr} glow={show(2)} glowId={ctx.ids.glow} />
       <PlayerDot at={r.shooter_pos} color={own} number={number} r={rr} ring={C.gold} />
     </g>
@@ -624,6 +640,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
   pitchTags = [],
   zoomOnFocus = false,
   replayStep = 0,
+  replayOption = null,
   interactive = true,
   camera = 'wide',
   className,
@@ -803,7 +820,7 @@ export const Pitch2D: React.FC<Pitch2DProps> = ({
   }
 
     const replayLayer = better ? (
-    <BetterOptionLayer r={better} ctx={ctx} step={replayStep} />
+    <BetterOptionLayer r={better} ctx={ctx} step={replayStep} option={replayOption} />
   ) : run ? (
     <UnfoundRunLayer r={run} ctx={ctx} step={replayStep} />
   ) : null;
