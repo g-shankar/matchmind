@@ -7,7 +7,7 @@ here after the owner's first deploy).
 Status words: **Done** (built, tested, running offline), **Done, off** (built
 and tested against fakes; off until the owner deploys and switches it on),
 **Planned** (not built). The single feature matrix with Running / Simulated /
-Built-off / Planned labels is in the [README](../README.md#feature-status).
+Built-off / Planned labels is in the [README](DETAILS.md#feature-status).
 
 ## Evidence commands (run on 22 Oct 2026)
 
