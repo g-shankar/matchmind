@@ -38,6 +38,32 @@ broadcaster branding appear anywhere.
 
 ![Should he have passed? The open teammate, the passing lane and the chance he gave up](docs/images/should-he-have-passed.png)
 
+## Prize tracks
+
+We enter **Best Multi-Agent Orchestration** and **Best Azure Cloud Native
+Integration** (and the Grand Prize).
+
+**Multi-agent orchestration.** Five agents with one job each (Spotter,
+Analyst, Fact-checker, Commentator, Producer) plus Recap and Translator steps,
+handing off typed contracts (`Moment` -> `Explanation` -> `FactCheck` ->
+`Narrative` -> `OverlayCard`) through a shared moment state
+(`crew/contracts.py`). The Fact-checker can veto any other agent's text, also
+after translation. Recovery is built in: timeouts, one repair retry, circuit
+breakers and a spend budget, with a visible template fallback and its reason
+on every card. The same chain runs in-process or on Microsoft Agent Framework
+with identical output (tested). See it live: per-agent latency, fallback and
+rejection rates at [`/api/crew/status`](https://ca-pitchpulse.wonderfulbush-438b1d1e.swedencentral.azurecontainerapps.io/api/crew/status)
+and every hand-off at [`/api/crew/trace`](https://ca-pitchpulse.wonderfulbush-438b1d1e.swedencentral.azurecontainerapps.io/api/crew/trace).
+A single prompt could not do this: numbers would drift, and nothing would
+stop a wrong one going on air.
+
+**Azure cloud native.** Container Apps (app plus an event-simulator job),
+Event Hubs, Foundry `gpt-5-mini` and AI Translator, all signed in with managed
+identities and key auth switched off; everything is one Bicep file with
+`what-if` previews, deployed by `deployment/deploy.sh` or a GitHub Actions
+OIDC workflow (no stored secrets). CI builds and lints the Bicep, scans for
+secrets, runs 1,500+ tests and smoke-tests the container.
+
 ## Status at a glance
 
 | Feature | State | Evidence |
@@ -50,7 +76,7 @@ broadcaster branding appear anywhere.
 | Eight world languages (Translator) | Live on the deployed app (Azure AI Translator); off locally, where text is shown in English and labelled | `backend/tests/test_translator.py` |
 | REST API contract | Live, drift-tested | [openapi.json](docs/openapi.json), `backend/tests/test_openapi_contract.py` |
 | Azure deployment | Live on Azure Container Apps (Sweden Central), Azure OpenAI and Translator on; Bicep built in CI | [deployment/README.md](deployment/README.md) |
-| Foundry agents wired to the API spec as a tool | Not built | [FOUNDRY.md](docs/FOUNDRY.md) |
+| Foundry Agent Service runtime (`MATCHMIND_LLM_PROVIDER=foundry_agents`) | Built and tested against fakes; the live app uses the Foundry model deployment directly | [FOUNDRY.md](docs/FOUNDRY.md) |
 | Real video input, neural voices | Not built | [Feature status](#feature-status) |
 
 The full matrix is under [Feature status](#feature-status).
@@ -227,22 +253,22 @@ One matrix for everything. Labels:
 
 ## Microsoft technologies
 
-Checked against `deployment/azure_bicep/main.bicep` and the code. None is
-deployed yet; the default build runs offline with no cloud account.
+Checked against `deployment/azure_bicep/main.bicep`, the code and the live
+app's `/api/crew/status` on 27 Oct 2026. Local runs need no cloud account.
 
-| Technology | Used for | Status |
+| Technology | Used for | Status on the live app |
 |---|---|---|
-| Azure Container Apps | The app and the simulator job | Built, off until deployed |
-| Azure Event Hubs | Match event stream (keyless) | Built, off until deployed |
-| Microsoft Foundry (resource, project, `gpt-4o-mini` deployment) | Analyst, Commentator, recap | Built, off until deployed |
-| Foundry Agent Service | The three model steps as registered agents | Built, off; not run against a live project |
-| Azure AI Translator | Eight world languages | Built, off until deployed |
-| Application Insights and OpenTelemetry | Crew traces (no text or viewer data) | Tracing code runs as a no-op; export built, off |
-| Microsoft Entra ID, managed identities | Keyless sign-in to every Azure call | Built in Bicep, off until deployed |
-| Azure Container Registry, Log Analytics, Bicep | Image, logs, infrastructure as code | Built; `bicep build` runs in CI |
+| Azure Container Apps | The app (API, WebSocket, frontend) and the simulator job | **Live** |
+| Microsoft Foundry (AI Services resource, project, `gpt-5-mini` deployment) | Analyst, Commentator, recap | **Live** (managed identity, no keys) |
+| Azure AI Translator | Eight world languages | **Live** |
+| Microsoft Entra ID, managed identities | Keyless sign-in to every Azure call; key auth off on the resources | **Live** |
+| Azure Container Registry, Log Analytics, Bicep | Image, logs, infrastructure as code | **Live**; `bicep build` runs in CI |
+| Azure Event Hubs | Match event stream (keyless); simulator job publishes | Deployed; the app replays the bundled file unless `eventHubsSource=true` |
+| Foundry Agent Service | The three model steps as registered agents | Built, tested against fakes; off on the live app |
+| Application Insights and OpenTelemetry | Crew traces (no text or viewer data) | Built; export off (`deployObservability`) |
 | Microsoft Agent Framework | Optional crew orchestration, identical cards (tested) | Off by default (local extra) |
 | Microsoft Fabric (Lakehouse, Eventhouse) | Export files and KQL | Files and queries only; not run in Fabric |
-| GitHub Actions, CodeQL | CI, scanning, OIDC deploy workflow | Running (deploy needs the owner's subscription) |
+| GitHub Actions, CodeQL | CI, scanning, OIDC deploy workflow | Running |
 
 Feature-by-feature mapping: [Microsoft services, feature by feature](#microsoft-services-feature-by-feature).
 
