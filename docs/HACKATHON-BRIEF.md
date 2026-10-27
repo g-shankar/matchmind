@@ -2,7 +2,7 @@
 
 One page for judges: each requirement in the brief, what PitchPulse does for
 it, how to see it, and where we fall short. Status labels match the
-[README's feature matrix](../README.md#feature-status).
+[README's feature matrix](DETAILS.md#feature-status).
 
 ## The brief, line by line
 
